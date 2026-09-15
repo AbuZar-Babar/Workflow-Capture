@@ -1,0 +1,523 @@
+{
+  "metadata": {
+    "recordingId": "rec_1789467190378_ik02e",
+    "version": "1.0.0",
+    "name": "smoke-test-1789467185864",
+    "startedAt": "2026-09-15T10:13:06.452Z",
+    "completedAt": "2026-09-15T10:13:10.378Z",
+    "startUrl": "file:///C:/Users/AbuZar/Desktop/Fyp/Workflow-Capture/test/mock-portal.html",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    }
+  },
+  "actions": [
+    {
+      "id": "act_1_mu2ik603",
+      "index": 0,
+      "type": "TYPE",
+      "timestamp": 1789467186531,
+      "timeDeltaMs": 0,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "id",
+            "value": "#product-query",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "id",
+            "value": "input#product-query",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "data-attr",
+            "value": "[data-testid=\"search-input\"]",
+            "uniqueness": 1,
+            "priority": 2
+          },
+          {
+            "strategy": "data-attr",
+            "value": "input[data-testid=\"search-input\"]",
+            "uniqueness": 1,
+            "priority": 2
+          },
+          {
+            "strategy": "attribute",
+            "value": "input[placeholder=\"e\\.g\\.\\ Wireless\\ Mouse\"]",
+            "uniqueness": 1,
+            "priority": 3
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[@id='product-query']",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": "product-query",
+          "name": null,
+          "type": "text",
+          "role": null,
+          "placeholder": "e.g. Wireless Mouse",
+          "ariaLabel": null,
+          "text": "",
+          "classes": [],
+          "attributes": {
+            "type": "text",
+            "placeholder": "e.g. Wireless Mouse"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 695,
+            "height": 38
+          }
+        }
+      },
+      "value": "Mechanical Keyboard",
+      "meta": {
+        "isPassword": false,
+        "charCount": 19
+      }
+    },
+    {
+      "id": "act_2_mu2ik68y",
+      "index": 1,
+      "type": "CLICK",
+      "timestamp": 1789467186850,
+      "timeDeltaMs": 319,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "id",
+            "value": "#product-query",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "id",
+            "value": "input#product-query",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "data-attr",
+            "value": "[data-testid=\"search-input\"]",
+            "uniqueness": 1,
+            "priority": 2
+          },
+          {
+            "strategy": "data-attr",
+            "value": "input[data-testid=\"search-input\"]",
+            "uniqueness": 1,
+            "priority": 2
+          },
+          {
+            "strategy": "attribute",
+            "value": "input[placeholder=\"e\\.g\\.\\ Wireless\\ Mouse\"]",
+            "uniqueness": 1,
+            "priority": 3
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[@id='product-query']",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": "product-query",
+          "name": null,
+          "type": "text",
+          "role": null,
+          "placeholder": "e.g. Wireless Mouse",
+          "ariaLabel": null,
+          "text": "",
+          "classes": [],
+          "attributes": {
+            "type": "text",
+            "placeholder": "e.g. Wireless Mouse"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 695,
+            "height": 38
+          }
+        }
+      }
+    },
+    {
+      "id": "act_3_mu2ik6bq",
+      "index": 2,
+      "type": "SELECT",
+      "timestamp": 1789467186950,
+      "timeDeltaMs": 100,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "id",
+            "value": "#category-dropdown",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "id",
+            "value": "select#category-dropdown",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "data-attr",
+            "value": "[data-qa=\"category-select\"]",
+            "uniqueness": 1,
+            "priority": 2
+          },
+          {
+            "strategy": "data-attr",
+            "value": "select[data-qa=\"category-select\"]",
+            "uniqueness": 1,
+            "priority": 2
+          },
+          {
+            "strategy": "attribute",
+            "value": "select[name=\"category\"]",
+            "uniqueness": 1,
+            "priority": 3
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[@id='category-dropdown']",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "select",
+          "id": "category-dropdown",
+          "name": "category",
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "-- Choose Category -- Electronics & Gadgets Office Supplies Clothing & Apparel",
+          "classes": [],
+          "attributes": {
+            "name": "category"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 695,
+            "height": 40
+          }
+        }
+      },
+      "value": "electronics",
+      "meta": {
+        "text": "Electronics & Gadgets",
+        "selectedIndex": 1
+      }
+    },
+    {
+      "id": "act_4_mu2ik6nw",
+      "index": 3,
+      "type": "TYPE",
+      "timestamp": 1789467187389,
+      "timeDeltaMs": 439,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "id",
+            "value": "#user-password",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "id",
+            "value": "input#user-password",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "attribute",
+            "value": "input[placeholder=\"Enter\\ secure\\ secret\"]",
+            "uniqueness": 1,
+            "priority": 3
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[@id='user-password']",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": "user-password",
+          "name": null,
+          "type": "password",
+          "role": null,
+          "placeholder": "Enter secure secret",
+          "ariaLabel": null,
+          "text": "",
+          "classes": [],
+          "attributes": {
+            "type": "password",
+            "placeholder": "Enter secure secret"
+          },
+          "isPassword": true,
+          "dimensions": {
+            "width": 695,
+            "height": 38
+          }
+        }
+      },
+      "value": "[REDACTED]",
+      "meta": {
+        "isPassword": true,
+        "charCount": 17
+      }
+    },
+    {
+      "id": "act_5_mu2ik6x7",
+      "index": 4,
+      "type": "CLICK",
+      "timestamp": 1789467187723,
+      "timeDeltaMs": 334,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "id",
+            "value": "#user-password",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "id",
+            "value": "input#user-password",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "attribute",
+            "value": "input[placeholder=\"Enter\\ secure\\ secret\"]",
+            "uniqueness": 1,
+            "priority": 3
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[@id='user-password']",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": "user-password",
+          "name": null,
+          "type": "password",
+          "role": null,
+          "placeholder": "Enter secure secret",
+          "ariaLabel": null,
+          "text": "",
+          "classes": [],
+          "attributes": {
+            "type": "password",
+            "placeholder": "Enter secure secret"
+          },
+          "isPassword": true,
+          "dimensions": {
+            "width": 695,
+            "height": 38
+          }
+        }
+      }
+    },
+    {
+      "id": "act_6_mu2ik79g",
+      "index": 5,
+      "type": "CLICK",
+      "timestamp": 1789467188164,
+      "timeDeltaMs": 441,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "id",
+            "value": "#trigger-delayed-btn",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "id",
+            "value": "button#trigger-delayed-btn",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "text",
+            "value": "//button[normalize-space()='Loading...']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[@id='trigger-delayed-btn']",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "button",
+          "id": "trigger-delayed-btn",
+          "name": null,
+          "type": "button",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "Loading...",
+          "classes": [
+            "btn",
+            "btn-secondary"
+          ],
+          "attributes": {
+            "type": "button"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 106,
+            "height": 36
+          }
+        }
+      }
+    },
+    {
+      "id": "act_7_mu2ik8fm",
+      "index": 6,
+      "type": "CLICK",
+      "timestamp": 1789467189683,
+      "timeDeltaMs": 1519,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "id",
+            "value": "#confirm-delayed-btn",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "id",
+            "value": "button#confirm-delayed-btn",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "data-attr",
+            "value": "[data-testid=\"confirm-async-action\"]",
+            "uniqueness": 1,
+            "priority": 2
+          },
+          {
+            "strategy": "data-attr",
+            "value": "button[data-testid=\"confirm-async-action\"]",
+            "uniqueness": 1,
+            "priority": 2
+          },
+          {
+            "strategy": "text",
+            "value": "//button[normalize-space()='Confirm Async Operation']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[@id='confirm-delayed-btn']",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "button",
+          "id": "confirm-delayed-btn",
+          "name": null,
+          "type": "button",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "Confirm Async Operation",
+          "classes": [
+            "btn"
+          ],
+          "attributes": {
+            "type": "button"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 209,
+            "height": 36
+          }
+        }
+      }
+    },
+    {
+      "id": "act_8_mu2ik8rg",
+      "index": 7,
+      "type": "CLICK",
+      "timestamp": 1789467190108,
+      "timeDeltaMs": 425,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "id",
+            "value": "#submit-order-btn",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "id",
+            "value": "button#submit-order-btn",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "text",
+            "value": "//button[normalize-space()='Submit Order']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[@id='submit-order-btn']",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "button",
+          "id": "submit-order-btn",
+          "name": null,
+          "type": "submit",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "Submit Order",
+          "classes": [
+            "btn"
+          ],
+          "attributes": {
+            "type": "submit"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 129,
+            "height": 36
+          }
+        }
+      }
+    }
+  ]
+}

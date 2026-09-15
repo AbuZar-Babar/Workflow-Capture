@@ -1,0 +1,19 @@
+{
+  "name": "workflow-capture",
+  "version": "1.0.0",
+  "description": "Browser Automation MVP - Record, JSON persistence, and Replay via CDP",
+  "main": "src/recorder/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "record": "node src/recorder/index.js",
+    "replay": "node src/replay/index.js",
+    "test": "node test/selector-resolver.test.js",
+    "test:e2e": "node test/e2e-smoke.js"
+  },
+  "keywords": ["browser-automation", "cdp", "puppeteer", "macro-recorder", "workflow-capture"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "puppeteer-core": "^22.15.0"
+  }
+}
