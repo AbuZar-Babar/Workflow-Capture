@@ -1,6 +1,6 @@
 # Workflow Capture — Browser Automation MVP
 
-A generic, portal-agnostic browser automation MVP designed for a team of 2 developers. It connects to an existing, authenticated Google Chrome browser instance via Chrome DevTools Protocol (CDP), records user interactions into a normalized `recording.json` file, and replays them reliably using an isomorphic Shared Selector Resolver with weighted fingerprint scoring and condition-based waiting.
+A generic, portal-agnostic browser automation MVP designed for a team of 2 developers. It connects to an existing, authenticated Google Chrome browser instance via Chrome DevTools Protocol (CDP), records user interactions into a normalized `recording.json` file, and replays them reliably using an isomorphic Shared Selector Resolver with weighted fingerprint scoring and condition-based waiting..
 
 ---
 
@@ -8,7 +8,7 @@ A generic, portal-agnostic browser automation MVP designed for a team of 2 devel
 
 1. **Zero-Throwaway Browser (Connect to Real Chrome via CDP)**:
    - Connects to an already running Chrome instance on port 9222.
-   - Reuses existing user logins, cookies, and authenticated sessions (e.g. CityMart).
+   - Reuses existing users logins, cookies, and authenticated sessions (e.g. CityMart).
 2. **Isomorphic Shared Selector Resolver (`src/shared/selector-resolver.js`)**:
    - Executes in-page during recording to extract and rank selector candidates with live uniqueness counts.
    - Evaluates in-page during replay to match candidates and validate elements against recorded semantic fingerprints (Tag, ID, Attributes, Visible Text, Classes).
