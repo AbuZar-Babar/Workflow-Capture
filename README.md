@@ -98,10 +98,18 @@ npm test
 ```
 
 ### Automated End-to-End Smoke Test
-Launches a test Chrome instance on port 9222, opens `test/mock-portal.html`, records actions, tests password redaction, reloads the portal, and replays all actions verifying 100% DOM reproduction:
+Launches a test Chrome instance on port 9222, opens `test/ecommerce-portal.html` (`test/mock-portal.html`), records actions, tests password redaction, reloads the portal, and replays all actions verifying 100% DOM reproduction:
 ```bash
 npm run test:e2e
 ```
+
+### 🌐 3 Distinct Test Environments
+The system provides 3 realistic test web environments for recording distinct workflow patterns:
+1. **🛒 NovaGear E-Commerce Store** (`test/ecommerce-portal.html`): Product catalog search, category filtering, cart summary, sensitive CVV/PIN masking, async warehouse inventory check, and order checkout.
+2. **💼 Stratos Sales CRM & Revenue Cloud** (`test/sales-portal.html`): SaaS pricing plan tiers, team seat volume sliders, enterprise lead capture, confidential NDA tokens, and async ROI/SLA quotation calculator.
+3. **📚 Alexandria Digital Library & Archive** (`test/library-portal.html`): Catalog search across academic manuscripts, subject selection, multi-format delivery (PDF/EPUB/MOBI), library card passcode verification, and async cryptographic DRM token generation.
+
+All test environments feature a top cross-navigation bar to jump between portals during live recording sessions and can be launched directly from the Dashboard.
 
 ---
 
@@ -111,6 +119,7 @@ npm run test:e2e
 Workflow-Capture/
 ├── package.json
 ├── src/
+│   ├── dashboard/                # Visual Control Room & Test Portal Launchers
 │   ├── shared/
 │   │   ├── constants.js          # Action types, resolver weights, timeout defaults
 │   │   ├── types.js              # JSDoc definitions for recordings and targets
@@ -128,7 +137,10 @@ Workflow-Capture/
 │       ├── errors.js             # Structured automation error hierarchy
 │       └── logger.js             # Styled terminal logger
 ├── test/
-│   ├── mock-portal.html          # Test portal with async delay & forms
+│   ├── ecommerce-portal.html     # NovaGear E-Commerce store & checkout portal
+│   ├── sales-portal.html         # Stratos B2B SaaS sales quote & lead portal
+│   ├── library-portal.html       # Alexandria Digital Library & DRM book download portal
+│   ├── mock-portal.html          # Base test portal
 │   ├── selector-resolver.test.js # Unit test suite
 │   └── e2e-smoke.js              # Full round-trip automated test
 └── recordings/                   # Output folder for recorded workflow JSON files

@@ -39,13 +39,21 @@
           <span class="pill-value state-idle" id="systemStateText">IDLE</span>
         </div>
 
-        <!-- Quick Browser Actions -->
+        <!-- Quick Browser & Test Portal Actions -->
         <button class="btn btn-sm btn-secondary" id="btnLaunchChrome" title="Launch Chrome with CDP enabled" style="width: auto;">
           <span>🚀 Launch Chrome</span>
         </button>
-        <button class="btn btn-sm btn-secondary" id="btnOpenMockPortal" title="Open Mock Portal HTML in Chrome" style="width: auto;">
-          <span>🌐 Open Mock Portal</span>
-        </button>
+
+        <div class="test-portal-quick-group">
+          <select id="selectTestPortal" class="portal-dropdown-select" title="Choose test portal">
+            <option value="ecommerce">🛒 NovaGear (E-Commerce)</option>
+            <option value="sales">💼 Stratos (B2B Sales CRM)</option>
+            <option value="library">📚 Alexandria (Digital Library)</option>
+          </select>
+          <button class="btn btn-sm btn-primary" id="btnOpenSelectedPortal" title="Open Selected Portal in Chrome" style="width: auto;">
+            <span>🌐 Open in Chrome</span>
+          </button>
+        </div>
       </div>
     </header>
 
@@ -154,6 +162,39 @@
             </button>
             <button class="btn btn-secondary" id="btnRunE2ETests">
               <span>E2E Smoke Test</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- 4. Interactive Test Sites Card -->
+        <section class="card glass-card" id="testSitesCard">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="icon">🌐</span>
+              <h2>Test Environments</h2>
+            </div>
+          </div>
+          <div class="card-body test-sites-grid">
+            <button class="btn btn-portal-quick" data-portal="ecommerce" id="btnLaunchEcom">
+              <span class="portal-btn-icon">🛒</span>
+              <div class="portal-btn-text">
+                <strong>NovaGear Store</strong>
+                <small>E-Commerce Catalog & Checkout</small>
+              </div>
+            </button>
+            <button class="btn btn-portal-quick" data-portal="sales" id="btnLaunchSales">
+              <span class="portal-btn-icon">💼</span>
+              <div class="portal-btn-text">
+                <strong>Stratos Sales CRM</strong>
+                <small>B2B SaaS Lead & Quote Engine</small>
+              </div>
+            </button>
+            <button class="btn btn-portal-quick" data-portal="library" id="btnLaunchLibrary">
+              <span class="portal-btn-icon">📚</span>
+              <div class="portal-btn-text">
+                <strong>Alexandria Library</strong>
+                <small>Book Catalog & DRM Download</small>
+              </div>
             </button>
           </div>
         </section>

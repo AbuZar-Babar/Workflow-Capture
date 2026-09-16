@@ -60,7 +60,7 @@ async function isCDPResponding(port = 9222) {
 /**
  * Auto-launch Chrome with remote debugging enabled if not already running
  */
-async function ensureChromeRunning(port = 9222) {
+async function ensureChromeRunning(port = 9222, defaultUrl = 'about:blank') {
   const isUp = await isCDPResponding(port);
   if (isUp) return true;
 
@@ -79,7 +79,7 @@ async function ensureChromeRunning(port = 9222) {
       `--user-data-dir=${profileDir}`,
       '--no-first-run',
       '--no-default-browser-check',
-      'about:blank'
+      defaultUrl
     ], {
       detached: true,
       stdio: 'ignore'

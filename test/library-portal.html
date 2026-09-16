@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alexandria Digital Archive — Workflow Capture Test Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #059669;
+      --primary-hover: #047857;
+      --accent: #38bdf8;
+      --bg: #071013;
+      --card-bg: #0f1c21;
+      --card-border: #1a2f38;
+      --text: #f0fdfa;
+      --text-muted: #94a3b8;
+      --input-bg: #14242b;
+      --input-border: #264350;
+      --success: #10b981;
+      --success-bg: rgba(16, 185, 129, 0.12);
+      --gold: #fbbf24;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: radial-gradient(circle at 80% 20%, #064e3b 0%, #071013 60%, #020708 100%);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 60px;
+    }
+
+    /* Top Global Switcher Nav */
+    .portal-nav {
+      background: rgba(15, 28, 33, 0.9);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--card-border);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .portal-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 1rem;
+      color: #fff;
+    }
+    .portal-brand span.title-font {
+      font-family: 'Cinzel', serif;
+      letter-spacing: 0.5px;
+      color: var(--gold);
+    }
+    .portal-brand span.tag {
+      background: #065f46;
+      border: 1px solid #10b981;
+      color: #a7f3d0;
+      font-size: 0.72rem;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .portal-links {
+      display: flex;
+      gap: 8px;
+    }
+    .portal-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.85rem;
+      padding: 6px 12px;
+      border-radius: 6px;
+      transition: all 0.2s;
+      border: 1px solid transparent;
+    }
+    .portal-link:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .portal-link.active {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: rgba(16, 185, 129, 0.4);
+      color: #6ee7b7;
+      font-weight: 600;
+    }
+
+    /* Main Container */
+    .container {
+      max-width: 960px;
+      margin: 32px auto;
+      padding: 0 20px;
+    }
+
+    /* Hero Banner */
+    .hero-card {
+      background: linear-gradient(135deg, rgba(5, 150, 105, 0.18) 0%, rgba(56, 189, 248, 0.08) 100%);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 14px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    }
+    .hero-card h1 {
+      font-family: 'Cinzel', serif;
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .hero-card p {
+      color: var(--text-muted);
+      font-size: 0.92rem;
+      line-height: 1.5;
+    }
+
+    /* Book Catalog Grid */
+    .catalog-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 768px) {
+      .catalog-grid { grid-template-columns: 1fr; }
+    }
+    .book-card {
+      background: rgba(20, 36, 43, 0.6);
+      border: 1px solid var(--input-border);
+      border-radius: 10px;
+      padding: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      gap: 12px;
+    }
+    .book-card:hover {
+      border-color: var(--primary);
+      background: rgba(5, 150, 105, 0.1);
+      transform: translateY(-2px);
+    }
+    .book-card.selected {
+      border-color: var(--gold);
+      background: rgba(251, 191, 36, 0.08);
+    }
+    .book-cover-icon {
+      font-size: 1.8rem;
+      background: rgba(0,0,0,0.3);
+      padding: 8px 12px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .book-info { flex: 1; }
+    .book-title {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 2px;
+    }
+    .book-author {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .book-tags {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .book-tag {
+      font-size: 0.68rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent);
+    }
+
+    /* Layout Grid */
+    .layout-grid {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 20px;
+    }
+    @media (max-width: 860px) {
+      .layout-grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 22px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+    .card-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Form Controls */
+    .form-group {
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 6px;
+      font-size: 0.85rem;
+      color: #e2e8f0;
+    }
+    input[type="text"], input[type="password"], select {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      color: #fff;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+    input::placeholder { color: #64748b; }
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.25);
+    }
+
+    /* Format Selector Radios */
+    .format-selector {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .format-btn {
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 8px;
+      padding: 8px;
+      text-align: center;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.2s;
+    }
+    .format-btn:hover { color: #fff; border-color: var(--primary); }
+    .format-btn.active {
+      background: rgba(5, 150, 105, 0.2);
+      border-color: var(--primary);
+      color: #6ee7b7;
+    }
+
+    /* Buttons */
+    .btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 11px 18px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+    }
+    .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn-secondary {
+      background: #1e3a47;
+      color: #e2e8f0;
+    }
+    .btn-secondary:hover { background: #284c5c; }
+    .btn-download {
+      background: linear-gradient(135deg, #059669, #0d9488);
+      font-weight: 700;
+    }
+    .btn-download:hover {
+      background: linear-gradient(135deg, #10b981, #059669);
+    }
+
+    /* Dynamic Async DRM Box */
+    .dynamic-box {
+      margin-top: 16px;
+      padding: 16px;
+      background: rgba(20, 36, 43, 0.7);
+      border-radius: 8px;
+      border-left: 4px solid var(--accent);
+    }
+    .dynamic-box h4 {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+    .dynamic-box p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+    #library-delayed-container {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px dashed var(--input-border);
+      display: none;
+    }
+
+    /* Sidebar Receipt */
+    .receipt-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--input-border);
+      color: var(--text-muted);
+    }
+    .receipt-total {
+      display: flex;
+      justify-content: space-between;
+      font-size: 1rem;
+      font-weight: 700;
+      padding: 14px 0 4px;
+      color: #fff;
+    }
+
+    /* Status Banner */
+    .alert-success {
+      background: var(--success-bg);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #34d399;
+      padding: 16px;
+      border-radius: 10px;
+      margin-top: 24px;
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+    .alert-success strong {
+      display: block;
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: #10b981;
+    }
+    .alert-details {
+      font-size: 0.85rem;
+      color: #d1fae5;
+      line-height: 1.5;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation & Portal Switcher -->
+  <header class="portal-nav">
+    <div class="portal-brand">
+      <span>🏛️</span> <span class="title-font">Alexandria</span>
+      <span class="tag">Digital Archive</span>
+    </div>
+    <nav class="portal-links">
+      <a href="ecommerce-portal.html" class="portal-link">🛒 E-Commerce</a>
+      <a href="sales-portal.html" class="portal-link">💼 B2B Sales & CRM</a>
+      <a href="library-portal.html" class="portal-link active">📚 Digital Library</a>
+    </nav>
+  </header>
+
+  <div class="container">
+    
+    <!-- Hero Banner -->
+    <div class="hero-card">
+      <h1>📚 Alexandria Digital Library & E-Book Download Archive</h1>
+      <p>Search rare academic manuscripts, verify patron digital access passcodes, generate cryptographic DRM tokens, and initiate verified electronic downloads.</p>
+    </div>
+
+    <div class="layout-grid">
+      
+      <!-- Library Search & Loan Form -->
+      <section class="card">
+        <h2 class="card-title">📖 Digital Checkout & Download Station</h2>
+
+        <form id="library-form" onsubmit="event.preventDefault(); handleLibrarySubmit();">
+          
+          <!-- Catalog Query -->
+          <div class="form-group">
+            <label for="book-query">Search Catalog by Title, Author, or ISBN</label>
+            <input type="text" id="book-query" data-testid="search-input" placeholder="e.g. Designing Data-Intensive Applications" autocomplete="off" />
+          </div>
+
+          <!-- Featured Titles Catalog -->
+          <div class="catalog-grid">
+            <div class="book-card selected" onclick="selectBook('Designing Data-Intensive Applications', 'Martin Kleppmann', 'Computer Science', '978-1449373320')">
+              <div class="book-cover-icon">💾</div>
+              <div class="book-info">
+                <div class="book-title">Designing Data-Intensive Apps</div>
+                <div class="book-author">Martin Kleppmann</div>
+                <div class="book-tags">
+                  <span class="book-tag">PDF</span>
+                  <span class="book-tag">EPUB</span>
+                  <span class="book-tag">Distributed Systems</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="book-card" onclick="selectBook('Structure & Interpretation of Computer Programs', 'Abelson & Sussman', 'Computer Science', '978-0262510875')">
+              <div class="book-cover-icon">🧙‍♂️</div>
+              <div class="book-info">
+                <div class="book-title">SICP (Wizard Book)</div>
+                <div class="book-author">Abelson & Sussman</div>
+                <div class="book-tags">
+                  <span class="book-tag">PDF</span>
+                  <span class="book-tag">Lisp / Scheme</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="book-card" onclick="selectBook('Gödel, Escher, Bach: An Eternal Golden Braid', 'Douglas Hofstadter', 'Philosophy & Logic', '978-0465026562')">
+              <div class="book-cover-icon">🧬</div>
+              <div class="book-info">
+                <div class="book-title">Gödel, Escher, Bach</div>
+                <div class="book-author">Douglas Hofstadter</div>
+                <div class="book-tags">
+                  <span class="book-tag">EPUB</span>
+                  <span class="book-tag">MOBI</span>
+                  <span class="book-tag">Cognitive Science</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="book-card" onclick="selectBook('Clean Code: Agile Software Craftsmanship', 'Robert C. Martin', 'Software Engineering', '978-0132350884')">
+              <div class="book-cover-icon">🧹</div>
+              <div class="book-info">
+                <div class="book-title">Clean Code Handbook</div>
+                <div class="book-author">Robert C. Martin</div>
+                <div class="book-tags">
+                  <span class="book-tag">PDF</span>
+                  <span class="book-tag">Refactoring</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Subject Category Dropdown -->
+          <div class="form-group">
+            <label for="subject-dropdown">Academic Domain & Subject</label>
+            <select id="subject-dropdown" name="subject" data-qa="subject-select">
+              <option value="">-- Choose Subject --</option>
+              <option value="cs" selected>Computer Science & Distributed Systems</option>
+              <option value="ai">Artificial Intelligence & Deep Learning</option>
+              <option value="philosophy">Logic, Metaphysics & Epistemology</option>
+              <option value="physics">Quantum Mechanics & Theoretical Physics</option>
+              <option value="history">Historical Manuscripts & Archives</option>
+            </select>
+          </div>
+
+          <!-- Download Format Selection -->
+          <div class="form-group">
+            <label>Electronic Delivery Format</label>
+            <div class="format-selector">
+              <div class="format-btn active" onclick="selectFormat(this, 'PDF')">📄 PDF (Vector)</div>
+              <div class="format-btn" onclick="selectFormat(this, 'EPUB')">📱 EPUB 3.0</div>
+              <div class="format-btn" onclick="selectFormat(this, 'MOBI')">📖 Kindle MOBI</div>
+            </div>
+          </div>
+
+          <!-- Sensitive Patron Security Key (Redaction Target) -->
+          <div class="form-group">
+            <label for="library-pin">Patron Access Passcode / Vault PIN (Sensitive - Must Redact)</label>
+            <input type="password" id="library-pin" placeholder="Enter patron card security token" />
+          </div>
+
+          <!-- Dynamic Async DRM License Generator -->
+          <div class="dynamic-box">
+            <h4>⚡ Cryptographic DRM License & Download Ticket</h4>
+            <p>Requests digital loan license token from Alexandria archival cluster with a 1200ms verification delay.</p>
+            <button type="button" id="trigger-delayed-btn" class="btn btn-secondary" onclick="triggerLibraryDelayed()">
+              <span>🔐 Request Cryptographic Download Token</span>
+            </button>
+
+            <div id="library-delayed-container">
+              <p style="color: #34d399; font-weight: 600; margin-bottom: 8px;">✓ Digital Loan License #DL-84920 Granted (Valid 21 Days)</p>
+              <button type="button" id="confirm-delayed-btn" data-testid="confirm-async-action" class="btn btn-download" onclick="confirmLibraryToken()">
+                <span>✓ Authorize Instant DRM Download</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Download & Checkout Submit -->
+          <div style="margin-top: 20px;">
+            <button type="submit" id="submit-library-btn" class="btn btn-download">
+              <span>📥 Complete Loan & Download E-Book</span>
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Digital Loan Ticket Sidebar -->
+      <aside class="card">
+        <h2 class="card-title">🎫 Digital Loan Ticket</h2>
+        <div class="receipt-row">
+          <span>Selected Title</span>
+          <span id="ticket-title" style="color:#fff; font-weight: 600; text-align: right; max-width: 160px;">Designing Data-Intensive Apps</span>
+        </div>
+        <div class="receipt-row">
+          <span>Author</span>
+          <span id="ticket-author">Martin Kleppmann</span>
+        </div>
+        <div class="receipt-row">
+          <span>ISBN-13</span>
+          <span id="ticket-isbn">978-1449373320</span>
+        </div>
+        <div class="receipt-row">
+          <span>Format</span>
+          <span id="ticket-format" style="color: var(--accent);">PDF (Vector)</span>
+        </div>
+        <div class="receipt-row">
+          <span>Loan Period</span>
+          <span style="color: #34d399;">21 Days (Auto-Renewable)</span>
+        </div>
+        <div class="receipt-total">
+          <span>Access Fee</span>
+          <span style="color: var(--gold);">FREE / Open Library</span>
+        </div>
+
+        <div style="margin-top: 20px; padding: 12px; background: rgba(0,0,0,0.25); border-radius: 8px; font-size: 0.78rem; color: var(--text-muted);">
+          🔒 Patron credentials and security vault tokens are strictly masked in recorded sessions for privacy compliance.
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- Status Banner for Assertions -->
+    <div id="library-status-banner" class="alert-success">
+      <strong id="library-status-title">🎉 Digital Loan Granted & Download Started!</strong>
+      <div id="library-status-details" class="alert-details"></div>
+    </div>
+
+  </div>
+
+  <script>
+    let activeFormat = 'PDF';
+
+    function selectBook(title, author, subject, isbn) {
+      document.getElementById('book-query').value = title;
+      document.getElementById('ticket-title').textContent = title;
+      document.getElementById('ticket-author').textContent = author;
+      document.getElementById('ticket-isbn').textContent = isbn;
+      
+      document.querySelectorAll('.book-card').forEach(c => c.classList.remove('selected'));
+      event.currentTarget.classList.add('selected');
+    }
+
+    function selectFormat(elem, fmt) {
+      activeFormat = fmt;
+      document.querySelectorAll('.format-btn').forEach(b => b.classList.remove('active'));
+      elem.classList.add('active');
+      document.getElementById('ticket-format').textContent = `${fmt} Format`;
+    }
+
+    function triggerLibraryDelayed() {
+      const btn = document.getElementById('trigger-delayed-btn');
+      btn.textContent = '⏳ Querying Archival Key Vault...';
+      btn.disabled = true;
+
+      setTimeout(() => {
+        document.getElementById('library-delayed-container').style.display = 'block';
+        btn.textContent = '✓ Archival DRM Granted';
+      }, 1200);
+    }
+
+    function confirmLibraryToken() {
+      const confirmBtn = document.getElementById('confirm-delayed-btn');
+      confirmBtn.textContent = '✓ Digital Token Ready for Transfer!';
+      document.getElementById('ticket-format').textContent = `${activeFormat} (Token Verified)`;
+    }
+
+    function handleLibrarySubmit() {
+      const title = document.getElementById('book-query').value || 'Designing Data-Intensive Applications';
+      const subject = document.getElementById('subject-dropdown').value || 'cs';
+      const banner = document.getElementById('library-status-banner');
+      const details = document.getElementById('library-status-details');
+
+      details.textContent = `Title: "${title}", Subject: "${subject}", Format: "${activeFormat}", Loan ID: #DL-${Math.floor(10000 + Math.random()*90000)}, Timestamp: ${new Date().toLocaleTimeString()}`;
+      banner.style.display = 'block';
+      banner.scrollIntoView({ behavior: 'smooth' });
+    }
+  </script>
+</body>
+</html>

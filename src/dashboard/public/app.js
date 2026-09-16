@@ -483,14 +483,21 @@
 
     // Quick Launch Chrome
     const btnLaunchChrome = document.getElementById('btnLaunchChrome');
+    const selectTestPortal = document.getElementById('selectTestPortal');
+
     if (btnLaunchChrome) {
       btnLaunchChrome.onclick = async () => {
+        const portal = selectTestPortal ? selectTestPortal.value : 'ecommerce';
         showToast('Launching Google Chrome with CDP...', 'info');
         try {
-          const res = await fetch('/api/browser/launch', { method: 'POST' });
+          const res = await fetch('/api/browser/launch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ portal })
+          });
           const data = await res.json();
           if (data.success) {
-            showToast('Google Chrome CDP is Active!', 'success');
+            showToast('Google Chrome is open & test portal loaded!', 'success');
             refreshStatus();
           } else {
             showToast(data.error || 'Failed to launch Chrome', 'error');
@@ -501,28 +508,52 @@
       };
     }
 
-    // Quick Open Mock Portal
-    const btnOpenMock = document.getElementById('btnOpenMockPortal');
-    if (btnOpenMock) {
-      btnOpenMock.onclick = async () => {
-        try {
-          const res = await fetch('/api/browser/open', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: 'mock-portal' })
-          });
-          const data = await res.json();
-          if (data.success) {
-            showToast('Loaded Mock Portal in Chrome!', 'success');
-            refreshStatus();
-          } else {
-            showToast(data.error || 'Failed to open portal', 'error');
-          }
-        } catch (e) {
-          showToast(e.message, 'error');
+    // Helper to open test portal in Chrome
+    async function openTestPortalInChrome(portalKey) {
+      const portalNames = {
+        ecommerce: 'NovaGear E-Commerce',
+        sales: 'Stratos Sales CRM',
+        library: 'Alexandria Digital Library'
+      };
+      const label = portalNames[portalKey] || portalKey;
+      showToast(`Opening ${label} in Chrome...`, 'info');
+
+      try {
+        const res = await fetch('/api/browser/open', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: portalKey })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Loaded ${label} in Chrome!`, 'success');
+          refreshStatus();
+        } else {
+          showToast(data.error || 'Failed to open portal', 'error');
         }
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    }
+
+    // Quick Open Selected Portal from Nav
+    const btnOpenSelectedPortal = document.getElementById('btnOpenSelectedPortal');
+    if (btnOpenSelectedPortal && selectTestPortal) {
+      btnOpenSelectedPortal.onclick = () => {
+        openTestPortalInChrome(selectTestPortal.value);
       };
     }
+
+    // Connect Test Environments Card Buttons
+    document.querySelectorAll('.btn-portal-quick').forEach(btn => {
+      btn.onclick = () => {
+        const portal = btn.getAttribute('data-portal');
+        if (portal) {
+          if (selectTestPortal) selectTestPortal.value = portal;
+          openTestPortalInChrome(portal);
+        }
+      };
+    });
 
     // Recorder
     elBtnStartRecord.onclick = startRecording;
