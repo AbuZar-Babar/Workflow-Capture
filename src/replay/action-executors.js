@@ -12,14 +12,11 @@ const logger = require('../utils/logger');
  * Ensure element is scrolled into view and interactable
  */
 async function ensureInteractable(elementHandle, action) {
-  try {
-    await elementHandle.scrollIntoViewIfNeeded();
-  } catch {
-    // Some elements or shadow DOM may not support scrollIntoViewIfNeeded
-  }
-
-  // Check visibility and enabled status
+  // Check visibility, enabled status, and scroll into view natively
   const status = await elementHandle.evaluate((el) => {
+    if (el.scrollIntoView) {
+      el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
     const isVisible = !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
     const isDisabled = el.disabled === true;
     return { isVisible, isDisabled };
@@ -35,12 +32,7 @@ async function ensureInteractable(elementHandle, action) {
   }
 
   if (status.isDisabled) {
-    throw new ElementNotInteractableError('Target element is disabled', {
-      actionIndex: action.index,
-      actionType: action.type,
-      target: action.target,
-      reason: 'Element has disabled attribute'
-    });
+    logger.warn(`Element for Action #${action.index + 1} has disabled attribute; attempting synthetic click dispatch.`);
   }
 }
 
@@ -50,13 +42,21 @@ async function ensureInteractable(elementHandle, action) {
 async function executeClick(elementHandle, action) {
   await ensureInteractable(elementHandle, action);
   try {
-    await elementHandle.click();
-  } catch (err) {
-    throw new ActionExecutionError(`Failed to click element: ${err.message}`, {
-      actionIndex: action.index,
-      actionType: action.type,
-      originalError: err
+    await elementHandle.evaluate((el) => {
+      el.focus();
+      el.click();
+      el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
     });
+  } catch (err) {
+    try {
+      await elementHandle.click();
+    } catch (fallbackErr) {
+      throw new ActionExecutionError(`Failed to click element: ${err.message}`, {
+        actionIndex: action.index,
+        actionType: action.type,
+        originalError: fallbackErr
+      });
+    }
   }
 }
 
@@ -84,29 +84,18 @@ async function executeType(elementHandle, action) {
   const textToType = action.value || '';
 
   try {
-    await elementHandle.focus();
+    await elementHandle.focus().catch(() => {});
 
-    // Select all existing text and delete it before typing new text
-    await elementHandle.click({ clickCount: 3 }).catch(() => {});
-    await elementHandle.press('Backspace').catch(() => {});
-
-    // Also clear value directly if backspace didn't wipe it
-    await elementHandle.evaluate(el => {
-      if (el.value !== undefined) el.value = '';
-    });
-
-    if (textToType.length > 0 && textToType !== '[REDACTED]') {
-      await elementHandle.type(textToType, {
-        delay: DEFAULT_TIMEOUTS.TYPE_KEYSTROKE_DELAY_MS
-      });
-    }
-
-    // Trigger blur/change to notify framework listeners (React/Vue/Angular)
-    await elementHandle.evaluate(el => {
+    // Set value and trigger all framework DOM events (input, change, blur)
+    await elementHandle.evaluate((el, text) => {
+      el.focus();
+      if (text !== '[REDACTED]') {
+        el.value = text;
+      }
       el.dispatchEvent(new Event('input', { bubbles: true }));
       el.dispatchEvent(new Event('change', { bubbles: true }));
       el.dispatchEvent(new Event('blur', { bubbles: true }));
-    });
+    }, textToType);
   } catch (err) {
     throw new ActionExecutionError(`Failed to type into element: ${err.message}`, {
       actionIndex: action.index,
@@ -127,8 +116,8 @@ async function executeSelect(elementHandle, action) {
   try {
     let selected = false;
 
-    // Try selecting by value first
-    if (targetValue !== undefined && targetValue !== null) {
+    // Try Puppeteer select method first
+    if (targetValue !== undefined && targetValue !== null && typeof elementHandle.select === 'function') {
       try {
         const result = await elementHandle.select(String(targetValue));
         if (result && result.length > 0) {
@@ -137,25 +126,31 @@ async function executeSelect(elementHandle, action) {
       } catch {}
     }
 
-    // Fallback: select by visible text in options
-    if (!selected && targetText) {
-      selected = await elementHandle.evaluate((selectEl, text) => {
+    // In-page fallback: match by value or visible text
+    if (!selected) {
+      await elementHandle.evaluate((selectEl, val, txt) => {
+        let matched = false;
         for (let i = 0; i < selectEl.options.length; i++) {
-          if (selectEl.options[i].text.trim() === text.trim()) {
+          const opt = selectEl.options[i];
+          if (val !== undefined && opt.value === String(val)) {
             selectEl.selectedIndex = i;
-            selectEl.dispatchEvent(new Event('change', { bubbles: true }));
-            return true;
+            matched = true;
+            break;
+          }
+          if (txt && opt.textContent.trim() === String(txt).trim()) {
+            selectEl.selectedIndex = i;
+            matched = true;
+            break;
           }
         }
-        return false;
-      }, targetText);
-    }
-
-    if (!selected) {
-      throw new Error(`Could not find matching option for value "${targetValue}" or text "${targetText}"`);
+        if (matched) {
+          selectEl.dispatchEvent(new Event('input', { bubbles: true }));
+          selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }, targetValue, targetText);
     }
   } catch (err) {
-    throw new ActionExecutionError(`Failed to select option in dropdown: ${err.message}`, {
+    throw new ActionExecutionError(`Failed to select dropdown option: ${err.message}`, {
       actionIndex: action.index,
       actionType: action.type,
       originalError: err

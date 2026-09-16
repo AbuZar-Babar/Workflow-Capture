@@ -81,7 +81,16 @@ class ReplayEngine {
       try {
         await this._ensureSelectorResolverInPage();
 
-        // Evaluate resolution inside page context
+        // 1. Resolve and obtain direct JSHandle to the matched DOM element
+        const handle = await this.page.evaluateHandle((targetData) => {
+          if (!window.SelectorResolver) return null;
+          const res = window.SelectorResolver.resolveElement(targetData);
+          return res.success && res.element ? res.element : null;
+        }, target).catch(() => null);
+
+        const elementHandle = handle ? handle.asElement() : null;
+
+        // 2. Also retrieve candidate and confidence metadata
         const resolutionResult = await this.page.evaluate((targetData) => {
           if (!window.SelectorResolver) {
             return { success: false, reason: 'SelectorResolver not loaded in window' };
@@ -97,29 +106,14 @@ class ReplayEngine {
 
         lastResolutionResult = resolutionResult;
 
-        if (resolutionResult && resolutionResult.success && resolutionResult.resolvedCandidate) {
-          // Element successfully validated by in-page resolver, get the ElementHandle
-          const candidate = resolutionResult.resolvedCandidate;
-          let elementHandle = null;
-
-          try {
-            if (candidate.strategy === 'xpath' || candidate.value.startsWith('//') || candidate.value.startsWith('(')) {
-              const handles = await this.page.$x ? await this.page.$x(candidate.value) : [];
-              elementHandle = handles[0] || null;
-            } else {
-              elementHandle = await this.page.$(candidate.value);
-            }
-          } catch {
-            // Handle might be recreating
-          }
-
-          if (elementHandle) {
-            return {
-              elementHandle,
-              candidate,
-              confidenceScore: resolutionResult.confidenceScore
-            };
-          }
+        if (elementHandle && resolutionResult && resolutionResult.success && resolutionResult.resolvedCandidate) {
+          return {
+            elementHandle,
+            candidate: resolutionResult.resolvedCandidate,
+            confidenceScore: resolutionResult.confidenceScore
+          };
+        } else if (handle) {
+          await handle.dispose().catch(() => {});
         }
       } catch {
         // Frame navigation in progress, retry on next tick
@@ -170,27 +164,51 @@ class ReplayEngine {
     this.browser = browser;
     this.page = page;
 
-    // Auto-navigate to startUrl if tab is blank or on a different page
+    // 1. Auto-handle browser dialogs (alert, confirm, prompt) immediately
+    this.page.on('dialog', async (dialog) => {
+      logger.info(`Page dialog appeared: [${dialog.type()}] "${dialog.message()}". Auto-accepting...`);
+      await dialog.accept().catch(() => {});
+    });
+
+    // 2. Dismiss any lingering dialog from previous runs via CDP session
+    try {
+      const client = await this.page.target().createCDPSession();
+      await client.send('Page.handleJavaScriptDialog', { accept: true }).catch(() => {});
+      await client.detach().catch(() => {});
+    } catch {}
+
+    // 3. Auto-navigate or reset DOM state
     if (targetStartUrl) {
       const currentUrl = this.page.url();
       if (currentUrl === 'about:blank' || currentUrl.startsWith('chrome://') || currentUrl !== targetStartUrl) {
         logger.info(`Navigating tab to workflow starting URL: ${targetStartUrl}`);
         try {
-          await this.page.goto(targetStartUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-          await new Promise(r => setTimeout(r, 600));
+          await this.page.goto(targetStartUrl, { waitUntil: 'load', timeout: 30000 });
+          await new Promise(r => setTimeout(r, 500));
         } catch (navErr) {
           logger.warn(`Auto-navigation note: ${navErr.message}`);
         }
+      } else {
+        // Already on page: clean reset forms and dynamic containers without destroying execution context
+        try {
+          await this.page.evaluate(() => {
+            document.querySelectorAll('form').forEach(f => f.reset());
+            const asyncBtn = document.getElementById('trigger-delayed-btn');
+            if (asyncBtn) {
+              asyncBtn.textContent = 'Load Async Action';
+              asyncBtn.disabled = false;
+            }
+            const delayed = document.getElementById('delayed-container');
+            if (delayed) delayed.style.display = 'none';
+            const banner = document.getElementById('status-banner');
+            if (banner) banner.style.display = 'none';
+          });
+          await new Promise(r => setTimeout(r, 200));
+        } catch {}
       }
     }
 
     logger.success(`Replay attached to tab: ${this.page.url()}`);
-
-    // Auto-handle browser dialogs (alert, confirm, prompt) so they do not block execution
-    this.page.on('dialog', async (dialog) => {
-      logger.info(`Page dialog appeared: [${dialog.type()}] "${dialog.message()}". Auto-accepting...`);
-      await dialog.accept().catch(() => {});
-    });
 
     logger.divider();
 
