@@ -54,12 +54,16 @@ class ReplayEngine {
    * Ensure selector resolver is loaded inside the page context
    */
   async _ensureSelectorResolverInPage() {
-    const isResolverLoaded = await this.page.evaluate(() => typeof window.SelectorResolver !== 'undefined').catch(() => false);
+    try {
+      const isResolverLoaded = await this.page.evaluate(() => typeof window.SelectorResolver !== 'undefined').catch(() => false);
 
-    if (!isResolverLoaded) {
-      const resolverPath = path.resolve(__dirname, '../shared/selector-resolver.js');
-      const resolverCode = fs.readFileSync(resolverPath, 'utf8');
-      await this.page.evaluate(resolverCode);
+      if (!isResolverLoaded) {
+        const resolverPath = path.resolve(__dirname, '../shared/selector-resolver.js');
+        const resolverCode = fs.readFileSync(resolverPath, 'utf8');
+        await this.page.evaluate(resolverCode).catch(() => {});
+      }
+    } catch {
+      // Ignore transient detached frame errors while page is navigating
     }
   }
 
@@ -74,43 +78,51 @@ class ReplayEngine {
     let lastResolutionResult = null;
 
     while (Date.now() - startTime < this.timeoutMs) {
-      await this._ensureSelectorResolverInPage();
+      try {
+        await this._ensureSelectorResolverInPage();
 
-      // Evaluate resolution inside page context
-      const resolutionResult = await this.page.evaluate((targetData) => {
-        if (!window.SelectorResolver) {
-          return { success: false, reason: 'SelectorResolver not loaded in window' };
-        }
-        const res = window.SelectorResolver.resolveElement(targetData);
-        return {
-          success: res.success,
-          confidenceScore: res.confidenceScore,
-          resolvedCandidate: res.resolvedCandidate,
-          attempts: res.attempts
-        };
-      }, target).catch(() => ({ success: false, reason: 'Page evaluation error (navigating?)' }));
-
-      lastResolutionResult = resolutionResult;
-
-      if (resolutionResult && resolutionResult.success && resolutionResult.resolvedCandidate) {
-        // Element successfully validated by in-page resolver, get the ElementHandle
-        const candidate = resolutionResult.resolvedCandidate;
-        let elementHandle = null;
-
-        if (candidate.strategy === 'xpath' || candidate.value.startsWith('//') || candidate.value.startsWith('(')) {
-          const handles = await this.page.$x ? await this.page.$x(candidate.value) : [];
-          elementHandle = handles[0] || null;
-        } else {
-          elementHandle = await this.page.$(candidate.value);
-        }
-
-        if (elementHandle) {
+        // Evaluate resolution inside page context
+        const resolutionResult = await this.page.evaluate((targetData) => {
+          if (!window.SelectorResolver) {
+            return { success: false, reason: 'SelectorResolver not loaded in window' };
+          }
+          const res = window.SelectorResolver.resolveElement(targetData);
           return {
-            elementHandle,
-            candidate,
-            confidenceScore: resolutionResult.confidenceScore
+            success: res.success,
+            confidenceScore: res.confidenceScore,
+            resolvedCandidate: res.resolvedCandidate,
+            attempts: res.attempts
           };
+        }, target).catch(() => ({ success: false, reason: 'Page evaluation error (navigating?)' }));
+
+        lastResolutionResult = resolutionResult;
+
+        if (resolutionResult && resolutionResult.success && resolutionResult.resolvedCandidate) {
+          // Element successfully validated by in-page resolver, get the ElementHandle
+          const candidate = resolutionResult.resolvedCandidate;
+          let elementHandle = null;
+
+          try {
+            if (candidate.strategy === 'xpath' || candidate.value.startsWith('//') || candidate.value.startsWith('(')) {
+              const handles = await this.page.$x ? await this.page.$x(candidate.value) : [];
+              elementHandle = handles[0] || null;
+            } else {
+              elementHandle = await this.page.$(candidate.value);
+            }
+          } catch {
+            // Handle might be recreating
+          }
+
+          if (elementHandle) {
+            return {
+              elementHandle,
+              candidate,
+              confidenceScore: resolutionResult.confidenceScore
+            };
+          }
         }
+      } catch {
+        // Frame navigation in progress, retry on next tick
       }
 
       // Condition not yet met; wait for poll interval
@@ -141,13 +153,36 @@ class ReplayEngine {
     logger.header(`Starting Replay: ${recording.metadata.name || 'Workflow'}`);
     logger.info(`Total actions to execute: ${recording.actions.length}`);
 
+    // Resolve cross-platform file:/// URLs (e.g. recorded on Windows, replayed on Mac)
+    let targetStartUrl = recording.metadata ? recording.metadata.startUrl : null;
+    if (targetStartUrl && targetStartUrl.startsWith('file:')) {
+      const baseName = path.basename(targetStartUrl);
+      const localTestPath = path.resolve(process.cwd(), 'test', baseName);
+      if (fs.existsSync(localTestPath)) {
+        targetStartUrl = `file://${localTestPath}`;
+      }
+    }
+
     // Connect to Chrome via CDP
     const { browser, page } = await connectToBrowser({
-      browserURL: this.browserURL,
-      targetUrlSubstring: recording.metadata.startUrl ? new URL(recording.metadata.startUrl).pathname : null
+      browserURL: this.browserURL
     });
     this.browser = browser;
     this.page = page;
+
+    // Auto-navigate to startUrl if tab is blank or on a different page
+    if (targetStartUrl) {
+      const currentUrl = this.page.url();
+      if (currentUrl === 'about:blank' || currentUrl.startsWith('chrome://') || currentUrl !== targetStartUrl) {
+        logger.info(`Navigating tab to workflow starting URL: ${targetStartUrl}`);
+        try {
+          await this.page.goto(targetStartUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+          await new Promise(r => setTimeout(r, 600));
+        } catch (navErr) {
+          logger.warn(`Auto-navigation note: ${navErr.message}`);
+        }
+      }
+    }
 
     logger.success(`Replay attached to tab: ${this.page.url()}`);
 

@@ -42,7 +42,26 @@ chrome.exe --remote-debugging-port=9222 --user-data-dir="C:\temp\chrome-debug-pr
 npm install
 ```
 
-### 3. Record Actions
+### 3. Launch the Interactive Web Dashboard (Recommended)
+
+Start the local control center UI:
+
+```bash
+npm run dashboard
+```
+
+Open **`http://localhost:3000`** in your browser. From the dashboard you can:
+- 🎙️ **Record Workflows**: Enter a workflow name, click "Start Recording", interact with Chrome, and click "Stop & Save".
+- ▶️ **Replay Workflows**: Choose a recording, adjust speed multiplier (`0.5x` - `3.0x`), and watch live step-by-step progress.
+- 🔍 **Inspect Steps & Selectors**: Click "Inspect" to view detailed candidate hierarchies and fingerprint confidence scores.
+- 💻 **Live Console Stream**: Monitor in-page events and CDP messages in real time.
+- 🧪 **Run Tests**: Execute unit and smoke tests with a single click.
+
+---
+
+### Alternative: CLI Commands
+
+#### Record Actions via CLI
 
 Navigate to your target portal (e.g. CityMart or any web app) in the Chrome window you just opened. Then in your project terminal:
 

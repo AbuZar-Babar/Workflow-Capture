@@ -5,6 +5,7 @@
   "main": "src/recorder/index.js",
   "type": "commonjs",
   "scripts": {
+    "dashboard": "node src/dashboard/server.js",
     "record": "node src/recorder/index.js",
     "replay": "node src/replay/index.js",
     "test": "node test/selector-resolver.test.js",
