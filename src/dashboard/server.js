@@ -234,11 +234,31 @@ const server = http.createServer(async (req, res) => {
     // API: Launch Chrome with CDP
     // -------------------------------------------------------------
     if (pathname === '/api/browser/launch' && req.method === 'POST') {
-      const { ensureChromeRunning } = require('../utils/cdp-connector');
+      const { ensureChromeRunning, connectToBrowser } = require('../utils/cdp-connector');
+      const body = await parseJsonBody(req).catch(() => ({}));
+      const portal = body.portal || 'ecommerce';
+
+      const portalUrls = {
+        ecommerce: `http://localhost:${currentPort}/portal/ecommerce-portal.html`,
+        sales: `http://localhost:${currentPort}/portal/sales-portal.html`,
+        library: `http://localhost:${currentPort}/portal/library-portal.html`,
+        'mock-portal': `http://localhost:${currentPort}/portal/ecommerce-portal.html`
+      };
+      const initialUrl = portalUrls[portal] || portalUrls.ecommerce;
+
       try {
-        const launched = await ensureChromeRunning(9222);
+        const launched = await ensureChromeRunning(9222, initialUrl);
         if (launched) {
-          return sendJson(res, 200, { success: true, message: 'Chrome launched with CDP on port 9222' });
+          // If Chrome was already up, ensure active tab navigates to the portal
+          try {
+            const { browser, page } = await connectToBrowser();
+            await page.bringToFront();
+            if (page.url() === 'about:blank' || page.url().startsWith('chrome://')) {
+              await page.goto(initialUrl, { waitUntil: 'domcontentloaded', timeout: 10000 });
+            }
+            await browser.disconnect();
+          } catch {}
+          return sendJson(res, 200, { success: true, message: 'Chrome launched with CDP on port 9222', url: initialUrl });
         } else {
           return sendJson(res, 500, { error: 'Could not auto-launch Chrome. Please launch Chrome manually.' });
         }
@@ -254,17 +274,33 @@ const server = http.createServer(async (req, res) => {
       const body = await parseJsonBody(req);
       let targetUrl = body.url;
 
-      if (!targetUrl || targetUrl === 'mock-portal') {
-        targetUrl = `file://${path.resolve(process.cwd(), 'test/mock-portal.html')}`;
+      const portalUrls = {
+        ecommerce: `http://localhost:${currentPort}/portal/ecommerce-portal.html`,
+        sales: `http://localhost:${currentPort}/portal/sales-portal.html`,
+        library: `http://localhost:${currentPort}/portal/library-portal.html`,
+        'mock-portal': `http://localhost:${currentPort}/portal/ecommerce-portal.html`
+      };
+
+      if (portalUrls[targetUrl]) {
+        targetUrl = portalUrls[targetUrl];
+      } else if (!targetUrl) {
+        targetUrl = portalUrls.ecommerce;
+      } else if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://') && !targetUrl.startsWith('file://')) {
+        const resolvedPath = path.resolve(process.cwd(), targetUrl);
+        if (fs.existsSync(resolvedPath)) {
+          targetUrl = `file:///${resolvedPath.replace(/\\/g, '/')}`;
+        }
       }
 
       try {
         const { browser, page } = await connectToBrowser();
         logger.info(`Opening URL in Chrome: ${targetUrl}`);
+        await page.bringToFront();
         await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
         await browser.disconnect();
         return sendJson(res, 200, { success: true, url: targetUrl });
       } catch (err) {
+        logger.error(`Failed to navigate Chrome to ${targetUrl}:`, err.message);
         return sendJson(res, 500, { error: err.message });
       }
     }
@@ -500,9 +536,19 @@ const server = http.createServer(async (req, res) => {
     }
 
     // -------------------------------------------------------------
-    // Static File Serving (HTML, CSS, JS, Assets)
+    // Static File Serving (HTML, CSS, JS, Assets, Test Portals)
     // -------------------------------------------------------------
-    let filePath = path.join(PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname);
+    let filePath;
+    if (pathname.startsWith('/portal/')) {
+      const portalFile = pathname.replace('/portal/', '');
+      filePath = path.join(process.cwd(), 'test', portalFile);
+    } else if (pathname.startsWith('/test/')) {
+      const testFile = pathname.replace('/test/', '');
+      filePath = path.join(process.cwd(), 'test', testFile);
+    } else {
+      filePath = path.join(PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname);
+    }
+
     const extname = String(path.extname(filePath)).toLowerCase();
 
     if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {

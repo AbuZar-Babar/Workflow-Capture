@@ -1,0 +1,480 @@
+{
+  "metadata": {
+    "recordingId": "rec_1789548469089_3fml3",
+    "version": "1.0.0",
+    "name": "smoke-test-1789548462668",
+    "startedAt": "2026-09-16T08:47:44.474Z",
+    "completedAt": "2026-09-16T08:47:49.088Z",
+    "startUrl": "file:///C:/Users/AbuZar/Desktop/Fyp/Workflow-Capture/test/mock-portal.html",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    }
+  },
+  "actions": [
+    {
+      "id": "act_1_mu3uy92k",
+      "index": 0,
+      "type": "TYPE",
+      "timestamp": 1789548465260,
+      "timeDeltaMs": 0,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "id",
+            "value": "#product-query",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "id",
+            "value": "input#product-query",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "data-attr",
+            "value": "[data-testid=\"search-input\"]",
+            "uniqueness": 1,
+            "priority": 2
+          },
+          {
+            "strategy": "data-attr",
+            "value": "input[data-testid=\"search-input\"]",
+            "uniqueness": 1,
+            "priority": 2
+          },
+          {
+            "strategy": "attribute",
+            "value": "input[placeholder=\"e\\.g\\.\\ Mechanical\\ Keyboard\"]",
+            "uniqueness": 1,
+            "priority": 3
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[@id='product-query']",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": "product-query",
+          "name": null,
+          "type": "text",
+          "role": null,
+          "placeholder": "e.g. Mechanical Keyboard",
+          "ariaLabel": null,
+          "text": "",
+          "classes": [],
+          "attributes": {
+            "type": "text",
+            "placeholder": "e.g. Mechanical Keyboard"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 661,
+            "height": 38
+          }
+        }
+      },
+      "value": "Mechanical Keyboard",
+      "meta": {
+        "isPassword": false,
+        "charCount": 19
+      }
+    },
+    {
+      "id": "act_2_mu3uy9bw",
+      "index": 1,
+      "type": "CLICK",
+      "timestamp": 1789548465596,
+      "timeDeltaMs": 336,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "id",
+            "value": "#product-query",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "id",
+            "value": "input#product-query",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "data-attr",
+            "value": "[data-testid=\"search-input\"]",
+            "uniqueness": 1,
+            "priority": 2
+          },
+          {
+            "strategy": "data-attr",
+            "value": "input[data-testid=\"search-input\"]",
+            "uniqueness": 1,
+            "priority": 2
+          },
+          {
+            "strategy": "attribute",
+            "value": "input[placeholder=\"e\\.g\\.\\ Mechanical\\ Keyboard\"]",
+            "uniqueness": 1,
+            "priority": 3
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[@id='product-query']",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": "product-query",
+          "name": null,
+          "type": "text",
+          "role": null,
+          "placeholder": "e.g. Mechanical Keyboard",
+          "ariaLabel": null,
+          "text": "",
+          "classes": [],
+          "attributes": {
+            "type": "text",
+            "placeholder": "e.g. Mechanical Keyboard"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 661,
+            "height": 38
+          }
+        }
+      }
+    },
+    {
+      "id": "act_3_mu3uy9e8",
+      "index": 2,
+      "type": "SELECT",
+      "timestamp": 1789548465680,
+      "timeDeltaMs": 84,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "id",
+            "value": "#category-dropdown",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "id",
+            "value": "select#category-dropdown",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "data-attr",
+            "value": "[data-qa=\"category-select\"]",
+            "uniqueness": 1,
+            "priority": 2
+          },
+          {
+            "strategy": "data-attr",
+            "value": "select[data-qa=\"category-select\"]",
+            "uniqueness": 1,
+            "priority": 2
+          },
+          {
+            "strategy": "attribute",
+            "value": "select[name=\"category\"]",
+            "uniqueness": 1,
+            "priority": 3
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[@id='category-dropdown']",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "select",
+          "id": "category-dropdown",
+          "name": "category",
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "-- Choose Category -- Electronics & Gadgets Office & Workspace Supplies Clothing & Tech Apparel High-Fidelity Audio Pro ",
+          "classes": [],
+          "attributes": {
+            "name": "category"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 661,
+            "height": 40
+          }
+        }
+      },
+      "value": "electronics",
+      "meta": {
+        "text": "Electronics & Gadgets",
+        "selectedIndex": 1
+      }
+    },
+    {
+      "id": "act_4_mu3uy9qf",
+      "index": 3,
+      "type": "TYPE",
+      "timestamp": 1789548466119,
+      "timeDeltaMs": 439,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "id",
+            "value": "#user-password",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "id",
+            "value": "input#user-password",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "attribute",
+            "value": "input[placeholder=\"Enter\\ security\\ credentials\"]",
+            "uniqueness": 1,
+            "priority": 3
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[@id='user-password']",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": "user-password",
+          "name": null,
+          "type": "password",
+          "role": null,
+          "placeholder": "Enter security credentials",
+          "ariaLabel": null,
+          "text": "",
+          "classes": [],
+          "attributes": {
+            "type": "password",
+            "placeholder": "Enter security credentials"
+          },
+          "isPassword": true,
+          "dimensions": {
+            "width": 661,
+            "height": 38
+          }
+        }
+      },
+      "value": "[REDACTED]",
+      "meta": {
+        "isPassword": true,
+        "charCount": 17
+      }
+    },
+    {
+      "id": "act_5_mu3uy9zu",
+      "index": 4,
+      "type": "CLICK",
+      "timestamp": 1789548466457,
+      "timeDeltaMs": 338,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "id",
+            "value": "#user-password",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "id",
+            "value": "input#user-password",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "attribute",
+            "value": "input[placeholder=\"Enter\\ security\\ credentials\"]",
+            "uniqueness": 1,
+            "priority": 3
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[@id='user-password']",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": "user-password",
+          "name": null,
+          "type": "password",
+          "role": null,
+          "placeholder": "Enter security credentials",
+          "ariaLabel": null,
+          "text": "",
+          "classes": [],
+          "attributes": {
+            "type": "password",
+            "placeholder": "Enter security credentials"
+          },
+          "isPassword": true,
+          "dimensions": {
+            "width": 661,
+            "height": 38
+          }
+        }
+      }
+    },
+    {
+      "id": "act_6_mu3uyac8",
+      "index": 5,
+      "type": "CLICK",
+      "timestamp": 1789548466904,
+      "timeDeltaMs": 447,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "text",
+            "value": "//span[normalize-space()='🔍 Check Live Warehouse Stock']",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "css-path",
+            "value": "span",
+            "uniqueness": 14,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/span[1]",
+            "uniqueness": 0,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "span",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "🔍 Check Live Warehouse Stock",
+          "classes": [],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 0,
+            "height": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "act_7_mu3uybi9",
+      "index": 6,
+      "type": "CLICK",
+      "timestamp": 1789548468417,
+      "timeDeltaMs": 1513,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "text",
+            "value": "//span[normalize-space()='✓ Reserve Express Allocation']",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "css-path",
+            "value": "span",
+            "uniqueness": 13,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/span[1]",
+            "uniqueness": 0,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "span",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "✓ Reserve Express Allocation",
+          "classes": [],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 0,
+            "height": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "act_8_mu3uybtm",
+      "index": 7,
+      "type": "CLICK",
+      "timestamp": 1789548468826,
+      "timeDeltaMs": 409,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "text",
+            "value": "//span[normalize-space()='💳 Confirm & Submit Order']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "css-path",
+            "value": "#submit-order-btn > span",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/div[1]/div[2]/section[1]/form[1]/div[6]/button[1]/span[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "span",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "💳 Confirm & Submit Order",
+          "classes": [],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 189,
+            "height": 20
+          }
+        }
+      }
+    }
+  ]
+}

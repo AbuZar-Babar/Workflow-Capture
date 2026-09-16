@@ -767,6 +767,76 @@ input[type="range"] {
   color: var(--text-dim);
 }
 
+/* ---------------- Test Portals Launcher UI ---------------- */
+.test-portal-quick-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.portal-dropdown-select {
+  background: #111827;
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 0.45rem 0.85rem;
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  font-family: var(--font-sans);
+  outline: none;
+  cursor: pointer;
+}
+.portal-dropdown-select:focus {
+  border-color: var(--accent-primary);
+}
+
+.test-sites-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.btn-portal-quick {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--text-main);
+  width: 100%;
+}
+.btn-portal-quick:hover {
+  background: rgba(99, 102, 241, 0.12);
+  border-color: var(--accent-primary);
+  transform: translateY(-1px);
+}
+.portal-btn-icon {
+  font-size: 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: var(--radius-sm);
+}
+.portal-btn-text {
+  display: flex;
+  flex-direction: column;
+}
+.portal-btn-text strong {
+  font-size: 0.88rem;
+  color: #fff;
+}
+.portal-btn-text small {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
 /* ---------------- Toast Notifications ---------------- */
 .toast-container {
   position: fixed;
