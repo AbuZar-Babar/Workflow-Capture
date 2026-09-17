@@ -25,7 +25,13 @@ export const WorkflowEditorView = {
             </button>
           </div>
         </div>
-        <div class="workflow-editor-canvas" id="drawflow"></div>
+        <div class="workflow-editor-canvas" id="drawflow">
+          <div class="drawflow-canvas-controls">
+            <button type="button" id="btnZoomIn" title="Zoom In">➕</button>
+            <button type="button" id="btnZoomOut" title="Zoom Out">➖</button>
+            <button type="button" id="btnZoomReset" title="Reset View">⟲</button>
+          </div>
+        </div>
       </div>
     `;
 
@@ -60,6 +66,20 @@ export const WorkflowEditorView = {
     this.editor = new Drawflow(container);
     this.editor.start();
     this.editor.clearModuleSelected();
+
+    // Wire Zoom & Reset controls
+    document.getElementById('btnZoomIn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.editor.zoom_in();
+    });
+    document.getElementById('btnZoomOut')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.editor.zoom_out();
+    });
+    document.getElementById('btnZoomReset')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.editor.zoom_reset();
+    });
 
     this.renderWorkflowSteps();
   },

@@ -258,6 +258,7 @@
       flex-direction: column;
       height: calc(100vh - 4.5rem);
       min-height: 620px;
+      width: 100%;
       position: relative;
       background: var(--bg-surface);
       border-radius: var(--radius-lg);
@@ -274,12 +275,76 @@
       background: #ffffff;
       border-bottom: 1px solid rgba(0, 0, 0, 0.07);
       z-index: 10;
+      flex-shrink: 0;
     }
     
     .workflow-editor-canvas {
       flex: 1;
-      position: relative;
-      overflow: hidden;
+      width: 100% !important;
+      height: 100% !important;
+      position: relative !important;
+      overflow: hidden !important;
+      cursor: grab;
+      user-select: none;
+    }
+
+    .workflow-editor-canvas:active {
+      cursor: grabbing;
+    }
+
+    /* Ensure Drawflow and its parent wrapper fill 100% of the canvas area */
+    .drawflow,
+    #drawflow {
+      width: 100% !important;
+      height: 100% !important;
+      position: relative !important;
+    }
+
+    .parent-drawflow {
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      overflow: hidden !important;
+    }
+
+    .drawflow-canvas-controls {
+      position: absolute;
+      bottom: 1.25rem;
+      right: 1.25rem;
+      display: flex;
+      gap: 0.35rem;
+      background: #ffffff;
+      padding: 0.35rem;
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+      z-index: 15;
+    }
+
+    .drawflow-canvas-controls button {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f8faf9;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      border-radius: 8px;
+      color: var(--text-main);
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .drawflow-canvas-controls button:hover {
+      background: var(--brand-forest);
+      color: #ffffff;
+      border-color: var(--brand-forest);
     }
   </style>
 </head>
@@ -423,6 +488,6 @@
   <!-- END: Auth Overlay -->
 
   <!-- Main ES Module Initializer -->
-  <script type="module" src="/js/main.js?v=4"></script>
+  <script type="module" src="/js/main.js?v=5"></script>
 </body>
 </html>
