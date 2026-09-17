@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Billing & Invoices Portal — Loop Engine Test</title>
+  <style>
+    body { font-family: sans-serif; background: #0f172a; color: #f8fafc; padding: 40px; }
+    .container { max-width: 800px; margin: 0 auto; background: #1e293b; padding: 24px; border-radius: 12px; }
+    h1 { margin-bottom: 20px; font-size: 24px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #334155; }
+    th { background: #0f172a; color: #94a3b8; }
+    tr:hover { background: #334155; }
+    .btn-download {
+      background: #3b82f6;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-size: 13px;
+      display: inline-block;
+    }
+    .btn-download:hover { background: #2563eb; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📄 Customer Invoices</h1>
+    <p>Test portal demonstrating automated multi-row iteration & CDP file downloading.</p>
+    
+    <table id="invoices-table">
+      <thead>
+        <tr>
+          <th>Invoice #</th>
+          <th>Customer</th>
+          <th>Amount</th>
+          <th>Date</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>INV-2026-001</td>
+          <td>Acme Corp</td>
+          <td>$1,250.00</td>
+          <td>2026-09-01</td>
+          <td>
+            <a class="btn-download" download="INV-2026-001.txt" href="data:text/plain;charset=utf-8,Invoice%20INV-2026-001%20for%20Acme%20Corp%0AAmount:%20$1250.00">Download</a>
+          </td>
+        </tr>
+        <tr>
+          <td>INV-2026-002</td>
+          <td>Globex Inc</td>
+          <td>$3,400.00</td>
+          <td>2026-09-05</td>
+          <td>
+            <a class="btn-download" download="INV-2026-002.txt" href="data:text/plain;charset=utf-8,Invoice%20INV-2026-002%20for%20Globex%20Inc%0AAmount:%20$3400.00">Download</a>
+          </td>
+        </tr>
+        <tr>
+          <td>INV-2026-003</td>
+          <td>Soylent Corp</td>
+          <td>$890.00</td>
+          <td>2026-09-10</td>
+          <td>
+            <a class="btn-download" download="INV-2026-003.txt" href="data:text/plain;charset=utf-8,Invoice%20INV-2026-003%20for%20Soylent%20Corp%0AAmount:%20$890.00">Download</a>
+          </td>
+        </tr>
+        <tr>
+          <td>INV-2026-004</td>
+          <td>Initech Systems</td>
+          <td>$4,120.00</td>
+          <td>2026-09-14</td>
+          <td>
+            <a class="btn-download" download="INV-2026-004.txt" href="data:text/plain;charset=utf-8,Invoice%20INV-2026-004%20for%20Initech%20Systems%0AAmount:%20$4120.00">Download</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>

@@ -14,6 +14,11 @@ const RecorderBridge = require('../recorder/recorder-bridge');
 const ReplayEngine = require('../replay/replay-engine');
 const { connectToBrowser } = require('../utils/cdp-connector');
 const logger = require('../utils/logger');
+const authController = require('../auth/auth-controller');
+const workflowController = require('../api/workflow-controller');
+const runController = require('../api/run-controller');
+const secretController = require('../api/secret-controller');
+const { requireAuth } = require('../auth/auth-middleware');
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -205,6 +210,104 @@ const server = http.createServer(async (req, res) => {
         sseClients.delete(res);
       });
       return;
+    }
+
+    // -------------------------------------------------------------
+    // Authentication REST APIs
+    // -------------------------------------------------------------
+    if (pathname === '/api/auth/register' && req.method === 'POST') {
+      const body = await parseJsonBody(req).catch(() => ({}));
+      return authController.register(req, res, body);
+    }
+
+    if (pathname === '/api/auth/login' && req.method === 'POST') {
+      const body = await parseJsonBody(req).catch(() => ({}));
+      return authController.login(req, res, body);
+    }
+
+    if (pathname === '/api/auth/logout' && req.method === 'POST') {
+      return authController.logout(req, res);
+    }
+
+    if (pathname === '/api/auth/me' && req.method === 'GET') {
+      if (!requireAuth(req, res)) return;
+      return authController.getProfile(req, res);
+    }
+
+    // -------------------------------------------------------------
+    // Workflow Management REST APIs
+    // -------------------------------------------------------------
+    if (pathname === '/api/workflows' && req.method === 'GET') {
+      if (!requireAuth(req, res)) return;
+      return workflowController.listWorkflows(req, res);
+    }
+
+    if (pathname === '/api/workflows' && req.method === 'POST') {
+      if (!requireAuth(req, res)) return;
+      const body = await parseJsonBody(req).catch(() => ({}));
+      return workflowController.createWorkflow(req, res, body);
+    }
+
+    // Workflow /:id routes
+    const wfMatch = pathname.match(/^\/api\/workflows\/([^/]+)$/);
+    if (wfMatch) {
+      const workflowId = wfMatch[1];
+      if (!requireAuth(req, res)) return;
+
+      if (req.method === 'GET') {
+        return workflowController.getWorkflowById(req, res, workflowId);
+      }
+      if (req.method === 'PUT') {
+        const body = await parseJsonBody(req).catch(() => ({}));
+        return workflowController.updateWorkflow(req, res, workflowId, body);
+      }
+      if (req.method === 'DELETE') {
+        return workflowController.deleteWorkflow(req, res, workflowId);
+      }
+    }
+
+    // -------------------------------------------------------------
+    // Secrets Vault REST APIs
+    // -------------------------------------------------------------
+    if (pathname === '/api/secrets') {
+      if (!requireAuth(req, res)) return;
+      if (req.method === 'GET') {
+        return secretController.listSecrets(req, res);
+      }
+      if (req.method === 'POST') {
+        const body = await parseJsonBody(req).catch(() => ({}));
+        return secretController.createSecret(req, res, body);
+      }
+    }
+
+    const secretMatch = pathname.match(/^\/api\/secrets\/([^/]+)$/);
+    if (secretMatch && req.method === 'DELETE') {
+      const secretId = secretMatch[1];
+      if (!requireAuth(req, res)) return;
+      return secretController.deleteSecret(req, res, secretId);
+    }
+
+    // -------------------------------------------------------------
+    // Run Execution REST APIs
+    // -------------------------------------------------------------
+    const execMatch = pathname.match(/^\/api\/workflows\/([^/]+)\/execute$/);
+    if (execMatch && req.method === 'POST') {
+      const workflowId = execMatch[1];
+      if (!requireAuth(req, res)) return;
+      const body = await parseJsonBody(req).catch(() => ({}));
+      return runController.executeWorkflow(req, res, workflowId, body);
+    }
+
+    if (pathname === '/api/runs' && req.method === 'GET') {
+      if (!requireAuth(req, res)) return;
+      return runController.listRuns(req, res);
+    }
+
+    const runStatusMatch = pathname.match(/^\/api\/runs\/([^/]+)$/);
+    if (runStatusMatch && req.method === 'GET') {
+      const runId = runStatusMatch[1];
+      if (!requireAuth(req, res)) return;
+      return runController.getRunStatus(req, res, runId);
     }
 
     // -------------------------------------------------------------
