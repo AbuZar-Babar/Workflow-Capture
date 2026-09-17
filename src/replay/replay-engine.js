@@ -51,6 +51,46 @@ class ReplayEngine {
   }
 
   /**
+   * Connects to the browser via CDP and prepares active tab
+   */
+  async connect() {
+    const { browser, page } = await connectToBrowser({
+      browserURL: this.browserURL
+    });
+    this.browser = browser;
+    this.page = page;
+    return this.browser;
+  }
+
+  /**
+   * Execute a single recorded action on the active page
+   */
+  async executeAction(action, index = 0) {
+    if (!this.page) throw new Error('ReplayEngine is not connected to a page.');
+
+    if (action.type === 'NAVIGATE' && action.url) {
+      await this.page.goto(action.url, { waitUntil: 'domcontentloaded' });
+      await new Promise(r => setTimeout(r, 500));
+      return { success: true, type: 'NAVIGATE' };
+    }
+
+    const { elementHandle, candidate, confidenceScore } = await this.waitForTargetElement(
+      action.target || action.fingerprint,
+      index,
+      action.type
+    );
+
+    await dispatchAction(elementHandle, action);
+    await elementHandle.dispose().catch(() => {});
+
+    const scorePercent = Math.round(confidenceScore * 100);
+    logger.action(index + 1, action.type, candidate.value, `score=${scorePercent}%`);
+    await new Promise(r => setTimeout(r, DEFAULT_TIMEOUTS.POST_ACTION_DELAY_MS));
+
+    return { success: true, confidenceScore, candidate };
+  }
+
+  /**
    * Ensure selector resolver is loaded inside the page context
    */
   async _ensureSelectorResolverInPage() {

@@ -1,0 +1,166 @@
+/**
+ * Workflow Capture — Authentication Controller
+ * 
+ * Handles registration, login, profile queries, and token management.
+ */
+
+const { db } = require('../database/db');
+const { hashPassword, verifyPassword } = require('./password-util');
+const { signToken } = require('./token-service');
+
+function sendJson(res, statusCode, data) {
+  res.writeHead(statusCode, {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
+  });
+  res.end(JSON.stringify(data));
+}
+
+/**
+ * Register a new user
+ * POST /api/auth/register
+ * Body: { username, email, password }
+ */
+async function register(req, res, body) {
+  try {
+    const { username, email, password } = body || {};
+
+    if (!username || typeof username !== 'string' || username.trim().length < 3) {
+      return sendJson(res, 400, { error: 'Username must be at least 3 characters long' });
+    }
+
+    if (!email || typeof email !== 'string' || !email.includes('@')) {
+      return sendJson(res, 400, { error: 'A valid email address is required' });
+    }
+
+    if (!password || typeof password !== 'string' || password.length < 6) {
+      return sendJson(res, 400, { error: 'Password must be at least 6 characters long' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanUsername = username.trim();
+
+    // Check if email or username already exists
+    const existingUser = db.findOne('users', u => u.email === cleanEmail || u.username.toLowerCase() === cleanUsername.toLowerCase());
+    if (existingUser) {
+      return sendJson(res, 409, { error: 'An account with that email or username already exists' });
+    }
+
+    // Hash password with salt
+    const passwordHash = await hashPassword(password);
+
+    // Persist user record
+    const newUser = db.insert('users', {
+      username: cleanUsername,
+      email: cleanEmail,
+      passwordHash
+    });
+
+    // Generate JWT token
+    const token = signToken({
+      userId: newUser.id,
+      email: newUser.email,
+      username: newUser.username
+    });
+
+    return sendJson(res, 201, {
+      success: true,
+      message: 'User registered successfully',
+      user: {
+        id: newUser.id,
+        username: newUser.username,
+        email: newUser.email,
+        createdAt: newUser.createdAt
+      },
+      token
+    });
+  } catch (err) {
+    console.error('[Auth Error] Registration failure:', err);
+    return sendJson(res, 500, { error: 'Internal server error during registration' });
+  }
+}
+
+/**
+ * Log in an existing user
+ * POST /api/auth/login
+ * Body: { email, password }
+ */
+async function login(req, res, body) {
+  try {
+    const { email, username, password } = body || {};
+    const identifier = (email || username || '').trim().toLowerCase();
+
+    if (!identifier || !password) {
+      return sendJson(res, 400, { error: 'Email/Username and password are required' });
+    }
+
+    // Find user by email or username
+    const user = db.findOne('users', u => u.email === identifier || u.username.toLowerCase() === identifier);
+    if (!user) {
+      return sendJson(res, 401, { error: 'Invalid email/username or password' });
+    }
+
+    // Verify password hash
+    const isValid = await verifyPassword(password, user.passwordHash);
+    if (!isValid) {
+      return sendJson(res, 401, { error: 'Invalid email/username or password' });
+    }
+
+    // Generate JWT token
+    const token = signToken({
+      userId: user.id,
+      email: user.email,
+      username: user.username
+    });
+
+    return sendJson(res, 200, {
+      success: true,
+      message: 'Login successful',
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        createdAt: user.createdAt
+      },
+      token
+    });
+  } catch (err) {
+    console.error('[Auth Error] Login failure:', err);
+    return sendJson(res, 500, { error: 'Internal server error during login' });
+  }
+}
+
+/**
+ * Fetch authenticated user profile
+ * GET /api/auth/me
+ */
+async function getProfile(req, res) {
+  if (!req.user) {
+    return sendJson(res, 401, { error: 'Not authenticated' });
+  }
+  return sendJson(res, 200, {
+    success: true,
+    user: req.user
+  });
+}
+
+/**
+ * Invalidate / logout
+ * POST /api/auth/logout
+ */
+async function logout(req, res) {
+  return sendJson(res, 200, {
+    success: true,
+    message: 'Logged out successfully'
+  });
+}
+
+module.exports = {
+  register,
+  login,
+  getProfile,
+  logout,
+  sendJson
+};

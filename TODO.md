@@ -33,43 +33,51 @@ This document tracks upcoming milestones, features, and architectural enhancemen
 
 ---
 
-## 🔐 Phase 2: Credentials & Variable Parameterization
+## 🔐 Phase 2: Backend Architecture & Generic Authentication (`generic-login` Branch)
 
+- [ ] **Persistent Storage & Database Layer (`src/database/`)**
+  - [ ] User, workflow, run execution, and encrypted credential models.
+- [ ] **Authentication & Security (`src/auth/`)**
+  - [ ] Salted password hashing (`crypto.scrypt` / `bcrypt`).
+  - [ ] JWT token issuance, verification, and expiration.
+  - [ ] `authMiddleware` for route protection.
+  - [ ] Auth endpoints: `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`.
+- [ ] **Workflow Management & REST APIs (`src/api/`)**
+  - [ ] Workflow CRUD endpoints (`GET/POST/PUT/DELETE /api/workflows`).
+  - [ ] Execution dispatcher endpoints (`POST /api/workflows/:id/execute`).
+  - [ ] Real-time execution logs & SSE status streams (`GET /api/runs/:runId/logs`).
 - [ ] **Runtime Credential Vault / Secret Injection**
-  - [ ] Replace `[REDACTED]` passwords at replay time using environment variables (e.g. `WF_SECRET_<FIELD_NAME>`).
-  - [ ] Support secure prompt input in CLI if secrets are missing.
-- [ ] **Dynamic Data & Variable Interpolation**
-  - [ ] Parameterize text input actions with template variables (e.g. `{{customer_id}}`, `{{today_date}}`).
-  - [ ] Accept a JSON/CSV data dataset for batch workflow replays.
-- [ ] **Data Extraction Actions (`EXTRACT` / `ASSERT`)**
-  - [ ] Record assertion steps (e.g. verify element contains text, check order status).
-  - [ ] Extract table or text values from the page and export results to JSON / CSV.
+  - [ ] Replace `[REDACTED]` passwords at replay time using user-stored secrets or environment variables.
 
 ---
 
-## 🛠️ Phase 3: Developer Experience & Replay Controls
+## 🧠 Phase 3: Intelligent List Generalization & Loop Replay Engine
+
+- [x] **DOM Sibling & Repeating Pattern Detector (`src/shared/loop-detector.js`)**
+  - [x] Detect when an action occurs on an item within a repeated list/table (`<tr>`, `<li>`, recurring item containers).
+  - [x] Parameterize single target fingerprint into a collection query selector.
+- [x] **Batch Loop Replay Runner (`src/replay/loop-replay-runner.js`)**
+  - [x] Execute `Setup Steps` once (Login, Navigation).
+  - [x] Iterate through all resolved list items and apply target sub-workflow action.
+  - [x] State restoration: Return to list URL or dismiss detail modals automatically between items.
+  - [x] Per-item error isolation: Log failing items and continue without breaking the full run.
+- [x] **CDP File Download & Artifact Interceptor**
+  - [x] Intercept CDP download events and save files into `recordings/runs/:runId/downloads/`.
+  - [x] Generate run manifest JSON mapping downloaded files to list item metadata.
+  - [x] Automated E2E test suite (`npm run test:loop-e2e`) validating 100% item loop execution on live portals.
+
+---
+
+## 🛠️ Phase 4: Developer Experience & Replay Controls (Frontend `UI-for-dashboard` Collaboration)
 
 - [ ] **Interactive Visual Replay Debugger**
   - [ ] Step-by-step execution mode (`--step` flag) pausing before each action.
   - [ ] Highlight target element with a visible bounding box overlay during replay.
-  - [ ] Option to inspect failed element matches in real time.
 - [ ] **Live Recording Control Panel**
   - [ ] In-page floating toolbar with Pause, Resume, and Stop buttons.
-  - [ ] Option to add custom markers or manual assertion checkpoints during live recording.
 - [ ] **Workflow Editor Web UI**
-  - [ ] Lightweight local web dashboard to review, edit, reorder, or delete recorded actions.
   - [ ] Visual timeline view of recorded steps with screenshot previews.
-
----
-
-## 🧠 Phase 4: Self-Healing Selectors & Recovery
-
-- [ ] **Heuristic Auto-Repair & Re-indexing**
-  - [ ] Log telemetry when primary selectors fail and fallback fingerprints are used.
-  - [ ] Auto-update `recording.json` with repaired high-confidence selectors when approved.
-- [ ] **Visual Fallback Matching**
-  - [ ] Capture element bounding box screenshots during recording.
-  - [ ] Fallback to visual anchor matching if DOM hierarchy changes drastically.
+  - [ ] "Loop over list items" configuration toggle.
 
 ---
 
@@ -82,3 +90,4 @@ This document tracks upcoming milestones, features, and architectural enhancemen
   - [ ] Automatically capture error screenshots on failure and attach to report.
 - [ ] **GitHub Actions / CI Integration**
   - [ ] Setup workflow to run scheduled smoke tests across target portals.
+
