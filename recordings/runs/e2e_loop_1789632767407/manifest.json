@@ -1,0 +1,58 @@
+{
+  "runId": "e2e_loop_1789632767407",
+  "workflowId": "wf_invoice_download",
+  "startTime": "2026-09-17T08:12:49.158Z",
+  "status": "COMPLETED",
+  "itemsTotal": 4,
+  "itemsSucceeded": 4,
+  "itemsFailed": 0,
+  "results": [
+    {
+      "index": 1,
+      "status": "SUCCESS",
+      "timestamp": "2026-09-17T08:12:49.732Z",
+      "error": null
+    },
+    {
+      "index": 2,
+      "status": "SUCCESS",
+      "timestamp": "2026-09-17T08:12:51.243Z",
+      "error": null
+    },
+    {
+      "index": 3,
+      "status": "SUCCESS",
+      "timestamp": "2026-09-17T08:12:52.759Z",
+      "error": null
+    },
+    {
+      "index": 4,
+      "status": "SUCCESS",
+      "timestamp": "2026-09-17T08:12:54.261Z",
+      "error": null
+    }
+  ],
+  "downloadedFiles": [
+    {
+      "filename": "INV-2026-001.txt",
+      "path": "C:\\Users\\AbuZar\\Desktop\\Fyp\\Workflow-Capture\\recordings\\runs\\e2e_loop_1789632767407\\downloads\\INV-2026-001.txt",
+      "sizeBytes": 51
+    },
+    {
+      "filename": "INV-2026-002.txt",
+      "path": "C:\\Users\\AbuZar\\Desktop\\Fyp\\Workflow-Capture\\recordings\\runs\\e2e_loop_1789632767407\\downloads\\INV-2026-002.txt",
+      "sizeBytes": 52
+    },
+    {
+      "filename": "INV-2026-003.txt",
+      "path": "C:\\Users\\AbuZar\\Desktop\\Fyp\\Workflow-Capture\\recordings\\runs\\e2e_loop_1789632767407\\downloads\\INV-2026-003.txt",
+      "sizeBytes": 53
+    },
+    {
+      "filename": "INV-2026-004.txt",
+      "path": "C:\\Users\\AbuZar\\Desktop\\Fyp\\Workflow-Capture\\recordings\\runs\\e2e_loop_1789632767407\\downloads\\INV-2026-004.txt",
+      "sizeBytes": 57
+    }
+  ],
+  "endTime": "2026-09-17T08:12:55.774Z"
+}

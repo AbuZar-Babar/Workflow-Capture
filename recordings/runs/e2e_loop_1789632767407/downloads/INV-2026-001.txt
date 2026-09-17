@@ -1,0 +1,2 @@
+Invoice INV-2026-001 for Acme Corp
+Amount: $1250.00

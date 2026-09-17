@@ -1,0 +1,2 @@
+Invoice INV-2026-003 for Soylent Corp
+Amount: $890.00
