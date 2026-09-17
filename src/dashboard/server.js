@@ -17,6 +17,7 @@ const logger = require('../utils/logger');
 const authController = require('../auth/auth-controller');
 const workflowController = require('../api/workflow-controller');
 const runController = require('../api/run-controller');
+const secretController = require('../api/secret-controller');
 const { requireAuth } = require('../auth/auth-middleware');
 
 const PORT = process.env.PORT || 3000;
@@ -263,6 +264,27 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'DELETE') {
         return workflowController.deleteWorkflow(req, res, workflowId);
       }
+    }
+
+    // -------------------------------------------------------------
+    // Secrets Vault REST APIs
+    // -------------------------------------------------------------
+    if (pathname === '/api/secrets') {
+      if (!requireAuth(req, res)) return;
+      if (req.method === 'GET') {
+        return secretController.listSecrets(req, res);
+      }
+      if (req.method === 'POST') {
+        const body = await parseJsonBody(req).catch(() => ({}));
+        return secretController.createSecret(req, res, body);
+      }
+    }
+
+    const secretMatch = pathname.match(/^\/api\/secrets\/([^/]+)$/);
+    if (secretMatch && req.method === 'DELETE') {
+      const secretId = secretMatch[1];
+      if (!requireAuth(req, res)) return;
+      return secretController.deleteSecret(req, res, secretId);
     }
 
     // -------------------------------------------------------------

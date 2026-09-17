@@ -23,6 +23,7 @@ class ReplayEngine {
     this.speed = options.speed || 1.0; // Speed multiplier (1.0 = real-time, 2.0 = 2x, etc.)
     this.timeoutMs = options.timeoutMs || DEFAULT_TIMEOUTS.RESOLUTION_TIMEOUT_MS;
     this.pollIntervalMs = options.pollIntervalMs || DEFAULT_TIMEOUTS.POLL_INTERVAL_MS;
+    this.secretResolver = options.secretResolver || null; // async function(secretId) => plaintext
     this.browser = null;
     this.page = null;
   }
@@ -80,7 +81,17 @@ class ReplayEngine {
       action.type
     );
 
-    await dispatchAction(elementHandle, action);
+    // Deep clone the action so we don't mutate the original recording
+    const actionToDispatch = { ...action };
+    if (actionToDispatch.type === 'TYPE' && typeof actionToDispatch.value === 'string') {
+      const match = actionToDispatch.value.match(/^{{secret:([^}]+)}}$/);
+      if (match && this.secretResolver) {
+        logger.info(`Injecting secret [${match[1]}] for action #${index + 1}...`);
+        actionToDispatch.value = await this.secretResolver(match[1]);
+      }
+    }
+
+    await dispatchAction(elementHandle, actionToDispatch);
     await elementHandle.dispose().catch(() => {});
 
     const scorePercent = Math.round(confidenceScore * 100);
@@ -278,8 +289,18 @@ class ReplayEngine {
           action.type
         );
 
+        // Deep clone the action to safely inject secrets
+        const actionToDispatch = { ...action };
+        if (actionToDispatch.type === 'TYPE' && typeof actionToDispatch.value === 'string') {
+          const match = actionToDispatch.value.match(/^{{secret:([^}]+)}}$/);
+          if (match && this.secretResolver) {
+            logger.info(`Injecting secret [${match[1]}] for action #${actionToDispatch.index + 1}...`);
+            actionToDispatch.value = await this.secretResolver(match[1]);
+          }
+        }
+
         // 2. Perform action via Puppeteer
-        await dispatchAction(elementHandle, action);
+        await dispatchAction(elementHandle, actionToDispatch);
 
         // Clean up handle
         await elementHandle.dispose().catch(() => {});

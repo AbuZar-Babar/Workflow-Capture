@@ -11,6 +11,8 @@ const path = require('path');
 const ReplayEngine = require('./replay-engine');
 const LoopDetector = require('../shared/loop-detector');
 const logger = require('../utils/logger');
+const { db } = require('../database/db');
+const { decryptSecret } = require('../auth/secret-util');
 
 class LoopReplayRunner {
   constructor(options = {}) {
@@ -73,6 +75,20 @@ class LoopReplayRunner {
       const browser = await this.replayEngine.connect();
       const pages = await browser.pages();
       const page = pages.length > 0 ? pages[0] : await browser.newPage();
+
+      // Set up the secret resolver using the workflow's userId
+      this.replayEngine.secretResolver = async (secretId) => {
+        const secret = db.findOne('secrets', s => s.id === secretId && s.userId === workflow.userId);
+        if (secret && secret.encryptedData) {
+          try {
+            return decryptSecret(secret.encryptedData);
+          } catch (e) {
+            logger.warn(`Failed to decrypt secret [${secretId}]: ${e.message}`);
+          }
+        }
+        logger.warn(`Secret [${secretId}] not found or could not be decrypted. Falling back to placeholder.`);
+        return `{{secret:${secretId}}}`;
+      };
 
       // Setup CDP download interception
       await this.configureDownloadInterception(page);
