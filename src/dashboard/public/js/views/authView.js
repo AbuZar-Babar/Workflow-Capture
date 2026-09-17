@@ -49,7 +49,13 @@ export const AuthView = {
     };
 
     this.bindEvents();
-    this.checkAuth();
+    
+    // Automatically skip login during development
+    if (!Auth.isLoggedIn()) {
+      window.quickEnterDashboard();
+    } else {
+      this.checkAuth();
+    }
   },
   
   bindEvents() {

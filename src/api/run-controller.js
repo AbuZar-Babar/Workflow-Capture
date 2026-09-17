@@ -24,6 +24,11 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
     return sendJson(res, 404, { error: 'Workflow not found or unauthorized' });
   }
 
+  // Normalize steps for runner
+  if (!workflow.steps && workflow.recordingData && workflow.recordingData.actions) {
+    workflow.steps = workflow.recordingData.actions;
+  }
+
   const runId = `run_${Date.now()}`;
   const runRecord = db.insert('runs', {
     id: runId,

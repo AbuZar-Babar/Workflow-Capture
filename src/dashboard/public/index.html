@@ -21,225 +21,258 @@
   <script src="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow/dist/drawflow.min.js"></script>
   
   <style>
-    /* Drawflow Quixotic Theme Overrides */
-    :root {
-      --dfBackgroundColor: var(--bg-body);
-      --dfBackgroundSize: 20px;
-      --dfBackgroundImage: linear-gradient(to right, var(--border-light) 1px, transparent 1px), linear-gradient(to bottom, var(--border-light) 1px, transparent 1px);
-      --dfNodeType: flex;
-      --dfNodeTypeColumn: column;
-      --dfNodeBackgroundColor: var(--bg-surface);
-      --dfNodeTextColor: var(--text-main);
-      --dfNodeBorderSize: 1px;
-      --dfNodeBorderColor: var(--border-light);
-      --dfNodeBorderRadius: var(--radius-md);
-      --dfNodeMinHeight: 40px;
-      --dfNodeMinWidth: 260px;
-      --dfNodePaddingTop: 15px;
-      --dfNodePaddingBottom: 15px;
-      --dfNodeBoxShadowHL: 0 4px 12px rgba(0, 0, 0, 0.05);
-      --dfNodeHoverBackgroundColor: var(--bg-surface);
-      --dfNodeHoverTextColor: var(--text-main);
-      --dfNodeHoverBorderSize: 1px;
-      --dfNodeHoverBorderColor: var(--brand-accent);
-      --dfNodeHoverBorderRadius: var(--radius-md);
-      --dfNodeHoverBoxShadowHL: 0 4px 12px rgba(0, 0, 0, 0.1);
-      --dfNodeSelectedBackgroundColor: var(--bg-surface);
-      --dfNodeSelectedTextColor: var(--text-main);
-      --dfNodeSelectedBorderSize: 2px;
-      --dfNodeSelectedBorderColor: var(--brand-accent);
-      --dfNodeSelectedBorderRadius: var(--radius-md);
-      --dfNodeSelectedBoxShadowHL: 0 4px 12px rgba(0, 0, 0, 0.15);
-      --dfInputBackgroundColor: var(--bg-body);
-      --dfInputBorderSize: 1px;
-      --dfInputBorderColor: var(--border-light);
-      --dfInputBorderRadius: 50%;
-      --dfInputLeft: -10px;
-      --dfInputHeight: 16px;
-      --dfInputWidth: 16px;
-      --dfInputHoverBackgroundColor: var(--bg-body);
-      --dfInputHoverBorderSize: 1px;
-      --dfInputHoverBorderColor: var(--brand-accent);
-      --dfInputHoverBorderRadius: 50%;
-      --dfOutputBackgroundColor: var(--bg-body);
-      --dfOutputBorderSize: 1px;
-      --dfOutputBorderColor: var(--border-light);
-      --dfOutputBorderRadius: 50%;
-      --dfOutputRight: -10px;
-      --dfOutputHeight: 16px;
-      --dfOutputWidth: 16px;
-      --dfOutputHoverBackgroundColor: var(--bg-body);
-      --dfOutputHoverBorderSize: 1px;
-      --dfOutputHoverBorderColor: var(--brand-accent);
-      --dfOutputHoverBorderRadius: 50%;
-      --dfLineWidth: 3px;
-      --dfLineColor: var(--brand-primary);
-      --dfLineHoverColor: var(--brand-accent);
-      --dfLineSelectedColor: var(--brand-accent);
-      --dfRerouteBorderWidth: 1px;
-      --dfRerouteBorderColor: var(--border-light);
-      --dfRerouteBackgroundColor: var(--bg-body);
-      --dfRerouteHoverBorderWidth: 1px;
-      --dfRerouteHoverBorderColor: var(--brand-accent);
-      --dfRerouteHoverBackgroundColor: var(--bg-body);
-      --dfDeleteDisplay: block;
-      --dfDeleteColor: white;
-      --dfDeleteBackgroundColor: var(--brand-danger);
-      --dfDeleteBorderSize: 0px;
-      --dfDeleteBorderColor: transparent;
-      --dfDeleteBorderRadius: 50%;
-      --dfDeleteTop: -10px;
-      --dfDeleteRight: -10px;
-    }
-    
+    /* ===================================================================
+       Drawflow Quixotic Premium Theme (n8n / Modern Visual Editor Style)
+       =================================================================== */
+
     .drawflow {
-      background: var(--dfBackgroundColor);
-      background-size: var(--dfBackgroundSize) var(--dfBackgroundSize);
-      background-image: var(--dfBackgroundImage);
+      background-color: #f8fafc !important;
+      background-size: 24px 24px !important;
+      background-image: radial-gradient(circle, rgba(12, 92, 63, 0.12) 1.2px, transparent 1.2px) !important;
       height: 100%;
       width: 100%;
     }
-    
-    .drawflow-node {
-      display: var(--dfNodeType);
-      flex-direction: var(--dfNodeTypeColumn);
-      background: var(--dfNodeBackgroundColor);
-      color: var(--dfNodeTextColor);
-      border: var(--dfNodeBorderSize) solid var(--dfNodeBorderColor);
-      border-radius: var(--dfNodeBorderRadius);
-      min-height: var(--dfNodeMinHeight);
-      width: auto;
-      min-width: var(--dfNodeMinWidth);
-      padding-top: var(--dfNodePaddingTop);
-      padding-bottom: var(--dfNodePaddingBottom);
-      box-shadow: var(--dfNodeBoxShadowHL);
-    }
-    
-    .drawflow-node:hover {
-      background: var(--dfNodeHoverBackgroundColor);
-      color: var(--dfNodeHoverTextColor);
-      border: var(--dfNodeHoverBorderSize) solid var(--dfNodeHoverBorderColor);
-      border-radius: var(--dfNodeHoverBorderRadius);
-      box-shadow: var(--dfNodeHoverBoxShadowHL);
-    }
-    
-    .drawflow-node.selected {
-      background: var(--dfNodeSelectedBackgroundColor);
-      color: var(--dfNodeSelectedTextColor);
-      border: var(--dfNodeSelectedBorderSize) solid var(--dfNodeSelectedBorderColor);
-      border-radius: var(--dfNodeSelectedBorderRadius);
-      box-shadow: var(--dfNodeSelectedBoxShadowHL);
+
+    /* Base Node Card Styling */
+    .drawflow .drawflow-node {
+      display: flex !important;
+      flex-direction: column !important;
+      background: #ffffff !important;
+      color: var(--text-main) !important;
+      border: 1px solid rgba(0, 0, 0, 0.09) !important;
+      border-radius: 14px !important;
+      min-width: 280px !important;
+      max-width: 320px !important;
+      width: auto !important;
+      min-height: auto !important;
+      padding: 0 !important;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.06), 0 4px 10px -2px rgba(0, 0, 0, 0.03) !important;
+      transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.15s ease !important;
+      overflow: visible !important;
+      font-family: var(--font-sans) !important;
     }
 
-    .drawflow-node .inputs .input {
-      background: var(--dfInputBackgroundColor);
-      border: var(--dfInputBorderSize) solid var(--dfInputBorderColor);
-      border-radius: var(--dfInputBorderRadius);
-      left: var(--dfInputLeft);
-      height: var(--dfInputHeight);
-      width: var(--dfInputWidth);
-    }
-    
-    .drawflow-node .inputs .input:hover {
-      background: var(--dfInputHoverBackgroundColor);
-      border: var(--dfInputHoverBorderSize) solid var(--dfInputHoverBorderColor);
-      border-radius: var(--dfInputHoverBorderRadius);
+    .drawflow .drawflow-node:hover {
+      border-color: var(--brand-emerald) !important;
+      box-shadow: 0 16px 32px -8px rgba(12, 92, 63, 0.15), 0 6px 14px -3px rgba(0, 0, 0, 0.04) !important;
     }
 
-    .drawflow-node .outputs .output {
-      background: var(--dfOutputBackgroundColor);
-      border: var(--dfOutputBorderSize) solid var(--dfOutputBorderColor);
-      border-radius: var(--dfOutputBorderRadius);
-      right: var(--dfOutputRight);
-      height: var(--dfOutputHeight);
-      width: var(--dfOutputWidth);
-    }
-    
-    .drawflow-node .outputs .output:hover {
-      background: var(--dfOutputHoverBackgroundColor);
-      border: var(--dfOutputHoverBorderSize) solid var(--dfOutputHoverBorderColor);
-      border-radius: var(--dfOutputHoverBorderRadius);
+    .drawflow .drawflow-node.selected {
+      border: 2px solid var(--brand-forest) !important;
+      box-shadow: 0 0 0 4px rgba(12, 92, 63, 0.12), 0 16px 32px -8px rgba(0, 0, 0, 0.1) !important;
     }
 
+    /* Inner content wrapper */
+    .drawflow .drawflow-node .drawflow_content_node {
+      width: 100% !important;
+      display: block !important;
+    }
+
+    /* Node Header */
+    .df-node-header {
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+      padding: 10px 14px !important;
+      background: #f8faf9 !important;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+      border-top-left-radius: 13px !important;
+      border-top-right-radius: 13px !important;
+    }
+
+    .df-action-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 800;
+      font-size: 0.78rem;
+      letter-spacing: 0.03em;
+      padding: 4px 9px;
+      border-radius: 7px;
+    }
+
+    .df-action-badge.click {
+      background: #e6f4ea;
+      color: #137333;
+    }
+
+    .df-action-badge.type {
+      background: #e8f0fe;
+      color: #1a73e8;
+    }
+
+    .df-action-badge.navigate {
+      background: #fef7e0;
+      color: #b06000;
+    }
+
+    .df-step-number {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--text-sub);
+      background: rgba(0, 0, 0, 0.04);
+      padding: 3px 8px;
+      border-radius: 999px;
+    }
+
+    /* Node Body */
+    .df-node-body {
+      padding: 14px !important;
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 11px !important;
+      background: #ffffff !important;
+      border-bottom-left-radius: 13px !important;
+      border-bottom-right-radius: 13px !important;
+    }
+
+    .df-input-group {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 5px !important;
+    }
+
+    .df-input-group label {
+      font-size: 0.7rem !important;
+      font-weight: 700 !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.04em !important;
+      color: var(--text-sub) !important;
+    }
+
+    .df-input-group input {
+      padding: 8px 11px !important;
+      border: 1px solid rgba(0, 0, 0, 0.12) !important;
+      border-radius: 8px !important;
+      font-family: var(--font-mono) !important;
+      font-size: 0.78rem !important;
+      background: #fafafa !important;
+      color: var(--text-main) !important;
+      transition: all 0.2s ease !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+
+    .df-input-group input:focus {
+      border-color: var(--brand-forest) !important;
+      box-shadow: 0 0 0 3px rgba(12, 92, 63, 0.12) !important;
+      outline: none !important;
+      background: #ffffff !important;
+    }
+
+    /* Input & Output Ports (Connectors) */
+    .drawflow .drawflow-node .inputs,
+    .drawflow .drawflow-node .outputs {
+      position: absolute !important;
+      top: 50% !important;
+      transform: translateY(-50%) !important;
+      height: 0 !important;
+      width: 0 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      z-index: 10 !important;
+    }
+
+    .drawflow .drawflow-node .inputs {
+      left: 0 !important;
+    }
+
+    .drawflow .drawflow-node .outputs {
+      right: 0 !important;
+    }
+
+    .drawflow .drawflow-node .input,
+    .drawflow .drawflow-node .output {
+      width: 16px !important;
+      height: 16px !important;
+      background: #ffffff !important;
+      border: 2.5px solid var(--brand-forest) !important;
+      border-radius: 50% !important;
+      cursor: crosshair !important;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12) !important;
+      transition: all 0.2s ease !important;
+    }
+
+    .drawflow .drawflow-node .input {
+      left: -9px !important;
+      position: absolute !important;
+    }
+
+    .drawflow .drawflow-node .output {
+      right: -9px !important;
+      position: absolute !important;
+    }
+
+    .drawflow .drawflow-node .input:hover,
+    .drawflow .drawflow-node .output:hover {
+      background: var(--brand-forest) !important;
+      transform: scale(1.3) !important;
+      border-color: #ffffff !important;
+    }
+
+    /* Connection Lines (Cables) */
     .drawflow .connection .main-path {
-      stroke-width: var(--dfLineWidth);
-      stroke: var(--dfLineColor);
+      stroke-width: 3.5px !important;
+      stroke: var(--brand-forest) !important;
+      stroke-linecap: round !important;
+      filter: drop-shadow(0 2px 4px rgba(12, 92, 63, 0.15)) !important;
     }
 
     .drawflow .connection .main-path:hover {
-      stroke: var(--dfLineHoverColor);
+      stroke: var(--brand-accent) !important;
+      stroke-width: 4.5px !important;
     }
 
     .drawflow .connection .main-path.selected {
-      stroke: var(--dfLineSelectedColor);
+      stroke: var(--brand-accent) !important;
+      stroke-width: 4.5px !important;
     }
-    
+
+    /* Delete Connection Button */
     .drawflow .drawflow-delete {
-      display: var(--dfDeleteDisplay);
-      color: var(--dfDeleteColor);
-      background: var(--dfDeleteBackgroundColor);
-      border: var(--dfDeleteBorderSize) solid var(--dfDeleteBorderColor);
-      border-radius: var(--dfDeleteBorderRadius);
-      top: var(--dfDeleteTop);
-      right: var(--dfDeleteRight);
-      font-size: 14px;
-      line-height: 20px;
-      width: 22px;
-      height: 22px;
-      text-align: center;
-      cursor: pointer;
+      background: #ef4444 !important;
+      color: #ffffff !important;
+      border: 2px solid #ffffff !important;
+      box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3) !important;
+      border-radius: 50% !important;
+      width: 24px !important;
+      height: 24px !important;
+      line-height: 20px !important;
+      font-size: 13px !important;
+      font-weight: bold !important;
+      cursor: pointer !important;
+      transition: transform 0.2s ease !important;
+      text-align: center !important;
+      display: block !important;
     }
-    
-    /* Custom inner styles for our nodes */
-    .df-node-header {
-      font-weight: 700;
-      font-size: 0.95rem;
-      border-bottom: 1px solid var(--border-light);
-      padding-bottom: 8px;
-      margin-bottom: 12px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+
+    .drawflow .drawflow-delete:hover {
+      transform: scale(1.15) !important;
     }
-    .df-node-body {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      font-size: 0.85rem;
-    }
-    .df-input-group {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .df-input-group label {
-      font-weight: 600;
-      color: var(--text-sub);
-      font-size: 0.75rem;
-    }
-    .df-input-group input, .df-input-group select {
-      padding: 6px 8px;
-      border: 1px solid var(--border-light);
-      border-radius: var(--radius-sm);
-      font-family: inherit;
-      font-size: 0.85rem;
-    }
-    
+
     /* View layout */
     .workflow-editor-layout {
       display: flex;
       flex-direction: column;
-      height: 100vh; /* Takes full height of container */
+      height: calc(100vh - 4.5rem);
+      min-height: 620px;
       position: relative;
+      background: var(--bg-surface);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-light);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
     }
     
     .workflow-editor-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 1rem 1.5rem;
-      background: var(--bg-surface);
-      border-bottom: 1px solid var(--border-light);
+      padding: 0.9rem 1.5rem;
+      background: #ffffff;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.07);
       z-index: 10;
     }
     
@@ -354,7 +387,7 @@
   <div class="toast-container" id="toastContainer"></div>
 
   <!-- BEGIN: Auth Overlay (hidden if authenticated) -->
-  <div class="modal-overlay" id="authOverlay" style="background:#ffffff; z-index: 10000; align-items: center;">
+  <div class="modal-overlay hidden" id="authOverlay" style="display:none !important; background:#ffffff; z-index: 10000; align-items: center;">
     <div style="background: white; padding: 2.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-light); box-shadow: 0 10px 30px rgba(0,0,0,0.05); width: 100%; max-width: 400px;">
       <div style="text-align:center; margin-bottom: 2rem;">
         <span style="font-size:2.5rem; display:block; margin-bottom:1rem;">⚡</span>
@@ -390,6 +423,6 @@
   <!-- END: Auth Overlay -->
 
   <!-- Main ES Module Initializer -->
-  <script type="module" src="/js/main.js"></script>
+  <script type="module" src="/js/main.js?v=4"></script>
 </body>
 </html>

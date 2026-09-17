@@ -239,3 +239,5 @@ export const Api = {
     return res.json();
   }
 };
+
+export const API = Api;

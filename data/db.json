@@ -41641,6 +41641,22 @@
       ]
     }
   ],
-  "runs": [],
+  "runs": [
+    {
+      "id": "run_1789640123559",
+      "createdAt": "2026-09-17T10:15:23.561Z",
+      "updatedAt": "2026-09-17T10:15:24.149Z",
+      "workflowId": "smoke-test-1789467185864",
+      "userId": "use_e8b444a9-1769-4667-9f83-ba05c6f3c371",
+      "status": "COMPLETED",
+      "mode": "STANDARD",
+      "startedAt": "2026-09-17T10:15:23.560Z",
+      "itemsTotal": 0,
+      "itemsSucceeded": 0,
+      "itemsFailed": 0,
+      "downloadedFiles": [],
+      "completedAt": "2026-09-17T10:15:24.148Z"
+    }
+  ],
   "secrets": []
 }

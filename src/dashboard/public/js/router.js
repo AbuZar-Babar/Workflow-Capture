@@ -2,13 +2,13 @@
  * Workflow Capture — Client-Side Hash Router
  */
 
-import { OverviewView } from './views/overviewView.js';
-import { WorkflowsView } from './views/workflowsView.js';
-import { ConsoleView } from './views/consoleView.js';
-import { PortalsView } from './views/portalsView.js';
-import { TestsView } from './views/testsView.js';
-import { SecretsView } from './views/secretsView.js';
-import { WorkflowEditorView } from './views/workflowEditorView.js';
+import { OverviewView } from './views/overviewView.js?v=4';
+import { WorkflowsView } from './views/workflowsView.js?v=4';
+import { ConsoleView } from './views/consoleView.js?v=4';
+import { PortalsView } from './views/portalsView.js?v=4';
+import { TestsView } from './views/testsView.js?v=4';
+import { SecretsView } from './views/secretsView.js?v=4';
+import { WorkflowEditorView } from './views/workflowEditorView.js?v=4';
 import { Auth } from './auth.js';
 import { Sidebar } from './components/sidebar.js';
 

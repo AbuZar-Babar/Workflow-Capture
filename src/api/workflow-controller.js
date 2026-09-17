@@ -42,9 +42,13 @@ function getWorkflowById(req, res, workflowId) {
     return sendJson(res, 404, { error: 'Workflow not found or unauthorized' });
   }
 
+  const steps = workflow.steps || (workflow.recordingData && workflow.recordingData.actions) || [];
   return sendJson(res, 200, {
     success: true,
-    workflow
+    workflow: {
+      ...workflow,
+      steps
+    }
   });
 }
 
@@ -98,7 +102,16 @@ function updateWorkflow(req, res, workflowId, body) {
   if (body.name) updates.name = body.name.trim();
   if (body.description !== undefined) updates.description = body.description;
   if (body.targetUrl) updates.targetUrl = body.targetUrl;
-  if (Array.isArray(body.steps)) updates.steps = body.steps;
+  if (Array.isArray(body.steps)) {
+    updates.steps = body.steps;
+    updates.stepCount = body.steps.length;
+    if (existing.recordingData) {
+      updates.recordingData = {
+        ...existing.recordingData,
+        actions: body.steps
+      };
+    }
+  }
   if (body.meta) updates.meta = { ...existing.meta, ...body.meta };
 
   const updated = db.update('workflows', workflowId, updates);

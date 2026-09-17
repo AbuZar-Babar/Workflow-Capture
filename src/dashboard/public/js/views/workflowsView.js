@@ -5,6 +5,7 @@
 import { Api } from '../api.js';
 import { Toast } from '../components/toast.js';
 import { Modal } from '../components/modal.js';
+import { Router } from '../router.js';
 
 function escapeHtml(str) {
   if (!str) return '';
@@ -181,7 +182,7 @@ export const WorkflowsView = {
         try {
           await Api.executeWorkflow(btn.dataset.id);
           Toast.success(`Workflow execution dispatched!`);
-          setTimeout(() => router.navigate('console'), 1000);
+          setTimeout(() => Router.navigate('console'), 1000);
         } catch (err) {
           Toast.error(err.message);
         }
@@ -190,7 +191,7 @@ export const WorkflowsView = {
 
     tbody.querySelectorAll('.btn-edit-flow').forEach(btn => {
       btn.onclick = () => {
-        router.navigate(`workflow-editor/${btn.dataset.id}`);
+        Router.navigate(`workflow-editor/${btn.dataset.id}`);
       };
     });
 
