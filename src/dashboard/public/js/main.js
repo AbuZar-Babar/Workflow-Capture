@@ -8,11 +8,13 @@ import { Header } from './components/header.js';
 import { Sidebar } from './components/sidebar.js';
 import { Modal } from './components/modal.js';
 import { Toast } from './components/toast.js';
+import { AuthView } from './views/authView.js';
 
 function bootstrap() {
   // 1. Initialize Global Notifications & Modals
   Toast.init();
   Modal.init();
+  AuthView.init();
 
   // 2. Initialize Real-Time SSE Bus
   SSE.init();

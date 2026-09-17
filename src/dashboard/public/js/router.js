@@ -7,6 +7,9 @@ import { WorkflowsView } from './views/workflowsView.js';
 import { ConsoleView } from './views/consoleView.js';
 import { PortalsView } from './views/portalsView.js';
 import { TestsView } from './views/testsView.js';
+import { SecretsView } from './views/secretsView.js';
+import { WorkflowEditorView } from './views/workflowEditorView.js';
+import { Auth } from './auth.js';
 import { Sidebar } from './components/sidebar.js';
 
 export const Router = {
@@ -19,7 +22,9 @@ export const Router = {
     workflows: WorkflowsView,
     console: ConsoleView,
     portals: PortalsView,
-    tests: TestsView
+    tests: TestsView,
+    secrets: SecretsView,
+    'workflow-editor': WorkflowEditorView
   },
 
   init(containerId = 'appViewContainer') {
@@ -53,7 +58,13 @@ export const Router = {
     }
   },
 
-  async renderRoute(route) {
+  async renderRoute(routeParam) {
+
+    // Split route to handle arguments (e.g., workflow-editor/123)
+    const routeParts = routeParam.split('/');
+    let route = routeParts[0];
+    const routeArg = routeParts[1];
+
     // Normalize aliases
     if (route === 'dashboard') route = 'overview';
     if (!this.views[route]) route = 'overview';
@@ -75,7 +86,7 @@ export const Router = {
     // Render View
     if (this.container && this.views[route]) {
       this.container.innerHTML = '';
-      await this.views[route].render(this.container, this);
+      await this.views[route].render(this.container, this, routeArg);
     }
   }
 };

@@ -225,6 +225,10 @@ const server = http.createServer(async (req, res) => {
       return authController.login(req, res, body);
     }
 
+    if (pathname === '/api/auth/dummy-login' && req.method === 'POST') {
+      return authController.dummyLogin(req, res);
+    }
+
     if (pathname === '/api/auth/logout' && req.method === 'POST') {
       return authController.logout(req, res);
     }

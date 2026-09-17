@@ -133,6 +133,50 @@ async function login(req, res, body) {
 }
 
 /**
+ * Quick Bypass / Dummy Login for Development & Testing
+ * POST /api/auth/dummy-login
+ */
+async function dummyLogin(req, res) {
+  try {
+    let user = db.findOne('users', u => u.email === 'abuzarbabar53@gmail.com');
+    if (!user) {
+      const allUsers = db.findAll('users');
+      user = allUsers && allUsers.length > 0 ? allUsers[0] : null;
+    }
+
+    if (!user) {
+      user = db.insert('users', {
+        username: 'Abuzar Babar',
+        email: 'abuzarbabar53@gmail.com',
+        passwordHash: 'dummy'
+      });
+    }
+
+    const token = signToken({
+      userId: user.id,
+      email: user.email,
+      username: user.username
+    });
+
+    return sendJson(res, 200, {
+      success: true,
+      message: 'Dummy login successful',
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        createdAt: user.createdAt
+      },
+      token
+    });
+  } catch (err) {
+    console.error('[Auth Error] Dummy login failure:', err);
+    return sendJson(res, 500, { error: 'Internal server error during dummy login' });
+  }
+}
+
+
+/**
  * Fetch authenticated user profile
  * GET /api/auth/me
  */
@@ -160,6 +204,7 @@ async function logout(req, res) {
 module.exports = {
   register,
   login,
+  dummyLogin,
   getProfile,
   logout,
   sendJson

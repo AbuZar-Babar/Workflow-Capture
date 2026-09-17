@@ -88,8 +88,8 @@ export const WorkflowsView = {
 
   async loadWorkflows() {
     try {
-      const data = await Api.getRecordings();
-      this.recordings = data.recordings || [];
+      const data = await Api.getWorkflows();
+      this.recordings = data.workflows || [];
       const badge = document.getElementById('wfCountBadge');
       if (badge) badge.textContent = this.recordings.length;
       this.renderTable();
@@ -106,8 +106,8 @@ export const WorkflowsView = {
     if (this.searchFilter) {
       filtered = filtered.filter(wf => 
         (wf.name && wf.name.toLowerCase().includes(this.searchFilter)) ||
-        (wf.startUrl && wf.startUrl.toLowerCase().includes(this.searchFilter)) ||
-        (wf.filename && wf.filename.toLowerCase().includes(this.searchFilter))
+        (wf.targetUrl && wf.targetUrl.toLowerCase().includes(this.searchFilter)) ||
+        (wf.id && wf.id.toLowerCase().includes(this.searchFilter))
       );
     }
 
@@ -125,7 +125,7 @@ export const WorkflowsView = {
     tbody.innerHTML = '';
     filtered.forEach((wf, idx) => {
       const row = document.createElement('tr');
-      const createdDate = wf.startedAt ? new Date(wf.startedAt) : new Date();
+      const createdDate = wf.createdAt ? new Date(wf.createdAt) : new Date();
       const dateStr = createdDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
       const timeStr = createdDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 
@@ -136,17 +136,17 @@ export const WorkflowsView = {
             <div>
               <strong style="color:var(--text-main); font-weight:700;">${escapeHtml(wf.name)}</strong>
               <div style="font-size:0.68rem; color:var(--text-sub); font-family:var(--font-mono);">
-                ${escapeHtml(wf.filename)}
+                ${escapeHtml(wf.id)}
               </div>
             </div>
           </div>
         </td>
         <td>
-          <span class="badge-tag success">⚡ ${wf.actionCount} steps</span>
+          <span class="badge-tag success">⚡ ${wf.stepCount} steps</span>
         </td>
         <td>
-          <div style="font-size:0.75rem; color:var(--text-body); max-width:240px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(wf.startUrl)}">
-            🔗 ${escapeHtml(wf.startUrl || 'about:blank')}
+          <div style="font-size:0.75rem; color:var(--text-body); max-width:240px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(wf.targetUrl)}">
+            🔗 ${escapeHtml(wf.targetUrl || 'about:blank')}
           </div>
         </td>
         <td>
@@ -154,20 +154,17 @@ export const WorkflowsView = {
           <div style="font-size:0.68rem; color:var(--text-sub);">${timeStr}</div>
         </td>
         <td>
-          <span class="badge-tag success">● Verified</span>
+          <span class="badge-tag success">● Active</span>
         </td>
         <td style="text-align:right;">
           <div style="display:inline-flex; gap:0.35rem;">
-            <button class="btn btn-sm btn-primary btn-replay-flow" data-file="${wf.filename}" title="Replay Flow">
-              ▶ Replay
+            <button class="btn btn-sm btn-primary btn-replay-flow" data-id="${wf.id}" title="Execute Workflow">
+              ▶ Execute
             </button>
-            <button class="btn btn-sm btn-secondary btn-inspect-flow" data-file="${wf.filename}" title="Inspect Action Fingerprints">
-              🔍 Inspect
+            <button class="btn btn-sm btn-secondary btn-edit-flow" data-id="${wf.id}" title="Edit Flow">
+              ✎ Edit
             </button>
-            <a class="btn btn-sm btn-secondary" href="/recordings/${encodeURIComponent(wf.filename)}" download="${wf.filename}" title="Download JSON" target="_blank">
-              💾 JSON
-            </a>
-            <button class="btn btn-sm btn-ghost btn-delete-flow" data-file="${wf.filename}" title="Delete Flow">
+            <button class="btn btn-sm btn-ghost btn-delete-flow" data-id="${wf.id}" title="Delete Flow">
               🗑
             </button>
           </div>
@@ -180,29 +177,29 @@ export const WorkflowsView = {
     // Bind action buttons
     tbody.querySelectorAll('.btn-replay-flow').forEach(btn => {
       btn.onclick = async () => {
-        Toast.info(`Starting playback for ${btn.dataset.file}...`);
+        Toast.info(`Executing workflow...`);
         try {
-          await Api.startReplay({ filename: btn.dataset.file });
-          Toast.success(`Playback running!`);
+          await Api.executeWorkflow(btn.dataset.id);
+          Toast.success(`Workflow execution dispatched!`);
+          setTimeout(() => router.navigate('console'), 1000);
         } catch (err) {
           Toast.error(err.message);
         }
       };
     });
 
-    tbody.querySelectorAll('.btn-inspect-flow').forEach(btn => {
+    tbody.querySelectorAll('.btn-edit-flow').forEach(btn => {
       btn.onclick = () => {
-        const wf = this.recordings.find(w => w.filename === btn.dataset.file);
-        if (wf) Modal.inspect(wf);
+        router.navigate(`workflow-editor/${btn.dataset.id}`);
       };
     });
 
     tbody.querySelectorAll('.btn-delete-flow').forEach(btn => {
       btn.onclick = async () => {
-        if (!confirm(`Are you sure you want to delete "${btn.dataset.file}"?`)) return;
+        if (!confirm(`Are you sure you want to delete this workflow?`)) return;
         try {
-          await Api.deleteRecording(btn.dataset.file);
-          Toast.info(`Deleted ${btn.dataset.file}`);
+          await Api.deleteWorkflow(btn.dataset.id);
+          Toast.info(`Deleted workflow`);
           this.loadWorkflows();
         } catch (err) {
           Toast.error(err.message);
