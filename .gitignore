@@ -8,4 +8,6 @@ Thumbs.db
 .env.local
 scratch/
 tmp/
+data/
+recordings/runs/
 *.log

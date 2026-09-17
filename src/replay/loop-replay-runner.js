@@ -1,0 +1,215 @@
+/**
+ * Workflow Capture — Intelligent Loop & Batch Execution Runner
+ * 
+ * Executes generalized workflow loops over table rows, list items, or grids.
+ * Manages CDP file download interception, per-item state restoration, and
+ * error isolation.
+ */
+
+const fs = require('fs');
+const path = require('path');
+const ReplayEngine = require('./replay-engine');
+const LoopDetector = require('../shared/loop-detector');
+const logger = require('../utils/logger');
+const { db } = require('../database/db');
+const { decryptSecret } = require('../auth/secret-util');
+
+class LoopReplayRunner {
+  constructor(options = {}) {
+    this.cdpPort = options.cdpPort || 9222;
+    this.runId = options.runId || `run_${Date.now()}`;
+    this.runsDir = path.resolve(process.cwd(), 'recordings', 'runs', this.runId);
+    this.downloadsDir = path.join(this.runsDir, 'downloads');
+    this.replayEngine = new ReplayEngine({ cdpPort: this.cdpPort });
+  }
+
+  initDirectories() {
+    if (!fs.existsSync(this.downloadsDir)) {
+      fs.mkdirSync(this.downloadsDir, { recursive: true });
+    }
+  }
+
+  /**
+   * Configure CDP browser download behavior to capture files into this run's folder
+   */
+  async configureDownloadInterception(page) {
+    this.initDirectories();
+    try {
+      const client = await page.target().createCDPSession();
+      await client.send('Page.setDownloadBehavior', {
+        behavior: 'allow',
+        downloadPath: this.downloadsDir
+      });
+      logger.info(`[Loop Runner] Configured CDP download path: ${this.downloadsDir}`);
+      return client;
+    } catch (err) {
+      logger.warn(`[Loop Runner] Warning configuring CDP download behavior: ${err.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Execute a parameterized loop workflow
+   * @param {object} workflow - Stored workflow object with steps array
+   * @param {number} loopStepIndex - Index of the action to iterate over
+   * @param {function} onProgress - Progress callback for live updates
+   */
+  async executeLoop(workflow, loopStepIndex = 0, onProgress = () => {}) {
+    this.initDirectories();
+    const manifest = {
+      runId: this.runId,
+      workflowId: workflow.id,
+      startTime: new Date().toISOString(),
+      status: 'RUNNING',
+      itemsTotal: 0,
+      itemsSucceeded: 0,
+      itemsFailed: 0,
+      results: [],
+      downloadedFiles: []
+    };
+
+    logger.info(`[Loop Runner] Starting execution run ${this.runId} for workflow "${workflow.name}"`);
+    onProgress({ status: 'STARTING', manifest });
+
+    try {
+      const browser = await this.replayEngine.connect();
+      const pages = await browser.pages();
+      const page = pages.length > 0 ? pages[0] : await browser.newPage();
+
+      // Set up the secret resolver using the workflow's userId
+      this.replayEngine.secretResolver = async (secretId) => {
+        const secret = db.findOne('secrets', s => s.id === secretId && s.userId === workflow.userId);
+        if (secret && secret.encryptedData) {
+          try {
+            return decryptSecret(secret.encryptedData);
+          } catch (e) {
+            logger.warn(`Failed to decrypt secret [${secretId}]: ${e.message}`);
+          }
+        }
+        logger.warn(`Secret [${secretId}] not found or could not be decrypted. Falling back to placeholder.`);
+        return `{{secret:${secretId}}}`;
+      };
+
+      // Setup CDP download interception
+      await this.configureDownloadInterception(page);
+
+      // 1. Partition steps into Setup vs Loop Steps
+      const partition = LoopDetector.partitionWorkflow(workflow.steps, loopStepIndex);
+      const targetStep = workflow.steps[loopStepIndex];
+      const analysis = LoopDetector.analyzeStep(targetStep);
+
+      logger.info(`[Loop Runner] Detected pattern: ${analysis.patternType} (Container: ${analysis.containerSelector})`);
+
+      // 2. Execute Setup Steps Once (e.g. Login & Navigate)
+      if (partition.setupSteps.length > 0) {
+        logger.info(`[Loop Runner] Executing ${partition.setupSteps.length} setup step(s)...`);
+        for (let i = 0; i < partition.setupSteps.length; i++) {
+          await this.replayEngine.executeAction(partition.setupSteps[i], i);
+        }
+      }
+
+      // Record baseline list page URL for state restoration
+      const listPageUrl = page.url();
+
+      // 3. Resolve repeating elements on current page
+      const elementsCount = await page.evaluate((containerSel) => {
+        const elements = document.querySelectorAll(containerSel);
+        return elements.length;
+      }, analysis.containerSelector);
+
+      manifest.itemsTotal = elementsCount;
+      logger.info(`[Loop Runner] Found ${elementsCount} repeating items to process in collection`);
+      onProgress({ status: 'PROCESSING_ITEMS', manifest });
+
+      if (elementsCount === 0) {
+        logger.warn(`[Loop Runner] No repeating elements matched selector: ${analysis.containerSelector}`);
+      }
+
+      // 4. Iterate over each matching item in the collection
+      for (let i = 0; i < elementsCount; i++) {
+        logger.info(`\n[Loop Runner] --- Processing item [${i + 1}/${elementsCount}] ---`);
+        const itemResult = {
+          index: i + 1,
+          status: 'PENDING',
+          timestamp: new Date().toISOString(),
+          error: null
+        };
+
+        try {
+          // Perform action on item i
+          await page.evaluate((containerSel, relSel, idx) => {
+            const items = document.querySelectorAll(containerSel);
+            const targetItem = items[idx];
+            if (!targetItem) throw new Error(`Item at index ${idx} not found`);
+
+            let actionEl = targetItem;
+            if (relSel && relSel !== '*') {
+              const nested = targetItem.querySelector(relSel);
+              if (nested) actionEl = nested;
+            }
+
+            actionEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            actionEl.click();
+          }, analysis.containerSelector, analysis.relativeSelector, i);
+
+          // Allow time for action / download to trigger
+          await new Promise(r => setTimeout(r, 1500));
+
+          // State Restoration: If URL changed or modal opened, restore to listPageUrl
+          if (page.url() !== listPageUrl) {
+            logger.info(`[Loop Runner] Restoring state -> Navigating back to: ${listPageUrl}`);
+            await page.goto(listPageUrl, { waitUntil: 'domcontentloaded' });
+            await new Promise(r => setTimeout(r, 1000));
+          }
+
+          itemResult.status = 'SUCCESS';
+          manifest.itemsSucceeded++;
+        } catch (itemErr) {
+          logger.error(`[Loop Runner] Error on item #${i + 1}: ${itemErr.message}`);
+          itemResult.status = 'FAILED';
+          itemResult.error = itemErr.message;
+          manifest.itemsFailed++;
+
+          // Attempt recovery
+          try {
+            if (page.url() !== listPageUrl) {
+              await page.goto(listPageUrl, { waitUntil: 'domcontentloaded' });
+            }
+          } catch {
+            // Ignore recovery error
+          }
+        }
+
+        manifest.results.push(itemResult);
+        onProgress({ status: 'ITEM_COMPLETE', itemResult, manifest });
+      }
+
+      // 5. Gather all downloaded files into manifest
+      if (fs.existsSync(this.downloadsDir)) {
+        manifest.downloadedFiles = fs.readdirSync(this.downloadsDir).map(file => ({
+          filename: file,
+          path: path.join(this.downloadsDir, file),
+          sizeBytes: fs.statSync(path.join(this.downloadsDir, file)).size
+        }));
+      }
+
+      manifest.status = 'COMPLETED';
+      manifest.endTime = new Date().toISOString();
+      logger.success(`\n[Loop Runner] Run ${this.runId} completed! Succeeded: ${manifest.itemsSucceeded}, Failed: ${manifest.itemsFailed}`);
+
+    } catch (err) {
+      manifest.status = 'FAILED';
+      manifest.error = err.message;
+      manifest.endTime = new Date().toISOString();
+      logger.error(`[Loop Runner] Fatal run failure: ${err.message}`);
+    }
+
+    // Save manifest file
+    fs.writeFileSync(path.join(this.runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+    onProgress({ status: manifest.status, manifest });
+
+    return manifest;
+  }
+}
+
+module.exports = LoopReplayRunner;
