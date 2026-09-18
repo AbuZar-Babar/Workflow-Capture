@@ -35,7 +35,9 @@ export const OverviewView = {
 
             <!-- Launch Chrome & Debug Action -->
             <button class="btn" id="btnOverviewLaunchChrome" style="width:100%; display:flex; align-items:center; justify-content:center; gap:0.5rem; padding:0.6rem 0.85rem; font-weight:800; border-radius:var(--radius-md); background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.25); color:#ffffff; backdrop-filter:blur(4px); transition:all 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.55)'" onmouseout="this.style.background='rgba(0,0,0,0.35)'">
-              <span style="font-size:1.05rem;">🚀</span>
+              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-1.8a4 4 0 002.5-3.66m-7.07-5.05a6 6 0 017.38-5.84h1.8a4 4 0 00-3.66 2.5m1.34-3.14l4.24-4.24a1 1 0 011.42 0l1.41 1.41a1 1 0 010 1.42l-4.24 4.24m-2.83 2.83l-2.12 2.12a1 1 0 01-1.42 0l-1.41-1.41a1 1 0 010-1.42l2.12-2.12"/>
+              </svg>
               <span>Launch Chrome & Debug</span>
             </button>
           </article>
@@ -246,7 +248,9 @@ export const OverviewView = {
             <div style="display:flex; flex-direction:column; gap:0.45rem;">
               <div class="portal-quick-card artifact-quick-row" data-file="monthly_invoice_sep_2026.pdf" style="display:flex; align-items:center; justify-content:space-between; padding:0.5rem 0.65rem; background:#f9fafb; border-radius:var(--radius-md); border:1px solid rgba(0,0,0,0.06); cursor:pointer;">
                 <div style="display:flex; align-items:center; gap:0.6rem;">
-                  <span style="font-size:1.15rem;">📕</span>
+                  <div style="color:#ef4444; display:flex; align-items:center;">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                  </div>
                   <div>
                     <strong style="font-size:0.75rem; color:var(--text-main); display:block;">monthly_invoice_sep_2026.pdf</strong>
                     <small style="display:block; font-size:0.65rem; color:var(--text-sub);">PDF Document • 342 KB</small>
@@ -257,7 +261,9 @@ export const OverviewView = {
 
               <div class="portal-quick-card artifact-quick-row" data-file="ecommerce_products_catalog.csv" style="display:flex; align-items:center; justify-content:space-between; padding:0.5rem 0.65rem; background:#f9fafb; border-radius:var(--radius-md); border:1px solid rgba(0,0,0,0.06); cursor:pointer;">
                 <div style="display:flex; align-items:center; gap:0.6rem;">
-                  <span style="font-size:1.15rem;">📊</span>
+                  <div style="color:var(--brand-forest); display:flex; align-items:center;">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                  </div>
                   <div>
                     <strong style="font-size:0.75rem; color:var(--text-main); display:block;">products_catalog_export.csv</strong>
                     <small style="display:block; font-size:0.65rem; color:var(--brand-forest); font-weight:700;">CSV Dataset • 450 Records</small>
@@ -268,7 +274,9 @@ export const OverviewView = {
 
               <div class="portal-quick-card artifact-quick-row" data-file="b2b_leads_pipeline_manifest.json" style="display:flex; align-items:center; justify-content:space-between; padding:0.5rem 0.65rem; background:#f9fafb; border-radius:var(--radius-md); border:1px solid rgba(0,0,0,0.06); cursor:pointer;">
                 <div style="display:flex; align-items:center; gap:0.6rem;">
-                  <span style="font-size:1.15rem;">📝</span>
+                  <div style="color:#f59e0b; display:flex; align-items:center;">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                  </div>
                   <div>
                     <strong style="font-size:0.75rem; color:var(--text-main); display:block;">leads_manifest.json</strong>
                     <small style="display:block; font-size:0.65rem; color:var(--text-sub);">JSON Output • 88 KB</small>
