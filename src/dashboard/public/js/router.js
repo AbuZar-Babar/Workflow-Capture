@@ -5,11 +5,10 @@
 import { OverviewView } from './views/overviewView.js?v=5';
 import { WorkflowsView } from './views/workflowsView.js?v=5';
 import { ConsoleView } from './views/consoleView.js?v=5';
-import { PortalsView } from './views/portalsView.js?v=5';
-import { TestsView } from './views/testsView.js?v=5';
 import { SecretsView } from './views/secretsView.js?v=5';
 import { ArtifactsView } from './views/artifactsView.js?v=5';
 import { WorkflowEditorView } from './views/workflowEditorView.js?v=5';
+import { BotConfigView } from './views/botConfigView.js?v=5';
 import { Auth } from './auth.js';
 import { Sidebar } from './components/sidebar.js';
 
@@ -22,11 +21,10 @@ export const Router = {
     overview: OverviewView,
     workflows: WorkflowsView,
     console: ConsoleView,
-    portals: PortalsView,
-    tests: TestsView,
     secrets: SecretsView,
     artifacts: ArtifactsView,
-    'workflow-editor': WorkflowEditorView
+    'workflow-editor': WorkflowEditorView,
+    'bot-config': BotConfigView
   },
 
   init(containerId = 'appViewContainer') {
