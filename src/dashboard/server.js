@@ -18,6 +18,7 @@ const authController = require('../auth/auth-controller');
 const workflowController = require('../api/workflow-controller');
 const runController = require('../api/run-controller');
 const secretController = require('../api/secret-controller');
+const botConfigController = require('../api/bot-config-controller');
 const { requireAuth } = require('../auth/auth-middleware');
 
 const PORT = process.env.PORT || 3000;
@@ -312,6 +313,28 @@ const server = http.createServer(async (req, res) => {
       const runId = runStatusMatch[1];
       if (!requireAuth(req, res)) return;
       return runController.getRunStatus(req, res, runId);
+    }
+
+    // -------------------------------------------------------------
+    // Bot Profile & Stealth Evasion REST APIs
+    // -------------------------------------------------------------
+    if (pathname === '/api/bot-config') {
+      if (req.method === 'GET') {
+        return botConfigController.getBotConfig(req, res);
+      }
+      if (req.method === 'PUT') {
+        const body = await parseJsonBody(req).catch(() => ({}));
+        return botConfigController.updateBotConfig(req, res, body);
+      }
+    }
+
+    if (pathname === '/api/bot-config/presets' && req.method === 'GET') {
+      return botConfigController.getPresets(req, res);
+    }
+
+    if (pathname === '/api/bot-config/reset' && req.method === 'POST') {
+      const body = await parseJsonBody(req).catch(() => ({}));
+      return botConfigController.resetBotConfig(req, res, body);
     }
 
     // -------------------------------------------------------------

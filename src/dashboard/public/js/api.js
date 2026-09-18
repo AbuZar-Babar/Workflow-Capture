@@ -237,6 +237,43 @@ export const Api = {
     const res = await Auth.authenticatedFetch(`/api/runs/${runId}`);
     if (!res.ok) throw new Error('Failed to fetch run status');
     return res.json();
+  },
+
+  // -------------------------------------------------------------
+  // Bot Configuration & Anti-Captcha Stealth APIs
+  // -------------------------------------------------------------
+  async getBotConfig() {
+    const res = await Auth.authenticatedFetch('/api/bot-config');
+    if (!res.ok) throw new Error('Failed to fetch bot configuration');
+    return res.json();
+  },
+
+  async updateBotConfig(config) {
+    const res = await Auth.authenticatedFetch('/api/bot-config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to update bot configuration');
+    return data;
+  },
+
+  async resetBotConfig(preset = 'balanced') {
+    const res = await Auth.authenticatedFetch('/api/bot-config/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ preset })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to reset bot configuration');
+    return data;
+  },
+
+  async getBotPresets() {
+    const res = await Auth.authenticatedFetch('/api/bot-config/presets');
+    if (!res.ok) throw new Error('Failed to fetch bot presets');
+    return res.json();
   }
 };
 

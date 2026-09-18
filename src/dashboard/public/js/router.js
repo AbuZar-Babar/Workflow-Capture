@@ -8,6 +8,7 @@ import { ConsoleView } from './views/consoleView.js?v=5';
 import { SecretsView } from './views/secretsView.js?v=5';
 import { ArtifactsView } from './views/artifactsView.js?v=5';
 import { WorkflowEditorView } from './views/workflowEditorView.js?v=5';
+import { BotConfigView } from './views/botConfigView.js?v=5';
 import { Auth } from './auth.js';
 import { Sidebar } from './components/sidebar.js';
 
@@ -22,7 +23,8 @@ export const Router = {
     console: ConsoleView,
     secrets: SecretsView,
     artifacts: ArtifactsView,
-    'workflow-editor': WorkflowEditorView
+    'workflow-editor': WorkflowEditorView,
+    'bot-config': BotConfigView
   },
 
   init(containerId = 'appViewContainer') {

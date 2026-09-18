@@ -95,6 +95,14 @@
       "username": "abuzar_1789721855240",
       "email": "abuzar_1789721855240@workflowcapture.io",
       "passwordHash": "3c0a91e5ef37b6a1367adea0f03416bf:d2bbb3db7acf7cf8c0dba83bdb37f310067289415121b83a06285cd9041a40d5b3256ce7b42ade39190f1f7a299ca08a5fd5af709983ecf91ed61d6cda697280"
+    },
+    {
+      "id": "use_0af1c796-e0a5-43cd-8760-2c3b763010a3",
+      "createdAt": "2026-09-18T09:13:58.596Z",
+      "updatedAt": "2026-09-18T09:13:58.597Z",
+      "username": "abuzar_1789722838555",
+      "email": "abuzar_1789722838555@workflowcapture.io",
+      "passwordHash": "8c66f27d9dbcad935b42427e4bda62a1:53da5f384de45a95107d4461fdf69001d7763ffe640833d745ee221928b34ea9c4403fbba344b8f3339d8d40755cb04a4c45e68c9c43b30ea8ba8d59b80df774"
     }
   ],
   "workflows": [],
@@ -115,5 +123,44 @@
       "completedAt": "2026-09-17T10:15:24.148Z"
     }
   ],
-  "secrets": []
+  "secrets": [],
+  "bot_configs": [
+    {
+      "id": "global_bot_config",
+      "createdAt": "2026-09-18T09:13:58.745Z",
+      "updatedAt": "2026-09-18T09:13:58.748Z",
+      "preset": "ultra_stealth",
+      "name": "Ultra Stealth (Anti-Captcha & Fingerprint Guard)",
+      "description": "Maximum anti-bot evasion. Complex Bezier mouse trajectories, randomized dwell times, human typo hesitation, and complete navigator mask.",
+      "timing": {
+        "minActionDelayMs": 450,
+        "maxActionDelayMs": 1200,
+        "clickJitterMs": 250,
+        "preActionDelayMs": 200
+      },
+      "mouse": {
+        "enabled": true,
+        "curveType": "bezier_cubic",
+        "speed": "human",
+        "wobble": 4,
+        "overshoot": true,
+        "hoverBeforeClickMs": 280,
+        "steps": 32
+      },
+      "typing": {
+        "minTypingDelayMs": 70,
+        "maxTypingDelayMs": 210,
+        "punctuationPauseMs": 350,
+        "variance": "gaussian"
+      },
+      "stealth": {
+        "maskWebdriver": true,
+        "emulatePlugins": true,
+        "emulateChromeRuntime": true,
+        "randomizeScroll": true,
+        "spoofUserAgent": false
+      },
+      "isGlobal": true
+    }
+  ]
 }

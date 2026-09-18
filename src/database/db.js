@@ -18,7 +18,8 @@ const DEFAULT_SCHEMA = {
   users: [],
   workflows: [],
   runs: [],
-  secrets: []
+  secrets: [],
+  bot_configs: []
 };
 
 class JsonDB {

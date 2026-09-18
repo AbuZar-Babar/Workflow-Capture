@@ -349,3 +349,51 @@
   color: #ffffff;
   box-shadow: 0 2px 6px rgba(12, 92, 63, 0.2);
 }
+
+/* ---------------- View 6: Bot Profile & Stealth View ---------------- */
+.bot-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.85rem;
+}
+
+.bot-preset-card {
+  background: #ffffff;
+  border: 1.5px solid rgba(0, 0, 0, 0.08);
+  border-radius: var(--radius-lg);
+  padding: 0.9rem 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
+}
+
+.bot-preset-card:hover {
+  border-color: var(--brand-emerald);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(12, 92, 63, 0.08);
+}
+
+.bot-preset-card.active {
+  border: 2px solid var(--brand-forest);
+  background: #f0fdf4;
+  box-shadow: 0 0 0 3px rgba(12, 92, 63, 0.12), 0 6px 16px rgba(0, 0, 0, 0.05);
+}
+
+.bot-config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 1.25rem;
+}
+
+.bot-slider {
+  width: 100%;
+  accent-color: var(--brand-forest);
+  cursor: pointer;
+}
+
+.btn-xs {
+  padding: 0.2rem 0.55rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  border-radius: 6px;
+}
