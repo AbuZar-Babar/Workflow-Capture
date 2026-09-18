@@ -103,6 +103,14 @@
       "username": "abuzar_1789722838555",
       "email": "abuzar_1789722838555@workflowcapture.io",
       "passwordHash": "8c66f27d9dbcad935b42427e4bda62a1:53da5f384de45a95107d4461fdf69001d7763ffe640833d745ee221928b34ea9c4403fbba344b8f3339d8d40755cb04a4c45e68c9c43b30ea8ba8d59b80df774"
+    },
+    {
+      "id": "use_10be273b-fe19-4786-b09d-7b5938f7e71b",
+      "createdAt": "2026-09-18T09:28:17.141Z",
+      "updatedAt": "2026-09-18T09:28:17.142Z",
+      "username": "abuzar_1789723697107",
+      "email": "abuzar_1789723697107@workflowcapture.io",
+      "passwordHash": "ce7f1091717c10eb94f4d1869e979e5f:6f661b5495d06d9110cdc8336d5656f5220b0c64b27d3a9da49ebcc696927f3e07e0ca5798b71a1b7a31c79c1ac23dca94cce7699835c1cf752aa39420c4a221"
     }
   ],
   "workflows": [],
@@ -128,7 +136,7 @@
     {
       "id": "global_bot_config",
       "createdAt": "2026-09-18T09:13:58.745Z",
-      "updatedAt": "2026-09-18T09:13:58.748Z",
+      "updatedAt": "2026-09-18T09:28:17.319Z",
       "preset": "ultra_stealth",
       "name": "Ultra Stealth (Anti-Captcha & Fingerprint Guard)",
       "description": "Maximum anti-bot evasion. Complex Bezier mouse trajectories, randomized dwell times, human typo hesitation, and complete navigator mask.",
