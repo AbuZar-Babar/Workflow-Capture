@@ -1,9 +1,9 @@
 /**
- * Workflow Capture — Intelligent Loop & Batch Execution Runner
+ * Workflow Capture — Intelligent Replay & Batch Execution Runner
  * 
- * Executes generalized workflow loops over table rows, list items, or grids.
- * Manages CDP file download interception, per-item state restoration, and
- * error isolation.
+ * Executes standard sequential workflows and generalized loops over table rows,
+ * list items, or grids. Manages auto-navigation to target URLs, CDP file download
+ * interception, per-item state restoration, and error isolation.
  */
 
 const fs = require('fs');
@@ -13,6 +13,7 @@ const LoopDetector = require('../shared/loop-detector');
 const logger = require('../utils/logger');
 const { db } = require('../database/db');
 const { decryptSecret } = require('../auth/secret-util');
+const { resolveTargetUrl } = require('../utils/url-helper');
 
 class LoopReplayRunner {
   constructor(options = {}) {
@@ -40,12 +41,156 @@ class LoopReplayRunner {
         behavior: 'allow',
         downloadPath: this.downloadsDir
       });
-      logger.info(`[Loop Runner] Configured CDP download path: ${this.downloadsDir}`);
+      logger.info(`[Runner] Configured CDP download path: ${this.downloadsDir}`);
       return client;
     } catch (err) {
-      logger.warn(`[Loop Runner] Warning configuring CDP download behavior: ${err.message}`);
+      logger.warn(`[Runner] Warning configuring CDP download behavior: ${err.message}`);
       return null;
     }
+  }
+
+  /**
+   * Navigate browser to the workflow's designated target/start URL
+   */
+  async navigateToWorkflowTarget(page, workflow) {
+    let targetUrl = workflow.targetUrl ||
+      (workflow.recordingData && workflow.recordingData.metadata && workflow.recordingData.metadata.startUrl) ||
+      (workflow.metadata && workflow.metadata.startUrl) ||
+      (workflow.steps && workflow.steps[0] && workflow.steps[0].url) ||
+      null;
+
+    const resolved = resolveTargetUrl(targetUrl);
+    if (!resolved) {
+      logger.info('[Runner] No target URL specified for workflow. Executing on active tab.');
+      return;
+    }
+
+    try {
+      await page.bringToFront().catch(() => {});
+    } catch {}
+
+    const currentUrl = page.url();
+    if (currentUrl === 'about:blank' || currentUrl.startsWith('chrome://') || currentUrl !== resolved) {
+      logger.info(`[Runner] Navigating tab from "${currentUrl}" to workflow target URL: ${resolved}`);
+      try {
+        await page.goto(resolved, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        if (this.replayEngine && typeof this.replayEngine._applyStealthEvasion === 'function') {
+          await this.replayEngine._applyStealthEvasion();
+        }
+        await new Promise(r => setTimeout(r, 600));
+      } catch (navErr) {
+        logger.warn(`[Runner] Auto-navigation note: ${navErr.message}`);
+      }
+    } else {
+      logger.info(`[Runner] Tab already at target URL: ${resolved}`);
+    }
+  }
+
+  /**
+   * Execute a standard sequential workflow (all steps in order)
+   * @param {object} workflow - Stored workflow object with steps array
+   * @param {function} onProgress - Progress callback for live updates
+   */
+  async executeStandard(workflow, onProgress = () => {}) {
+    this.initDirectories();
+    const steps = workflow.steps || (workflow.recordingData && workflow.recordingData.actions) || [];
+    const manifest = {
+      runId: this.runId,
+      workflowId: workflow.id,
+      mode: 'STANDARD',
+      startTime: new Date().toISOString(),
+      status: 'RUNNING',
+      itemsTotal: steps.length,
+      itemsSucceeded: 0,
+      itemsFailed: 0,
+      results: [],
+      downloadedFiles: []
+    };
+
+    logger.info(`[Runner] Starting standard execution run ${this.runId} for workflow "${workflow.name}" (${steps.length} steps)`);
+    onProgress({ status: 'STARTING', manifest });
+
+    try {
+      const browser = await this.replayEngine.connect();
+      const pages = await browser.pages();
+      const page = pages.length > 0 ? pages[0] : await browser.newPage();
+      this.replayEngine.page = page;
+
+      // Set up the secret resolver using the workflow's userId
+      this.replayEngine.secretResolver = async (secretId) => {
+        const secret = db.findOne('secrets', s => s.id === secretId && s.userId === workflow.userId);
+        if (secret && secret.encryptedData) {
+          try {
+            return decryptSecret(secret.encryptedData);
+          } catch (e) {
+            logger.warn(`Failed to decrypt secret [${secretId}]: ${e.message}`);
+          }
+        }
+        logger.warn(`Secret [${secretId}] not found or could not be decrypted.`);
+        return `{{secret:${secretId}}}`;
+      };
+
+      // Setup CDP download interception
+      await this.configureDownloadInterception(page);
+
+      // Auto-navigate to target URL before steps execution
+      await this.navigateToWorkflowTarget(page, workflow);
+
+      // Execute each step in order
+      for (let i = 0; i < steps.length; i++) {
+        const step = steps[i];
+        const stepType = step.type || step.action || 'CLICK';
+        logger.info(`[Runner] Executing step ${i + 1}/${steps.length} [${stepType}]...`);
+
+        const stepResult = {
+          index: i + 1,
+          type: stepType,
+          status: 'PENDING',
+          timestamp: new Date().toISOString(),
+          error: null
+        };
+
+        try {
+          await this.replayEngine.executeAction(step, i);
+          stepResult.status = 'SUCCESS';
+          manifest.itemsSucceeded++;
+        } catch (stepErr) {
+          logger.error(`[Runner] Failed step #${i + 1} [${stepType}]: ${stepErr.message}`);
+          stepResult.status = 'FAILED';
+          stepResult.error = stepErr.message;
+          manifest.itemsFailed++;
+          manifest.results.push(stepResult);
+          throw stepErr;
+        }
+
+        manifest.results.push(stepResult);
+        onProgress({ status: 'STEP_COMPLETE', stepResult, manifest });
+      }
+
+      // Gather downloaded files into manifest
+      if (fs.existsSync(this.downloadsDir)) {
+        manifest.downloadedFiles = fs.readdirSync(this.downloadsDir).map(file => ({
+          filename: file,
+          path: path.join(this.downloadsDir, file),
+          sizeBytes: fs.statSync(path.join(this.downloadsDir, file)).size
+        }));
+      }
+
+      manifest.status = 'COMPLETED';
+      manifest.endTime = new Date().toISOString();
+      logger.success(`\n[Runner] Standard execution run ${this.runId} completed! Succeeded: ${manifest.itemsSucceeded}/${steps.length}`);
+
+    } catch (err) {
+      manifest.status = 'FAILED';
+      manifest.error = err.message;
+      manifest.endTime = new Date().toISOString();
+      logger.error(`[Runner] Fatal execution failure: ${err.message}`);
+    }
+
+    fs.writeFileSync(path.join(this.runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+    onProgress({ status: manifest.status, manifest });
+
+    return manifest;
   }
 
   /**
@@ -59,6 +204,7 @@ class LoopReplayRunner {
     const manifest = {
       runId: this.runId,
       workflowId: workflow.id,
+      mode: 'LOOP',
       startTime: new Date().toISOString(),
       status: 'RUNNING',
       itemsTotal: 0,
@@ -75,6 +221,7 @@ class LoopReplayRunner {
       const browser = await this.replayEngine.connect();
       const pages = await browser.pages();
       const page = pages.length > 0 ? pages[0] : await browser.newPage();
+      this.replayEngine.page = page;
 
       // Set up the secret resolver using the workflow's userId
       this.replayEngine.secretResolver = async (secretId) => {
@@ -93,9 +240,13 @@ class LoopReplayRunner {
       // Setup CDP download interception
       await this.configureDownloadInterception(page);
 
+      // Auto-navigate to workflow target URL before executing setup / loop steps
+      await this.navigateToWorkflowTarget(page, workflow);
+
       // 1. Partition steps into Setup vs Loop Steps
-      const partition = LoopDetector.partitionWorkflow(workflow.steps, loopStepIndex);
-      const targetStep = workflow.steps[loopStepIndex];
+      const steps = workflow.steps || (workflow.recordingData && workflow.recordingData.actions) || [];
+      const partition = LoopDetector.partitionWorkflow(steps, loopStepIndex);
+      const targetStep = steps[loopStepIndex];
       const analysis = LoopDetector.analyzeStep(targetStep);
 
       logger.info(`[Loop Runner] Detected pattern: ${analysis.patternType} (Container: ${analysis.containerSelector})`);

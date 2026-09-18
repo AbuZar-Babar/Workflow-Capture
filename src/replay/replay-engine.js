@@ -18,6 +18,7 @@ const {
 const { dispatchAction } = require('./action-executors');
 const { calculateDelay } = require('./human-mouse');
 const { getActiveBotConfig } = require('../api/bot-config-controller');
+const { resolveTargetUrl } = require('../utils/url-helper');
 const logger = require('../utils/logger');
 
 class ReplayEngine {
@@ -131,7 +132,8 @@ class ReplayEngine {
     }
 
     if (action.type === 'NAVIGATE' && action.url) {
-      await this.page.goto(action.url, { waitUntil: 'domcontentloaded' });
+      const navUrl = resolveTargetUrl(action.url) || action.url;
+      await this.page.goto(navUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
       await this._applyStealthEvasion();
       await new Promise(r => setTimeout(r, 500));
       return { success: true, type: 'NAVIGATE' };
@@ -275,23 +277,27 @@ class ReplayEngine {
     if (typeof recordingPathOrObject === 'string') {
       recording = this.loadRecording(recordingPathOrObject);
       logger.info(`Loaded recording from: ${recordingPathOrObject}`);
-    } else if (recordingPathOrObject && Array.isArray(recordingPathOrObject.actions)) {
-      recording = recordingPathOrObject;
+    } else if (recordingPathOrObject) {
+      const actions = Array.isArray(recordingPathOrObject.actions)
+        ? recordingPathOrObject.actions
+        : (Array.isArray(recordingPathOrObject.steps) ? recordingPathOrObject.steps : []);
+      recording = {
+        metadata: recordingPathOrObject.metadata || {
+          name: recordingPathOrObject.name || 'Workflow',
+          startUrl: recordingPathOrObject.targetUrl || (recordingPathOrObject.metadata && recordingPathOrObject.metadata.startUrl) || ''
+        },
+        actions,
+        targetUrl: recordingPathOrObject.targetUrl
+      };
     } else {
       throw new AutomationError('Invalid recording parameter passed to ReplayEngine');
     }
 
     logger.info(`Initializing replay session: "${recording.metadata ? recording.metadata.name : 'workflow'}" (${recording.actions.length} actions)`);
 
-    // Resolve cross-platform file:/// URLs
-    let targetStartUrl = recording.metadata ? recording.metadata.startUrl : null;
-    if (targetStartUrl && targetStartUrl.startsWith('file:')) {
-      const baseName = path.basename(targetStartUrl);
-      const localTestPath = path.resolve(process.cwd(), 'test', baseName);
-      if (fs.existsSync(localTestPath)) {
-        targetStartUrl = `file://${localTestPath}`;
-      }
-    }
+    // Resolve cross-platform file:/// URLs or web URLs
+    let rawStartUrl = (recording.metadata && recording.metadata.startUrl) || recording.targetUrl || (recording.actions && recording.actions[0] && recording.actions[0].url) || null;
+    let targetStartUrl = resolveTargetUrl(rawStartUrl);
 
     // Connect to Chrome via CDP
     const { browser, page } = await connectToBrowser({
@@ -322,7 +328,7 @@ class ReplayEngine {
       if (currentUrl === 'about:blank' || currentUrl.startsWith('chrome://') || currentUrl !== targetStartUrl) {
         logger.info(`Navigating tab to workflow starting URL: ${targetStartUrl}`);
         try {
-          await this.page.goto(targetStartUrl, { waitUntil: 'load', timeout: 30000 });
+          await this.page.goto(targetStartUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
           await this._applyStealthEvasion();
           await new Promise(r => setTimeout(r, 500));
         } catch (navErr) {

@@ -468,8 +468,9 @@ export const OverviewView = {
 
         list.querySelectorAll('.btn-quick-play').forEach(btn => {
           btn.onclick = () => {
-            Api.startReplay({ filename: btn.dataset.file })
-              .then(() => Toast.info(`Replaying ${btn.dataset.file}`))
+            const wfId = (btn.dataset.file || '').replace('.json', '');
+            Api.executeWorkflow(wfId)
+              .then(() => Toast.info(`Executing workflow: ${wfId}`))
               .catch(e => Toast.error(e.message));
           };
         });

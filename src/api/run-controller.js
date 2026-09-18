@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const { db } = require('../database/db');
 const { sendJson } = require('../auth/auth-controller');
+const { syncWorkflowsFromDisk } = require('./workflow-controller');
 const LoopReplayRunner = require('../replay/loop-replay-runner');
 
 /**
@@ -18,6 +19,8 @@ const LoopReplayRunner = require('../replay/loop-replay-runner');
  */
 async function executeWorkflow(req, res, workflowId, body = {}) {
   const userId = req.user.id;
+  syncWorkflowsFromDisk(userId);
+
   let workflow = db.findOne('workflows', wf => wf.id === workflowId && (wf.userId === userId || !wf.userId || wf.userId === 'system' || wf.isGlobal));
 
   if (!workflow) {
@@ -76,7 +79,13 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
     try {
       db.update('runs', runId, { status: 'RUNNING' });
       const runner = new LoopReplayRunner({ runId });
-      const manifest = await runner.executeLoop(workflow, body.loopStepIndex || 0);
+      const isLoop = Boolean(body.isLoop || (body.loopStepIndex !== null && body.loopStepIndex !== undefined && body.loopStepIndex !== -1));
+      let manifest;
+      if (isLoop) {
+        manifest = await runner.executeLoop(workflow, body.loopStepIndex || 0);
+      } else {
+        manifest = await runner.executeStandard(workflow);
+      }
 
       db.update('runs', runId, {
         status: manifest.status,

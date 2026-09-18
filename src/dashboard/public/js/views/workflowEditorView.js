@@ -19,7 +19,12 @@ export const WorkflowEditorView = {
             </button>
             <h2 id="wfTitle" style="margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--text-main);">Loading Workflow...</h2>
           </div>
-          <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <div style="display: flex; gap: 0.75rem; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 0.35rem; background: rgba(0,0,0,0.04); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.2rem 0.6rem;">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+              <label for="wfTargetUrlInput" style="font-size: 0.72rem; font-weight: 700; color: var(--text-sub); white-space: nowrap; margin: 0;">Target URL:</label>
+              <input type="text" id="wfTargetUrlInput" placeholder="https://example.com" style="border: none; background: transparent; font-size: 0.75rem; font-family: var(--font-mono); color: var(--text-main); width: 220px; outline: none;" />
+            </div>
             <span id="wfStepCounter" class="badge-tag success">0 Steps</span>
             <button class="btn btn-primary btn-sm" id="btnSaveFlow">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
@@ -60,6 +65,13 @@ export const WorkflowEditorView = {
       const steps = this.workflow.steps || (this.workflow.recordingData && this.workflow.recordingData.actions) || [];
       const badge = document.getElementById('wfStepCounter');
       if (badge) badge.textContent = `${steps.length} Steps`;
+
+      const targetUrlInput = document.getElementById('wfTargetUrlInput');
+      if (targetUrlInput) {
+        targetUrlInput.value = this.workflow.targetUrl ||
+          (this.workflow.recordingData && this.workflow.recordingData.metadata && this.workflow.recordingData.metadata.startUrl) ||
+          '';
+      }
 
       this.initDrawflow();
     } catch (err) {
@@ -431,7 +443,12 @@ export const WorkflowEditorView = {
     }
 
     try {
-      await Api.updateWorkflow(this.workflowId, { steps: newSteps });
+      const targetUrlInput = document.getElementById('wfTargetUrlInput');
+      const updatedTargetUrl = targetUrlInput ? targetUrlInput.value.trim() : (this.workflow.targetUrl || '');
+
+      await Api.updateWorkflow(this.workflowId, { steps: newSteps, targetUrl: updatedTargetUrl });
+      if (this.workflow) this.workflow.targetUrl = updatedTargetUrl;
+
       Toast.success(`Workflow saved successfully (${newSteps.length} steps updated)!`);
       const badge = document.getElementById('wfStepCounter');
       if (badge) badge.textContent = `${newSteps.length} Steps`;

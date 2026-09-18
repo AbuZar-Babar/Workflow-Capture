@@ -131,6 +131,17 @@ async function runApiTests() {
   assert.strictEqual(deleteHttp.getStatus(), 200);
   console.log('  ✅ Workflow CRUD API lifecycle passed\n');
 
+  // 6. Target URL Normalization & Resolution
+  console.log('🔹 Test 6: Target URL Normalization & Resolution');
+  const { resolveTargetUrl } = require('../src/utils/url-helper');
+  assert.strictEqual(resolveTargetUrl('https://example.com/search'), 'https://example.com/search');
+  assert.strictEqual(resolveTargetUrl('example.com'), 'https://example.com');
+  assert.strictEqual(resolveTargetUrl('about:blank'), null);
+  assert.strictEqual(resolveTargetUrl(''), null);
+  const resolvedPortal = resolveTargetUrl('ecommerce-portal.html');
+  assert(resolvedPortal && resolvedPortal.startsWith('file:///'), 'Relative html must resolve to file URL');
+  console.log('  ✅ Target URL resolution passed\n');
+
   console.log('🎉 ALL BACKEND REST API & AUTH TESTS PASSED!\n');
 }
 
