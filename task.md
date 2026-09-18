@@ -1,5 +1,0 @@
-- [ ] Update `src/dashboard/public/js/api.js` to add `getWorkflowById` and `updateWorkflow`
-- [ ] Add Drawflow CDN links and overrides to `src/dashboard/public/index.html`
-- [ ] Update `src/dashboard/public/js/router.js` with the new `#workflow-editor` route
-- [ ] Create `src/dashboard/public/js/views/workflowEditorView.js` implementing Drawflow
-- [ ] Update `src/dashboard/public/js/views/workflowsView.js` to add "Edit Flow" button

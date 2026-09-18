@@ -1,8 +1,8 @@
 const fs = require('fs');
 const path = require('path');
-const { db } = require('./src/database/db');
+const { db } = require(path.join(__dirname, '../src/database/db'));
 
-const RECORDINGS_DIR = path.resolve(process.cwd(), 'recordings');
+const RECORDINGS_DIR = path.resolve(__dirname, '../recordings');
 
 async function migrate() {
   if (!fs.existsSync(RECORDINGS_DIR)) {

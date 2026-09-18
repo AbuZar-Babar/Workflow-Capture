@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { db } = require('./src/database/db');
+const { db } = require(path.join(__dirname, '../src/database/db'));
 
 async function fixSchema() {
   const workflows = db.find('workflows');
