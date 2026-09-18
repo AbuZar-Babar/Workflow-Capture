@@ -244,6 +244,54 @@ async function executeSelect(elementHandle, action, options = {}) {
 }
 
 /**
+ * Execute KEY_PRESS action (e.g. Enter, Tab, Escape)
+ */
+async function executeKeyPress(elementHandle, action, options = {}) {
+  await ensureInteractable(elementHandle, action);
+  const { page, botConfig } = options;
+  const keyToPress = action.key || action.value || 'Enter';
+
+  if (botConfig) {
+    await simulateHumanMouseToElement(elementHandle, page, botConfig);
+  }
+
+  try {
+    // Focus the target element first
+    await elementHandle.focus().catch(() => {});
+
+    // Use Puppeteer keyboard if available on page
+    if (page && page.keyboard) {
+      let puppeteerKey = keyToPress;
+      if (keyToPress === 'Return' || keyToPress === 'enter') puppeteerKey = 'Enter';
+      await page.keyboard.press(puppeteerKey);
+    } else {
+      // Fallback: dispatch synthetic keyboard event inside page context
+      await elementHandle.evaluate((el, key) => {
+        const keyCode = key === 'Enter' ? 13 : (key === 'Tab' ? 9 : (key === 'Escape' ? 27 : 0));
+        const eventOpts = {
+          key: key,
+          code: key,
+          keyCode: keyCode,
+          which: keyCode,
+          bubbles: true,
+          cancelable: true,
+          view: window
+        };
+        el.dispatchEvent(new KeyboardEvent('keydown', eventOpts));
+        el.dispatchEvent(new KeyboardEvent('keypress', eventOpts));
+        el.dispatchEvent(new KeyboardEvent('keyup', eventOpts));
+      }, keyToPress);
+    }
+  } catch (err) {
+    throw new ActionExecutionError(`Failed to press key "${keyToPress}": ${err.message}`, {
+      actionIndex: action.index,
+      actionType: action.type,
+      originalError: err
+    });
+  }
+}
+
+/**
  * Dispatcher to map action types to executor functions
  */
 async function dispatchAction(elementHandle, action, options = {}) {
@@ -256,6 +304,12 @@ async function dispatchAction(elementHandle, action, options = {}) {
       return executeType(elementHandle, action, options);
     case 'SELECT':
       return executeSelect(elementHandle, action, options);
+    case 'KEY_PRESS':
+    case 'PRESS_KEY':
+    case 'KEYDOWN':
+    case 'KEY_DOWN':
+    case 'ENTER':
+      return executeKeyPress(elementHandle, action, options);
     default:
       throw new ActionExecutionError(`Unsupported action type: ${action.type}`, {
         actionIndex: action.index,
@@ -269,5 +323,6 @@ module.exports = {
   executeDoubleClick,
   executeType,
   executeSelect,
+  executeKeyPress,
   dispatchAction
 };

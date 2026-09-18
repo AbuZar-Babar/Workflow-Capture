@@ -86,6 +86,10 @@ const alteredIdButton = {
 const alteredScore = SelectorResolver.scoreFingerprint(alteredIdButton, buttonFingerprint);
 assert.strictEqual(alteredScore.matchedTag, true);
 assert.strictEqual(alteredScore.passed, true, `Should pass minimum threshold 0.70 despite changed ID, got ${alteredScore.score}`);
-console.log(`  Passed: Altered ID still scored ${alteredScore.score} >= 0.70 threshold.`);
+// Test 6: ACTION_TYPES includes KEY_PRESS
+console.log('Test 6: ACTION_TYPES includes KEY_PRESS...');
+const { ACTION_TYPES } = require('../src/shared/constants');
+assert.strictEqual(ACTION_TYPES.KEY_PRESS, 'KEY_PRESS', 'ACTION_TYPES.KEY_PRESS must be defined as KEY_PRESS');
+console.log('  Passed: KEY_PRESS constant validated.');
 
 console.log('\nAll Selector Resolver unit tests passed successfully!\n');

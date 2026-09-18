@@ -104,13 +104,42 @@
   }
 
   /**
-   * Keydown listener to detect Enter/Tab submission
+   * Keydown listener to detect Enter/Tab/Escape submission & key actions
    */
   function handleKeyDown(event) {
-    if (event.key === 'Enter' || event.key === 'Tab') {
-      if (activeInputBuffer && activeInputBuffer.element === event.target) {
+    const key = event.key;
+    const target = event.target;
+
+    if (key === 'Enter') {
+      // 1. If currently typing into this input, flush the buffer to emit the TYPE action first
+      if (activeInputBuffer && activeInputBuffer.element === target) {
         flushInputBuffer();
       }
+
+      // 2. Emit KEY_PRESS action for Enter on the target element
+      emitAction('KEY_PRESS', target || document.activeElement || document.body, {
+        key: 'Enter',
+        code: event.code || 'Enter',
+        keyCode: event.keyCode || 13,
+        value: 'Enter',
+        meta: {
+          key: 'Enter',
+          isSubmit: true
+        }
+      });
+    } else if (key === 'Tab' || key === 'Escape') {
+      if (activeInputBuffer && activeInputBuffer.element === target) {
+        flushInputBuffer();
+      }
+      emitAction('KEY_PRESS', target || document.activeElement || document.body, {
+        key: key,
+        code: event.code || key,
+        keyCode: event.keyCode,
+        value: key,
+        meta: {
+          key: key
+        }
+      });
     }
   }
 

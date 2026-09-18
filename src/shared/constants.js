@@ -6,7 +6,8 @@ const ACTION_TYPES = Object.freeze({
   CLICK: 'CLICK',
   DOUBLE_CLICK: 'DOUBLE_CLICK',
   TYPE: 'TYPE',
-  SELECT: 'SELECT'
+  SELECT: 'SELECT',
+  KEY_PRESS: 'KEY_PRESS'
 });
 
 const SELECTOR_STRATEGIES = Object.freeze({

@@ -19,7 +19,7 @@
 })(typeof self !== 'undefined' ? self : this, function (importedConstants) {
   // Fallback defaults if executed in browser without bundle
   const CONSTANTS = importedConstants || {
-    ACTION_TYPES: { CLICK: 'CLICK', DOUBLE_CLICK: 'DOUBLE_CLICK', TYPE: 'TYPE', SELECT: 'SELECT' },
+    ACTION_TYPES: { CLICK: 'CLICK', DOUBLE_CLICK: 'DOUBLE_CLICK', TYPE: 'TYPE', SELECT: 'SELECT', KEY_PRESS: 'KEY_PRESS' },
     SELECTOR_STRATEGIES: {
       ID: 'id',
       DATA_ATTR: 'data-attr',

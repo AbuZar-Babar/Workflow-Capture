@@ -32,11 +32,14 @@ export const WorkflowsView = {
 
           <div style="display:flex; align-items:center; gap:0.65rem; flex-wrap:wrap;">
             <div class="search-input-wrap">
-              <span class="search-icon-pos">🔍</span>
+              <span class="search-icon-pos" style="display:flex; align-items:center;">
+                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+              </span>
               <input type="text" id="wfSearchInput" class="form-control" placeholder="Search by name, URL, or step count...">
             </div>
-            <button class="btn btn-secondary btn-sm" id="btnRefreshWorkflows">
-              <span>🔄 Refresh List</span>
+            <button class="btn btn-secondary btn-sm" id="btnRefreshWorkflows" style="display:flex; align-items:center; gap:0.35rem;">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              <span>Refresh List</span>
             </button>
           </div>
         </div>
@@ -143,11 +146,15 @@ export const WorkflowsView = {
           </div>
         </td>
         <td>
-          <span class="badge-tag success">⚡ ${wf.stepCount} steps</span>
+          <span class="badge-tag success" style="display:inline-flex; align-items:center; gap:0.25rem;">
+            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            ${wf.stepCount} steps
+          </span>
         </td>
         <td>
-          <div style="font-size:0.75rem; color:var(--text-body); max-width:240px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(wf.targetUrl)}">
-            🔗 ${escapeHtml(wf.targetUrl || 'about:blank')}
+          <div style="font-size:0.75rem; color:var(--text-body); max-width:240px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:0.3rem;" title="${escapeHtml(wf.targetUrl)}">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+            <span>${escapeHtml(wf.targetUrl || 'about:blank')}</span>
           </div>
         </td>
         <td>
@@ -155,18 +162,20 @@ export const WorkflowsView = {
           <div style="font-size:0.68rem; color:var(--text-sub);">${timeStr}</div>
         </td>
         <td>
-          <span class="badge-tag success">● Active</span>
+          <span class="badge-tag success">Active</span>
         </td>
         <td style="text-align:right;">
           <div style="display:inline-flex; gap:0.35rem;">
-            <button class="btn btn-sm btn-primary btn-replay-flow" data-id="${wf.id}" title="Execute Workflow">
-              ▶ Execute
+            <button class="btn btn-sm btn-primary btn-replay-flow" data-id="${wf.id}" title="Execute Workflow" style="display:inline-flex; align-items:center; gap:0.25rem;">
+              <svg width="11" height="11" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              <span>Execute</span>
             </button>
-            <button class="btn btn-sm btn-secondary btn-edit-flow" data-id="${wf.id}" title="Edit Flow">
-              ✎ Edit
+            <button class="btn btn-sm btn-secondary btn-edit-flow" data-id="${wf.id}" title="Edit Flow" style="display:inline-flex; align-items:center; gap:0.25rem;">
+              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+              <span>Edit</span>
             </button>
-            <button class="btn btn-sm btn-ghost btn-delete-flow" data-id="${wf.id}" title="Delete Flow">
-              🗑
+            <button class="btn btn-sm btn-ghost btn-delete-flow" data-id="${wf.id}" title="Delete Flow" style="color:#ef4444;">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
             </button>
           </div>
         </td>

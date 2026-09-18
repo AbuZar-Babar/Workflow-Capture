@@ -21,7 +21,7 @@ export const BotConfigView = {
         <div class="card-header-row" style="margin-bottom:1.5rem; align-items:flex-start;">
           <div class="card-title-wrap">
             <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.25rem;">
-              <span style="font-size:1.4rem;">🤖</span>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--brand-forest);"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path><line x1="8" y1="16" x2="8.01" y2="16"></line><line x1="16" y1="16" x2="16.01" y2="16"></line></svg>
               <h2 style="font-size:1.25rem; font-weight:800; color:var(--text-main); margin:0;">Bot Profile & Anti-Captcha Stealth</h2>
             </div>
             <p style="color:var(--text-sub); font-size:0.8rem;">
@@ -31,10 +31,12 @@ export const BotConfigView = {
 
           <div style="display:flex; gap:0.6rem; align-items:center;">
             <button class="btn btn-secondary btn-sm" id="btnResetBotDefaults" title="Restore standard default parameters">
-              <span>↺ Reset Defaults</span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+              <span>Reset Defaults</span>
             </button>
             <button class="btn btn-primary btn-sm" id="btnSaveBotConfig" style="padding:0.45rem 1.15rem; font-weight:800;">
-              <span>💾 Save Configuration</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+              <span>Save Configuration</span>
             </button>
           </div>
         </div>
@@ -47,7 +49,10 @@ export const BotConfigView = {
           <div class="bot-preset-grid">
             <div class="bot-preset-card active" data-preset="ultra_stealth">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
-                <strong style="font-size:0.88rem; color:var(--text-main);">🛡️ Ultra Stealth</strong>
+                <strong style="font-size:0.88rem; color:var(--text-main); display:inline-flex; align-items:center; gap:0.35rem;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                  Ultra Stealth
+                </strong>
                 <span class="badge-tag success" style="font-size:0.65rem;">Max Evasion</span>
               </div>
               <p style="font-size:0.72rem; color:var(--text-sub); margin:0; line-height:1.35;">
@@ -57,7 +62,10 @@ export const BotConfigView = {
 
             <div class="bot-preset-card" data-preset="balanced">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
-                <strong style="font-size:0.88rem; color:var(--text-main);">⚖️ Balanced</strong>
+                <strong style="font-size:0.88rem; color:var(--text-main); display:inline-flex; align-items:center; gap:0.35rem;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="6" x2="12" y2="18"></line><line x1="6" y1="12" x2="18" y2="12"></line></svg>
+                  Balanced
+                </strong>
                 <span class="badge-tag info" style="font-size:0.65rem;">Recommended</span>
               </div>
               <p style="font-size:0.72rem; color:var(--text-sub); margin:0; line-height:1.35;">
@@ -67,7 +75,10 @@ export const BotConfigView = {
 
             <div class="bot-preset-card" data-preset="fast">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
-                <strong style="font-size:0.88rem; color:var(--text-main);">⚡ Fast Track</strong>
+                <strong style="font-size:0.88rem; color:var(--text-main); display:inline-flex; align-items:center; gap:0.35rem;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                  Fast Track
+                </strong>
                 <span class="badge-tag amber" style="font-size:0.65rem;">Dev & Tests</span>
               </div>
               <p style="font-size:0.72rem; color:var(--text-sub); margin:0; line-height:1.35;">
@@ -84,7 +95,10 @@ export const BotConfigView = {
           <article class="card" style="background:#ffffff; border:1px solid rgba(0,0,0,0.08); padding:1.25rem;">
             <div class="card-header-row" style="margin-bottom:1rem;">
               <div class="card-title-wrap">
-                <h3 style="font-size:0.95rem; font-weight:800; color:var(--text-main);">⏱️ Action & Click Timing</h3>
+                <h3 style="font-size:0.95rem; font-weight:800; color:var(--text-main); display:inline-flex; align-items:center; gap:0.4rem;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                  Action & Click Timing
+                </h3>
                 <p style="font-size:0.72rem; color:var(--text-sub);">Eliminates rigid machine-like periodic action intervals</p>
               </div>
             </div>
@@ -107,7 +121,7 @@ export const BotConfigView = {
 
             <div class="form-group" style="margin-bottom:1rem;">
               <div style="display:flex; justify-content:space-between; font-size:0.75rem; font-weight:700; margin-bottom:0.25rem;">
-                <label for="cfgClickJitter">Click Timing Jitter (±)</label>
+                <label for="cfgClickJitter">Click Timing Jitter (+/-)</label>
                 <span class="slider-val" id="valClickJitter">120 ms</span>
               </div>
               <input type="range" id="cfgClickJitter" min="0" max="500" step="10" value="120" class="bot-slider">
@@ -126,7 +140,10 @@ export const BotConfigView = {
           <article class="card" style="background:#ffffff; border:1px solid rgba(0,0,0,0.08); padding:1.25rem;">
             <div class="card-header-row" style="margin-bottom:0.85rem;">
               <div class="card-title-wrap">
-                <h3 style="font-size:0.95rem; font-weight:800; color:var(--text-main);">🖱️ Mouse Movement & Bezier Curves</h3>
+                <h3 style="font-size:0.95rem; font-weight:800; color:var(--text-main); display:inline-flex; align-items:center; gap:0.4rem;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="7"></rect><line x1="12" y1="6" x2="12" y2="10"></line></svg>
+                  Mouse Movement & Bezier Curves
+                </h3>
                 <p style="font-size:0.72rem; color:var(--text-sub);">Humanized curved paths with acceleration & micro-wobble</p>
               </div>
               <label class="toggle-switch">
@@ -167,7 +184,10 @@ export const BotConfigView = {
             <div style="background:#f8fafc; border:1px solid rgba(12,92,63,0.15); border-radius:var(--radius-md); padding:0.65rem; position:relative;">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
                 <span style="font-size:0.68rem; font-weight:800; color:var(--brand-forest); text-transform:uppercase;">Live Trajectory Simulator</span>
-                <button class="btn btn-xs btn-primary" id="btnTestMousePath">▶ Draw Path</button>
+                <button class="btn btn-xs btn-primary" id="btnTestMousePath" style="display:inline-flex; align-items:center; gap:0.3rem;">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                  <span>Draw Path</span>
+                </button>
               </div>
               <canvas id="mouseTrajectoryCanvas" width="300" height="100" style="width:100%; height:95px; background:#ffffff; border-radius:6px; border:1px solid #e2e8f0; display:block;"></canvas>
             </div>
@@ -177,7 +197,10 @@ export const BotConfigView = {
           <article class="card" style="background:#ffffff; border:1px solid rgba(0,0,0,0.08); padding:1.25rem;">
             <div class="card-header-row" style="margin-bottom:1rem;">
               <div class="card-title-wrap">
-                <h3 style="font-size:0.95rem; font-weight:800; color:var(--text-main);">⌨️ Keystroke Cadence & Rhythm</h3>
+                <h3 style="font-size:0.95rem; font-weight:800; color:var(--text-main); display:inline-flex; align-items:center; gap:0.4rem;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"></rect><line x1="6" y1="8" x2="6" y2="8"></line><line x1="10" y1="8" x2="10" y2="8"></line><line x1="14" y1="8" x2="14" y2="8"></line><line x1="18" y1="8" x2="18" y2="8"></line><line x1="6" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="18" y2="12"></line><line x1="10" y1="16" x2="14" y2="16"></line></svg>
+                  Keystroke Cadence & Rhythm
+                </h3>
                 <p style="font-size:0.72rem; color:var(--text-sub);">Stochastic character typing speed and punctuation pauses</p>
               </div>
             </div>
@@ -220,7 +243,10 @@ export const BotConfigView = {
           <article class="card" style="background:#ffffff; border:1px solid rgba(0,0,0,0.08); padding:1.25rem;">
             <div class="card-header-row" style="margin-bottom:1rem;">
               <div class="card-title-wrap">
-                <h3 style="font-size:0.95rem; font-weight:800; color:var(--text-main);">🛡️ Anti-Captcha & Fingerprint Masking</h3>
+                <h3 style="font-size:0.95rem; font-weight:800; color:var(--text-main); display:inline-flex; align-items:center; gap:0.4rem;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                  Anti-Captcha & Fingerprint Masking
+                </h3>
                 <p style="font-size:0.72rem; color:var(--text-sub);">Eliminates automated browser fingerprints and heuristics</p>
               </div>
               <span class="badge-tag success" id="stealthScoreBadge">99.2% Clean</span>
@@ -445,7 +471,7 @@ export const BotConfigView = {
           Toast.error(err.message);
         } finally {
           btnSave.disabled = false;
-          btnSave.innerHTML = '<span>💾 Save Configuration</span>';
+          btnSave.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg><span>Save Configuration</span>';
         }
       };
     }

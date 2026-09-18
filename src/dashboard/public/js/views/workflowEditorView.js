@@ -14,22 +14,30 @@ export const WorkflowEditorView = {
         <div class="workflow-editor-header">
           <div style="display: flex; gap: 1rem; align-items: center;">
             <button class="btn btn-secondary btn-sm" id="btnBack">
-              <span>← Back to Workflows</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+              <span>Back to Workflows</span>
             </button>
             <h2 id="wfTitle" style="margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--text-main);">Loading Workflow...</h2>
           </div>
           <div style="display: flex; gap: 0.5rem; align-items: center;">
             <span id="wfStepCounter" class="badge-tag success">0 Steps</span>
             <button class="btn btn-primary btn-sm" id="btnSaveFlow">
-              <span>💾 Save Workflow</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+              <span>Save Workflow</span>
             </button>
           </div>
         </div>
         <div class="workflow-editor-canvas" id="drawflow">
           <div class="drawflow-canvas-controls">
-            <button type="button" id="btnZoomIn" title="Zoom In">➕</button>
-            <button type="button" id="btnZoomOut" title="Zoom Out">➖</button>
-            <button type="button" id="btnZoomReset" title="Reset View">⟲</button>
+            <button type="button" id="btnZoomIn" title="Zoom In">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </button>
+            <button type="button" id="btnZoomOut" title="Zoom Out">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </button>
+            <button type="button" id="btnZoomReset" title="Reset View">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+            </button>
           </div>
         </div>
       </div>
@@ -140,11 +148,12 @@ export const WorkflowEditorView = {
       const selectedOptionText = (step.meta && step.meta.text) || '';
 
       const actionClass = actionType.toLowerCase();
-      let actionIcon = '⚡';
-      if (actionType === 'CLICK') actionIcon = '👆';
-      else if (actionType === 'TYPE') actionIcon = '⌨️';
-      else if (actionType === 'NAVIGATE') actionIcon = '🌐';
-      else if (actionType === 'SELECT') actionIcon = '📋';
+      let actionIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>`;
+      if (actionType === 'CLICK') actionIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"></path><path d="M13 13l6 6"></path></svg>`;
+      else if (actionType === 'TYPE') actionIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"></rect><line x1="6" y1="8" x2="6" y2="8"></line><line x1="10" y1="8" x2="10" y2="8"></line><line x1="14" y1="8" x2="14" y2="8"></line><line x1="18" y1="8" x2="18" y2="8"></line><line x1="6" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="18" y2="12"></line><line x1="10" y1="16" x2="14" y2="16"></line></svg>`;
+      else if (actionType === 'NAVIGATE') actionIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>`;
+      else if (actionType === 'SELECT') actionIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>`;
+      else if (actionType === 'KEY_PRESS' || actionType === 'PRESS_KEY' || actionType === 'ENTER') actionIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 10 4 15 9 20"></polyline><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg>`;
 
       // Parse list / dropdown options from fingerprint or meta
       const availableOptions = this.extractAvailableOptions(step);
@@ -154,11 +163,11 @@ export const WorkflowEditorView = {
       let html = `
         <div class="df-node-header">
           <div class="df-action-badge ${actionClass}">
-            <span>${actionIcon}</span>
+            <span style="display:inline-flex; align-items:center;">${actionIcon}</span>
             <span>${this.escapeHtml(actionType)}</span>
           </div>
           <div style="display:flex; align-items:center; gap:0.35rem;">
-            ${isListOrSelect ? `<span class="df-badge-pill options" title="Contains selectable options / list items">📋 Choices</span>` : ''}
+            ${isListOrSelect ? `<span class="df-badge-pill options" title="Contains selectable options / list items" style="display:inline-flex; align-items:center; gap:0.25rem;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg> Choices</span>` : ''}
             <span class="df-step-number">#${index + 1}</span>
           </div>
         </div>
@@ -209,7 +218,7 @@ export const WorkflowEditorView = {
                 `;
               }).join('')}
               <option value="__dynamic_loop__" ${step.isLoop || stepValue === '{{loop:index}}' ? 'selected' : ''}>
-                🔄 [Dynamic Loop] Iterate: Item #1 on Run 1, Item #2 on Run 2...
+                [Dynamic Loop] Iterate: Item #1 on Run 1, Item #2 on Run 2...
               </option>
             </select>
             <small style="font-size:0.65rem; color:#15803d; margin-top:2px;">Pick an option to select or choose dynamic iteration loop.</small>
@@ -221,18 +230,20 @@ export const WorkflowEditorView = {
           <div class="df-input-group" style="background:#f8fafc; padding:0.5rem; border-radius:8px; border:1px solid #e2e8f0;">
             <label style="color:#475569;">Iteration / Option Mode</label>
             <select class="df-option-select" style="font-size:0.75rem;">
-              <option value="fixed" ${!step.isLoop ? 'selected' : ''}>🎯 Fixed Item Target</option>
-              <option value="__dynamic_loop__" ${step.isLoop ? 'selected' : ''}>🔄 [Dynamic Loop] Select Item #1 on Run 1, #2 on Run 2...</option>
+              <option value="fixed" ${!step.isLoop ? 'selected' : ''}>Fixed Item Target</option>
+              <option value="__dynamic_loop__" ${step.isLoop ? 'selected' : ''}>[Dynamic Loop] Select Item #1 on Run 1, #2 on Run 2...</option>
             </select>
           </div>
         `;
       }
 
-      if (actionType === 'TYPE' || actionType === 'NAVIGATE' || actionType === 'SELECT' || stepValue) {
+      if (actionType === 'TYPE' || actionType === 'NAVIGATE' || actionType === 'SELECT' || actionType === 'KEY_PRESS' || actionType === 'PRESS_KEY' || stepValue || step.key) {
+        const valLabel = (actionType === 'KEY_PRESS' || actionType === 'PRESS_KEY') ? 'Key to Press (e.g. Enter, Tab, Escape)' : 'Selected Value / Text';
+        const displayVal = step.key || stepValue || selectedOptionText || (actionType === 'KEY_PRESS' ? 'Enter' : '');
         html += `
           <div class="df-input-group">
-            <label>Selected Value / Text</label>
-            <input type="text" class="df-value-input" value="${this.escapeHtml(stepValue || selectedOptionText)}" placeholder="Selected value or input text..." spellcheck="false" />
+            <label>${valLabel}</label>
+            <input type="text" class="df-value-input" value="${this.escapeHtml(displayVal)}" placeholder="Enter value or key..." spellcheck="false" />
           </div>
         `;
       }
@@ -398,6 +409,9 @@ export const WorkflowEditorView = {
 
       if (valueInput) {
         stepData.value = valueInput.value;
+        if (actionType === 'KEY_PRESS' || actionType === 'PRESS_KEY' || actionType === 'ENTER') {
+          stepData.key = valueInput.value || 'Enter';
+        }
       }
 
       newSteps.push(stepData);

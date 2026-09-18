@@ -49,7 +49,10 @@ export const OverviewView = {
                 <h3>Workflow Recorder</h3>
                 <p>Capture real-time user browser interactions</p>
               </div>
-              <span class="badge-tag amber hidden" id="overviewRecBadge">● REC LIVE</span>
+              <span class="badge-tag amber hidden" id="overviewRecBadge" style="display:inline-flex; align-items:center; gap:0.35rem;">
+                <svg width="7" height="7" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"></circle></svg>
+                <span>REC LIVE</span>
+              </span>
             </div>
 
             <div class="form-group">
@@ -58,11 +61,13 @@ export const OverviewView = {
             </div>
 
             <div style="display:flex; gap:0.5rem;">
-              <button class="btn btn-primary" id="btnOverviewStartRec" style="flex:1;">
-                <span>● Start Record</span>
+              <button class="btn btn-primary" id="btnOverviewStartRec" style="flex:1; display:flex; align-items:center; justify-content:center; gap:0.4rem;">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
+                <span>Start Record</span>
               </button>
-              <button class="btn btn-danger hidden" id="btnOverviewStopRec" style="flex:1;">
-                <span>⏹ Stop & Save</span>
+              <button class="btn btn-danger hidden" id="btnOverviewStopRec" style="flex:1; display:flex; align-items:center; justify-content:center; gap:0.4rem;">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                <span>Stop & Save</span>
               </button>
             </div>
 
@@ -98,8 +103,9 @@ export const OverviewView = {
               <input type="range" id="overviewSpeedRange" min="0.5" max="3.0" step="0.25" value="1.0">
             </div>
 
-            <button class="btn btn-dark" id="btnOverviewRunReplay" style="width:100%;">
-              <span>▶ Run Playback</span>
+            <button class="btn btn-dark" id="btnOverviewRunReplay" style="width:100%; display:flex; align-items:center; justify-content:center; gap:0.4rem;">
+              <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              <span>Run Playback</span>
             </button>
 
             <div class="progress-container hidden" id="overviewReplayProgress" style="margin-top:0.5rem; background:var(--brand-tint); border:1px solid var(--brand-light); border-radius:var(--radius-md); padding:0.5rem;">
@@ -178,8 +184,9 @@ export const OverviewView = {
                 <h3>Recent Workflows</h3>
                 <p>Quick access to recent captures</p>
               </div>
-              <button class="btn btn-secondary btn-sm" id="btnOverviewViewAllWorkflows">
-                <span>View All 📁</span>
+              <button class="btn btn-secondary btn-sm" id="btnOverviewViewAllWorkflows" style="display:flex; align-items:center; gap:0.35rem;">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+                <span>View All</span>
               </button>
             </div>
 
@@ -240,8 +247,9 @@ export const OverviewView = {
                 <h3>Extracted Artifacts</h3>
                 <p>Scraped PDFs, spreadsheets & data</p>
               </div>
-              <button class="btn btn-secondary btn-sm" id="btnOverviewViewArtifacts" title="Open Data Vault">
-                <span>Vault 📦</span>
+              <button class="btn btn-secondary btn-sm" id="btnOverviewViewArtifacts" title="Open Data Vault" style="display:flex; align-items:center; gap:0.35rem;">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                <span>Vault</span>
               </button>
             </div>
 
@@ -449,10 +457,10 @@ export const OverviewView = {
           const d = wf.startedAt ? new Date(wf.startedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Recent';
           tr.innerHTML = `
             <td><strong>${wf.name}</strong></td>
-            <td><span class="badge-tag success">⚡ ${wf.actionCount}</span></td>
+            <td><span class="badge-tag success" style="display:inline-flex; align-items:center; gap:0.25rem;"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>${wf.actionCount} steps</span></td>
             <td><span style="font-size:0.72rem; color:var(--text-sub);">${d}</span></td>
             <td style="text-align:right;">
-              <button class="btn btn-sm btn-primary btn-quick-play" data-file="${wf.filename}">▶ Play</button>
+              <button class="btn btn-sm btn-primary btn-quick-play" data-file="${wf.filename}" style="display:inline-flex; align-items:center; gap:0.25rem;"><svg width="11" height="11" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>Play</button>
             </td>
           `;
           list.appendChild(tr);

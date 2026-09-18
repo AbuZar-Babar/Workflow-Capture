@@ -28,7 +28,10 @@ export const ConsoleView = {
           <div class="card-title-wrap">
             <div style="display:flex; align-items:center; gap:0.5rem;">
               <h2 style="font-size:1.15rem; font-weight:800; color:var(--text-main);">Live Execution Terminal</h2>
-              <span class="badge-tag info" id="consoleLiveBadge">● STREAM CONNECTED</span>
+              <span class="badge-tag info" id="consoleLiveBadge" style="display:inline-flex; align-items:center; gap:0.35rem;">
+                <svg width="7" height="7" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"></circle></svg>
+                <span>STREAM CONNECTED</span>
+              </span>
             </div>
             <p>Real-time Chrome DevTools Protocol & Workflow Automation logs</p>
           </div>
@@ -51,7 +54,8 @@ export const ConsoleView = {
             </label>
 
             <button class="btn btn-secondary btn-sm" id="btnExportLogs" title="Export current log buffer to .txt">
-              <span>💾 Export</span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              <span>Export</span>
             </button>
             <button class="btn btn-ghost btn-sm" id="btnClearConsole">
               <span>Clear</span>

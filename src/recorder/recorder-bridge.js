@@ -86,6 +86,7 @@ class RecorderBridge {
       timestamp: rawAction.timestamp,
       timeDeltaMs,
       target: rawAction.target,
+      ...(rawAction.key ? { key: rawAction.key } : {}),
       ...(rawAction.value !== undefined ? { value: rawAction.value } : {}),
       ...(rawAction.meta ? { meta: rawAction.meta } : {})
     };
@@ -95,7 +96,7 @@ class RecorderBridge {
     // Terminal log
     const topCandidate = action.target.candidates[0] ? action.target.candidates[0].value : 'none';
     const tag = action.target.fingerprint.tagName || 'elem';
-    const detail = action.value ? `value="${action.value}"` : `tag=<${tag}>`;
+    const detail = action.key ? `key="${action.key}"` : (action.value ? `value="${action.value}"` : `tag=<${tag}>`);
     logger.action(actionIndex + 1, action.type, topCandidate, detail);
   }
 

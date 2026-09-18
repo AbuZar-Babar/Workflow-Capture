@@ -92,7 +92,7 @@ export const ArtifactsView = {
         <div class="workflows-header-controls" style="background:#ffffff; padding:1.25rem 1.5rem; border-radius:var(--radius-xl); border:1px solid rgba(0,0,0,0.06); box-shadow:var(--shadow-card); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
           <div>
             <div style="display:flex; align-items:center; gap:0.65rem;">
-              <span style="font-size:1.4rem;">📦</span>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--brand-forest);"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
               <h2 style="font-size:1.25rem; font-weight:800; color:var(--text-main); letter-spacing:-0.02em;">Scraped Data & Artifacts Vault</h2>
             </div>
             <p style="font-size:0.75rem; color:var(--text-sub); margin-top:0.2rem;">Collected documents, spreadsheets, PDFs, and extraction manifests from automated loop runs</p>
@@ -100,10 +100,12 @@ export const ArtifactsView = {
 
           <div style="display:flex; align-items:center; gap:0.75rem;">
             <button class="btn btn-secondary btn-sm" id="btnExportAllArtifacts">
-              <span>📥 Export All ZIP</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              <span>Export All ZIP</span>
             </button>
             <button class="btn btn-primary btn-sm" id="btnRefreshArtifacts">
-              <span>🔄 Refresh Vault</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+              <span>Refresh Vault</span>
             </button>
           </div>
         </div>
@@ -114,7 +116,7 @@ export const ArtifactsView = {
           <div class="card" style="padding:1rem 1.25rem; background:#ffffff; border-radius:var(--radius-lg); border:1px solid rgba(0,0,0,0.06);">
             <div style="display:flex; justify-content:space-between; align-items:center;">
               <span style="font-size:0.72rem; font-weight:700; color:var(--text-sub); text-transform:uppercase;">Total Artifacts</span>
-              <span style="font-size:1.2rem;">📁</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--brand-forest);"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
             </div>
             <p style="font-size:1.5rem; font-weight:800; color:var(--text-main); margin-top:0.35rem;" id="statTotalArtifacts">6 Files</p>
             <small style="font-size:0.68rem; color:var(--brand-forest); font-weight:600;">Auto-collected via CDP</small>
@@ -123,7 +125,7 @@ export const ArtifactsView = {
           <div class="card" style="padding:1rem 1.25rem; background:#ffffff; border-radius:var(--radius-lg); border:1px solid rgba(0,0,0,0.06);">
             <div style="display:flex; justify-content:space-between; align-items:center;">
               <span style="font-size:0.72rem; font-weight:700; color:var(--text-sub); text-transform:uppercase;">Scraped Volume</span>
-              <span style="font-size:1.2rem;">💾</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--brand-forest);"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
             </div>
             <p style="font-size:1.5rem; font-weight:800; color:var(--text-main); margin-top:0.35rem;" id="statTotalSize">3.03 MB</p>
             <small style="font-size:0.68rem; color:var(--text-sub);">Disk persistence ready</small>
@@ -132,7 +134,7 @@ export const ArtifactsView = {
           <div class="card" style="padding:1rem 1.25rem; background:#ffffff; border-radius:var(--radius-lg); border:1px solid rgba(0,0,0,0.06);">
             <div style="display:flex; justify-content:space-between; align-items:center;">
               <span style="font-size:0.72rem; font-weight:700; color:var(--text-sub); text-transform:uppercase;">Scraped Records</span>
-              <span style="font-size:1.2rem;">📊</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--brand-forest);"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
             </div>
             <p style="font-size:1.5rem; font-weight:800; color:var(--text-main); margin-top:0.35rem;" id="statTotalRecords">844 Items</p>
             <small style="font-size:0.68rem; color:var(--brand-forest); font-weight:600;">Across 4 active portals</small>
@@ -141,7 +143,7 @@ export const ArtifactsView = {
           <div class="card" style="padding:1rem 1.25rem; background:#ffffff; border-radius:var(--radius-lg); border:1px solid rgba(0,0,0,0.06);">
             <div style="display:flex; justify-content:space-between; align-items:center;">
               <span style="font-size:0.72rem; font-weight:700; color:var(--text-sub); text-transform:uppercase;">Storage Target</span>
-              <span style="font-size:1.2rem;">📂</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--brand-forest);"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
             </div>
             <p style="font-size:0.85rem; font-weight:800; color:var(--text-main); font-family:var(--font-mono); margin-top:0.35rem; word-break:break-all;">recordings/runs/</p>
             <small style="font-size:0.68rem; color:var(--text-sub);">Local runtime sandbox</small>
@@ -154,13 +156,24 @@ export const ArtifactsView = {
           
           <div style="display:flex; gap:0.35rem; background:#ffffff; padding:0.3rem; border-radius:var(--radius-pill); border:1px solid rgba(0,0,0,0.06);">
             <button class="nav-pill-link active filter-btn" data-filter="all">All Formats</button>
-            <button class="nav-pill-link filter-btn" data-filter="document">📄 PDFs & Docs</button>
-            <button class="nav-pill-link filter-btn" data-filter="dataset">📊 CSV & Excel</button>
-            <button class="nav-pill-link filter-btn" data-filter="media">🖼️ Screenshots</button>
+            <button class="nav-pill-link filter-btn" data-filter="document" style="display:inline-flex; align-items:center; gap:0.35rem;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+              <span>PDFs & Docs</span>
+            </button>
+            <button class="nav-pill-link filter-btn" data-filter="dataset" style="display:inline-flex; align-items:center; gap:0.35rem;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+              <span>CSV & Excel</span>
+            </button>
+            <button class="nav-pill-link filter-btn" data-filter="media" style="display:inline-flex; align-items:center; gap:0.35rem;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+              <span>Screenshots</span>
+            </button>
           </div>
 
           <div class="search-input-wrap" style="max-width:320px; width:100%;">
-            <span class="search-icon-pos">🔍</span>
+            <span class="search-icon-pos" style="display:flex; align-items:center;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            </span>
             <input type="text" id="inputSearchArtifacts" class="form-control" placeholder="Search extracted files, workflows...">
           </div>
 
@@ -252,8 +265,8 @@ export const ArtifactsView = {
     if (filtered.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="7" style="text-align:center; padding:2rem; color:var(--text-sub);">
-            <span style="font-size:1.8rem; display:block; margin-bottom:0.5rem;">📂</span>
+          <td colspan="7" style="text-align:center; padding:2.5rem; color:var(--text-sub);">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text-tertiary); display:block; margin:0 auto 0.75rem auto;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
             No artifacts found matching your filter or search query.
           </td>
         </tr>
@@ -266,16 +279,26 @@ export const ArtifactsView = {
       const tr = document.createElement('tr');
       
       let typeBadgeClass = 'info';
-      let icon = '📄';
-      if (art.type === 'pdf') { typeBadgeClass = 'danger'; icon = '📕'; }
-      else if (art.type === 'csv' || art.type === 'xlsx') { typeBadgeClass = 'success'; icon = '📊'; }
-      else if (art.type === 'json') { typeBadgeClass = 'amber'; icon = '📝'; }
-      else if (art.type === 'png' || art.type === 'jpg') { typeBadgeClass = 'info'; icon = '🖼️'; }
+      let iconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>`;
+      
+      if (art.type === 'pdf') {
+        typeBadgeClass = 'danger';
+        iconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="15" x2="15" y2="15"></line></svg>`;
+      } else if (art.type === 'csv' || art.type === 'xlsx') {
+        typeBadgeClass = 'success';
+        iconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line><line x1="12" y1="9" x2="12" y2="21"></line></svg>`;
+      } else if (art.type === 'json') {
+        typeBadgeClass = 'amber';
+        iconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>`;
+      } else if (art.type === 'png' || art.type === 'jpg') {
+        typeBadgeClass = 'info';
+        iconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>`;
+      }
 
       tr.innerHTML = `
         <td>
           <div style="display:flex; align-items:center; gap:0.6rem;">
-            <span style="font-size:1.1rem;">${icon}</span>
+            <span style="display:flex; align-items:center;">${iconSvg}</span>
             <div>
               <strong style="font-size:0.8rem; color:var(--text-main); display:block;">${art.name}</strong>
               <small style="font-size:0.68rem; color:var(--text-sub); font-family:var(--font-mono);">${art.runId}</small>
@@ -301,10 +324,11 @@ export const ArtifactsView = {
         <td style="text-align:right;">
           <div style="display:inline-flex; gap:0.35rem;">
             <button class="btn btn-sm btn-secondary btn-action-preview" data-id="${art.id}" title="Preview content">
-              <span>👁️</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
             </button>
             <button class="btn btn-sm btn-primary btn-action-download" data-id="${art.id}" title="Download file">
-              <span>📥 Download</span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              <span>Download</span>
             </button>
           </div>
         </td>
