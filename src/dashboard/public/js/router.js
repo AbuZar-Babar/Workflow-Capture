@@ -8,6 +8,7 @@ import { ConsoleView } from './views/consoleView.js?v=5';
 import { PortalsView } from './views/portalsView.js?v=5';
 import { TestsView } from './views/testsView.js?v=5';
 import { SecretsView } from './views/secretsView.js?v=5';
+import { ArtifactsView } from './views/artifactsView.js?v=5';
 import { WorkflowEditorView } from './views/workflowEditorView.js?v=5';
 import { Auth } from './auth.js';
 import { Sidebar } from './components/sidebar.js';
@@ -24,6 +25,7 @@ export const Router = {
     portals: PortalsView,
     tests: TestsView,
     secrets: SecretsView,
+    artifacts: ArtifactsView,
     'workflow-editor': WorkflowEditorView
   },
 
@@ -85,6 +87,7 @@ export const Router = {
 
     // Render View
     if (this.container && this.views[route]) {
+      this.container.setAttribute('data-current-view', route);
       this.container.innerHTML = '';
       await this.views[route].render(this.container, this, routeArg);
     }

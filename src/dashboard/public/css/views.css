@@ -2,13 +2,57 @@
    Workflow Capture — Dedicated View Layouts (Overview, Workflows, Console, Portals, Tests)
    =================================================================== */
 
-/* ---------------- View 1: Overview Dashboard ---------------- */
+/* ---------------- View 1: Overview Dashboard & Visual Workflow Editor (Fixed / Full Height) ---------------- */
+.app-view-container[data-current-view="overview"],
+.app-view-container[data-current-view="dashboard"],
+.app-view-container[data-current-view="workflow-editor"] {
+  overflow: hidden !important;
+  height: 100% !important;
+  padding-right: 0 !important;
+}
+
+.overview-fixed-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 0.85rem;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.overview-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  height: 100%;
+  justify-content: space-between;
+  overflow: hidden;
+}
+
+.overview-col .card {
+  padding: 0.75rem 0.95rem;
+  margin-bottom: 0;
+  gap: 0.35rem;
+}
+
+.overview-col .card-header-row {
+  margin-bottom: 0.35rem;
+}
+
+.overview-col .form-group {
+  margin-bottom: 0.35rem;
+}
+
+.overview-col .slider-wrap {
+  margin-bottom: 0.35rem;
+}
+
 .emerald-cdp-card {
   width: 100%;
   background: linear-gradient(135deg, var(--brand-forest) 0%, var(--brand-dark) 100%);
   color: #ffffff;
   border-radius: var(--radius-xl);
-  padding: 1.15rem;
+  padding: 0.85rem 1rem;
   position: relative;
   overflow: hidden;
   box-shadow: 0 8px 20px rgba(12, 92, 63, 0.35);
@@ -75,11 +119,11 @@
 .chart-bars-wrap {
   position: relative;
   width: 100%;
-  height: 190px;
+  height: 125px;
   display: flex;
   align-items: flex-end;
-  padding-top: 1.75rem;
-  padding-bottom: 0.75rem;
+  padding-top: 1rem;
+  padding-bottom: 0.5rem;
 }
 
 .chart-grid-lines {
@@ -160,8 +204,8 @@
 .wave-chart-container {
   position: relative;
   width: 100%;
-  height: 65px;
-  margin: 0.5rem 0;
+  height: 45px;
+  margin: 0.25rem 0;
   overflow: hidden;
 }
 
@@ -219,8 +263,8 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  height: calc(100vh - 230px);
-  min-height: 480px;
+  flex: 1;
+  min-height: 520px;
 }
 
 .console-terminal-wrapper {

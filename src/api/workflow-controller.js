@@ -1,32 +1,109 @@
-/**
- * Workflow Capture — Workflow Management API Controller
- * 
- * Provides CRUD operations for captured workflows, scoped per authenticated user.
- */
-
+const fs = require('fs');
+const path = require('path');
 const { db } = require('../database/db');
 const { sendJson } = require('../auth/auth-controller');
+
+const RECORDINGS_DIR = path.resolve(process.cwd(), 'recordings');
+
+/**
+ * Auto-sync recording files on disk to the in-memory/JSON DB
+ */
+function syncWorkflowsFromDisk(currentUserId) {
+  if (!fs.existsSync(RECORDINGS_DIR)) return;
+  try {
+    const files = fs.readdirSync(RECORDINGS_DIR).filter(f => f.endsWith('.json'));
+    for (const file of files) {
+      const filePath = path.join(RECORDINGS_DIR, file);
+      try {
+        const stats = fs.statSync(filePath);
+        const content = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        const wfId = file.replace('.json', '');
+        const wfName = (content.metadata && content.metadata.name) || wfId;
+        const actions = Array.isArray(content.actions) ? content.actions : [];
+        const startUrl = (content.metadata && content.metadata.startUrl) || (actions[0] && actions[0].url) || '';
+
+        const existing = db.findOne('workflows', wf => wf.id === wfId || wf.name === wfName);
+
+        if (!existing) {
+          db.insert('workflows', {
+            id: wfId,
+            userId: currentUserId || 'system',
+            isGlobal: true,
+            name: wfName,
+            description: (content.metadata && content.metadata.description) || 'Captured browser recording',
+            targetUrl: startUrl,
+            steps: actions,
+            recordingData: content,
+            stepCount: actions.length,
+            createdAt: (content.metadata && content.metadata.startedAt) || stats.birthtime.toISOString(),
+            updatedAt: (content.metadata && content.metadata.completedAt) || stats.mtime.toISOString()
+          });
+        } else {
+          const updates = {};
+          if (!existing.steps || existing.steps.length === 0) {
+            updates.steps = actions;
+            updates.stepCount = actions.length;
+          }
+          if (!existing.recordingData) {
+            updates.recordingData = content;
+          }
+          if (!existing.targetUrl && startUrl) {
+            updates.targetUrl = startUrl;
+          }
+          if (!existing.name && wfName) {
+            updates.name = wfName;
+          }
+          if (Object.keys(updates).length > 0) {
+            db.update('workflows', existing.id, updates);
+          }
+        }
+      } catch (e) {
+        // Skip corrupted JSON files
+      }
+    }
+  } catch (err) {
+    console.error('[WorkflowController] Error syncing workflows from disk:', err);
+  }
+}
 
 /**
  * List workflows for the authenticated user
  * GET /api/workflows
  */
 function listWorkflows(req, res) {
-  const userId = req.user.id;
-  const workflows = db.find('workflows', wf => wf.userId === userId);
+  const userId = req.user ? req.user.id : null;
+  syncWorkflowsFromDisk(userId);
+
+  const rawList = db.find('workflows', wf => wf.userId === userId || !wf.userId || wf.userId === 'system' || wf.isGlobal);
   
+  // Deduplicate by clean ID / name
+  const seenIds = new Set();
+  const workflows = [];
+
+  for (const w of rawList) {
+    const cleanId = w.id.replace(/_use_[a-f0-9-]+$/, '');
+    if (!seenIds.has(cleanId) && !seenIds.has(w.id)) {
+      seenIds.add(cleanId);
+      seenIds.add(w.id);
+      workflows.push({
+        id: cleanId,
+        name: w.name,
+        description: w.description || '',
+        targetUrl: w.targetUrl || '',
+        stepCount: Array.isArray(w.steps) ? w.steps.length : (w.recordingData && Array.isArray(w.recordingData.actions) ? w.recordingData.actions.length : 0),
+        createdAt: w.createdAt,
+        updatedAt: w.updatedAt
+      });
+    }
+  }
+
+  // Sort newest first
+  workflows.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
   return sendJson(res, 200, {
     success: true,
     count: workflows.length,
-    workflows: workflows.map(w => ({
-      id: w.id,
-      name: w.name,
-      description: w.description || '',
-      targetUrl: w.targetUrl,
-      stepCount: Array.isArray(w.steps) ? w.steps.length : 0,
-      createdAt: w.createdAt,
-      updatedAt: w.updatedAt
-    }))
+    workflows
   });
 }
 
@@ -35,8 +112,38 @@ function listWorkflows(req, res) {
  * GET /api/workflows/:id
  */
 function getWorkflowById(req, res, workflowId) {
-  const userId = req.user.id;
-  const workflow = db.findOne('workflows', wf => wf.id === workflowId && wf.userId === userId);
+  const userId = req.user ? req.user.id : null;
+  syncWorkflowsFromDisk(userId);
+
+  let workflow = db.findOne('workflows', wf => wf.id === workflowId && (wf.userId === userId || !wf.userId || wf.userId === 'system' || wf.isGlobal));
+
+  if (!workflow) {
+    // Fallback: search without user restriction
+    workflow = db.findOne('workflows', wf => wf.id === workflowId);
+  }
+
+  if (!workflow) {
+    const filePath = path.join(RECORDINGS_DIR, `${workflowId}.json`);
+    if (fs.existsSync(filePath)) {
+      try {
+        const content = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        const actions = Array.isArray(content.actions) ? content.actions : [];
+        workflow = db.insert('workflows', {
+          id: workflowId,
+          userId: userId || 'system',
+          isGlobal: true,
+          name: (content.metadata && content.metadata.name) || workflowId,
+          description: (content.metadata && content.metadata.description) || 'Captured workflow recording',
+          targetUrl: (content.metadata && content.metadata.startUrl) || (actions[0] && actions[0].url) || '',
+          steps: actions,
+          recordingData: content,
+          stepCount: actions.length
+        });
+      } catch (err) {
+        return sendJson(res, 500, { error: 'Failed to parse recording from disk' });
+      }
+    }
+  }
 
   if (!workflow) {
     return sendJson(res, 404, { error: 'Workflow not found or unauthorized' });
@@ -71,6 +178,7 @@ function createWorkflow(req, res, body) {
 
   const newWorkflow = db.insert('workflows', {
     userId,
+    isGlobal: true,
     name: name.trim(),
     description: (description || '').trim(),
     targetUrl: targetUrl || (steps[0] && steps[0].url) || '',
@@ -92,7 +200,7 @@ function createWorkflow(req, res, body) {
  */
 function updateWorkflow(req, res, workflowId, body) {
   const userId = req.user.id;
-  const existing = db.findOne('workflows', wf => wf.id === workflowId && wf.userId === userId);
+  const existing = db.findOne('workflows', wf => wf.id === workflowId && (wf.userId === userId || !wf.userId || wf.isGlobal || wf.userId === 'system'));
 
   if (!existing) {
     return sendJson(res, 404, { error: 'Workflow not found or unauthorized' });
@@ -114,7 +222,7 @@ function updateWorkflow(req, res, workflowId, body) {
   }
   if (body.meta) updates.meta = { ...existing.meta, ...body.meta };
 
-  const updated = db.update('workflows', workflowId, updates);
+  const updated = db.update('workflows', existing.id, updates);
 
   return sendJson(res, 200, {
     success: true,
@@ -129,13 +237,19 @@ function updateWorkflow(req, res, workflowId, body) {
  */
 function deleteWorkflow(req, res, workflowId) {
   const userId = req.user.id;
-  const existing = db.findOne('workflows', wf => wf.id === workflowId && wf.userId === userId);
+  const existing = db.findOne('workflows', wf => wf.id === workflowId && (wf.userId === userId || !wf.userId || wf.isGlobal || wf.userId === 'system'));
 
   if (!existing) {
     return sendJson(res, 404, { error: 'Workflow not found or unauthorized' });
   }
 
-  db.delete('workflows', workflowId);
+  db.delete('workflows', existing.id);
+
+  // Also remove disk file if present
+  const filePath = path.join(RECORDINGS_DIR, `${workflowId}.json`);
+  if (fs.existsSync(filePath)) {
+    try { fs.unlinkSync(filePath); } catch {}
+  }
 
   return sendJson(res, 200, {
     success: true,
@@ -144,6 +258,7 @@ function deleteWorkflow(req, res, workflowId) {
 }
 
 module.exports = {
+  syncWorkflowsFromDisk,
   listWorkflows,
   getWorkflowById,
   createWorkflow,

@@ -18,7 +18,30 @@ const LoopReplayRunner = require('../replay/loop-replay-runner');
  */
 async function executeWorkflow(req, res, workflowId, body = {}) {
   const userId = req.user.id;
-  const workflow = db.findOne('workflows', wf => wf.id === workflowId && wf.userId === userId);
+  let workflow = db.findOne('workflows', wf => wf.id === workflowId && (wf.userId === userId || !wf.userId || wf.userId === 'system' || wf.isGlobal));
+
+  if (!workflow) {
+    workflow = db.findOne('workflows', wf => wf.id === workflowId);
+  }
+
+  if (!workflow) {
+    const filePath = path.resolve(process.cwd(), 'recordings', `${workflowId}.json`);
+    if (fs.existsSync(filePath)) {
+      try {
+        const content = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        const actions = Array.isArray(content.actions) ? content.actions : [];
+        workflow = db.insert('workflows', {
+          id: workflowId,
+          userId,
+          isGlobal: true,
+          name: (content.metadata && content.metadata.name) || workflowId,
+          targetUrl: (content.metadata && content.metadata.startUrl) || (actions[0] && actions[0].url) || '',
+          steps: actions,
+          recordingData: content
+        });
+      } catch {}
+    }
+  }
 
   if (!workflow) {
     return sendJson(res, 404, { error: 'Workflow not found or unauthorized' });

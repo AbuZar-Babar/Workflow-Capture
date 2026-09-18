@@ -13,10 +13,10 @@ export const OverviewView = {
 
   async render(container, router) {
     container.innerHTML = `
-      <div class="content-grid">
+      <div class="overview-fixed-grid">
         
         <!-- Left Section (Col 1-3): CDP Emerald Card, Quick Recorder, Replay Launcher -->
-        <div class="col-span-3" style="display:flex; flex-direction:column; gap:1.25rem;">
+        <div class="overview-col col-span-3">
           
           <!-- Quixotic Emerald Visa-Style CDP Session Card -->
           <article class="emerald-cdp-card">
@@ -34,7 +34,7 @@ export const OverviewView = {
             </div>
 
             <!-- Launch Chrome & Debug Action -->
-            <button class="btn" id="btnOverviewLaunchChrome" style="width:100%; display:flex; align-items:center; justify-content:center; gap:0.5rem; padding:0.65rem 0.85rem; font-weight:800; border-radius:var(--radius-md); background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.25); color:#ffffff; backdrop-filter:blur(4px); transition:all 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.55)'" onmouseout="this.style.background='rgba(0,0,0,0.35)'">
+            <button class="btn" id="btnOverviewLaunchChrome" style="width:100%; display:flex; align-items:center; justify-content:center; gap:0.5rem; padding:0.6rem 0.85rem; font-weight:800; border-radius:var(--radius-md); background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.25); color:#ffffff; backdrop-filter:blur(4px); transition:all 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.55)'" onmouseout="this.style.background='rgba(0,0,0,0.35)'">
               <span style="font-size:1.05rem;">🚀</span>
               <span>Launch Chrome & Debug</span>
             </button>
@@ -64,7 +64,7 @@ export const OverviewView = {
               </button>
             </div>
 
-            <div class="progress-container hidden" id="overviewRecStats" style="margin-top:0.75rem; background:var(--brand-tint); border:1px solid var(--brand-light); border-radius:var(--radius-md); padding:0.6rem;">
+            <div class="progress-container hidden" id="overviewRecStats" style="margin-top:0.5rem; background:var(--brand-tint); border:1px solid var(--brand-light); border-radius:var(--radius-md); padding:0.5rem;">
               <div style="display:flex; justify-content:space-between; font-size:0.72rem; font-weight:700; color:var(--brand-forest);">
                 <span>Captured: <strong id="overviewRecActionCount">0</strong></span>
                 <span>Time: <strong id="overviewRecElapsed">00:00</strong></span>
@@ -100,12 +100,12 @@ export const OverviewView = {
               <span>▶ Run Playback</span>
             </button>
 
-            <div class="progress-container hidden" id="overviewReplayProgress" style="margin-top:0.75rem; background:var(--brand-tint); border:1px solid var(--brand-light); border-radius:var(--radius-md); padding:0.6rem;">
-              <div style="display:flex; justify-content:space-between; font-size:0.7rem; font-weight:700; color:var(--brand-forest); margin-bottom:0.3rem;">
+            <div class="progress-container hidden" id="overviewReplayProgress" style="margin-top:0.5rem; background:var(--brand-tint); border:1px solid var(--brand-light); border-radius:var(--radius-md); padding:0.5rem;">
+              <div style="display:flex; justify-content:space-between; font-size:0.7rem; font-weight:700; color:var(--brand-forest); margin-bottom:0.25rem;">
                 <span id="overviewReplayStep">Action #0/0</span>
                 <span id="overviewReplayPercent">0%</span>
               </div>
-              <div style="width:100%; height:6px; background:rgba(12,92,63,0.15); border-radius:999px; overflow:hidden;">
+              <div style="width:100%; height:5px; background:rgba(12,92,63,0.15); border-radius:999px; overflow:hidden;">
                 <div id="overviewReplayBar" style="height:100%; background:var(--brand-forest); width:0%; transition:width 0.3s;"></div>
               </div>
             </div>
@@ -114,7 +114,7 @@ export const OverviewView = {
         </div>
 
         <!-- Middle Section (Col 4-8): Activity Striped Chart & Recent Workflows Snippet -->
-        <div class="col-span-5" style="display:flex; flex-direction:column; gap:1.25rem;">
+        <div class="overview-col col-span-5">
           
           <!-- Striped Engagement / Capture Density Chart Card -->
           <article class="card">
@@ -124,8 +124,8 @@ export const OverviewView = {
                 <p>Weekly automation runs and selector density</p>
               </div>
               <div style="display:flex; gap:0.25rem; background:#f3f4f6; padding:0.2rem; border-radius:999px;">
-                <button class="btn btn-sm" style="background:#ffffff; color:#111827; box-shadow:0 1px 3px rgba(0,0,0,0.05); padding:0.2rem 0.6rem;">Weekly</button>
-                <button class="btn btn-sm" style="background:transparent; color:#6b7280; padding:0.2rem 0.6rem;">Monthly</button>
+                <button class="btn btn-sm" style="background:#ffffff; color:#111827; box-shadow:0 1px 3px rgba(0,0,0,0.05); padding:0.15rem 0.55rem;">Weekly</button>
+                <button class="btn btn-sm" style="background:transparent; color:#6b7280; padding:0.15rem 0.55rem;">Monthly</button>
               </div>
             </div>
 
@@ -141,28 +141,28 @@ export const OverviewView = {
 
               <div class="bars-container">
                 <div class="bar-col">
-                  <div class="bar-pill striped-bar-sage" style="height: 55px;"></div>
+                  <div class="bar-pill striped-bar-sage" style="height: 45px;"></div>
                   <span class="bar-label">Mon</span>
                 </div>
                 <div class="bar-col">
-                  <div class="bar-pill striped-bar-sage" style="height: 105px;"></div>
+                  <div class="bar-pill striped-bar-sage" style="height: 80px;"></div>
                   <span class="bar-label">Tue</span>
                 </div>
                 <div class="bar-col">
-                  <div class="bar-pill striped-bar-sage" style="height: 80px;"></div>
+                  <div class="bar-pill striped-bar-sage" style="height: 60px;"></div>
                   <span class="bar-label">Wed</span>
                 </div>
                 <div class="bar-col">
                   <div class="bar-tooltip-bubble">+99.4% Pass</div>
-                  <div class="bar-pill striped-bar-dark" style="height: 145px;"></div>
+                  <div class="bar-pill striped-bar-dark" style="height: 105px;"></div>
                   <span class="bar-label" style="color:var(--brand-forest); font-weight:800;">Thu</span>
                 </div>
                 <div class="bar-col">
-                  <div class="bar-pill striped-bar-sage" style="height: 95px;"></div>
+                  <div class="bar-pill striped-bar-sage" style="height: 70px;"></div>
                   <span class="bar-label">Fri</span>
                 </div>
                 <div class="bar-col">
-                  <div class="bar-pill striped-bar-sage" style="height: 115px;"></div>
+                  <div class="bar-pill striped-bar-sage" style="height: 85px;"></div>
                   <span class="bar-label">Sat</span>
                 </div>
               </div>
@@ -170,7 +170,7 @@ export const OverviewView = {
           </article>
 
           <!-- Recent Workflows Preview -->
-          <section class="card">
+          <section class="card" style="flex:1;">
             <div class="card-header-row">
               <div class="card-title-wrap">
                 <h3>Recent Workflows</h3>
@@ -201,7 +201,7 @@ export const OverviewView = {
         </div>
 
         <!-- Right Section (Col 9-12): Heuristic Accuracy, Wave Chart & Quick Test Bench -->
-        <div class="col-span-4" style="display:flex; flex-direction:column; gap:1.25rem;">
+        <div class="overview-col col-span-4">
           
           <article class="card">
             <div class="card-header-row">
@@ -212,9 +212,9 @@ export const OverviewView = {
               <span class="badge-tag success">99.8% OK</span>
             </div>
 
-            <div style="text-align:center; margin:0.5rem 0;">
+            <div style="text-align:center; margin:0.35rem 0;">
               <span style="font-size:0.7rem; color:var(--text-sub); font-weight:600;">Total Selector Matches</span>
-              <p style="font-size:1.8rem; font-weight:800; color:var(--text-main); letter-spacing:-0.02em;" id="overviewTotalSteps">0 Steps</p>
+              <p style="font-size:1.6rem; font-weight:800; color:var(--text-main); letter-spacing:-0.02em;" id="overviewTotalSteps">0 Steps</p>
             </div>
 
             <div class="wave-chart-container">
@@ -231,36 +231,50 @@ export const OverviewView = {
             </div>
           </article>
 
-          <!-- Quick Test Bench -->
-          <section class="card">
+          <!-- Extracted Artifacts & Scraped Data Vault Card -->
+          <section class="card" style="flex:1;">
             <div class="card-header-row">
               <div class="card-title-wrap">
-                <h3>Quick Test Bench</h3>
-                <p>Launch benchmark test portals</p>
+                <h3>Extracted Artifacts</h3>
+                <p>Scraped PDFs, spreadsheets & data</p>
               </div>
+              <button class="btn btn-secondary btn-sm" id="btnOverviewViewArtifacts" title="Open Data Vault">
+                <span>Vault 📦</span>
+              </button>
             </div>
 
-            <div style="display:flex; flex-direction:column; gap:0.5rem;">
-              <div class="portal-quick-card" data-portal="ecommerce" style="display:flex; align-items:center; gap:0.65rem; padding:0.65rem; background:#f9fafb; border-radius:var(--radius-md); border:1px solid rgba(0,0,0,0.06); cursor:pointer;">
-                <span style="font-size:1.2rem;">🛒</span>
-                <div>
-                  <strong style="font-size:0.75rem;">NovaGear E-Commerce</strong>
-                  <small style="display:block; font-size:0.65rem; color:var(--text-sub);">Catalog, Search & Checkout</small>
+            <div style="display:flex; flex-direction:column; gap:0.45rem;">
+              <div class="portal-quick-card artifact-quick-row" data-file="monthly_invoice_sep_2026.pdf" style="display:flex; align-items:center; justify-content:space-between; padding:0.5rem 0.65rem; background:#f9fafb; border-radius:var(--radius-md); border:1px solid rgba(0,0,0,0.06); cursor:pointer;">
+                <div style="display:flex; align-items:center; gap:0.6rem;">
+                  <span style="font-size:1.15rem;">📕</span>
+                  <div>
+                    <strong style="font-size:0.75rem; color:var(--text-main); display:block;">monthly_invoice_sep_2026.pdf</strong>
+                    <small style="display:block; font-size:0.65rem; color:var(--text-sub);">PDF Document • 342 KB</small>
+                  </div>
                 </div>
+                <span class="badge-tag danger" style="font-size:0.62rem;">PDF</span>
               </div>
-              <div class="portal-quick-card" data-portal="sales" style="display:flex; align-items:center; gap:0.65rem; padding:0.65rem; background:#f9fafb; border-radius:var(--radius-md); border:1px solid rgba(0,0,0,0.06); cursor:pointer;">
-                <span style="font-size:1.2rem;">💼</span>
-                <div>
-                  <strong style="font-size:0.75rem;">Stratos Sales CRM</strong>
-                  <small style="display:block; font-size:0.65rem; color:var(--text-sub);">B2B Lead Pipeline & Quotes</small>
+
+              <div class="portal-quick-card artifact-quick-row" data-file="ecommerce_products_catalog.csv" style="display:flex; align-items:center; justify-content:space-between; padding:0.5rem 0.65rem; background:#f9fafb; border-radius:var(--radius-md); border:1px solid rgba(0,0,0,0.06); cursor:pointer;">
+                <div style="display:flex; align-items:center; gap:0.6rem;">
+                  <span style="font-size:1.15rem;">📊</span>
+                  <div>
+                    <strong style="font-size:0.75rem; color:var(--text-main); display:block;">products_catalog_export.csv</strong>
+                    <small style="display:block; font-size:0.65rem; color:var(--brand-forest); font-weight:700;">CSV Dataset • 450 Records</small>
+                  </div>
                 </div>
+                <span class="badge-tag success" style="font-size:0.62rem;">CSV</span>
               </div>
-              <div class="portal-quick-card" data-portal="library" style="display:flex; align-items:center; gap:0.65rem; padding:0.65rem; background:#f9fafb; border-radius:var(--radius-md); border:1px solid rgba(0,0,0,0.06); cursor:pointer;">
-                <span style="font-size:1.2rem;">📚</span>
-                <div>
-                  <strong style="font-size:0.75rem;">Alexandria Library</strong>
-                  <small style="display:block; font-size:0.65rem; color:var(--text-sub);">Digital Book Catalog & Downloads</small>
+
+              <div class="portal-quick-card artifact-quick-row" data-file="b2b_leads_pipeline_manifest.json" style="display:flex; align-items:center; justify-content:space-between; padding:0.5rem 0.65rem; background:#f9fafb; border-radius:var(--radius-md); border:1px solid rgba(0,0,0,0.06); cursor:pointer;">
+                <div style="display:flex; align-items:center; gap:0.6rem;">
+                  <span style="font-size:1.15rem;">📝</span>
+                  <div>
+                    <strong style="font-size:0.75rem; color:var(--text-main); display:block;">leads_manifest.json</strong>
+                    <small style="display:block; font-size:0.65rem; color:var(--text-sub);">JSON Output • 88 KB</small>
+                  </div>
                 </div>
+                <span class="badge-tag amber" style="font-size:0.62rem;">JSON</span>
               </div>
             </div>
           </section>
@@ -358,17 +372,18 @@ export const OverviewView = {
       btnViewAll.onclick = () => router.navigate('workflows');
     }
 
-    // Quick Portal Launch Cards
-    document.querySelectorAll('.portal-quick-card').forEach(card => {
-      card.onclick = async () => {
-        const portal = card.getAttribute('data-portal');
-        Toast.info(`Opening ${portal} in Chrome...`);
-        try {
-          await Api.openPortal(portal);
-          Toast.success(`Loaded portal in Chrome!`);
-        } catch (err) {
-          Toast.error(err.message);
-        }
+    // View All Artifacts Vault button
+    const btnViewArtifacts = document.getElementById('btnOverviewViewArtifacts');
+    if (btnViewArtifacts) {
+      btnViewArtifacts.onclick = () => router.navigate('artifacts');
+    }
+
+    // Quick Artifact Rows Click -> Navigate to artifacts vault with toast
+    document.querySelectorAll('.artifact-quick-row').forEach(row => {
+      row.onclick = () => {
+        const file = row.dataset.file;
+        Toast.info(`Inspecting artifact ${file} in vault...`);
+        router.navigate('artifacts');
       };
     });
   },

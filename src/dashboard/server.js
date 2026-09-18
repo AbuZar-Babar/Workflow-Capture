@@ -528,7 +528,11 @@ const server = http.createServer(async (req, res) => {
           actionCount: activeRecorder.actions.length
         };
         activeRecorder = null;
+        if (workflowController.syncWorkflowsFromDisk) {
+          workflowController.syncWorkflowsFromDisk();
+        }
         broadcast('recording_state', { isRecording: false, summary });
+        broadcast('workflows_updated', summary);
         return sendJson(res, 200, { success: true, summary });
       } catch (err) {
         logger.error('Error stopping recorder:', err);

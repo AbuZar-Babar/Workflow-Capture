@@ -164,9 +164,16 @@
   border: 1px solid rgba(0, 0, 0, 0.06);
   box-shadow: var(--shadow-sidebar);
   flex-shrink: 0;
+  height: 100%;
   align-self: stretch;
-  position: sticky;
-  top: 1.5rem;
+  position: relative;
+  z-index: 20;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.floating-sidebar::-webkit-scrollbar {
+  display: none;
 }
 
 .sidebar-active-btn {
