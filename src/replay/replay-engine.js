@@ -237,6 +237,121 @@ class ReplayEngine {
   }
 
   /**
+   * Execute a recorded action against an already-discovered collection item.
+   * The original recorded target is not resolved globally; resolution is scoped
+   * to the current item to avoid clicking the first matching record repeatedly.
+   */
+  async executeActionWithinItem(itemHandle, action, index = 0) {
+    if (!this.page) throw new Error('ReplayEngine is not connected to a page.');
+    if (!itemHandle) throw new Error('No collection item handle supplied.');
+
+    await this._waitForLoadingMasks(6000);
+
+    const targetHandle = await itemHandle.evaluateHandle((item, target) => {
+      if (!item) return null;
+
+      const visible = (el) => {
+        if (!el || !(el instanceof Element)) return false;
+        const style = getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        return style.display !== 'none' && style.visibility !== 'hidden' &&
+          rect.width > 0 && rect.height > 0;
+      };
+
+      const normalize = (value) => String(value || '').toLowerCase().replace(/\s+/g, ' ').trim();
+      const fingerprint = target?.fingerprint || {};
+      const candidates = Array.isArray(target?.candidates) ? target.candidates : [];
+
+      const score = (el) => {
+        if (!visible(el)) return -1;
+        let value = 0;
+        if (fingerprint.tagName && el.tagName.toLowerCase() === String(fingerprint.tagName).toLowerCase()) value += 0.25;
+        if (fingerprint.role && el.getAttribute('role') === fingerprint.role) value += 0.2;
+        if (fingerprint.ariaLabel && el.getAttribute('aria-label') === fingerprint.ariaLabel) value += 0.2;
+        const targetText = normalize(fingerprint.text);
+        const elementText = normalize(el.textContent);
+        if (targetText && elementText === targetText) value += 0.35;
+        else if (targetText && elementText.includes(targetText)) value += 0.25;
+        if (fingerprint.id && el.id === fingerprint.id) value += 0.2;
+        return value;
+      };
+
+      // Prefer recorded CSS selectors, but only within this item.
+      for (const candidate of candidates) {
+        if (!candidate?.value) continue;
+        const value = candidate.value;
+        const looksXPath = value.startsWith('//') || value.startsWith('(');
+        if (looksXPath) continue;
+        try {
+          const matches = Array.from(item.querySelectorAll(value)).filter(visible);
+          if (matches.length === 1) return matches[0];
+          if (matches.length > 1) {
+            return matches.sort((a, b) => score(b) - score(a))[0];
+          }
+        } catch {}
+      }
+
+      // Fingerprint fallback scoped to the item.
+      const tag = fingerprint.tagName && fingerprint.tagName !== 'unknown'
+        ? fingerprint.tagName.toLowerCase()
+        : '*';
+      let pool = Array.from(item.querySelectorAll(tag)).filter(visible);
+      if (!pool.length) pool = Array.from(item.querySelectorAll('*')).filter(visible);
+
+      if (fingerprint.ariaLabel) {
+        const ariaMatches = pool.filter(el => el.getAttribute('aria-label') === fingerprint.ariaLabel);
+        if (ariaMatches.length) pool = ariaMatches;
+      }
+
+      const targetText = normalize(fingerprint.text);
+      if (targetText) {
+        const textMatches = pool.filter(el => normalize(el.textContent) === targetText);
+        if (textMatches.length) pool = textMatches;
+      }
+
+      pool.sort((a, b) => score(b) - score(a));
+      return pool[0] || null;
+    }, action.target || action.fingerprint);
+
+    const elementHandle = targetHandle.asElement();
+    if (!elementHandle) {
+      await targetHandle.dispose().catch(() => {});
+      throw new Error(`Could not resolve action target inside collection item #${index + 1}`);
+    }
+
+    try {
+      const actionToDispatch = { ...action };
+      if (actionToDispatch.type === 'TYPE' && typeof actionToDispatch.value === 'string') {
+        const match = actionToDispatch.value.match(/^{{secret:([^}]+)}}$/);
+        if (match && this.secretResolver) {
+          actionToDispatch.value = await this.secretResolver(match[1]);
+        }
+      }
+
+      const nextAction = this.recording?.actions?.[index + 1];
+      const isNextActionOption = Boolean(
+        nextAction && (
+          nextAction.target?.candidates?.some(c => c.value && (c.value.includes('option') || c.value.includes('pseudo-checkbox'))) ||
+          nextAction.target?.fingerprint?.tagName === 'mat-option' ||
+          nextAction.target?.fingerprint?.tagName === 'mat-pseudo-checkbox' ||
+          nextAction.target?.fingerprint?.role === 'option'
+        )
+      );
+
+      await elementHandle.scrollIntoViewIfNeeded().catch(() => {});
+      await dispatchAction(elementHandle, actionToDispatch, {
+        page: this.page,
+        botConfig: this.botConfig,
+        isNextActionOption
+      });
+
+      return { success: true, scoped: true };
+    } finally {
+      await elementHandle.dispose().catch(() => {});
+    }
+  }
+
+  /**
    * Ensure selector resolver is loaded inside a specific frame or page context
    */
   async _ensureSelectorResolverInFrame(frame) {
