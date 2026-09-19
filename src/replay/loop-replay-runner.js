@@ -10,6 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const ReplayEngine = require('./replay-engine');
 const LoopDetector = require('../shared/loop-detector');
+const ItemDiscovery = require('../shared/item-discovery');
 const logger = require('../utils/logger');
 const { db } = require('../database/db');
 const { decryptSecret } = require('../auth/secret-util');
@@ -317,22 +318,25 @@ class LoopReplayRunner {
       // Record baseline list page URL for state restoration
       const listPageUrl = page.url();
 
-      // 3. Resolve repeating elements on current page
-      const elementsCount = await page.evaluate((containerSel) => {
-        const elements = document.querySelectorAll(containerSel);
-        return elements.length;
-      }, analysis.containerSelector);
+      // 3. Discover the collection from the element the user actually recorded.
+      // ItemDiscovery replaces the old nth-child/container-only heuristic for the
+      // first generalized execution path.
+      const discovery = await ItemDiscovery.discover(page, targetStep, {
+        minItems: 2,
+        minScore: 0.55
+      });
 
-      manifest.itemsTotal = elementsCount;
-      logger.info(`[Loop Runner] Found ${elementsCount} repeating items to process in collection`);
-      onProgress({ status: 'PROCESSING_ITEMS', manifest });
-
-      if (elementsCount === 0) {
-        logger.warn(`[Loop Runner] No repeating elements matched selector: ${analysis.containerSelector}`);
+      if (!discovery.success) {
+        throw new Error(`Item discovery failed: ${discovery.reason || 'unknown reason'}`);
       }
 
-      // 4. Iterate over each matching item in the collection
-      for (let i = 0; i < elementsCount; i++) {
+      manifest.itemsTotal = discovery.itemCount;
+      logger.info(`[Loop Runner] Discovered ${discovery.itemCount} repeated item(s) with confidence ${Math.round(discovery.confidence * 100)}%`);
+      onProgress({ status: 'PROCESSING_ITEMS', manifest, discovery });
+
+      // 4. Re-query the collection for every item so DOM changes do not invalidate
+      // previously captured indexes/handles.
+      for (let i = 0; i < discovery.itemCount; i++) {
         if (this.isAborted) {
           logger.warn(`[Loop Runner] Abort signal active before item #${i + 1}. Stopping loop.`);
           manifest.status = 'STOPPED';
@@ -348,21 +352,18 @@ class LoopReplayRunner {
         };
 
         try {
-          // Perform action on item i
-          await page.evaluate((containerSel, relSel, idx) => {
-            const items = document.querySelectorAll(containerSel);
-            const targetItem = items[idx];
-            if (!targetItem) throw new Error(`Item at index ${idx} not found`);
+          const itemHandle = await ItemDiscovery.getItemHandle(page, discovery, i);
+          const itemElement = itemHandle.asElement();
+          if (!itemElement) {
+            await itemHandle.dispose().catch(() => {});
+            throw new Error(`Item at index ${i} could not be resolved`);
+          }
 
-            let actionEl = targetItem;
-            if (relSel && relSel !== '*') {
-              const nested = targetItem.querySelector(relSel);
-              if (nested) actionEl = nested;
-            }
-
-            actionEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            actionEl.click();
-          }, analysis.containerSelector, analysis.relativeSelector, i);
+          try {
+            await this.replayEngine.executeActionWithinItem(itemElement, targetStep, loopStepIndex);
+          } finally {
+            await itemElement.dispose().catch(() => {});
+          }
 
           // Allow time for action / download to trigger
           await new Promise(r => setTimeout(r, 1500));
