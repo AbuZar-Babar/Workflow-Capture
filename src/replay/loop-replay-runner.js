@@ -11,6 +11,7 @@ const path = require('path');
 const ReplayEngine = require('./replay-engine');
 const LoopDetector = require('../shared/loop-detector');
 const ItemDiscovery = require('../shared/item-discovery');
+const ActionGeneralizer = require('../shared/action-generalizer');
 const logger = require('../utils/logger');
 const { db } = require('../database/db');
 const { decryptSecret } = require('../auth/secret-util');
@@ -335,8 +336,17 @@ class LoopReplayRunner {
       }
 
       manifest.itemsTotal = discovery.itemCount;
+
+      // Convert the concrete recorded target (for example, the first invoice row)
+      // into an item-relative target before replaying it across the collection.
+      const generalizedAction = ActionGeneralizer.generalizeAction(
+        targetStep,
+        discovery.collection
+      );
+
       logger.info(`[Loop Runner] Discovered ${discovery.itemCount} repeated item(s) with confidence ${Math.round(discovery.confidence * 100)}%`);
-      onProgress({ status: 'PROCESSING_ITEMS', manifest, discovery });
+      logger.info(`[Loop Runner] Generalized loop action to item-relative scope.`);
+      onProgress({ status: 'PROCESSING_ITEMS', manifest, discovery, generalizedAction });
 
       // 4. Re-query the collection for every item so DOM changes do not invalidate
       // previously captured indexes/handles.
@@ -364,7 +374,7 @@ class LoopReplayRunner {
           }
 
           try {
-            await this.replayEngine.executeActionWithinItem(itemElement, targetStep, loopStepIndex);
+            await this.replayEngine.executeActionWithinItem(itemElement, generalizedAction, loopStepIndex);
           } finally {
             await itemElement.dispose().catch(() => {});
           }
