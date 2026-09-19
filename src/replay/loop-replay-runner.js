@@ -299,6 +299,10 @@ class LoopReplayRunner {
       // Auto-navigate to workflow target URL before executing setup / loop steps
       await this.navigateToWorkflowTarget(page, workflow);
 
+      // Ensure the same selector resolver used by normal replay is available to
+      // ItemDiscovery before it tries to resolve the recorded target.
+      await this.replayEngine._ensureSelectorResolverInFrame(page.mainFrame());
+
       // 1. Partition steps into Setup vs Loop Steps
       const steps = workflow.steps || (workflow.recordingData && workflow.recordingData.actions) || [];
       const partition = LoopDetector.partitionWorkflow(steps, loopStepIndex);
@@ -343,7 +347,7 @@ class LoopReplayRunner {
           break;
         }
 
-        logger.info(`\n[Loop Runner] --- Processing item [${i + 1}/${elementsCount}] ---`);
+        logger.info(`\n[Loop Runner] --- Processing item [${i + 1}/${discovery.itemCount}] ---`);
         const itemResult = {
           index: i + 1,
           status: 'PENDING',
