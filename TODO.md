@@ -1,135 +1,298 @@
 # Workflow Capture — Roadmap & TODO
 
-This document tracks completed milestones, architectural enhancements, and upcoming features for the **Workflow Capture** browser automation engine.
+This roadmap reflects the current product direction: **record one document/record workflow, discover the complete collection, iterate over it, handle pagination/dynamic content, reliably download artifacts, and later feed those artifacts into Document AI.**
+
+For the detailed architecture and product strategy, see [PROJECT-PLAN.md](docs/PROJECT-PLAN.md).
 
 ---
 
-## 📌 Status Overview
+## Current Status
 
-- [x] **Zero-Throwaway CDP Core**: Connect to real, running Google Chrome on port `9222` preserving authenticated sessions and cookies.
-- [x] **In-Page Interaction Recording**: Capture `CLICK`, `TYPE`, `SELECT`, `KEY_PRESS`, and buffered input events.
-- [x] **Password & Secret Masking**: Redact sensitive input values to `[REDACTED]` automatically during recording.
-- [x] **Isomorphic Selector Resolver**: Real-time candidate generation and weighted fingerprint scoring (ID, Data attributes, Semantic attributes, Text, Hierarchical CSS, XPath).
-- [x] **Condition-Based Replay Engine**: Active in-page element polling with customizable timeouts (replacing arbitrary sleeps).
-- [x] **Enterprise SPA & Angular Material Resiliency**: Support for composite `<mat-option>` with `<mat-pseudo-checkbox>`, transparent backdrop dismissal, and idempotent combobox triggers.
-- [x] **Intelligent Loop Replay Engine**: DOM sibling detection, batch item iteration, automatic state reset, and CDP download interception.
-- [x] **Human Stealth & Anti-Bot Emulation**: Cubic Bézier mouse trajectories, micro-overshoots, stochastic typing cadence, and preset profiles (`stealth`, `balanced`, `fast`, `instant`).
-- [x] **Backend Architecture & Database Layer**: Zero-dependency transactional JSON database (`JsonDB` in `data/db.json`) supporting `users`, `workflows`, `runs`, `secrets`, and `bot_configs`.
-- [x] **REST API & Authentication**: JWT token signing and middleware, password hashing (`scrypt`), workflow CRUD, run history, and live execution cancellation.
-- [x] **Interactive Web Dashboard**: Single-page management UI with step inspection, workflow editing, live replay streaming, stop buttons, and test portal launchers.
-- [x] **Comprehensive Test Suites**: Unit tests for Selector Resolver, Auth/Database, Backend APIs, Loop Engine, and Bot Config, plus automated E2E smoke tests.
+### Core foundation — implemented
 
----
+- [x] CDP connection to an existing Chrome session.
+- [x] Reuse of authenticated browser state.
+- [x] In-page interaction recording.
+- [x] CLICK / DOUBLE_CLICK / TYPE / SELECT / KEY_PRESS capture.
+- [x] Password value redaction.
+- [x] Iframe-aware recording infrastructure.
+- [x] Multi-candidate selector generation.
+- [x] Element fingerprinting and weighted resolution.
+- [x] Dynamic ID / transient class filtering.
+- [x] Condition-based element waiting.
+- [x] Enterprise SPA / Angular Material resilience.
+- [x] Workflow JSON persistence.
+- [x] Workflow CRUD APIs.
+- [x] Run creation, status tracking and cancellation.
+- [x] Dashboard workflow inspection/editing.
+- [x] Live execution logs.
+- [x] Loop replay infrastructure.
+- [x] Repeated table/list/card detection foundation.
+- [x] Per-item failure isolation foundation.
+- [x] CDP download interception.
+- [x] Run download manifests.
+- [x] Authentication/security layer.
+- [x] Automated unit/integration/E2E tests.
 
-## ✅ Completed Milestones
-
-### Phase 1: Core Automation & Isomorphic Selector Engine
-- [x] Chrome DevTools Protocol (CDP) WebSocket connector.
-- [x] In-page DOM event listener injecting into target web pages.
-- [x] Dynamic ID detection heuristics (filtering framework-generated hashes like `ng-`, `:r1:`, `ext-gen`).
-- [x] Transient CSS class filtering (`mat-focused`, `hover`, `active`).
-- [x] Weighted fingerprint matching algorithm (Mandatory Tag Check, Stable ID, Attributes, Exact & Overlap Text).
-- [x] Token-based Jaccard overlap scoring for whitespace-resilient text matching.
-- [x] Condition-based polling loop with element visibility and interactability verification.
-- [x] Structured error hierarchy with detailed `ElementResolutionTimeoutError` diagnostic context.
-
-### Phase 2: Enterprise Framework Hardening
-- [x] **Angular Material MDC (v15+) Multi-Select Support**:
-  - [x] Composite option control resolution mapping child checkboxes to host `<mat-option>` elements.
-  - [x] Direct native click dispatch fallback when virtual click does not toggle `aria-selected`.
-- [x] **Transparent Backdrop Dismissal**:
-  - [x] Allow `.cdk-overlay-backdrop` and `.cdk-overlay-transparent-backdrop` with `opacity: 0` to pass interactability gates.
-  - [x] Semantic fallback candidate queries targeting active overlay containers.
-  - [x] Direct `backdrop.click()` dispatch triggering Angular CDK's `backdropClick` event.
-- [x] **Dropdown Idempotency**:
-  - [x] Detect combobox triggers already in `aria-expanded="true"` state and skip redundant clicks to prevent accidental closure.
-- [x] **Event Debouncing**:
-  - [x] Recorder bridge duplicate click discarding (<150ms) to ensure clean 1:1 action recording.
-
-### Phase 3: Backend Architecture & Generic Authentication
-- [x] **Persistent Database Engine (`src/database/db.js`)**:
-  - [x] Lightweight `JsonDB` transactional storage with thread-safe in-memory caching and atomic file writes.
-  - [x] Collections for `users`, `workflows`, `runs`, `secrets`, and `bot_configs`.
-  - [x] Bi-directional sync between on-disk `recordings/` and `workflows` collection.
-- [x] **Authentication & Cryptography (`src/auth/`)**:
-  - [x] Salted cryptographic password hashing (`crypto.scrypt`).
-  - [x] JWT token signing and Bearer token verification middleware (`authMiddleware`).
-  - [x] Auth endpoints: `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`.
-- [x] **REST API Layer (`src/api/`)**:
-  - [x] Workflow CRUD endpoints: `GET`, `POST`, `PUT`, `DELETE /api/workflows`.
-  - [x] Workflow execution dispatcher: `POST /api/workflows/:id/execute`.
-  - [x] Run execution logs and history: `GET /api/runs`, `GET /api/runs/:runId`.
-  - [x] Server-Sent Events (SSE) log streaming: `GET /api/runs/:runId/logs`.
-- [x] **Execution Cancellation**:
-  - [x] Individual run cancellation: `POST /api/runs/:runId/stop`.
-  - [x] Global cancellation: `POST /api/runs/stop-all`.
-  - [x] Active abort controllers terminating in-flight replay loops.
-
-### Phase 4: Intelligent Loop Replay & Batch Execution
-- [x] **Sibling Pattern Detector (`src/shared/loop-detector.js`)**:
-  - [x] Automated identification of repeated items in tables (`<tr>`), lists (`<li>`), or card grids.
-  - [x] Single recorded action generalization into collection queries.
-- [x] **Batch Loop Replay Runner (`src/replay/loop-replay-runner.js`)**:
-  - [x] Single-pass setup execution (login, initial navigation).
-  - [x] Iterative loop execution over all matching sibling elements.
-  - [x] Automated state reset (modal dismissal, back-navigation to list).
-  - [x] Per-item fault isolation preventing single-item failures from halting entire batch.
-- [x] **CDP File Download Interception**:
-  - [x] Intercept browser download events and save files into `recordings/runs/:runId/downloads/`.
-  - [x] Generate structured manifest mapping downloaded files to item metadata.
-
-### Phase 5: Bot Stealth & Human Emulation
-- [x] **Cubic Bézier Mouse Movement (`src/replay/human-mouse.js`)**:
-  - [x] Randomized control point calculation producing natural curvature and acceleration.
-  - [x] Micro-overshoots and target corrections simulating physical human hand movements.
-- [x] **Stochastic Typing Engine**:
-  - [x] Variable inter-key delays with Gaussian distribution.
-  - [x] Natural pauses on punctuation (commas, periods, question marks).
-  - [x] Realistic hesitation before capital letters and special characters.
-- [x] **Bot Configuration Profiles (`src/database/bot-config-presets.js`)**:
-  - [x] Preset profiles: `stealth`, `balanced`, `fast`, `instant`.
-  - [x] REST endpoints to fetch and configure custom bot parameters.
-
-### Phase 6: Visual Dashboard & Replay Controls
-- [x] Visual timeline view of recorded workflow steps.
-- [x] Real-time execution status indicators and live SSE log terminal.
-- [x] Interactive Stop button on active executions.
-- [x] Inspector modal displaying candidate selector rankings and fingerprint confidence scores.
-- [x] Built-in launchable test portals (E-Commerce, Sales CRM, Digital Library).
+> These capabilities exist in the current prototype. The roadmap below focuses on making them reliable and productized around the document-collection use case.
 
 ---
 
-## 🚀 Upcoming Milestones & Roadmap
+# Priority Roadmap
 
-### Phase 7: DOM & Navigation Resilience (In Progress)
-- [ ] **Iframe & Nested Frame Support**
-  - [ ] Detect if an action occurs inside an `<iframe>` during recording.
-  - [ ] Record the iframe hierarchy path (e.g. frame name, index, or unique CSS selector).
-  - [ ] Switch execution context to target iframe during replay before resolving elements.
-- [ ] **Shadow DOM & Web Components**
-  - [ ] Extend selector resolver to traverse open Shadow Roots (`element.shadowRoot`).
-  - [ ] Generate deep pierceable CSS selectors (e.g. `>>>` or custom shadow path chains).
-- [ ] **Multi-Tab & Popup Handling**
-  - [ ] Listen to browser target creation (`targetcreated` CDP event).
-  - [ ] Track navigation across new tabs / popup windows and associate actions with specific page targets.
-- [ ] **File Upload Support**
-  - [ ] Capture `<input type="file">` file-picker interactions.
-  - [ ] Implement CDP file payload transfer during replay (`Page.setFileInputFiles`).
+## Phase 1 — Prove the Single-Item Workflow
 
-### Phase 8: Visual Debugger & Replay HUD
-- [ ] **Step-by-Step Replay Mode (`--step` / Dashboard Toggle)**
-  - [ ] Add interactive pause/step buttons to step through actions one at a time.
-- [ ] **In-Browser Element Highlighting**
-  - [ ] Inject animated bounding box overlay onto target elements during replay before action execution.
-- [ ] **Floating In-Page Recording Toolbar**
-  - [ ] Expand the top-right in-page badge into a collapsible HUD with Pause, Resume, and Step Undo buttons.
+**Goal:** reliably record and replay one document-download procedure.
 
-### Phase 9: Headless Execution & Production CI/CD
-- [ ] **Standalone Headless Execution Mode**
-  - [ ] Add `--headless` flag to launch temporary headless Chrome when a real user desktop is not needed.
-  - [ ] Support Dockerized container environments (xvfb / headless flags).
-- [ ] **CLI & HTML Reporting**
-  - [ ] Export interactive HTML execution reports with timelines, pass/fail status, and execution metrics.
-  - [ ] Automatically capture error screenshots on failure and embed directly into reports.
-- [ ] **GitHub Actions / CI Smoke Tests**
-  - [ ] Set up automated CI workflow running scheduled smoke tests against target portals.
+- [ ] Validate against a real management-company invoice portal.
+- [ ] Record navigation → open invoice → download → return.
+- [ ] Verify download completion rather than only detecting a click.
+- [ ] Associate the downloaded artifact with the recorded/current item.
+- [ ] Improve diagnostics when a recorded target cannot be resolved.
+
+**Exit criterion:** one demonstrated invoice workflow can be replayed reliably.
+
+---
+
+## Phase 2 — Collection Discovery + Automatic Item Loop
+
+**Priority: NEXT**
+
+**Goal:** turn one recorded item workflow into a batch workflow.
+
+### Discovery
+
+- [ ] Detect repeated table rows.
+- [ ] Detect repeated list items/cards.
+- [ ] Identify the common parent/collection.
+- [ ] Identify the current recorded item inside that collection.
+- [ ] Score candidate collections using structural similarity.
+- [ ] Expose discovered item count to the user.
+- [ ] Require confirmation before the first bulk execution.
+
+### Generalization
+
+- [ ] Replace a concrete recorded item target with a current-item reference.
+- [ ] Resolve the workflow relative to the current item.
+- [ ] Preserve item metadata such as text, URL and stable IDs.
+- [ ] Re-query the DOM for each iteration.
+
+### Execution
+
+- [ ] Process every discovered item.
+- [ ] Reset page state between items.
+- [ ] Continue after item-level failure.
+- [ ] Record per-item status.
+
+**Exit criterion:**
+
+```
+User processes Invoice #1
+        ↓
+System detects 10 invoices
+        ↓
+User confirms
+        ↓
+System downloads all 10
+```
+
+---
+
+## Phase 3 — Pagination & Dynamic Collections
+
+- [ ] Detect standard Next buttons.
+- [ ] Detect numbered pagination.
+- [ ] Detect Load More.
+- [ ] Support infinite scroll.
+- [ ] Wait for list state/content changes after navigation.
+- [ ] Prevent duplicate processing across pages.
+- [ ] Support virtualized tables through DOM re-querying.
+- [ ] Detect end-of-collection reliably.
+- [ ] Add portal-specific pagination adapters where required.
+
+**Exit criterion:** a collection spanning multiple pages can be processed without manually specifying page count.
+
+---
+
+## Phase 4 — Download Reliability & Checkpointing
+
+- [ ] Verify download completion.
+- [ ] Associate artifact ↔ item ↔ workflow run.
+- [ ] Detect duplicate downloads.
+- [ ] Generate deterministic file names.
+- [ ] Persist item identity where available.
+- [ ] Add item states: DISCOVERED / IN_PROGRESS / DOWNLOADED / FAILED / RETRY_PENDING / SKIPPED.
+- [ ] Retry failed items.
+- [ ] Resume interrupted runs.
+- [ ] Allow retry-only-failed-items.
+- [ ] Generate complete execution manifest.
+- [ ] Capture failure screenshots and diagnostics.
+
+**Exit criterion:** a 100-item run can fail partway through and resume without unnecessarily repeating successful work.
+
+---
+
+## Phase 5 — Multi-Portal Generalization
+
+Validate the engine against genuinely different management-company portals.
+
+Target differences:
+
+- Angular Material;
+- ExtJS;
+- React/Vue;
+- server-rendered tables;
+- virtualized grids;
+- modal-based downloads;
+- direct download links;
+- generated download buttons;
+- multiple pagination styles.
+
+Tasks:
+
+- [ ] Build a portal test matrix.
+- [ ] Identify generic behavior vs portal-specific behavior.
+- [ ] Move portal-specific heuristics into adapters where appropriate.
+- [ ] Avoid adding one-off hacks to the generic resolver.
+- [ ] Establish regression fixtures for each portal type.
+
+**Exit criterion:** the same core workflow model can handle multiple portal architectures without rewriting the engine.
+
+---
+
+## Phase 6 — Production Execution
+
+- [ ] Standalone headless execution.
+- [ ] Browser session isolation.
+- [ ] Docker execution environment.
+- [ ] Job queue.
+- [ ] Scheduled workflows.
+- [ ] Persistent artifact storage.
+- [ ] Cloud execution.
+- [ ] Execution monitoring.
+- [ ] Failure notifications.
+- [ ] Resource/time limits.
+- [ ] Workflow versioning.
+
+---
+
+## Phase 7 — AI-Assisted Discovery & Recovery
+
+AI should be an assistance layer over deterministic automation.
+
+- [ ] Detect when deterministic selector resolution fails.
+- [ ] Ask AI to identify candidate equivalent elements.
+- [ ] AI-assisted collection identification.
+- [ ] AI-assisted pagination detection.
+- [ ] Workflow repair suggestions.
+- [ ] Human approval for uncertain repairs.
+- [ ] Evaluate Browser Use / similar agent frameworks as an optional provider.
+- [ ] Keep deterministic execution as the normal path.
+
+### Desired recovery flow
+
+```
+Known workflow
+      ↓
+Deterministic execution
+      ↓
+Success? ── YES → Continue
+   │
+   NO
+   ↓
+AI recovery/discovery
+   ↓
+Confidence acceptable?
+   │
+  YES → Continue + optionally save repair
+   │
+   NO
+   ↓
+Human intervention
+```
+
+---
+
+## Phase 8 — Document AI Pipeline
+
+This is downstream from browser automation.
+
+- [ ] PDF/document ingestion.
+- [ ] Document classification.
+- [ ] OCR/text extraction where needed.
+- [ ] Invoice field extraction.
+- [ ] Entity normalization.
+- [ ] Validation rules.
+- [ ] Structured database storage.
+- [ ] Document-to-record linking.
+- [ ] Human review for low-confidence extraction.
+- [ ] Reporting/export.
+- [ ] Business-specific AI actions.
+
+Target pipeline:
+
+```
+Portal
+  ↓
+Workflow Capture
+  ↓
+Document Collection
+  ↓
+File Storage
+  ↓
+Document AI
+  ↓
+Structured Data
+  ↓
+Management Workflow
+```
+
+---
+
+# Important Architectural Rules
+
+1. **Record procedures, not individual records.**
+2. **Re-query dynamic DOM content between loop iterations.**
+3. **Use resilient target resolution instead of brittle selectors.**
+4. **Treat discovery as a first-class workflow operation.**
+5. **Treat loops and pagination as first-class execution operations.**
+6. **Keep item failures isolated where safe.**
+7. **Make runs resumable and idempotent.**
+8. **Keep portal-specific behavior behind adapters where practical.**
+9. **Use deterministic automation first; AI is the recovery/discovery layer.**
+10. **Never bypass CAPTCHA; pause for human verification.**
+11. **Keep browser automation and Document AI as separable layers.**
+
+---
+
+# Immediate Next Task
+
+The next implementation target is intentionally narrow:
+
+> **Record one invoice → detect the invoice collection → show the number of matching invoices → execute the recorded download workflow for every invoice on the current page → produce an item-level download manifest.**
+
+Only after this works should pagination be added.
+
+### First validation scenario
+
+```
+Portal
+  ↓
+Invoice list
+  ↓
+Manually process Invoice #1
+  ↓
+Stop recording
+  ↓
+Discovery finds Invoice #1 ... #N
+  ↓
+User confirms
+  ↓
+Loop executes
+  ↓
+PDF #1 ... PDF #N
+  ↓
+Manifest
+```
+
+This is the core proof-of-concept for the product.
