@@ -4,6 +4,71 @@ A generic, portal-agnostic browser automation and workflow capture engine. It co
 
 ---
 
+## 🎯 Product Direction
+
+Workflow Capture is **not being developed as a simple record-and-replay macro**.
+
+The primary use case is automating repetitive document collection for management companies and similar organizations. A user should be able to demonstrate how to download **one** invoice or document, after which the system discovers the remaining matching records and executes the same item workflow across the collection.
+
+The target flow is:
+
+```
+Human demonstrates one item
+        ↓
+Workflow Capture records the procedure
+        ↓
+Discover matching records
+        ↓
+Confirm collection size
+        ↓
+Process every item
+        ↓
+Handle pagination / dynamic lists
+        ↓
+Download + track artifacts
+        ↓
+Produce run manifest
+        ↓
+Future: Document AI processing
+```
+
+The architectural principle is **record the procedure, not the individual records**.
+
+The immediate MVP is therefore:
+
+> **Record one invoice → discover all invoices → download every invoice → track success/failure.**
+
+The existing CDP recorder, selector resolver, replay engine, loop engine, dashboard, authentication and download infrastructure form the foundation for this direction.
+
+For the complete product and technical plan, see [PROJECT-PLAN.md](docs/PROJECT-PLAN.md).
+
+### Architecture at a glance
+
+```
+Dashboard
+   ↓
+Workflow Definition
+   ├── Fixed Actions
+   └── Discovery / Item Model
+            ↓
+      Workflow Engine
+       ├── Conditions
+       ├── Loops
+       └── Pagination
+            ↓
+      Download Engine
+            ↓
+       Run Manifest
+            ↓
+       File Storage
+            ↓
+   Future Document AI
+```
+
+The long-term design keeps deterministic automation as the normal execution path. AI/Browser Use-style capabilities may later be added for discovery or recovery when deterministic resolution fails; they are not required to replace the core engine.
+
+---
+
 ## 🎯 Architecture & Key Features
 
 ### 1. Zero-Throwaway Browser Session (Live CDP Connection)
