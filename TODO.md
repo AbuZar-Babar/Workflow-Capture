@@ -4,6 +4,8 @@ This roadmap reflects the current product direction: **record one document/recor
 
 For the detailed architecture and product strategy, see [PROJECT-PLAN.md](docs/PROJECT-PLAN.md).
 
+For the active implementation branch, see [FEATURE-ITEM-DISCOVERY.md](docs/FEATURE-ITEM-DISCOVERY.md).
+
 ---
 
 ## Current Status
@@ -38,6 +40,51 @@ For the detailed architecture and product strategy, see [PROJECT-PLAN.md](docs/P
 
 ---
 
+# Active Development
+
+## Phase 2 — Collection Discovery + Automatic Item Loop
+
+**Status: IN PROGRESS**  
+**Branch:** `feature/item-discovery`
+
+**Goal:** turn one recorded item workflow into a batch workflow on the current page.
+
+Detailed branch specification:
+
+- [ ] Define collection/item/discovery data model.
+- [ ] Detect repeated table rows.
+- [ ] Detect repeated list items/cards.
+- [ ] Identify the common parent/collection.
+- [ ] Identify the current recorded item inside that collection.
+- [ ] Score candidate collections using structural similarity.
+- [ ] Expose discovered item count and confidence.
+- [ ] Require confirmation before bulk execution.
+- [ ] Replace concrete recorded item targets with current-item references.
+- [ ] Re-query the DOM for each iteration.
+- [ ] Process every discovered current-page item.
+- [ ] Reset page state between items where required.
+- [ ] Continue after item-level failure.
+- [ ] Record per-item status.
+- [ ] Add unit/integration tests for discovery and iteration.
+
+**Branch acceptance criterion:**
+
+```
+User processes Invoice #1
+        ↓
+System detects N equivalent invoices
+        ↓
+User confirms
+        ↓
+System executes the item procedure for all current-page invoices
+        ↓
+Per-item results are produced
+```
+
+Pagination is intentionally excluded from this phase.
+
+---
+
 # Priority Roadmap
 
 ## Phase 1 — Prove the Single-Item Workflow
@@ -56,45 +103,7 @@ For the detailed architecture and product strategy, see [PROJECT-PLAN.md](docs/P
 
 ## Phase 2 — Collection Discovery + Automatic Item Loop
 
-**Priority: NEXT**
-
-**Goal:** turn one recorded item workflow into a batch workflow.
-
-### Discovery
-
-- [ ] Detect repeated table rows.
-- [ ] Detect repeated list items/cards.
-- [ ] Identify the common parent/collection.
-- [ ] Identify the current recorded item inside that collection.
-- [ ] Score candidate collections using structural similarity.
-- [ ] Expose discovered item count to the user.
-- [ ] Require confirmation before the first bulk execution.
-
-### Generalization
-
-- [ ] Replace a concrete recorded item target with a current-item reference.
-- [ ] Resolve the workflow relative to the current item.
-- [ ] Preserve item metadata such as text, URL and stable IDs.
-- [ ] Re-query the DOM for each iteration.
-
-### Execution
-
-- [ ] Process every discovered item.
-- [ ] Reset page state between items.
-- [ ] Continue after item-level failure.
-- [ ] Record per-item status.
-
-**Exit criterion:**
-
-```
-User processes Invoice #1
-        ↓
-System detects 10 invoices
-        ↓
-User confirms
-        ↓
-System downloads all 10
-```
+**Status: IN PROGRESS — see active branch above.**
 
 ---
 
@@ -106,29 +115,25 @@ System downloads all 10
 - [ ] Support infinite scroll.
 - [ ] Wait for list state/content changes after navigation.
 - [ ] Prevent duplicate processing across pages.
-- [ ] Support virtualized tables through DOM re-querying.
-- [ ] Detect end-of-collection reliably.
-- [ ] Add portal-specific pagination adapters where required.
+- [ ] Support virtualized lists/tables.
+- [ ] Re-discover collection after page transitions.
 
-**Exit criterion:** a collection spanning multiple pages can be processed without manually specifying page count.
+**Exit criterion:** the engine can process a multi-page collection without manual record selection.
 
 ---
 
-## Phase 4 — Download Reliability & Checkpointing
+## Phase 4 — Reliable Downloads & Run State
 
-- [ ] Verify download completion.
-- [ ] Associate artifact ↔ item ↔ workflow run.
-- [ ] Detect duplicate downloads.
-- [ ] Generate deterministic file names.
-- [ ] Persist item identity where available.
-- [ ] Add item states: DISCOVERED / IN_PROGRESS / DOWNLOADED / FAILED / RETRY_PENDING / SKIPPED.
-- [ ] Retry failed items.
-- [ ] Resume interrupted runs.
-- [ ] Allow retry-only-failed-items.
-- [ ] Generate complete execution manifest.
-- [ ] Capture failure screenshots and diagnostics.
+- [ ] Verify file download completion.
+- [ ] Associate artifacts with item identity.
+- [ ] Add retries.
+- [ ] Add checkpoint/resume.
+- [ ] Add idempotency / duplicate prevention.
+- [ ] Persist per-item execution state.
+- [ ] Produce complete run manifests.
+- [ ] Handle download failures without corrupting run state.
 
-**Exit criterion:** a 100-item run can fail partway through and resume without unnecessarily repeating successful work.
+**Exit criterion:** a long batch can fail partially, resume safely, and produce an auditable manifest.
 
 ---
 
@@ -267,9 +272,9 @@ Management Workflow
 
 # Immediate Next Task
 
-The next implementation target is intentionally narrow:
+The active branch `feature/item-discovery` should implement this narrow proof:
 
-> **Record one invoice → detect the invoice collection → show the number of matching invoices → execute the recorded download workflow for every invoice on the current page → produce an item-level download manifest.**
+> **Record one invoice → detect the invoice collection → show the number of matching invoices → execute the recorded download workflow for every invoice on the current page → produce item-level results.**
 
 Only after this works should pagination be added.
 
@@ -292,7 +297,5 @@ Loop executes
   ↓
 PDF #1 ... PDF #N
   ↓
-Manifest
+Item-level results
 ```
-
-This is the core proof-of-concept for the product.
