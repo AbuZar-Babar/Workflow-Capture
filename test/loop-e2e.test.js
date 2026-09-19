@@ -78,11 +78,29 @@ async function runLoopE2E() {
         {
           type: 'CLICK',
           target: {
-            tagName: 'A',
-            parentTag: 'TD',
-            text: 'Download',
-            selectors: {
-              cssPath: 'table#invoices-table tbody > tr:nth-child(1) > td:nth-child(5) > a.btn-download'
+            candidates: [
+              {
+                strategy: 'css-path',
+                value: 'table#invoices-table tbody > tr:nth-child(1) > td:nth-child(5) > a.btn-download',
+                uniqueness: 1,
+                priority: 5
+              }
+            ],
+            fingerprint: {
+              tagName: 'a',
+              id: null,
+              name: null,
+              type: null,
+              role: null,
+              placeholder: null,
+              ariaLabel: null,
+              text: 'Download',
+              classes: ['btn-download'],
+              attributes: {
+                href: 'data:text/plain;charset=utf-8,Invoice%20INV-2026-001%20for%20Acme%20Corp%0AAmount:%20$1250.00'
+              },
+              isPassword: false,
+              dimensions: { width: 0, height: 0 }
             }
           }
         }
