@@ -105,7 +105,14 @@ class ItemDiscovery {
         };
       }
 
-      const recordedSignature = structuralSignature(recorded);
+      const buildAncestorSelector = (el) => {
+        if (!el) return '';
+        if (el.id) return `#${el.id}`;
+        const parent = el.parentElement;
+        if (parent && parent.id) return `#${parent.id} ${el.tagName.toLowerCase()}`;
+        return el.tagName.toLowerCase();
+      };
+
       const recordedParent = recorded.parentElement;
       const ancestors = [];
       let current = recordedParent;
@@ -121,41 +128,60 @@ class ItemDiscovery {
         const children = Array.from(ancestor.children).filter(visible);
         if (children.length < minItems) continue;
 
+        // Identify which direct child of this ancestor contains the recorded element
+        const itemForRecorded = children.find(child => child === recorded || child.contains(recorded));
+        if (!itemForRecorded) continue;
+
         const sameTag = children.filter(child =>
-          child.tagName === recorded.tagName
+          child.tagName === itemForRecorded.tagName
         );
 
         const siblingSet = sameTag.length >= minItems ? sameTag : children;
-
         if (siblingSet.length < minItems) continue;
 
+        const itemSignature = structuralSignature(itemForRecorded);
+        const itemClasses = stableClasses(itemForRecorded);
+
         const matching = siblingSet.filter(child => {
-          const structureScore = child === recorded
+          const structureScore = child === itemForRecorded
             ? 1
-            : similarity(structuralSignature(child), recordedSignature);
-          const classScore = similarity(stableClasses(child), stableClasses(recorded));
+            : similarity(structuralSignature(child), itemSignature);
+          const classScore = similarity(stableClasses(child), itemClasses);
           return (structureScore * 0.75 + classScore * 0.25) >= minScore;
         });
 
         if (matching.length < minItems) continue;
 
-        const index = matching.indexOf(recorded);
+        const index = matching.indexOf(itemForRecorded);
         if (index < 0) continue;
+
+        const itemTagLower = itemForRecorded.tagName.toLowerCase();
+        const ancestorTagLower = ancestor.tagName.toLowerCase();
+
+        // Bonus for recognized repeated item structures (table rows, list items)
+        let bonus = 0;
+        if ((ancestorTagLower === 'tbody' || ancestorTagLower === 'table') && itemTagLower === 'tr') {
+          bonus += 0.2;
+        } else if ((ancestorTagLower === 'ul' || ancestorTagLower === 'ol') && itemTagLower === 'li') {
+          bonus += 0.2;
+        }
 
         const score = Math.min(
           1,
           0.5 +
-          Math.min(0.3, matching.length / Math.max(children.length, 1) * 0.3) +
-          (matching.length >= 3 ? 0.2 : 0.1)
+          Math.min(0.3, (matching.length / Math.max(children.length, 1)) * 0.3) +
+          (matching.length >= 3 ? 0.2 : 0.1) +
+          bonus
         );
 
         candidates.push({
           score,
           itemCount: matching.length,
           recordedIndex: index,
-          ancestorTag: ancestor.tagName.toLowerCase(),
-          itemTag: recorded.tagName.toLowerCase(),
-          itemSignature: recordedSignature,
+          ancestorTag: ancestorTagLower,
+          ancestorSelector: buildAncestorSelector(ancestor),
+          itemTag: itemTagLower,
+          itemSignature: itemSignature,
           items: matching.map((item, itemIndex) => ({
             index: itemIndex,
             text: normalize(item.innerText).slice(0, 200),
@@ -190,6 +216,7 @@ class ItemDiscovery {
         recordedIndex: best.recordedIndex,
         collection: {
           ancestorTag: best.ancestorTag,
+          ancestorSelector: best.ancestorSelector,
           itemTag: best.itemTag,
           itemSignature: best.itemSignature
         },
@@ -234,8 +261,15 @@ class ItemDiscovery {
         ].join('|');
       };
 
-      const ancestors = Array.from(document.querySelectorAll(collection.ancestorTag))
-        .filter(visible);
+      let ancestors = [];
+      if (collection.ancestorSelector) {
+        try {
+          ancestors = Array.from(document.querySelectorAll(collection.ancestorSelector)).filter(visible);
+        } catch {}
+      }
+      if (!ancestors.length && collection.ancestorTag) {
+        ancestors = Array.from(document.querySelectorAll(collection.ancestorTag)).filter(visible);
+      }
 
       for (const ancestor of ancestors) {
         const items = Array.from(ancestor.children).filter(child =>

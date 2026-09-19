@@ -18,7 +18,13 @@ class LoopDetector {
 
     const fingerprint = step.fingerprint || step.target || {};
     const selectors = fingerprint.selectors || step.selectors || {};
-    const cssPath = selectors.cssPath || selectors.hierarchical || '';
+    let cssPath = selectors.cssPath || selectors.hierarchical || '';
+
+    if (!cssPath && step.target && Array.isArray(step.target.candidates)) {
+      const cssCand = step.target.candidates.find(c => c && c.strategy === 'css-path' && c.value);
+      if (cssCand) cssPath = cssCand.value;
+    }
+
     const tagName = (fingerprint.tagName || '').toLowerCase();
     const parentTag = (fingerprint.parentTag || '').toLowerCase();
 
