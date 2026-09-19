@@ -8,10 +8,11 @@
     "dashboard": "node src/dashboard/server.js",
     "record": "node src/recorder/index.js",
     "replay": "node src/replay/index.js",
-    "test": "node test/selector-resolver.test.js && node test/auth.test.js && node test/backend-api.test.js && node test/loop-engine.test.js && node test/bot-config.test.js",
+    "test": "node test/selector-resolver.test.js && node test/auth.test.js && node test/backend-api.test.js && node test/loop-engine.test.js && node test/item-discovery.test.js && node test/bot-config.test.js",
     "test:auth": "node test/auth.test.js",
     "test:backend": "node test/backend-api.test.js",
     "test:loop": "node test/loop-engine.test.js",
+    "test:item-discovery": "node test/item-discovery.test.js",
     "test:bot": "node test/bot-config.test.js",
     "test:loop-e2e": "node test/loop-e2e.test.js",
     "test:e2e": "node test/e2e-smoke.js"
