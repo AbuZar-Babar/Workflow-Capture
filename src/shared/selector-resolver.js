@@ -37,7 +37,7 @@
       CLASSES: 0.10
     },
     MIN_CONFIDENCE_THRESHOLD: 0.70,
-    UNSTABLE_ID_PATTERN: /(:r[0-9a-z_-]+:|^ng-|^__|^ember|^\d+$|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}|_[0-9a-zA-Z]{5,}|^gridview-\d+|^record-\d+|^tableview-\d+|^ext-gen|^ext-comp|^panel-\d+|^menuitem-\d+|^button-\d+|ext-element-\d+)/i,
+    UNSTABLE_ID_PATTERN: /(:r[0-9a-z_-]+:|^ng-|^__|^ember|^\d+$|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}|_[0-9a-zA-Z]{5,}|^gridview-\d+|^record-\d+|^tableview-\d+|^ext-gen|^ext-comp|^panel-\d+|^menuitem-\d+|^button-\d+|ext-element-\d+|^mat-select-value-\d+|^mat-option-\d+|^mat-select-\d+|^mat-checkbox-\d+|^mat-input-\d+|^mat-form-field-|^mat-mdc-|^cdk-overlay-|^cdk-describedby-)/i,
     TRANSIENT_CLASS_PATTERN: /^(active|hover|focus|focus-visible|disabled|selected|open|closed|show|hide|entering|leaving|animate-|transition-|css-[a-z0-9]+$)/i,
     PREFERRED_DATA_ATTRIBUTES: [
       'data-testid',
@@ -129,11 +129,16 @@
    */
   function isElementVisible(element) {
     if (!element || element.nodeType !== 1) return false;
+    const isBackdrop = Boolean(
+      (element.classList && (element.classList.contains('cdk-overlay-backdrop') || element.classList.contains('modal-backdrop'))) ||
+      (element.className && typeof element.className === 'string' && element.className.includes('backdrop'))
+    );
+
     if (element.offsetParent === null && element.tagName.toLowerCase() !== 'body') {
-      // Check if position is fixed
+      // Check if position is fixed or element is a fixed backdrop
       if (typeof window !== 'undefined') {
         const style = window.getComputedStyle(element);
-        if (style.position !== 'fixed' && style.position !== 'sticky') {
+        if (style.position !== 'fixed' && style.position !== 'sticky' && !isBackdrop) {
           return false;
         }
       } else {
@@ -142,7 +147,10 @@
     }
     if (typeof window !== 'undefined') {
       const style = window.getComputedStyle(element);
-      if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+      if (style.display === 'none' || style.visibility === 'hidden') {
+        return false;
+      }
+      if (style.opacity === '0' && !isBackdrop) {
         return false;
       }
     }
@@ -158,94 +166,78 @@
    */
   function isElementInteractable(element) {
     if (!isElementVisible(element)) return false;
-    if (element.disabled) return false;
-    if (typeof window !== 'undefined') {
-      const style = window.getComputedStyle(element);
-      if (style.pointerEvents === 'none') return false;
-    }
+    if (element.disabled === true) return false;
+    if (element.getAttribute('aria-disabled') === 'true') return false;
     return true;
   }
 
   /**
-   * Create unique CSS path relative to closest stable ancestor or root
+   * Generate scoped CSS path from element up to a stable ancestor or body
    */
   function generateCssPath(element, doc) {
-    if (!element || element.nodeType !== 1) return '';
     const d = doc || (typeof document !== 'undefined' ? document : null);
+    if (!element || element.nodeType !== 1) return null;
+
     const path = [];
     let current = element;
 
     while (current && current.nodeType === 1 && current.tagName.toLowerCase() !== 'html') {
       const tag = current.tagName.toLowerCase();
 
-      // If we find an element with a stable ID, we can anchor to it
       if (isStableId(current.id)) {
-        const idSelector = `#${escapeCss(current.id)}`;
-        if (d && queryAll(idSelector, d).length === 1) {
-          path.unshift(idSelector);
-          break;
-        }
+        path.unshift(`#${escapeCss(current.id)}`);
+        break;
       }
 
-      // Check preferred data attributes
-      let foundDataAttr = false;
-      for (const attr of CONSTANTS.PREFERRED_DATA_ATTRIBUTES) {
-        if (current.hasAttribute(attr)) {
-          const val = current.getAttribute(attr);
-          const dataSelector = `[${attr}="${escapeCss(val)}"]`;
-          if (d && queryAll(dataSelector, d).length === 1) {
-            path.unshift(dataSelector);
-            foundDataAttr = true;
-            break;
-          }
-        }
+      if (current.tagName.toLowerCase() === 'body') {
+        path.unshift('body');
+        break;
       }
-      if (foundDataAttr) break;
 
-      // Add tag name + nth-of-type if needed
       const parent = current.parentElement;
-      if (parent) {
-        const siblings = Array.from(parent.children).filter(child => child.tagName === current.tagName);
-        if (siblings.length > 1) {
-          const index = siblings.indexOf(current) + 1;
-          path.unshift(`${tag}:nth-of-type(${index})`);
-        } else {
-          path.unshift(tag);
-        }
-      } else {
+      if (!parent) {
         path.unshift(tag);
+        break;
+      }
+
+      const children = Array.from(parent.children);
+      const sameTagChildren = children.filter(c => c.tagName === current.tagName);
+
+      if (sameTagChildren.length === 1) {
+        path.unshift(tag);
+      } else {
+        const index = sameTagChildren.indexOf(current) + 1;
+        path.unshift(`${tag}:nth-of-type(${index})`);
       }
 
       current = parent;
     }
 
-    return path.join(' > ');
+    const fullPath = path.join(' > ');
+    return fullPath || null;
   }
 
   /**
-   * Generate fallback XPath
+   * Generate absolute XPath for element
    */
   function generateXPath(element) {
-    if (!element || element.nodeType !== 1) return '';
+    if (!element || element.nodeType !== 1) return null;
+    if (element.tagName.toLowerCase() === 'html') return '/html[1]';
+    if (element.tagName.toLowerCase() === 'body') return '/html[1]/body[1]';
+
     if (isStableId(element.id)) {
       return `//*[@id='${element.id}']`;
     }
-    const paths = [];
-    let current = element;
-    while (current && current.nodeType === 1) {
-      let index = 1;
-      let sibling = current.previousSibling;
-      while (sibling) {
-        if (sibling.nodeType === 1 && sibling.tagName === current.tagName) {
-          index++;
-        }
-        sibling = sibling.previousSibling;
-      }
-      const tag = current.tagName.toLowerCase();
-      paths.unshift(`${tag}[${index}]`);
-      current = current.parentNode;
+
+    let index = 1;
+    const siblings = element.parentElement ? Array.from(element.parentElement.children) : [];
+    for (const sib of siblings) {
+      if (sib === element) break;
+      if (sib.tagName === element.tagName) index++;
     }
-    return `/${paths.join('/')}`;
+
+    const parentXPath = element.parentElement ? generateXPath(element.parentElement) : '';
+    return `${parentXPath}/${element.tagName.toLowerCase()}[${index}]`;
   }
 
   /**
@@ -278,6 +270,18 @@
     if (isStableId(element.id)) {
       addCandidate(CONSTANTS.SELECTOR_STRATEGIES.ID, `#${escapeCss(element.id)}`);
       addCandidate(CONSTANTS.SELECTOR_STRATEGIES.ID, `${tag}#${escapeCss(element.id)}`);
+    }
+
+    // 1b. Backdrop / Overlay dismiss elements (clicking outside in blank space to close dropdowns or modals)
+    const isBackdropCandidate = Boolean(
+      (element.classList && (element.classList.contains('cdk-overlay-backdrop') || element.classList.contains('modal-backdrop'))) ||
+      (element.className && typeof element.className === 'string' && element.className.includes('backdrop'))
+    );
+    if (isBackdropCandidate) {
+      addCandidate(CONSTANTS.SELECTOR_STRATEGIES.ATTRIBUTE, '.cdk-overlay-backdrop');
+      addCandidate(CONSTANTS.SELECTOR_STRATEGIES.ATTRIBUTE, '.cdk-overlay-container .cdk-overlay-backdrop');
+      addCandidate(CONSTANTS.SELECTOR_STRATEGIES.XPATH, '//*[contains(@class, "cdk-overlay-backdrop")]');
+      addCandidate(CONSTANTS.SELECTOR_STRATEGIES.XPATH, '//*[contains(@class, "backdrop")]');
     }
 
     // 2. Preferred Data Attributes (data-testid, data-qa, data-cy, data-id)
@@ -331,15 +335,61 @@
       }
     }
 
+    // Enclosing Option / Dropdown Item / Checkbox List Item (Angular Material mat-option, [role="option"], etc.)
+    const optionParent = element.closest('mat-option, [role="option"], .mat-mdc-option, [role="menuitem"], [role="treeitem"], label, li');
+    if (optionParent) {
+      const optTag = optionParent.tagName.toLowerCase();
+      const optText = normalizeText(optionParent.textContent || '');
+      if (optText && optText.length > 0) {
+        const escapedFull = optText.replace(/'/g, "\\'");
+        addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//${optTag}[normalize-space()='${escapedFull}']`);
+        addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//${optTag}[contains(normalize-space(), '${escapedFull}')]`);
+        addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//*[@role='option'][contains(normalize-space(), '${escapedFull}')]`);
+
+        // If clicked target is a child (e.g. mat-pseudo-checkbox or icon)
+        if (optionParent !== element) {
+          addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//${optTag}[contains(., '${escapedFull}')]//${tag}`);
+          addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//${optTag}[contains(., '${escapedFull}')]//*[contains(@class, 'checkbox') or contains(@class, 'pseudo-checkbox')]`);
+        }
+
+        // Substring / prefix candidate for long formatted items: "105992 - DIXIE HIGHWAY..." -> "105992"
+        const prefix = optText.split(/[-–—(:]/)[0].trim();
+        if (prefix && prefix.length >= 3 && prefix !== optText) {
+          const escapedPrefix = prefix.replace(/'/g, "\\'");
+          addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//${optTag}[contains(., '${escapedPrefix}')]`);
+          addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//*[@role='option'][contains(., '${escapedPrefix}')]`);
+          if (optionParent !== element) {
+            addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//${optTag}[contains(., '${escapedPrefix}')]//${tag}`);
+          }
+        }
+      }
+    }
+
+    // Form Controls with Associated Labels (e.g. Customer dropdown / combobox)
+    const formField = element.closest('mat-form-field, .mat-form-field, .mat-mdc-form-field, .form-group, .form-field');
+    if (formField) {
+      const labelEl = formField.querySelector('mat-label, label, .mat-form-field-label, [id*="label"]');
+      if (labelEl) {
+        const labelText = normalizeText(labelEl.textContent || '').replace(/[*:]/g, '').trim();
+        if (labelText.length >= 2) {
+          const escapedLbl = labelText.replace(/'/g, "\\'");
+          addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//mat-form-field[.//text()[contains(., '${escapedLbl}')]]//mat-select`);
+          addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//mat-form-field[.//text()[contains(., '${escapedLbl}')]]//*[contains(@class, 'select-value') or contains(@class, 'select-trigger')]`);
+          addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//label[contains(., '${escapedLbl}')]/..//mat-select`);
+          addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//label[contains(., '${escapedLbl}')]/..//div[contains(@class, 'select')]`);
+        }
+      }
+    }
+
     // If element is an icon/image/span inside an interactive parent (button, link, toolbar-item), capture parent candidate
-    if (['img', 'i', 'span', 'svg', 'path', 'div', 'td'].includes(tag) && element.parentElement) {
-      const interactiveParent = element.closest('button, a, [role="button"], [role="menuitem"], .dxxr-item, .dxxr-btn, .dx-button, .dxrd-toolbar-item, .x-btn, [onclick], input');
+    if (['img', 'i', 'span', 'svg', 'path', 'div', 'td', 'mat-pseudo-checkbox'].includes(tag) && element.parentElement) {
+      const interactiveParent = element.closest('button, a, [role="button"], [role="menuitem"], [role="option"], mat-option, .dxxr-item, .dxxr-btn, .dx-button, .dxrd-toolbar-item, .x-btn, [onclick], input');
       if (interactiveParent && interactiveParent !== element) {
         const parentTag = interactiveParent.tagName.toLowerCase();
         for (const pAttr of ['title', 'aria-label', 'data-testid', 'data-action', 'name', 'id']) {
           if (interactiveParent.hasAttribute(pAttr)) {
             const pVal = (interactiveParent.getAttribute(pAttr) || '').trim();
-            if (pVal) {
+            if (pVal && (pAttr !== 'id' || isStableId(pVal))) {
               addCandidate(CONSTANTS.SELECTOR_STRATEGIES.ATTRIBUTE, `${parentTag}[${pAttr}="${escapeCss(pVal)}"] ${tag}`);
               addCandidate(CONSTANTS.SELECTOR_STRATEGIES.ATTRIBUTE, `${parentTag}[${pAttr}="${escapeCss(pVal)}"]`);
             }
@@ -351,7 +401,7 @@
     // 4. Visible Text (Buttons, Links, Labels, Grid Cells, or interactive elements with short text)
     const textContent = normalizeText(element.textContent || '');
     if (textContent && textContent.length > 0 && textContent.length <= 60) {
-      if (['button', 'a', 'label', 'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'td', 'th', 'li'].includes(tag)) {
+      if (['button', 'a', 'label', 'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'td', 'th', 'li', 'mat-option'].includes(tag)) {
         // XPath exact text match
         const escapedText = textContent.replace(/'/g, "\\'");
         const textXPath = `//${tag}[normalize-space()='${escapedText}']`;
@@ -401,8 +451,15 @@
 
     const tag = element.tagName.toLowerCase();
     const isPassword = tag === 'input' && (element.type || '').toLowerCase() === 'password';
-    const rawText = normalizeText(element.textContent || '');
-    const text = isPassword ? '' : rawText.slice(0, 120);
+    let text = isPassword ? '' : normalizeText(element.textContent || '').slice(0, 120);
+
+    // If text is empty (e.g. checkbox or icon inside option/button/label), inherit enclosing text
+    if (!text || text.length === 0) {
+      const textParent = element.closest('mat-option, [role="option"], .mat-mdc-option, button, a, [role="button"], label, li, tr');
+      if (textParent) {
+        text = normalizeText(textParent.textContent || '').slice(0, 120);
+      }
+    }
 
     const attributes = {};
     const trackedAttrs = ['name', 'type', 'role', 'placeholder', 'aria-label', 'title', 'href', 'value'];
@@ -462,8 +519,17 @@
     const elemTag = element.tagName.toLowerCase();
     const targetTag = (fingerprint.tagName || '').toLowerCase();
 
-    // Mandatory: tag name MUST match
-    if (elemTag !== targetTag) {
+    // Check if element and fingerprint represent the same option control
+    const isOptionControl = (
+      (elemTag === 'mat-option' || (element.getAttribute && element.getAttribute('role') === 'option')) &&
+      ['mat-pseudo-checkbox', 'span', 'div'].includes(targetTag)
+    ) || (
+      (targetTag === 'mat-option' || fingerprint.role === 'option') &&
+      ['mat-pseudo-checkbox', 'span', 'div'].includes(elemTag)
+    );
+
+    // Mandatory: tag name MUST match (or compatible option control)
+    if (elemTag !== targetTag && !isOptionControl) {
       return { score: 0, matchedTag: false, passed: false };
     }
 
@@ -474,7 +540,7 @@
     let idNameScore = 0;
     const elemId = element.id;
     const targetId = fingerprint.id;
-    const elemName = element.getAttribute('name');
+    const elemName = element.getAttribute ? element.getAttribute('name') : null;
     const targetName = fingerprint.name;
 
     if (targetId && elemId && targetId === elemId) {
@@ -490,7 +556,7 @@
     // 2. Data attributes or Aria (weight: 0.25)
     let dataAriaScore = 0;
     const targetAria = fingerprint.ariaLabel;
-    const elemAria = element.getAttribute('aria-label');
+    const elemAria = element.getAttribute ? element.getAttribute('aria-label') : null;
     if (targetAria) {
       dataAriaScore = (elemAria && targetAria === elemAria) ? 1.0 : 0.0;
     } else {
@@ -501,7 +567,7 @@
         const targetVal = fingerprint.attributes ? fingerprint.attributes[attr] : null;
         if (targetVal) {
           totalDataCount++;
-          if (element.getAttribute(attr) === targetVal) {
+          if (element.getAttribute && element.getAttribute(attr) === targetVal) {
             matchedDataCount++;
           }
         }
@@ -520,9 +586,16 @@
     } else if (targetText === elemText) {
       textScore = 1.0;
     } else if (elemText.includes(targetText) || targetText.includes(elemText)) {
-      textScore = 0.8;
+      textScore = 0.85;
     } else {
-      textScore = 0.0;
+      // Check normalized token overlap (resilient to whitespace differences)
+      const targetTokens = targetText.split(' ').filter(t => t.length > 2);
+      const matchedTokens = targetTokens.filter(t => elemText.includes(t));
+      if (targetTokens.length > 0 && matchedTokens.length / targetTokens.length >= 0.6) {
+        textScore = 0.80;
+      } else {
+        textScore = 0.0;
+      }
     }
     score += textScore * weights.VISIBLE_TEXT;
 
@@ -710,12 +783,19 @@
         }
       }
 
-      // 2. If no text match, try stable classes if available
+      // 2. If no text match, try stable classes or backdrop selector
       if (fallbackNodes.length === 0 && Array.isArray(fingerprint.classes) && fingerprint.classes.length > 0) {
-        try {
-          const classSelector = `${tag}.${fingerprint.classes.map(c => escapeCss(c)).join('.')}`;
-          fallbackNodes = queryAll(classSelector, d);
-        } catch {}
+        if (fingerprint.classes.some(c => c && c.includes('backdrop'))) {
+          try {
+            fallbackNodes = queryAll('.cdk-overlay-backdrop, [class*="backdrop"]', d);
+          } catch {}
+        }
+        if (fallbackNodes.length === 0) {
+          try {
+            const classSelector = `${tag}.${fingerprint.classes.map(c => escapeCss(c)).join('.')}`;
+            fallbackNodes = queryAll(classSelector, d);
+          } catch {}
+        }
       }
 
       // 3. Score fallback candidate elements against fingerprint

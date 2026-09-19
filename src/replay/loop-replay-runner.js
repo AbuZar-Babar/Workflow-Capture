@@ -145,6 +145,9 @@ class LoopReplayRunner {
       // Setup CDP download interception
       await this.configureDownloadInterception(page);
 
+      // Set active recording on replayEngine for context-aware execution
+      this.replayEngine.recording = workflow.recordingData || { actions: steps };
+
       // Auto-navigate to target URL before steps execution
       await this.navigateToWorkflowTarget(page, workflow);
 
@@ -288,6 +291,9 @@ class LoopReplayRunner {
 
       // Setup CDP download interception
       await this.configureDownloadInterception(page);
+
+      // Set active recording on replayEngine for context-aware execution
+      this.replayEngine.recording = workflow.recordingData || { actions: workflow.steps || [] };
 
       // Auto-navigate to workflow target URL before executing setup / loop steps
       await this.navigateToWorkflowTarget(page, workflow);

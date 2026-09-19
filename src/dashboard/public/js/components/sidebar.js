@@ -61,7 +61,13 @@ export const Sidebar = {
 
   setExecutionActive(isActive) {
     if (this.btnStopExecution) {
-      this.btnStopExecution.style.display = isActive ? 'flex' : 'none';
+      if (isActive) {
+        this.btnStopExecution.style.boxShadow = '0 0 12px rgba(220, 38, 38, 0.7)';
+        this.btnStopExecution.title = 'Stop Running Execution (Active)';
+      } else {
+        this.btnStopExecution.style.boxShadow = 'none';
+        this.btnStopExecution.title = 'Stop Active Execution';
+      }
     }
   },
 

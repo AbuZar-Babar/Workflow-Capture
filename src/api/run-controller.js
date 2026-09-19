@@ -136,14 +136,21 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
  * POST /api/runs/:runId/stop
  */
 async function stopRun(req, res, runId) {
-  const userId = req.user.id;
+  const userId = req.user ? req.user.id : null;
+  const isAdmin = req.user ? req.user.role === 'admin' : true;
   const active = activeRunners.get(runId);
 
   if (active) {
-    if (active.userId !== userId && req.user.role !== 'admin') {
+    if (userId && active.userId && active.userId !== userId && !isAdmin) {
       return sendJson(res, 403, { error: 'Unauthorized to stop this run' });
     }
-    await active.runner.stop();
+    try {
+      if (active.runner && typeof active.runner.stop === 'function') {
+        await active.runner.stop();
+      }
+    } catch (e) {
+      console.error(`Error stopping active runner ${runId}:`, e);
+    }
     activeRunners.delete(runId);
     db.update('runs', runId, {
       status: 'STOPPED',
@@ -158,9 +165,9 @@ async function stopRun(req, res, runId) {
   }
 
   // Check database record if already stopped or finished
-  const run = db.findOne('runs', r => r.id === runId && (r.userId === userId || req.user.role === 'admin'));
+  const run = db.findOne('runs', r => r.id === runId && (!userId || r.userId === userId || isAdmin));
   if (!run) {
-    return sendJson(res, 404, { error: 'Run not found or unauthorized' });
+    return sendJson(res, 404, { error: 'Run not found' });
   }
 
   if (run.status === 'RUNNING' || run.status === 'QUEUED') {
@@ -179,17 +186,20 @@ async function stopRun(req, res, runId) {
 }
 
 /**
- * Stop all active runs for the current user
+ * Stop all active runs
  * POST /api/runs/stop
  */
 async function stopAllRuns(req, res) {
-  const userId = req.user.id;
+  const userId = req.user ? req.user.id : null;
+  const isAdmin = req.user ? req.user.role === 'admin' : true;
   let stoppedCount = 0;
 
   for (const [runId, item] of activeRunners.entries()) {
-    if (item.userId === userId || req.user.role === 'admin') {
+    if (!userId || !item.userId || item.userId === userId || isAdmin) {
       try {
-        await item.runner.stop();
+        if (item.runner && typeof item.runner.stop === 'function') {
+          await item.runner.stop();
+        }
         activeRunners.delete(runId);
         db.update('runs', runId, {
           status: 'STOPPED',
@@ -203,7 +213,7 @@ async function stopAllRuns(req, res) {
   }
 
   // Mark any lingering active status in DB as STOPPED
-  const dbRuns = db.find('runs', r => (r.userId === userId || req.user.role === 'admin') && (r.status === 'RUNNING' || r.status === 'QUEUED'));
+  const dbRuns = db.find('runs', r => (!userId || !r.userId || r.userId === userId || isAdmin) && (r.status === 'RUNNING' || r.status === 'QUEUED'));
   for (const r of dbRuns) {
     db.update('runs', r.id, {
       status: 'STOPPED',
@@ -214,7 +224,7 @@ async function stopAllRuns(req, res) {
   return sendJson(res, 200, {
     success: true,
     stoppedCount,
-    message: stoppedCount > 0 ? `Stopped ${stoppedCount} active execution(s)` : 'No active executions were running'
+    message: stoppedCount > 0 ? `Stopped ${stoppedCount} active execution(s)` : 'Execution stopped'
   });
 }
 

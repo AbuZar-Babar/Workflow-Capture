@@ -314,7 +314,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === '/api/runs/stop' && req.method === 'POST') {
-      if (!requireAuth(req, res)) return;
       if (activeReplay) {
         try {
           if (activeReplay.engine && typeof activeReplay.engine.abort === 'function') {
@@ -330,7 +329,6 @@ const server = http.createServer(async (req, res) => {
     const runStopMatch = pathname.match(/^\/api\/runs\/([^/]+)\/stop$/);
     if (runStopMatch && req.method === 'POST') {
       const runId = runStopMatch[1];
-      if (!requireAuth(req, res)) return;
       return runController.stopRun(req, res, runId);
     }
 
@@ -673,15 +671,13 @@ const server = http.createServer(async (req, res) => {
         activeReplay = null;
       }
 
-      if (req.headers.authorization) {
-        if (requireAuth(req, res)) {
-          return runController.stopAllRuns(req, res);
-        }
+      if (runController.hasActiveRuns && runController.hasActiveRuns()) {
+        return runController.stopAllRuns(req, res);
       }
 
       return sendJson(res, 200, {
         success: true,
-        message: stoppedReplay ? 'Replay playback stopped successfully' : 'No active replay was running'
+        message: stoppedReplay ? 'Replay playback stopped successfully' : 'Execution stopped'
       });
     }
 

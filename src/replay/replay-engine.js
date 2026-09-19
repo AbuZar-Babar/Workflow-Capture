@@ -194,11 +194,31 @@ class ReplayEngine {
       }
     }
 
+    // Look ahead to check if the next action targets an option inside a dropdown
+    const nextAction = (this.recording && this.recording.actions)
+      ? this.recording.actions[index + 1]
+      : null;
+
+    const isNextActionOption = Boolean(
+      nextAction && (
+        nextAction.target?.candidates?.some(c => c.value && (c.value.includes('option') || c.value.includes('pseudo-checkbox'))) ||
+        nextAction.target?.fingerprint?.tagName === 'mat-option' ||
+        nextAction.target?.fingerprint?.tagName === 'mat-pseudo-checkbox' ||
+        nextAction.target?.fingerprint?.role === 'option'
+      )
+    );
+
     await dispatchAction(elementHandle, actionToDispatch, {
       page: this.page,
-      botConfig: this.botConfig
+      botConfig: this.botConfig,
+      isNextActionOption
     });
     await elementHandle.dispose().catch(() => {});
+
+    // If this action opened a combobox/dropdown, allow overlay animation to settle
+    if (action.type === 'CLICK' && isNextActionOption) {
+      await new Promise(r => setTimeout(r, 300));
+    }
 
     const scorePercent = Math.round(confidenceScore * 100);
     logger.action(index + 1, action.type, candidate.value, `score=${scorePercent}%`);
@@ -346,6 +366,7 @@ class ReplayEngine {
     }
 
     logger.info(`Initializing replay session: "${recording.metadata ? recording.metadata.name : 'workflow'}" (${recording.actions.length} actions)`);
+    this.recording = recording;
 
     // Resolve cross-platform file:/// URLs or web URLs
     let rawStartUrl = (recording.metadata && recording.metadata.startUrl) || recording.targetUrl || (recording.actions && recording.actions[0] && recording.actions[0].url) || null;

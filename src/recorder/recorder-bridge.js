@@ -127,6 +127,22 @@ class RecorderBridge {
       }
     }
 
+    // Discard duplicate rapid single clicks on the same target within 150ms (event bubbling or dual trigger)
+    if (this.actions.length > 0 && rawAction.type === 'CLICK') {
+      const lastAction = this.actions[this.actions.length - 1];
+      if (lastAction.type === 'CLICK' && timeDeltaMs < 150) {
+        const isSameTarget = lastAction.target && rawAction.target &&
+          ((lastAction.target.fingerprint?.id && lastAction.target.fingerprint.id === rawAction.target.fingerprint?.id) ||
+           (lastAction.target.candidates[0]?.value === rawAction.target.candidates[0]?.value) ||
+           (lastAction.target.fingerprint?.tagName === rawAction.target.fingerprint?.tagName &&
+            lastAction.target.fingerprint?.text === rawAction.target.fingerprint?.text));
+        if (isSameTarget) {
+          logger.warn(`[Recorder] Discarded duplicate click event within ${timeDeltaMs}ms on <${lastAction.target.fingerprint?.tagName}>`);
+          return;
+        }
+      }
+    }
+
     const action = {
       id: `act_${actionIndex + 1}_${Date.now().toString(36)}`,
       index: actionIndex,

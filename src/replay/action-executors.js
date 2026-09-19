@@ -16,10 +16,16 @@ const logger = require('../utils/logger');
 async function ensureInteractable(elementHandle, action) {
   // Check visibility, enabled status, and scroll into view natively
   const status = await elementHandle.evaluate((el) => {
-    if (el.scrollIntoView) {
+    const isBackdrop = Boolean(
+      (el.classList && (el.classList.contains('cdk-overlay-backdrop') || el.classList.contains('modal-backdrop'))) ||
+      (el.className && typeof el.className === 'string' && el.className.includes('backdrop'))
+    );
+
+    if (el.scrollIntoView && !isBackdrop) {
       el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     }
-    const isVisible = !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+    const hasDimensions = !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+    const isVisible = hasDimensions || isBackdrop;
     const isDisabled = el.disabled === true;
     return { isVisible, isDisabled };
   });
@@ -81,17 +87,64 @@ async function executeClick(elementHandle, action, options = {}) {
   await ensureInteractable(elementHandle, action);
   const { page, botConfig } = options;
 
+  // 1. Dropdown Trigger Idempotency Check:
+  // If target element is a combobox/select trigger (or inner arrow/icon) and it is ALREADY expanded (open),
+  // and the subsequent action is selecting an option, skip redundant click so we don't accidentally close it!
+  const isAlreadyOpenTrigger = await elementHandle.evaluate((el) => {
+    const combobox = el.closest('mat-select, [role="combobox"], [aria-haspopup="listbox"]');
+    if (!combobox) return false;
+    return combobox.getAttribute('aria-expanded') === 'true';
+  }).catch(() => false);
+
+  if (isAlreadyOpenTrigger && options.isNextActionOption) {
+    logger.info(`[Replay] Combobox is already open (aria-expanded="true"); skipping redundant trigger click to keep options visible.`);
+    return;
+  }
+
+  // 2. If target is inside an option (e.g. mat-pseudo-checkbox, span label, or ripple),
+  // resolve the parent mat-option / [role="option"] host element for reliable framework event dispatching
+  let clickTarget = elementHandle;
+  try {
+    const optionHandle = await elementHandle.evaluateHandle((el) => {
+      const opt = el.closest('mat-option, [role="option"], .mat-mdc-option');
+      if (opt && opt.scrollIntoView) {
+        opt.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }
+      return opt || el;
+    });
+    if (optionHandle) {
+      const asElem = optionHandle.asElement();
+      if (asElem) clickTarget = asElem;
+    }
+  } catch {}
+
+  // 3. If target is a backdrop (clicking outside in blank space to close a dropdown/modal)
+  const isBackdropTarget = await clickTarget.evaluate(el => {
+    return Boolean(
+      (el.classList && (el.classList.contains('cdk-overlay-backdrop') || el.classList.contains('modal-backdrop'))) ||
+      (el.className && typeof el.className === 'string' && el.className.includes('backdrop'))
+    );
+  }).catch(() => false);
+
+  if (isBackdropTarget) {
+    try {
+      await clickTarget.evaluate(el => el.click());
+      logger.info(`[Replay] Dispatched click on backdrop to dismiss open overlay.`);
+      return;
+    } catch {}
+  }
+
   if (botConfig) {
-    await simulateHumanMouseToElement(elementHandle, page, botConfig);
+    await simulateHumanMouseToElement(clickTarget, page, botConfig);
   }
 
   try {
     // Primary: Trusted Puppeteer CDP click (single authentic event)
-    await elementHandle.click({ delay: 35 });
+    await clickTarget.click({ delay: 35 });
   } catch (err) {
     try {
       // Fallback: Clean DOM click without redundant synthetic event duplication
-      await elementHandle.evaluate((el) => {
+      await clickTarget.evaluate((el) => {
         el.focus();
         el.click();
       });
@@ -103,6 +156,19 @@ async function executeClick(elementHandle, action, options = {}) {
       });
     }
   }
+
+  // 3. Option Selection State Verification:
+  // In Angular Material / custom multi-selects, verify that the option's selection state actually toggled.
+  // If aria-selected remains false after click (e.g. CDP mouse hit an invisible overlay or ripple mask),
+  // trigger native host click directly.
+  try {
+    await clickTarget.evaluate((el) => {
+      const opt = el.closest('mat-option, [role="option"]');
+      if (opt && opt.getAttribute('aria-selected') === 'false') {
+        opt.click();
+      }
+    });
+  } catch {}
 }
 
 /**

@@ -30,6 +30,10 @@ export const WorkflowEditorView = {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
               <span>Save Workflow</span>
             </button>
+            <button class="btn btn-sm" id="btnEditorStopFlow" style="background:#dc2626; color:#ffffff; border:1px solid #b91c1c; font-weight:700; display:inline-flex; align-items:center; gap:0.35rem; cursor:pointer;" title="Stop Running Execution">
+              <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+              <span>Stop</span>
+            </button>
           </div>
         </div>
         <div class="workflow-editor-canvas" id="drawflow">
@@ -55,6 +59,28 @@ export const WorkflowEditorView = {
     document.getElementById('btnSaveFlow').addEventListener('click', () => {
       this.saveWorkflow();
     });
+
+    const btnEditorStop = document.getElementById('btnEditorStopFlow');
+    if (btnEditorStop) {
+      btnEditorStop.addEventListener('click', async () => {
+        btnEditorStop.disabled = true;
+        btnEditorStop.style.opacity = '0.7';
+        Toast.info('Stopping active execution...');
+        try {
+          const res = await Api.stopExecution();
+          Toast.success(res.message || 'Execution stopped successfully');
+        } catch (err) {
+          Toast.error(err.message || 'Failed to stop execution');
+        } finally {
+          setTimeout(() => {
+            if (btnEditorStop) {
+              btnEditorStop.disabled = false;
+              btnEditorStop.style.opacity = '1';
+            }
+          }, 800);
+        }
+      });
+    }
 
     try {
       const data = await Api.getWorkflowById(this.workflowId);

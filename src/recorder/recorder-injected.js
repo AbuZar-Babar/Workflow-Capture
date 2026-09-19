@@ -286,9 +286,8 @@
     (document.body || document.documentElement).appendChild(badge);
   }
 
-  // Register capture-phase event listeners on both window and document
+  // Register capture-phase event listeners on window
   window.addEventListener('click', handleClick, true);
-  document.addEventListener('click', handleClick, true);
   window.addEventListener('input', handleInput, true);
   window.addEventListener('change', handleChange, true);
   window.addEventListener('blur', handleBlur, true);

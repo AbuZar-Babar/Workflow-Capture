@@ -150,4 +150,30 @@ assert.strictEqual(fallbackResult.element, mockCellElement, 'Should resolve the 
 assert.strictEqual(fallbackResult.resolvedCandidate.strategy, 'fingerprint-fallback', 'Strategy should be fingerprint-fallback');
 console.log(`  Passed: Successfully resolved element via fallback (score=${fallbackResult.confidenceScore})!`);
 
+// Test 8: Composite option control matching (mat-option element with mat-pseudo-checkbox fingerprint)
+console.log('Test 8: Composite option control matching and whitespace-resilient token text scoring...');
+const mockMatOption = {
+  tagName: 'mat-option',
+  id: 'mat-option-42',
+  classList: ['mat-mdc-option', 'mdc-list-item'],
+  getAttribute: (attr) => attr === 'role' ? 'option' : null,
+  hasAttribute: (attr) => attr === 'role',
+  textContent: '105992 - DIXIE HIGHWAY ENERGY, LLC (Charge Up 43) - 21100 S DIXIE HWY   MIAMI, FL  33189'
+};
+
+const optionFingerprint = {
+  tagName: 'mat-pseudo-checkbox',
+  id: null,
+  role: null,
+  text: '105992 - DIXIE HIGHWAY ENERGY, LLC (Charge Up 43) - 21100 S DIXIE HWY MIAMI, FL 33189',
+  classes: ['mat-pseudo-checkbox', 'mat-mdc-option-pseudo-checkbox'],
+  attributes: {}
+};
+
+const optionScore = SelectorResolver.scoreFingerprint(mockMatOption, optionFingerprint);
+assert.strictEqual(optionScore.matchedTag, true, 'Composite option control should match tag');
+assert.strictEqual(optionScore.passed, true, 'Score should pass minimum threshold');
+assert.ok(optionScore.score >= 0.85, `Score should be >= 0.85, got ${optionScore.score}`);
+console.log(`  Passed: Composite option scored ${optionScore.score} >= 0.85!`);
+
 console.log('\nAll Selector Resolver unit tests passed successfully!\n');

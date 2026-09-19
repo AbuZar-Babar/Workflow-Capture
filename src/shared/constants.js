@@ -47,8 +47,8 @@ const DEFAULT_TIMEOUTS = Object.freeze({
   POST_ACTION_DELAY_MS: 100
 });
 
-// Patterns to detect unstable / dynamic IDs (e.g. React 18 useId `:r1:`, Angular `ng-`, Sencha/ExtJS `gridview-`, `record-`, `tableview-`, long hashes, UUIDs)
-const UNSTABLE_ID_PATTERN = /(:r[0-9a-z_-]+:|^ng-|^__|^ember|^\d+$|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}|_[0-9a-zA-Z]{5,}|^gridview-\d+|^record-\d+|^tableview-\d+|^ext-gen|^ext-comp|^panel-\d+|^menuitem-\d+|^button-\d+|ext-element-\d+)/i;
+// Patterns to detect unstable / dynamic IDs (e.g. React 18 useId `:r1:`, Angular Material `mat-select-`, `mat-option-`, `cdk-overlay-`, `ng-`, Sencha/ExtJS `gridview-`, `record-`, `tableview-`, long hashes, UUIDs)
+const UNSTABLE_ID_PATTERN = /(:r[0-9a-z_-]+:|^ng-|^__|^ember|^\d+$|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}|_[0-9a-zA-Z]{5,}|^gridview-\d+|^record-\d+|^tableview-\d+|^ext-gen|^ext-comp|^panel-\d+|^menuitem-\d+|^button-\d+|ext-element-\d+|^mat-select-value-\d+|^mat-option-\d+|^mat-select-\d+|^mat-checkbox-\d+|^mat-input-\d+|^mat-form-field-|^mat-mdc-|^cdk-overlay-|^cdk-describedby-)/i;
 
 // Classes to ignore when computing fingerprint similarity (state/transient styles)
 const TRANSIENT_CLASS_PATTERN = /^(active|hover|focus|focus-visible|disabled|selected|open|closed|show|hide|entering|leaving|animate-|transition-|css-[a-z0-9]+$)/i;

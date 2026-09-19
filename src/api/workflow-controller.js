@@ -39,23 +39,18 @@ function syncWorkflowsFromDisk(currentUserId) {
             updatedAt: (content.metadata && content.metadata.completedAt) || stats.mtime.toISOString()
           });
         } else {
-          const updates = {};
-          if (!existing.steps || existing.steps.length === 0) {
-            updates.steps = actions;
-            updates.stepCount = actions.length;
-          }
-          if (!existing.recordingData) {
-            updates.recordingData = content;
-          }
+          const updates = {
+            steps: actions,
+            recordingData: content,
+            stepCount: actions.length
+          };
           if (!existing.targetUrl && startUrl) {
             updates.targetUrl = startUrl;
           }
           if (!existing.name && wfName) {
             updates.name = wfName;
           }
-          if (Object.keys(updates).length > 0) {
-            db.update('workflows', existing.id, updates);
-          }
+          db.update('workflows', existing.id, updates);
         }
       } catch (e) {
         // Skip corrupted JSON files
