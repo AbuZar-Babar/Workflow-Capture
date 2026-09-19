@@ -25,12 +25,39 @@ class ReplayEngine {
   constructor(options = {}) {
     this.browserURL = options.browserURL || 'http://localhost:9222';
     this.speed = options.speed || 1.0; // Speed multiplier (1.0 = real-time, 2.0 = 2x, etc.)
-    this.timeoutMs = options.timeoutMs || DEFAULT_TIMEOUTS.RESOLUTION_TIMEOUT_MS;
-    this.pollIntervalMs = options.pollIntervalMs || DEFAULT_TIMEOUTS.POLL_INTERVAL_MS;
-    this.secretResolver = options.secretResolver || null; // async function(secretId) => plaintext
     this.botConfig = options.botConfig || getActiveBotConfig();
+    this.timeoutMs = options.timeoutMs || this.botConfig?.resolution?.timeoutMs || DEFAULT_TIMEOUTS.RESOLUTION_TIMEOUT_MS;
+    this.pollIntervalMs = options.pollIntervalMs || this.botConfig?.resolution?.pollIntervalMs || DEFAULT_TIMEOUTS.POLL_INTERVAL_MS;
+    this.stepDelayMs = options.stepDelayMs || options.stepDelay || 0;
+    this.secretResolver = options.secretResolver || null; // async function(secretId) => plaintext
     this.browser = null;
     this.page = null;
+    this.isAborted = false;
+  }
+
+  /**
+   * Signal abort to halt execution
+   */
+  async abort() {
+    this.isAborted = true;
+    logger.warn('[Replay Engine] Abort signal triggered.');
+  }
+
+  /**
+   * Wait for any transient SPA/ExtJS loading masks or spinners to disappear
+   */
+  async _waitForLoadingMasks(timeoutMs = 8000) {
+    if (!this.page) return;
+    try {
+      await this.page.waitForFunction(() => {
+        const masks = Array.from(document.querySelectorAll('.x-mask, .x-mask-loading, .x-mask-msg, .loading-mask, .spinner-overlay, [aria-busy="true"]'));
+        return !masks.some(m => {
+          if (m.offsetParent === null) return false;
+          const style = window.getComputedStyle(m);
+          return style.display !== 'none' && style.visibility !== 'hidden' && parseFloat(style.opacity || '1') > 0.05;
+        });
+      }, { timeout: timeoutMs }).catch(() => {});
+    } catch {}
   }
 
   /**
@@ -122,6 +149,18 @@ class ReplayEngine {
   async executeAction(action, index = 0) {
     if (!this.page) throw new Error('ReplayEngine is not connected to a page.');
 
+    // 1. Explicit step delay if requested
+    if (this.stepDelayMs > 0) {
+      await new Promise(r => setTimeout(r, this.stepDelayMs));
+    }
+
+    // 2. Wait for any active ExtJS/SPA loading masks or spinners to clear
+    await this._waitForLoadingMasks(6000);
+
+    if (this.isAborted) {
+      throw new Error('Execution stopped by user');
+    }
+
     // Apply pre-action delay if configured
     if (this.botConfig?.timing?.preActionDelayMs > 0) {
       const preDelay = calculateDelay(
@@ -178,69 +217,82 @@ class ReplayEngine {
   }
 
   /**
-   * Ensure selector resolver is loaded inside the page context
+   * Ensure selector resolver is loaded inside a specific frame or page context
    */
-  async _ensureSelectorResolverInPage() {
+  async _ensureSelectorResolverInFrame(frame) {
     try {
-      const isResolverLoaded = await this.page.evaluate(() => typeof window.SelectorResolver !== 'undefined').catch(() => false);
+      const targetFrame = frame || this.page;
+      const isResolverLoaded = await targetFrame.evaluate(() => typeof window.SelectorResolver !== 'undefined').catch(() => false);
 
       if (!isResolverLoaded) {
         const resolverPath = path.resolve(__dirname, '../shared/selector-resolver.js');
         const resolverCode = fs.readFileSync(resolverPath, 'utf8');
-        await this.page.evaluate(resolverCode).catch(() => {});
+        await targetFrame.evaluate(resolverCode).catch(() => {});
       }
     } catch {
-      // Ignore transient detached frame errors while page is navigating
+      // Ignore transient detached frame errors
     }
   }
 
   /**
-   * Condition-based in-page polling resolver loop
+   * Condition-based in-page polling resolver loop across main page and all child frames (iframes)
    */
   async waitForTargetElement(target, actionIndex, actionType) {
     const startTime = Date.now();
     let lastResolutionResult = null;
 
     while (Date.now() - startTime < this.timeoutMs) {
+      if (this.isAborted) {
+        throw new Error('Execution stopped by user');
+      }
       try {
-        await this._ensureSelectorResolverInPage();
+        const frames = [this.page.mainFrame(), ...this.page.frames().filter(f => f !== this.page.mainFrame())];
 
-        // 1. Resolve and obtain direct JSHandle to the matched DOM element
-        const handle = await this.page.evaluateHandle((targetData) => {
-          if (!window.SelectorResolver) return null;
-          const res = window.SelectorResolver.resolveElement(targetData);
-          return res.success && res.element ? res.element : null;
-        }, target).catch(() => null);
+        for (const frame of frames) {
+          try {
+            await this._ensureSelectorResolverInFrame(frame);
 
-        // 2. Fetch full resolution diagnostic report
-        const report = await this.page.evaluate((targetData) => {
-          if (!window.SelectorResolver) return null;
-          return window.SelectorResolver.resolveElement(targetData);
-        }, target).catch(() => null);
+            // 1. Resolve and obtain direct JSHandle to the matched DOM element in this frame
+            const handle = await frame.evaluateHandle((targetData) => {
+              if (!window.SelectorResolver) return null;
+              const res = window.SelectorResolver.resolveElement(targetData);
+              return res.success && res.element ? res.element : null;
+            }, target).catch(() => null);
 
-        if (report) {
-          lastResolutionResult = report;
-        }
+            // 2. Fetch resolution report
+            const report = await frame.evaluate((targetData) => {
+              if (!window.SelectorResolver) return null;
+              return window.SelectorResolver.resolveElement(targetData);
+            }, target).catch(() => null);
 
-        // 3. Validate element and check interactability
-        if (handle) {
-          const element = handle.asElement();
-          if (element) {
-            const isAttached = await element.evaluate(el => el.isConnected && el.ownerDocument.contains(el)).catch(() => false);
-
-            if (isAttached) {
-              const matchedCandidate = (report && report.candidate) ? report.candidate : (target.candidates && target.candidates[0]) || { strategy: 'css_id', value: target.targetId || 'unknown' };
-              const confidenceScore = (report && report.confidenceScore) || 1.0;
-
-              return {
-                elementHandle: element,
-                candidate: matchedCandidate,
-                confidenceScore
-              };
+            if (report && report.success) {
+              lastResolutionResult = report;
             }
-            await element.dispose().catch(() => {});
-          } else {
-            await handle.dispose().catch(() => {});
+
+            // 3. Validate element and check interactability
+            if (handle) {
+              const element = handle.asElement();
+              if (element) {
+                const isAttached = await element.evaluate(el => el.isConnected && el.ownerDocument.contains(el)).catch(() => false);
+
+                if (isAttached) {
+                  const matchedCandidate = (report && report.candidate) ? report.candidate : (target.candidates && target.candidates[0]) || { strategy: 'css_id', value: target.targetId || 'unknown' };
+                  const confidenceScore = (report && report.confidenceScore) || 1.0;
+
+                  return {
+                    elementHandle: element,
+                    frame,
+                    candidate: matchedCandidate,
+                    confidenceScore
+                  };
+                }
+                await element.dispose().catch(() => {});
+              } else {
+                await handle.dispose().catch(() => {});
+              }
+            }
+          } catch {
+            // Continue searching remaining frames
           }
         }
       } catch {
@@ -357,14 +409,37 @@ class ReplayEngine {
 
     try {
       for (let i = 0; i < recording.actions.length; i++) {
+        if (this.isAborted) {
+          throw new Error('Execution stopped by user');
+        }
+
         const action = recording.actions[i];
 
-        // Simulate natural pacing if speed > 0
-        if (action.timeDeltaMs && this.speed > 0) {
-          const delay = Math.min(Math.round(action.timeDeltaMs / this.speed), 1000);
-          if (delay > 0) {
-            await new Promise(r => setTimeout(r, delay));
+        // Apply explicit step delay or natural pacing from recording (up to 15s)
+        if (this.stepDelayMs > 0) {
+          logger.info(`Explicit step delay: waiting ${this.stepDelayMs}ms before step #${action.index + 1}...`);
+          const end = Date.now() + this.stepDelayMs;
+          while (Date.now() < end) {
+            if (this.isAborted) throw new Error('Execution stopped by user');
+            await new Promise(r => setTimeout(r, 100));
           }
+        } else if (action.timeDeltaMs && this.speed > 0) {
+          const maxPacing = (this.botConfig?.timing?.maxActionDelayMs && this.botConfig.timing.maxActionDelayMs > 1000)
+            ? Math.max(this.botConfig.timing.maxActionDelayMs * 3, 15000)
+            : 15000;
+          const delay = Math.min(Math.round(action.timeDeltaMs / this.speed), maxPacing);
+          if (delay > 0) {
+            logger.info(`Pacing step #${action.index + 1}: waiting ${delay}ms for page/data to settle...`);
+            const end = Date.now() + delay;
+            while (Date.now() < end) {
+              if (this.isAborted) throw new Error('Execution stopped by user');
+              await new Promise(r => setTimeout(r, 100));
+            }
+          }
+        }
+
+        if (this.isAborted) {
+          throw new Error('Execution stopped by user');
         }
 
         // 1. Condition-based wait & resolve element

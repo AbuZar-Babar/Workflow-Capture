@@ -36,7 +36,19 @@ function bootstrap() {
   });
 
   SSE.on('replay_state', (data) => {
-    Header.setEngineState(data.isReplaying ? 'REPLAYING' : 'IDLE');
+    const isReplaying = Boolean(data.isReplaying);
+    Header.setEngineState(isReplaying ? 'REPLAYING' : 'IDLE');
+    Sidebar.setExecutionActive(isReplaying);
+  });
+
+  SSE.on('run_state', (data) => {
+    const isRunning = Boolean(data.isRunning);
+    Sidebar.setExecutionActive(isRunning);
+    if (isRunning) {
+      Header.setEngineState('EXECUTING');
+    } else {
+      Header.setEngineState('IDLE');
+    }
   });
 }
 

@@ -22,6 +22,18 @@ class LoopReplayRunner {
     this.runsDir = path.resolve(process.cwd(), 'recordings', 'runs', this.runId);
     this.downloadsDir = path.join(this.runsDir, 'downloads');
     this.replayEngine = new ReplayEngine({ cdpPort: this.cdpPort });
+    this.isAborted = false;
+  }
+
+  /**
+   * Abort/stop the current execution immediately
+   */
+  async stop() {
+    this.isAborted = true;
+    logger.warn(`[Runner] Stop signal triggered for run: ${this.runId}`);
+    if (this.replayEngine && typeof this.replayEngine.abort === 'function') {
+      await this.replayEngine.abort().catch(() => {});
+    }
   }
 
   initDirectories() {
@@ -138,8 +150,34 @@ class LoopReplayRunner {
 
       // Execute each step in order
       for (let i = 0; i < steps.length; i++) {
+        if (this.isAborted) {
+          logger.warn(`[Runner] Abort signal active before step #${i + 1}. Stopping execution.`);
+          manifest.status = 'STOPPED';
+          break;
+        }
+
         const step = steps[i];
         const stepType = step.type || step.action || 'CLICK';
+
+        // Natural pacing delay: wait if the user waited during recording (e.g. for grid data to load)
+        if (i > 0 && step.timeDeltaMs && step.timeDeltaMs > 0) {
+          const paceDelay = Math.min(step.timeDeltaMs, 15000);
+          if (paceDelay > 600) {
+            logger.info(`[Runner] Pacing step #${i + 1}: waiting ${paceDelay}ms for page/grid to settle...`);
+            const end = Date.now() + paceDelay;
+            while (Date.now() < end) {
+              if (this.isAborted) break;
+              await new Promise(r => setTimeout(r, 100));
+            }
+          }
+        }
+
+        if (this.isAborted) {
+          logger.warn(`[Runner] Abort signal active after pacing for step #${i + 1}. Stopping execution.`);
+          manifest.status = 'STOPPED';
+          break;
+        }
+
         logger.info(`[Runner] Executing step ${i + 1}/${steps.length} [${stepType}]...`);
 
         const stepResult = {
@@ -155,6 +193,13 @@ class LoopReplayRunner {
           stepResult.status = 'SUCCESS';
           manifest.itemsSucceeded++;
         } catch (stepErr) {
+          if (this.isAborted) {
+            stepResult.status = 'STOPPED';
+            stepResult.error = 'Execution stopped by user';
+            manifest.status = 'STOPPED';
+            manifest.results.push(stepResult);
+            break;
+          }
           logger.error(`[Runner] Failed step #${i + 1} [${stepType}]: ${stepErr.message}`);
           stepResult.status = 'FAILED';
           stepResult.error = stepErr.message;
@@ -176,15 +221,19 @@ class LoopReplayRunner {
         }));
       }
 
-      manifest.status = 'COMPLETED';
+      manifest.status = this.isAborted ? 'STOPPED' : 'COMPLETED';
       manifest.endTime = new Date().toISOString();
-      logger.success(`\n[Runner] Standard execution run ${this.runId} completed! Succeeded: ${manifest.itemsSucceeded}/${steps.length}`);
+      logger.success(`\n[Runner] Standard execution run ${this.runId} ${manifest.status}! Succeeded: ${manifest.itemsSucceeded}/${steps.length}`);
 
     } catch (err) {
-      manifest.status = 'FAILED';
+      manifest.status = this.isAborted ? 'STOPPED' : 'FAILED';
       manifest.error = err.message;
       manifest.endTime = new Date().toISOString();
-      logger.error(`[Runner] Fatal execution failure: ${err.message}`);
+      if (this.isAborted) {
+        logger.warn(`[Runner] Execution run ${this.runId} stopped by user.`);
+      } else {
+        logger.error(`[Runner] Fatal execution failure: ${err.message}`);
+      }
     }
 
     fs.writeFileSync(path.join(this.runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
@@ -278,6 +327,12 @@ class LoopReplayRunner {
 
       // 4. Iterate over each matching item in the collection
       for (let i = 0; i < elementsCount; i++) {
+        if (this.isAborted) {
+          logger.warn(`[Loop Runner] Abort signal active before item #${i + 1}. Stopping loop.`);
+          manifest.status = 'STOPPED';
+          break;
+        }
+
         logger.info(`\n[Loop Runner] --- Processing item [${i + 1}/${elementsCount}] ---`);
         const itemResult = {
           index: i + 1,
@@ -316,6 +371,13 @@ class LoopReplayRunner {
           itemResult.status = 'SUCCESS';
           manifest.itemsSucceeded++;
         } catch (itemErr) {
+          if (this.isAborted) {
+            itemResult.status = 'STOPPED';
+            itemResult.error = 'Execution stopped by user';
+            manifest.status = 'STOPPED';
+            manifest.results.push(itemResult);
+            break;
+          }
           logger.error(`[Loop Runner] Error on item #${i + 1}: ${itemErr.message}`);
           itemResult.status = 'FAILED';
           itemResult.error = itemErr.message;
@@ -344,15 +406,19 @@ class LoopReplayRunner {
         }));
       }
 
-      manifest.status = 'COMPLETED';
+      manifest.status = this.isAborted ? 'STOPPED' : (manifest.itemsFailed > 0 ? 'COMPLETED_WITH_ERRORS' : 'COMPLETED');
       manifest.endTime = new Date().toISOString();
-      logger.success(`\n[Loop Runner] Run ${this.runId} completed! Succeeded: ${manifest.itemsSucceeded}, Failed: ${manifest.itemsFailed}`);
+      logger.success(`\n[Loop Runner] Run ${this.runId} ${manifest.status}! Succeeded: ${manifest.itemsSucceeded}, Failed: ${manifest.itemsFailed}`);
 
     } catch (err) {
-      manifest.status = 'FAILED';
+      manifest.status = this.isAborted ? 'STOPPED' : 'FAILED';
       manifest.error = err.message;
       manifest.endTime = new Date().toISOString();
-      logger.error(`[Loop Runner] Fatal run failure: ${err.message}`);
+      if (this.isAborted) {
+        logger.warn(`[Loop Runner] Loop run ${this.runId} stopped by user.`);
+      } else {
+        logger.error(`[Loop Runner] Fatal run failure: ${err.message}`);
+      }
     }
 
     // Save manifest file

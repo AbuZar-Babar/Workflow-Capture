@@ -14,12 +14,28 @@
 
   // Active input buffer to consolidate typing into a single TYPE action
   let activeInputBuffer = null;
-  let lastClickTime = 0;
-  let lastClickTarget = null;
-  const DBL_CLICK_THRESHOLD_MS = 350;
+  let pendingClickTimer = null;
+  let pendingClickTarget = null;
+  let pendingClickExtra = null;
+  const DBL_CLICK_THRESHOLD_MS = 280;
 
   /**
-   * Safe helper to emit action to Node.js bridge
+   * Flush any pending single click action immediately
+   */
+  function flushPendingClick() {
+    if (pendingClickTimer) {
+      clearTimeout(pendingClickTimer);
+      pendingClickTimer = null;
+      if (pendingClickTarget) {
+        emitAction('CLICK', pendingClickTarget, pendingClickExtra || {});
+      }
+      pendingClickTarget = null;
+      pendingClickExtra = null;
+    }
+  }
+
+  /**
+   * Safe helper to emit action to Node.js bridge across main frames and iframes
    */
   function emitAction(type, targetElement, extra = {}) {
     if (!targetElement) return;
@@ -32,18 +48,57 @@
 
     try {
       const target = window.SelectorResolver.captureTarget(targetElement);
+      const isInsideIframe = (typeof window !== 'undefined' && window.self !== window.top);
+      let frameInfo = null;
+      if (isInsideIframe) {
+        frameInfo = {
+          isIframe: true,
+          location: window.location.href,
+          title: document.title || ''
+        };
+      }
+
       const payload = {
         type,
         timestamp: Date.now(),
         target,
+        ...(frameInfo ? { frame: frameInfo } : {}),
         ...extra
       };
 
+      // 1. Direct function on current window
       if (typeof window.__workflowCaptureEmitAction === 'function') {
         window.__workflowCaptureEmitAction(payload);
-      } else {
-        console.warn('[Workflow Capture] Bridge function __workflowCaptureEmitAction not available.');
+        return;
       }
+
+      // 2. Reachable parent or top window function
+      try {
+        if (window.top && typeof window.top.__workflowCaptureEmitAction === 'function') {
+          window.top.__workflowCaptureEmitAction(payload);
+          return;
+        }
+      } catch {}
+
+      try {
+        if (window.parent && typeof window.parent.__workflowCaptureEmitAction === 'function') {
+          window.parent.__workflowCaptureEmitAction(payload);
+          return;
+        }
+      } catch {}
+
+      // 3. Fallback: postMessage to top window
+      try {
+        if (window.top && window.top !== window) {
+          window.top.postMessage({
+            type: '__WORKFLOW_CAPTURE_EMIT_ACTION__',
+            payload
+          }, '*');
+          return;
+        }
+      } catch {}
+
+      console.warn('[Workflow Capture] Bridge function __workflowCaptureEmitAction not available in window or parents.');
     } catch (err) {
       console.error('[Workflow Capture] Failed to capture action:', err);
     }
@@ -107,6 +162,7 @@
    * Keydown listener to detect Enter/Tab/Escape submission & key actions
    */
   function handleKeyDown(event) {
+    flushPendingClick();
     const key = event.key;
     const target = event.target;
 
@@ -174,6 +230,9 @@
    * Click event handler
    */
   function handleClick(event) {
+    // Ignore synthetic events dispatched by page scripts (unless triggered by native wrapper)
+    if (event.isTrusted === false) return;
+
     const target = event.target;
     if (!target) return;
 
@@ -185,27 +244,19 @@
       flushInputBuffer();
     }
 
-    const now = Date.now();
-    const isDoubleClick = (lastClickTarget === target) && (now - lastClickTime < DBL_CLICK_THRESHOLD_MS);
-
-    lastClickTime = now;
-    lastClickTarget = target;
-
     // Don't record CLICK on select elements (handled by change)
     if (target.tagName === 'SELECT' || target.tagName === 'OPTION') {
       return;
     }
 
-    if (isDoubleClick) {
-      emitAction('DOUBLE_CLICK', target);
-    } else {
-      // Delay single click slightly to disambiguate from double click
-      setTimeout(() => {
-        if (lastClickTarget === target && Date.now() - lastClickTime >= DBL_CLICK_THRESHOLD_MS) {
-          emitAction('CLICK', target);
-        }
-      }, DBL_CLICK_THRESHOLD_MS);
+    // Double-click detection via W3C event.detail
+    if (event.detail === 2) {
+      emitAction('DOUBLE_CLICK', target, { detail: 2 });
+      return;
     }
+
+    // Emit single click immediately with full DOM fidelity
+    emitAction('CLICK', target, { detail: event.detail || 1 });
   }
 
   /**
@@ -235,12 +286,22 @@
     (document.body || document.documentElement).appendChild(badge);
   }
 
-  // Register capture-phase event listeners
+  // Register capture-phase event listeners on both window and document
   window.addEventListener('click', handleClick, true);
+  document.addEventListener('click', handleClick, true);
   window.addEventListener('input', handleInput, true);
   window.addEventListener('change', handleChange, true);
   window.addEventListener('blur', handleBlur, true);
   window.addEventListener('keydown', handleKeyDown, true);
+
+  // Relay actions from child iframes via postMessage
+  window.addEventListener('message', (event) => {
+    if (event.data && event.data.type === '__WORKFLOW_CAPTURE_EMIT_ACTION__' && event.data.payload) {
+      if (typeof window.__workflowCaptureEmitAction === 'function') {
+        window.__workflowCaptureEmitAction(event.data.payload);
+      }
+    }
+  });
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', renderRecordingBadge);
@@ -249,7 +310,10 @@
   }
 
   // Expose manual flush
-  window.__workflowCaptureFlushBuffer = flushInputBuffer;
+  window.__workflowCaptureFlushBuffer = () => {
+    flushPendingClick();
+    flushInputBuffer();
+  };
 
   console.log('[Workflow Capture] In-page recorder listeners attached successfully.');
 })();

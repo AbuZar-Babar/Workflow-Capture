@@ -37,7 +37,7 @@
       CLASSES: 0.10
     },
     MIN_CONFIDENCE_THRESHOLD: 0.70,
-    UNSTABLE_ID_PATTERN: /(:r[0-9a-z_-]+:|^ng-|^__|^ember|^\d+$|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}|_[0-9a-zA-Z]{5,})/i,
+    UNSTABLE_ID_PATTERN: /(:r[0-9a-z_-]+:|^ng-|^__|^ember|^\d+$|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}|_[0-9a-zA-Z]{5,}|^gridview-\d+|^record-\d+|^tableview-\d+|^ext-gen|^ext-comp|^panel-\d+|^menuitem-\d+|^button-\d+|ext-element-\d+)/i,
     TRANSIENT_CLASS_PATTERN: /^(active|hover|focus|focus-visible|disabled|selected|open|closed|show|hide|entering|leaving|animate-|transition-|css-[a-z0-9]+$)/i,
     PREFERRED_DATA_ATTRIBUTES: [
       'data-testid',
@@ -299,25 +299,72 @@
       }
     }
 
-    // 3. Meaningful Attributes: name, aria-label, role, placeholder, type
-    const meaningfulAttrs = ['name', 'aria-label', 'placeholder', 'role', 'title'];
+    // 3. Meaningful Attributes: name, aria-label, role, placeholder, type, title, alt, src
+    const meaningfulAttrs = ['name', 'aria-label', 'placeholder', 'role', 'title', 'alt', 'src'];
     for (const attr of meaningfulAttrs) {
       if (element.hasAttribute(attr)) {
         const val = element.getAttribute(attr);
         if (val && val.trim()) {
           addCandidate(CONSTANTS.SELECTOR_STRATEGIES.ATTRIBUTE, `${tag}[${attr}="${escapeCss(val)}"]`);
+          // If attr is src or href, also add a filename/keyword candidate (e.g. img[src*="save" i])
+          if ((attr === 'src' || attr === 'href') && val.length > 5) {
+            const lastSegment = val.split(/[/?#]/).filter(Boolean).pop() || '';
+            if (lastSegment && lastSegment.length >= 3 && lastSegment.length <= 40) {
+              addCandidate(CONSTANTS.SELECTOR_STRATEGIES.ATTRIBUTE, `${tag}[${attr}*="${escapeCss(lastSegment)}"]`);
+            }
+          }
         }
       }
     }
 
-    // 4. Visible Text (Buttons, Links, Labels, or interactive elements with short text)
+    // Keyword attribute matchers for common action buttons (Save, Export, Print, PDF, Download, Submit, Close)
+    for (const attr of ['title', 'alt', 'aria-label', 'data-action']) {
+      if (element.hasAttribute(attr)) {
+        const val = (element.getAttribute(attr) || '').trim();
+        const actionKeywords = ['save', 'export', 'pdf', 'print', 'download', 'close', 'submit', 'search', 'filter'];
+        for (const kw of actionKeywords) {
+          if (val.toLowerCase().includes(kw)) {
+            addCandidate(CONSTANTS.SELECTOR_STRATEGIES.ATTRIBUTE, `${tag}[${attr}*="${kw}" i]`);
+            addCandidate(CONSTANTS.SELECTOR_STRATEGIES.ATTRIBUTE, `[${attr}*="${kw}" i]`);
+          }
+        }
+      }
+    }
+
+    // If element is an icon/image/span inside an interactive parent (button, link, toolbar-item), capture parent candidate
+    if (['img', 'i', 'span', 'svg', 'path', 'div', 'td'].includes(tag) && element.parentElement) {
+      const interactiveParent = element.closest('button, a, [role="button"], [role="menuitem"], .dxxr-item, .dxxr-btn, .dx-button, .dxrd-toolbar-item, .x-btn, [onclick], input');
+      if (interactiveParent && interactiveParent !== element) {
+        const parentTag = interactiveParent.tagName.toLowerCase();
+        for (const pAttr of ['title', 'aria-label', 'data-testid', 'data-action', 'name', 'id']) {
+          if (interactiveParent.hasAttribute(pAttr)) {
+            const pVal = (interactiveParent.getAttribute(pAttr) || '').trim();
+            if (pVal) {
+              addCandidate(CONSTANTS.SELECTOR_STRATEGIES.ATTRIBUTE, `${parentTag}[${pAttr}="${escapeCss(pVal)}"] ${tag}`);
+              addCandidate(CONSTANTS.SELECTOR_STRATEGIES.ATTRIBUTE, `${parentTag}[${pAttr}="${escapeCss(pVal)}"]`);
+            }
+          }
+        }
+      }
+    }
+
+    // 4. Visible Text (Buttons, Links, Labels, Grid Cells, or interactive elements with short text)
     const textContent = normalizeText(element.textContent || '');
-    if (textContent && textContent.length > 0 && textContent.length <= 40) {
-      if (['button', 'a', 'label', 'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tag)) {
+    if (textContent && textContent.length > 0 && textContent.length <= 60) {
+      if (['button', 'a', 'label', 'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'td', 'th', 'li'].includes(tag)) {
         // XPath exact text match
         const escapedText = textContent.replace(/'/g, "\\'");
         const textXPath = `//${tag}[normalize-space()='${escapedText}']`;
         addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, textXPath);
+
+        // If it has stable classes (e.g. ExtJS .x-grid-cell-inner), generate class-scoped text XPath
+        if (element.classList && element.classList.length > 0) {
+          const stableClasses = filterStableClasses(element.classList);
+          if (stableClasses.length > 0) {
+            const classTextXPath = `//${tag}[contains(@class, '${escapeCss(stableClasses[0])}') and normalize-space()='${escapedText}']`;
+            addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, classTextXPath);
+          }
+        }
       }
     }
 
@@ -638,6 +685,71 @@
         score: highestScore,
         reason: `Ambiguous match: ${matchedNodes.length} elements matched selector and ${passingCount} passed fingerprint validation`
       });
+    }
+
+    // Heuristic Fallback: If all candidates failed, attempt Semantic Fingerprint Recovery
+    const fingerprint = target.fingerprint;
+    const requireVisible = !options || options.requireVisible !== false;
+
+    if (fingerprint && fingerprint.tagName && fingerprint.tagName !== 'unknown') {
+      const tag = fingerprint.tagName.toLowerCase();
+      let fallbackNodes = [];
+
+      // 1. Try finding elements by visible text if text was captured
+      const targetText = normalizeText(fingerprint.text || '');
+      if (targetText && targetText.length > 0) {
+        const escaped = targetText.replace(/'/g, "\\'");
+        try {
+          fallbackNodes = queryXPath(`//${tag}[normalize-space()='${escaped}']`, d);
+        } catch {}
+
+        if (fallbackNodes.length === 0 && targetText.length > 2) {
+          try {
+            fallbackNodes = queryXPath(`//${tag}[contains(normalize-space(), '${escaped}')]`, d);
+          } catch {}
+        }
+      }
+
+      // 2. If no text match, try stable classes if available
+      if (fallbackNodes.length === 0 && Array.isArray(fingerprint.classes) && fingerprint.classes.length > 0) {
+        try {
+          const classSelector = `${tag}.${fingerprint.classes.map(c => escapeCss(c)).join('.')}`;
+          fallbackNodes = queryAll(classSelector, d);
+        } catch {}
+      }
+
+      // 3. Score fallback candidate elements against fingerprint
+      let bestFallbackElem = null;
+      let highestFallbackScore = 0;
+      let passingCount = 0;
+
+      for (const elem of fallbackNodes) {
+        const { score, passed } = scoreFingerprint(elem, fingerprint);
+        if (passed && score >= minScore) {
+          if (!requireVisible || isElementVisible(elem)) {
+            passingCount++;
+            if (score > highestFallbackScore) {
+              highestFallbackScore = score;
+              bestFallbackElem = elem;
+            }
+          }
+        }
+      }
+
+      if (bestFallbackElem && highestFallbackScore >= minScore) {
+        return {
+          element: bestFallbackElem,
+          resolvedCandidate: {
+            strategy: 'fingerprint-fallback',
+            value: targetText ? `fallback:text="${targetText}"` : `fallback:tag=${tag}`,
+            uniqueness: passingCount,
+            priority: 99
+          },
+          confidenceScore: highestFallbackScore,
+          success: true,
+          attempts
+        };
+      }
     }
 
     return {

@@ -44,10 +44,12 @@ console.log('🔹 Test 1: Presets Structure & Values');
 assert(PRESETS.ultra_stealth, 'Ultra stealth preset should exist');
 assert(PRESETS.balanced, 'Balanced preset should exist');
 assert(PRESETS.fast, 'Fast preset should exist');
+assert(PRESETS.erp, 'ERP preset should exist');
 
 assert(PRESETS.ultra_stealth.mouse.enabled === true, 'Ultra stealth should have mouse enabled');
 assert(PRESETS.ultra_stealth.stealth.maskWebdriver === true, 'Ultra stealth should mask webdriver');
 assert(PRESETS.fast.mouse.enabled === false, 'Fast track should disable mouse animation');
+assert(PRESETS.erp.resolution.timeoutMs === 15000, 'ERP preset should have 15000ms resolution timeout');
 console.log('  ✅ Presets validated successfully.\n');
 
 // ------------------------------------------------------------------
@@ -112,11 +114,14 @@ const updateRes = createMockRes();
 updateBotConfig(mockReq, updateRes, {
   preset: 'custom',
   timing: { minActionDelayMs: 400, maxActionDelayMs: 900 },
-  mouse: { wobble: 5 }
+  mouse: { wobble: 5 },
+  resolution: { timeoutMs: 15000, pollIntervalMs: 150 }
 });
 assert.strictEqual(updateRes.statusCode, 200);
 assert.strictEqual(updateRes.body.config.timing.minActionDelayMs, 400);
 assert.strictEqual(updateRes.body.config.mouse.wobble, 5);
+assert.strictEqual(updateRes.body.config.resolution.timeoutMs, 15000);
+assert.strictEqual(updateRes.body.config.resolution.pollIntervalMs, 150);
 
 // Test Reset to Ultra Stealth
 const resetRes = createMockRes();
@@ -124,6 +129,8 @@ resetBotConfig(mockReq, resetRes, { preset: 'ultra_stealth' });
 assert.strictEqual(resetRes.statusCode, 200);
 assert.strictEqual(resetRes.body.config.preset, 'ultra_stealth');
 assert.strictEqual(resetRes.body.config.mouse.speed, 'human');
+assert.strictEqual(resetRes.body.config.resolution.timeoutMs, 10000);
+assert.strictEqual(resetRes.body.config.resolution.pollIntervalMs, 150);
 
 console.log('  ✅ Bot Config REST API lifecycle passed.\n');
 

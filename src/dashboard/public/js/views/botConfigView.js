@@ -85,6 +85,19 @@ export const BotConfigView = {
                 Instant click dispatch and minimal typing delays for swift local automation & regression tests.
               </p>
             </div>
+
+            <div class="bot-preset-card" data-preset="erp">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+                <strong style="font-size:0.88rem; color:var(--text-main); display:inline-flex; align-items:center; gap:0.35rem;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
+                  ERP / CityMart
+                </strong>
+                <span class="badge-tag purple" style="font-size:0.65rem;">Slow & Patient</span>
+              </div>
+              <p style="font-size:0.72rem; color:var(--text-sub); margin:0; line-height:1.35;">
+                Generous delays (2s - 4.5s) & patient polling (15s) for heavy data grids, loading spinners & ExtJS portals.
+              </p>
+            </div>
           </div>
         </div>
 
@@ -93,13 +106,32 @@ export const BotConfigView = {
           
           <!-- Card 1: Click & Action Timing -->
           <article class="card" style="background:#ffffff; border:1px solid rgba(0,0,0,0.08); padding:1.25rem;">
-            <div class="card-header-row" style="margin-bottom:1rem;">
+            <div class="card-header-row" style="margin-bottom:0.75rem;">
               <div class="card-title-wrap">
                 <h3 style="font-size:0.95rem; font-weight:800; color:var(--text-main); display:inline-flex; align-items:center; gap:0.4rem;">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                  Action & Click Timing
+                  Action & Step Pacing Delays
                 </h3>
-                <p style="font-size:0.72rem; color:var(--text-sub);">Eliminates rigid machine-like periodic action intervals</p>
+                <p style="font-size:0.72rem; color:var(--text-sub);">Sets how long the bot waits between actions and page loads</p>
+              </div>
+            </div>
+
+            <!-- Quick Step Delay Buttons -->
+            <div style="margin-bottom:1rem;">
+              <label style="font-size:0.72rem; font-weight:700; color:var(--text-sub); display:block; margin-bottom:0.35rem;">Quick Step Delay Presets</label>
+              <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:0.4rem;">
+                <button type="button" class="btn btn-xs btn-secondary btn-delay-preset" data-min="100" data-max="300" data-pre="50" style="justify-content:flex-start; padding:0.35rem 0.5rem; font-size:0.7rem; font-weight:600;">
+                  ⚡ Fast (200ms)
+                </button>
+                <button type="button" class="btn btn-xs btn-secondary btn-delay-preset" data-min="250" data-max="650" data-pre="100" style="justify-content:flex-start; padding:0.35rem 0.5rem; font-size:0.7rem; font-weight:600;">
+                  ⚖️ Normal (500ms)
+                </button>
+                <button type="button" class="btn btn-xs btn-secondary btn-delay-preset" data-min="2000" data-max="4500" data-pre="800" style="justify-content:flex-start; padding:0.35rem 0.5rem; font-size:0.7rem; font-weight:600;">
+                  🏢 ERP / CityMart (3.5s)
+                </button>
+                <button type="button" class="btn btn-xs btn-secondary btn-delay-preset" data-min="5000" data-max="8000" data-pre="1500" style="justify-content:flex-start; padding:0.35rem 0.5rem; font-size:0.7rem; font-weight:600;">
+                  ⏳ Deep Wait (6.5s)
+                </button>
               </div>
             </div>
 
@@ -108,7 +140,7 @@ export const BotConfigView = {
                 <label for="cfgMinActionDelay">Min Action Delay</label>
                 <span class="slider-val" id="valMinActionDelay">250 ms</span>
               </div>
-              <input type="range" id="cfgMinActionDelay" min="20" max="1500" step="25" value="250" class="bot-slider">
+              <input type="range" id="cfgMinActionDelay" min="20" max="10000" step="50" value="250" class="bot-slider">
             </div>
 
             <div class="form-group" style="margin-bottom:1rem;">
@@ -116,7 +148,7 @@ export const BotConfigView = {
                 <label for="cfgMaxActionDelay">Max Action Delay</label>
                 <span class="slider-val" id="valMaxActionDelay">650 ms</span>
               </div>
-              <input type="range" id="cfgMaxActionDelay" min="50" max="3000" step="50" value="650" class="bot-slider">
+              <input type="range" id="cfgMaxActionDelay" min="50" max="20000" step="100" value="650" class="bot-slider">
             </div>
 
             <div class="form-group" style="margin-bottom:1rem;">
@@ -124,7 +156,7 @@ export const BotConfigView = {
                 <label for="cfgClickJitter">Click Timing Jitter (+/-)</label>
                 <span class="slider-val" id="valClickJitter">120 ms</span>
               </div>
-              <input type="range" id="cfgClickJitter" min="0" max="500" step="10" value="120" class="bot-slider">
+              <input type="range" id="cfgClickJitter" min="0" max="1000" step="20" value="120" class="bot-slider">
             </div>
 
             <div class="form-group">
@@ -132,7 +164,7 @@ export const BotConfigView = {
                 <label for="cfgPreActionDelay">Pre-Interaction Hesitation</label>
                 <span class="slider-val" id="valPreActionDelay">100 ms</span>
               </div>
-              <input type="range" id="cfgPreActionDelay" min="0" max="800" step="20" value="100" class="bot-slider">
+              <input type="range" id="cfgPreActionDelay" min="0" max="5000" step="50" value="100" class="bot-slider">
             </div>
           </article>
 
@@ -301,6 +333,56 @@ export const BotConfigView = {
             </div>
           </article>
 
+          <!-- Card 5: Dynamic Resolution & Condition Polling Engine -->
+          <article class="card" style="background:#ffffff; border:1px solid rgba(0,0,0,0.08); padding:1.25rem;">
+            <div class="card-header-row" style="margin-bottom:1rem;">
+              <div class="card-title-wrap">
+                <h3 style="font-size:0.95rem; font-weight:800; color:var(--text-main); display:inline-flex; align-items:center; gap:0.4rem;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline><path d="M16 16l4 4"></path></svg>
+                  DOM Resolution & Condition Polling
+                </h3>
+                <p style="font-size:0.72rem; color:var(--text-sub);">Configure in-page polling interval and maximum dynamic wait timeout</p>
+              </div>
+            </div>
+
+            <!-- Quick Preset Buttons -->
+            <div style="margin-bottom:1.15rem;">
+              <label style="font-size:0.72rem; font-weight:700; color:var(--text-sub); display:block; margin-bottom:0.4rem;">Preferred Wait Presets</label>
+              <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:0.45rem;">
+                <button type="button" class="btn btn-xs btn-secondary btn-resolution-preset" data-timeout="3000" data-poll="50" style="justify-content:flex-start; text-align:left; padding:0.4rem 0.55rem; font-weight:600;">
+                  ⚡ Fast (3s / 50ms)
+                </button>
+                <button type="button" class="btn btn-xs btn-secondary btn-resolution-preset" data-timeout="5000" data-poll="100" style="justify-content:flex-start; text-align:left; padding:0.4rem 0.55rem; font-weight:600;">
+                  ⚖️ Default (5s / 100ms)
+                </button>
+                <button type="button" class="btn btn-xs btn-secondary btn-resolution-preset" data-timeout="15000" data-poll="150" style="justify-content:flex-start; text-align:left; padding:0.4rem 0.55rem; font-weight:600;">
+                  🏢 ERP / CityMart (15s / 150ms)
+                </button>
+                <button type="button" class="btn btn-xs btn-secondary btn-resolution-preset" data-timeout="30000" data-poll="250" style="justify-content:flex-start; text-align:left; padding:0.4rem 0.55rem; font-weight:600;">
+                  ⏳ Deep Wait (30s / 250ms)
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:1rem;">
+              <div style="display:flex; justify-content:space-between; font-size:0.75rem; font-weight:700; margin-bottom:0.25rem;">
+                <label for="cfgResolutionTimeout">Max Resolution Timeout</label>
+                <span class="slider-val" id="valResolutionTimeout">5000 ms</span>
+              </div>
+              <input type="range" id="cfgResolutionTimeout" min="1000" max="60000" step="1000" value="5000" class="bot-slider">
+              <small style="font-size:0.65rem; color:var(--text-sub); display:block; margin-top:0.2rem;">Max time to wait for dynamic modals, ExtJS grids, or async DOM insertions.</small>
+            </div>
+
+            <div class="form-group">
+              <div style="display:flex; justify-content:space-between; font-size:0.75rem; font-weight:700; margin-bottom:0.25rem;">
+                <label for="cfgPollInterval">Condition Polling Interval</label>
+                <span class="slider-val" id="valPollInterval">100 ms</span>
+              </div>
+              <input type="range" id="cfgPollInterval" min="20" max="1000" step="10" value="100" class="bot-slider">
+              <small style="font-size:0.65rem; color:var(--text-sub); display:block; margin-top:0.2rem;">Active in-page query frequency to evaluate candidates and fingerprint scores.</small>
+            </div>
+          </article>
+
         </div>
 
       </section>
@@ -362,6 +444,12 @@ export const BotConfigView = {
       this.setVal('cfgPunctuationPause', cfg.typing.punctuationPauseMs, 'valPunctuationPause', ' ms');
     }
 
+    // Resolution & Condition Polling
+    if (cfg.resolution) {
+      this.setVal('cfgResolutionTimeout', cfg.resolution.timeoutMs || 5000, 'valResolutionTimeout', ' ms');
+      this.setVal('cfgPollInterval', cfg.resolution.pollIntervalMs || 100, 'valPollInterval', ' ms');
+    }
+
     // Stealth
     if (cfg.stealth) {
       const elMask = document.getElementById('cfgMaskWebdriver');
@@ -407,6 +495,10 @@ export const BotConfigView = {
         punctuationPauseMs: parseInt(document.getElementById('cfgPunctuationPause')?.value || '180', 10),
         variance: 'uniform'
       },
+      resolution: {
+        timeoutMs: parseInt(document.getElementById('cfgResolutionTimeout')?.value || '5000', 10),
+        pollIntervalMs: parseInt(document.getElementById('cfgPollInterval')?.value || '100', 10)
+      },
       stealth: {
         maskWebdriver: !!document.getElementById('cfgMaskWebdriver')?.checked,
         emulateChromeRuntime: !!document.getElementById('cfgEmulateChromeRuntime')?.checked,
@@ -439,6 +531,34 @@ export const BotConfigView = {
     setupSlider('cfgMinTypingDelay', 'valMinTypingDelay', ' ms/key');
     setupSlider('cfgMaxTypingDelay', 'valMaxTypingDelay', ' ms/key');
     setupSlider('cfgPunctuationPause', 'valPunctuationPause', ' ms');
+    setupSlider('cfgResolutionTimeout', 'valResolutionTimeout', ' ms');
+    setupSlider('cfgPollInterval', 'valPollInterval', ' ms');
+
+    // Quick Step Delay Preset Buttons
+    document.querySelectorAll('.btn-delay-preset').forEach(btn => {
+      btn.onclick = () => {
+        const min = btn.getAttribute('data-min');
+        const max = btn.getAttribute('data-max');
+        const pre = btn.getAttribute('data-pre');
+        if (min) this.setVal('cfgMinActionDelay', min, 'valMinActionDelay', ' ms');
+        if (max) this.setVal('cfgMaxActionDelay', max, 'valMaxActionDelay', ' ms');
+        if (pre) this.setVal('cfgPreActionDelay', pre, 'valPreActionDelay', ' ms');
+        this.markCustomPreset();
+        Toast.info(`Set step delay to ${min}ms - ${max}ms`);
+      };
+    });
+
+    // Quick Resolution Preset Buttons
+    document.querySelectorAll('.btn-resolution-preset').forEach(btn => {
+      btn.onclick = () => {
+        const timeout = btn.getAttribute('data-timeout');
+        const poll = btn.getAttribute('data-poll');
+        if (timeout) this.setVal('cfgResolutionTimeout', timeout, 'valResolutionTimeout', ' ms');
+        if (poll) this.setVal('cfgPollInterval', poll, 'valPollInterval', ' ms');
+        this.markCustomPreset();
+        Toast.info(`Set resolution timeout to ${timeout}ms & polling to ${poll}ms`);
+      };
+    });
 
     // Preset cards
     document.querySelectorAll('.bot-preset-card').forEach(card => {

@@ -308,6 +308,32 @@ const server = http.createServer(async (req, res) => {
       return runController.listRuns(req, res);
     }
 
+    if (pathname === '/api/runs/active' && req.method === 'GET') {
+      if (!requireAuth(req, res)) return;
+      return runController.getActiveRuns(req, res);
+    }
+
+    if (pathname === '/api/runs/stop' && req.method === 'POST') {
+      if (!requireAuth(req, res)) return;
+      if (activeReplay) {
+        try {
+          if (activeReplay.engine && typeof activeReplay.engine.abort === 'function') {
+            await activeReplay.engine.abort();
+          }
+        } catch {}
+        broadcast('replay_state', { isReplaying: false, stopped: true });
+        activeReplay = null;
+      }
+      return runController.stopAllRuns(req, res);
+    }
+
+    const runStopMatch = pathname.match(/^\/api\/runs\/([^/]+)\/stop$/);
+    if (runStopMatch && req.method === 'POST') {
+      const runId = runStopMatch[1];
+      if (!requireAuth(req, res)) return;
+      return runController.stopRun(req, res, runId);
+    }
+
     const runStatusMatch = pathname.match(/^\/api\/runs\/([^/]+)$/);
     if (runStatusMatch && req.method === 'GET') {
       const runId = runStatusMatch[1];
@@ -355,6 +381,10 @@ const server = http.createServer(async (req, res) => {
           isReplaying: !!activeReplay,
           currentAction: activeReplay ? activeReplay.currentAction : null,
           totalActions: activeReplay ? activeReplay.totalActions : null
+        },
+        runs: {
+          hasActive: runController.hasActiveRuns ? runController.hasActiveRuns() : false,
+          activeCount: runController.getActiveRunCount ? runController.getActiveRunCount() : 0
         },
         isRunningTest
       });
@@ -575,7 +605,9 @@ const server = http.createServer(async (req, res) => {
       const body = await parseJsonBody(req);
       const filename = body.filename;
       const speed = parseFloat(body.speed) || 1.0;
-      const timeoutMs = parseInt(body.timeoutMs, 10) || 5000;
+      const activeBotCfg = botConfigController.getActiveBotConfig ? botConfigController.getActiveBotConfig() : null;
+      const timeoutMs = parseInt(body.timeoutMs, 10) || activeBotCfg?.resolution?.timeoutMs || 5000;
+      const pollIntervalMs = parseInt(body.pollIntervalMs, 10) || activeBotCfg?.resolution?.pollIntervalMs || 100;
       const browserURL = body.browserURL || 'http://localhost:9222';
 
       if (!filename) {
@@ -589,8 +621,8 @@ const server = http.createServer(async (req, res) => {
 
       const recording = JSON.parse(fs.readFileSync(filePath, 'utf8'));
 
-      const replayEngine = new ReplayEngine({ browserURL, speed, timeoutMs });
-      activeReplay = { filename, currentAction: 0, totalActions: recording.actions.length };
+      const replayEngine = new ReplayEngine({ browserURL, speed, timeoutMs, pollIntervalMs, botConfig: activeBotCfg });
+      activeReplay = { engine: replayEngine, filename, currentAction: 0, totalActions: recording.actions.length };
 
       broadcast('replay_state', { isReplaying: true, filename, total: recording.actions.length });
 
@@ -621,6 +653,36 @@ const server = http.createServer(async (req, res) => {
       })();
 
       return sendJson(res, 200, { success: true, filename, totalActions: recording.actions.length });
+    }
+
+    // -------------------------------------------------------------
+    // API: Stop Replay
+    // -------------------------------------------------------------
+    if (pathname === '/api/replay/stop' && req.method === 'POST') {
+      let stoppedReplay = false;
+      if (activeReplay) {
+        stoppedReplay = true;
+        try {
+          if (activeReplay.engine && typeof activeReplay.engine.abort === 'function') {
+            await activeReplay.engine.abort();
+          }
+        } catch (err) {
+          logger.error(`Error aborting replay: ${err.message}`);
+        }
+        broadcast('replay_state', { isReplaying: false, stopped: true });
+        activeReplay = null;
+      }
+
+      if (req.headers.authorization) {
+        if (requireAuth(req, res)) {
+          return runController.stopAllRuns(req, res);
+        }
+      }
+
+      return sendJson(res, 200, {
+        success: true,
+        message: stoppedReplay ? 'Replay playback stopped successfully' : 'No active replay was running'
+      });
     }
 
     // -------------------------------------------------------------

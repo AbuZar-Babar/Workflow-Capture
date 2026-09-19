@@ -3,6 +3,7 @@
  */
 
 import { SSE } from '../sse.js';
+import { Api } from '../api.js';
 import { Toast } from '../components/toast.js';
 
 function escapeHtml(str) {
@@ -36,7 +37,7 @@ export const ConsoleView = {
             <p>Real-time Chrome DevTools Protocol & Workflow Automation logs</p>
           </div>
 
-          <!-- Controls: Level Filters, Search, Export, Clear -->
+          <!-- Controls: Level Filters, Search, Stop, Export, Clear -->
           <div style="display:flex; align-items:center; gap:0.65rem; flex-wrap:wrap;">
             <div class="console-filter-pill-group">
               <button class="console-filter-btn active" data-filter="ALL">ALL</button>
@@ -52,6 +53,11 @@ export const ConsoleView = {
             <label style="font-size:0.75rem; color:var(--text-sub); display:flex; align-items:center; gap:0.25rem; cursor:pointer;">
               <input type="checkbox" id="chkConsoleAutoScroll" checked> Auto-scroll
             </label>
+
+            <button class="btn btn-sm" id="btnConsoleStopExecution" style="background:#dc2626; color:#ffffff; border:1px solid #b91c1c; font-weight:700; display:inline-flex; align-items:center; gap:0.35rem; padding:0.32rem 0.75rem; border-radius:var(--radius-md); box-shadow:0 1px 3px rgba(220,38,38,0.25); cursor:pointer;" title="Immediately halt any active workflow runs or replay executions">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"></rect></svg>
+              <span>Stop Execution</span>
+            </button>
 
             <button class="btn btn-secondary btn-sm" id="btnExportLogs" title="Export current log buffer to .txt">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
@@ -112,6 +118,29 @@ export const ConsoleView = {
         this.logs = [];
         this.renderLogs();
         Toast.info('Console log buffer cleared');
+      };
+    }
+
+    // Stop Execution button
+    const btnStop = document.getElementById('btnConsoleStopExecution');
+    if (btnStop) {
+      btnStop.onclick = async () => {
+        btnStop.disabled = true;
+        btnStop.style.opacity = '0.7';
+        Toast.info('Sending stop signal to active executions...');
+        try {
+          const res = await Api.stopExecution();
+          Toast.success(res.message || 'Execution stopped successfully');
+        } catch (err) {
+          Toast.error(err.message || 'Failed to stop execution');
+        } finally {
+          setTimeout(() => {
+            if (btnStop) {
+              btnStop.disabled = false;
+              btnStop.style.opacity = '1';
+            }
+          }, 800);
+        }
       };
     }
 

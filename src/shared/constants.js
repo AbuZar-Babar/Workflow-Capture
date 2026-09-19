@@ -41,12 +41,14 @@ const MIN_CONFIDENCE_THRESHOLD = 0.70;
 const DEFAULT_TIMEOUTS = Object.freeze({
   RESOLUTION_TIMEOUT_MS: 5000,
   POLL_INTERVAL_MS: 100,
+  ERP_RESOLUTION_TIMEOUT_MS: 15000,
+  ERP_POLL_INTERVAL_MS: 150,
   TYPE_KEYSTROKE_DELAY_MS: 20,
   POST_ACTION_DELAY_MS: 100
 });
 
-// Patterns to detect unstable / dynamic IDs (e.g. React 18 useId `:r1:`, Angular `ng-`, long hashes, UUIDs)
-const UNSTABLE_ID_PATTERN = /(:r[0-9a-z_-]+:|^ng-|^__|^ember|^\d+$|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}|_[0-9a-zA-Z]{5,})/i;
+// Patterns to detect unstable / dynamic IDs (e.g. React 18 useId `:r1:`, Angular `ng-`, Sencha/ExtJS `gridview-`, `record-`, `tableview-`, long hashes, UUIDs)
+const UNSTABLE_ID_PATTERN = /(:r[0-9a-z_-]+:|^ng-|^__|^ember|^\d+$|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}|_[0-9a-zA-Z]{5,}|^gridview-\d+|^record-\d+|^tableview-\d+|^ext-gen|^ext-comp|^panel-\d+|^menuitem-\d+|^button-\d+|ext-element-\d+)/i;
 
 // Classes to ignore when computing fingerprint similarity (state/transient styles)
 const TRANSIENT_CLASS_PATTERN = /^(active|hover|focus|focus-visible|disabled|selected|open|closed|show|hide|entering|leaving|animate-|transition-|css-[a-z0-9]+$)/i;

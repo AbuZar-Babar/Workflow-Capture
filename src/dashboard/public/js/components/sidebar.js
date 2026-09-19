@@ -8,6 +8,7 @@ import { Toast } from './toast.js';
 export const Sidebar = {
   buttons: [],
   btnLaunchChrome: null,
+  btnStopExecution: null,
 
   init(onNavigate) {
     this.buttons = document.querySelectorAll('.sidebar-icon-btn[data-route]');
@@ -33,6 +34,34 @@ export const Sidebar = {
           Toast.error(err.message);
         }
       };
+    }
+
+    this.btnStopExecution = document.getElementById('btnSidebarStopExecution');
+    if (this.btnStopExecution) {
+      this.btnStopExecution.onclick = async () => {
+        this.btnStopExecution.disabled = true;
+        this.btnStopExecution.style.opacity = '0.7';
+        Toast.info('Stopping active execution...');
+        try {
+          const res = await Api.stopExecution();
+          Toast.success(res.message || 'Execution stopped successfully');
+        } catch (err) {
+          Toast.error(err.message || 'Failed to stop execution');
+        } finally {
+          setTimeout(() => {
+            if (this.btnStopExecution) {
+              this.btnStopExecution.disabled = false;
+              this.btnStopExecution.style.opacity = '1';
+            }
+          }, 800);
+        }
+      };
+    }
+  },
+
+  setExecutionActive(isActive) {
+    if (this.btnStopExecution) {
+      this.btnStopExecution.style.display = isActive ? 'flex' : 'none';
     }
   },
 

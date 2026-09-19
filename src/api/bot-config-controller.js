@@ -34,6 +34,10 @@ const PRESETS = {
       punctuationPauseMs: 350,
       variance: 'gaussian'
     },
+    resolution: {
+      timeoutMs: 10000,
+      pollIntervalMs: 150
+    },
     stealth: {
       maskWebdriver: true,
       emulatePlugins: true,
@@ -66,6 +70,10 @@ const PRESETS = {
       maxTypingDelayMs: 120,
       punctuationPauseMs: 180,
       variance: 'uniform'
+    },
+    resolution: {
+      timeoutMs: 5000,
+      pollIntervalMs: 100
     },
     stealth: {
       maskWebdriver: true,
@@ -100,10 +108,51 @@ const PRESETS = {
       punctuationPauseMs: 0,
       variance: 'none'
     },
+    resolution: {
+      timeoutMs: 3000,
+      pollIntervalMs: 50
+    },
     stealth: {
       maskWebdriver: false,
       emulatePlugins: false,
       emulateChromeRuntime: false,
+      randomizeScroll: false,
+      spoofUserAgent: false
+    }
+  },
+  erp: {
+    id: 'erp',
+    name: 'ERP / CityMart (Patient Polling & Async Grids)',
+    description: 'Extended resolution timeouts (15s) and generous pacing delays (2s - 4.5s) for heavy enterprise ERP portals, Sencha ExtJS, and DevExpress data grids.',
+    timing: {
+      minActionDelayMs: 2000,
+      maxActionDelayMs: 4500,
+      clickJitterMs: 200,
+      preActionDelayMs: 800
+    },
+    mouse: {
+      enabled: true,
+      curveType: 'bezier_cubic',
+      speed: 'medium',
+      wobble: 2,
+      overshoot: true,
+      hoverBeforeClickMs: 180,
+      steps: 22
+    },
+    typing: {
+      minTypingDelayMs: 30,
+      maxTypingDelayMs: 100,
+      punctuationPauseMs: 150,
+      variance: 'uniform'
+    },
+    resolution: {
+      timeoutMs: 15000,
+      pollIntervalMs: 150
+    },
+    stealth: {
+      maskWebdriver: true,
+      emulatePlugins: true,
+      emulateChromeRuntime: true,
       randomizeScroll: false,
       spoofUserAgent: false
     }
@@ -175,6 +224,10 @@ function updateBotConfig(req, res, body = {}) {
       maxTypingDelayMs: Math.max(0, parseInt(body.typing?.maxTypingDelayMs ?? config.typing?.maxTypingDelayMs ?? 120, 10)),
       punctuationPauseMs: Math.max(0, parseInt(body.typing?.punctuationPauseMs ?? config.typing?.punctuationPauseMs ?? 180, 10)),
       variance: body.typing?.variance || config.typing?.variance || 'uniform'
+    },
+    resolution: {
+      timeoutMs: Math.max(500, parseInt(body.resolution?.timeoutMs ?? config.resolution?.timeoutMs ?? 5000, 10)),
+      pollIntervalMs: Math.max(10, parseInt(body.resolution?.pollIntervalMs ?? config.resolution?.pollIntervalMs ?? 100, 10))
     },
     stealth: {
       maskWebdriver: Boolean(body.stealth?.maskWebdriver ?? config.stealth?.maskWebdriver ?? true),

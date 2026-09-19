@@ -233,10 +233,67 @@ export const Api = {
     return res.json();
   },
 
+  async getActiveRuns() {
+    const res = await Auth.authenticatedFetch('/api/runs/active');
+    if (!res.ok) throw new Error('Failed to fetch active runs');
+    return res.json();
+  },
+
   async getRunStatus(runId) {
     const res = await Auth.authenticatedFetch(`/api/runs/${runId}`);
     if (!res.ok) throw new Error('Failed to fetch run status');
     return res.json();
+  },
+
+  /**
+   * Stop a specific active workflow run
+   */
+  async stopRun(runId) {
+    const res = await Auth.authenticatedFetch(`/api/runs/${runId}/stop`, {
+      method: 'POST'
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to stop run');
+    return data;
+  },
+
+  /**
+   * Stop all active workflow runs
+   */
+  async stopAllRuns() {
+    const res = await Auth.authenticatedFetch('/api/runs/stop', {
+      method: 'POST'
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to stop running executions');
+    return data;
+  },
+
+  /**
+   * Stop raw replay playback
+   */
+  async stopReplay() {
+    const res = await Auth.authenticatedFetch('/api/replay/stop', {
+      method: 'POST'
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to stop replay');
+    return data;
+  },
+
+  /**
+   * Universal Stop Execution (stops both workflow runs and active replays)
+   */
+  async stopExecution() {
+    try {
+      const res = await Auth.authenticatedFetch('/api/runs/stop', {
+        method: 'POST'
+      });
+      const data = await res.json();
+      return data;
+    } catch {
+      return this.stopReplay();
+    }
   },
 
   // -------------------------------------------------------------

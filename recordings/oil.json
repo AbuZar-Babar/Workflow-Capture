@@ -1,0 +1,1507 @@
+{
+  "metadata": {
+    "recordingId": "rec_1789802511973_cr1ku",
+    "version": "1.0.0",
+    "name": "oil",
+    "startedAt": "2026-09-19T07:20:58.760Z",
+    "completedAt": "2026-09-19T07:21:51.972Z",
+    "startUrl": "https://customerportal.usoil.com/#/home",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    }
+  },
+  "actions": [
+    {
+      "id": "act_1_mu8269ge",
+      "index": 0,
+      "type": "CLICK",
+      "timestamp": 1789802461021,
+      "timeDeltaMs": 0,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "text",
+            "value": "//button[normalize-space()='Log In']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//button[contains(@class, 'btn') and normalize-space()='Log In']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-app-home > div > div > div > div > div > div > button",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-app-home[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/button[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "button",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "Log In",
+          "classes": [
+            "btn",
+            "btn-primary"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 50,
+            "height": 32
+          }
+        }
+      }
+    },
+    {
+      "id": "act_2_mu8269gg",
+      "index": 1,
+      "type": "CLICK",
+      "timestamp": 1789802461023,
+      "timeDeltaMs": 2,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "text",
+            "value": "//button[normalize-space()='Log In']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//button[contains(@class, 'btn') and normalize-space()='Log In']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-app-home > div > div > div > div > div > div > button",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-app-home[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/button[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "button",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "Log In",
+          "classes": [
+            "btn",
+            "btn-primary"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 50,
+            "height": 32
+          }
+        }
+      }
+    },
+    {
+      "id": "act_3_mu8269k3",
+      "index": 2,
+      "type": "TYPE",
+      "timestamp": 1789802461155,
+      "timeDeltaMs": 132,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-login > div > div > div > div > div > form > div:nth-of-type(1) > input",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-login[1]/div[1]/div[1]/div[1]/div[1]/div[1]/form[1]/div[1]/input[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": null,
+          "name": null,
+          "type": "text",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "form-control",
+            "ng-untouched",
+            "ng-dirty",
+            "ng-valid"
+          ],
+          "attributes": {
+            "type": "text"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 363,
+            "height": 38
+          }
+        }
+      },
+      "value": "irfan@tejaniholdings.net",
+      "meta": {
+        "isPassword": false,
+        "charCount": 24
+      }
+    },
+    {
+      "id": "act_4_mu8269k7",
+      "index": 3,
+      "type": "TYPE",
+      "timestamp": 1789802461159,
+      "timeDeltaMs": 4,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-login > div > div > div > div > div > form > div:nth-of-type(2) > div > input",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-login[1]/div[1]/div[1]/div[1]/div[1]/div[1]/form[1]/div[2]/div[1]/input[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": null,
+          "name": null,
+          "type": "password",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "form-control",
+            "ng-untouched",
+            "ng-dirty",
+            "ng-valid"
+          ],
+          "attributes": {
+            "type": "password"
+          },
+          "isPassword": true,
+          "dimensions": {
+            "width": 363,
+            "height": 38
+          }
+        }
+      },
+      "value": "[REDACTED]",
+      "meta": {
+        "isPassword": true,
+        "charCount": 8
+      }
+    },
+    {
+      "id": "act_5_mu826bc8",
+      "index": 4,
+      "type": "CLICK",
+      "timestamp": 1789802463464,
+      "timeDeltaMs": 2305,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-login > div > div > div > div > div > form > div:nth-of-type(1) > input",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-login[1]/div[1]/div[1]/div[1]/div[1]/div[1]/form[1]/div[1]/input[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": null,
+          "name": null,
+          "type": "text",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "form-control",
+            "ng-dirty",
+            "ng-valid",
+            "ng-touched"
+          ],
+          "attributes": {
+            "type": "text"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 363,
+            "height": 38
+          }
+        }
+      }
+    },
+    {
+      "id": "act_6_mu826bca",
+      "index": 5,
+      "type": "CLICK",
+      "timestamp": 1789802463464,
+      "timeDeltaMs": 0,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-login > div > div > div > div > div > form > div:nth-of-type(1) > input",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-login[1]/div[1]/div[1]/div[1]/div[1]/div[1]/form[1]/div[1]/input[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": null,
+          "name": null,
+          "type": "text",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "form-control",
+            "ng-dirty",
+            "ng-valid",
+            "ng-touched"
+          ],
+          "attributes": {
+            "type": "text"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 363,
+            "height": 38
+          }
+        }
+      }
+    },
+    {
+      "id": "act_7_mu826bg9",
+      "index": 6,
+      "type": "DOUBLE_CLICK",
+      "timestamp": 1789802463608,
+      "timeDeltaMs": 144,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-login > div > div > div > div > div > form > div:nth-of-type(1) > input",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-login[1]/div[1]/div[1]/div[1]/div[1]/div[1]/form[1]/div[1]/input[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": null,
+          "name": null,
+          "type": "text",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "form-control",
+            "ng-dirty",
+            "ng-valid",
+            "ng-touched"
+          ],
+          "attributes": {
+            "type": "text"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 363,
+            "height": 38
+          }
+        }
+      }
+    },
+    {
+      "id": "act_8_mu826bga",
+      "index": 7,
+      "type": "DOUBLE_CLICK",
+      "timestamp": 1789802463608,
+      "timeDeltaMs": 0,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-login > div > div > div > div > div > form > div:nth-of-type(1) > input",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-login[1]/div[1]/div[1]/div[1]/div[1]/div[1]/form[1]/div[1]/input[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": null,
+          "name": null,
+          "type": "text",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "form-control",
+            "ng-dirty",
+            "ng-valid",
+            "ng-touched"
+          ],
+          "attributes": {
+            "type": "text"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 363,
+            "height": 38
+          }
+        }
+      }
+    },
+    {
+      "id": "act_9_mu826bup",
+      "index": 8,
+      "type": "CLICK",
+      "timestamp": 1789802464128,
+      "timeDeltaMs": 520,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-login > div > div > div > div > div > form > div:nth-of-type(1) > input",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-login[1]/div[1]/div[1]/div[1]/div[1]/div[1]/form[1]/div[1]/input[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": null,
+          "name": null,
+          "type": "text",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "form-control",
+            "ng-dirty",
+            "ng-valid",
+            "ng-touched"
+          ],
+          "attributes": {
+            "type": "text"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 363,
+            "height": 38
+          }
+        }
+      }
+    },
+    {
+      "id": "act_10_mu826bur",
+      "index": 9,
+      "type": "CLICK",
+      "timestamp": 1789802464128,
+      "timeDeltaMs": 0,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-login > div > div > div > div > div > form > div:nth-of-type(1) > input",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-login[1]/div[1]/div[1]/div[1]/div[1]/div[1]/form[1]/div[1]/input[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": null,
+          "name": null,
+          "type": "text",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "form-control",
+            "ng-dirty",
+            "ng-valid",
+            "ng-touched"
+          ],
+          "attributes": {
+            "type": "text"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 363,
+            "height": 38
+          }
+        }
+      }
+    },
+    {
+      "id": "act_11_mu826byh",
+      "index": 10,
+      "type": "DOUBLE_CLICK",
+      "timestamp": 1789802464264,
+      "timeDeltaMs": 136,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-login > div > div > div > div > div > form > div:nth-of-type(1) > input",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-login[1]/div[1]/div[1]/div[1]/div[1]/div[1]/form[1]/div[1]/input[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": null,
+          "name": null,
+          "type": "text",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "form-control",
+            "ng-dirty",
+            "ng-valid",
+            "ng-touched"
+          ],
+          "attributes": {
+            "type": "text"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 363,
+            "height": 38
+          }
+        }
+      }
+    },
+    {
+      "id": "act_12_mu826byi",
+      "index": 11,
+      "type": "DOUBLE_CLICK",
+      "timestamp": 1789802464265,
+      "timeDeltaMs": 1,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-login > div > div > div > div > div > form > div:nth-of-type(1) > input",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-login[1]/div[1]/div[1]/div[1]/div[1]/div[1]/form[1]/div[1]/input[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": null,
+          "name": null,
+          "type": "text",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "form-control",
+            "ng-dirty",
+            "ng-valid",
+            "ng-touched"
+          ],
+          "attributes": {
+            "type": "text"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 363,
+            "height": 38
+          }
+        }
+      }
+    },
+    {
+      "id": "act_13_mu826c2h",
+      "index": 12,
+      "type": "CLICK",
+      "timestamp": 1789802464408,
+      "timeDeltaMs": 143,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-login > div > div > div > div > div > form > div:nth-of-type(1) > input",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-login[1]/div[1]/div[1]/div[1]/div[1]/div[1]/form[1]/div[1]/input[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": null,
+          "name": null,
+          "type": "text",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "form-control",
+            "ng-dirty",
+            "ng-valid",
+            "ng-touched"
+          ],
+          "attributes": {
+            "type": "text"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 363,
+            "height": 38
+          }
+        }
+      }
+    },
+    {
+      "id": "act_14_mu826c2j",
+      "index": 13,
+      "type": "CLICK",
+      "timestamp": 1789802464409,
+      "timeDeltaMs": 1,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-login > div > div > div > div > div > form > div:nth-of-type(1) > input",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-login[1]/div[1]/div[1]/div[1]/div[1]/div[1]/form[1]/div[1]/input[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": null,
+          "name": null,
+          "type": "text",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "form-control",
+            "ng-dirty",
+            "ng-valid",
+            "ng-touched"
+          ],
+          "attributes": {
+            "type": "text"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 363,
+            "height": 38
+          }
+        }
+      }
+    },
+    {
+      "id": "act_15_mu826th7",
+      "index": 14,
+      "type": "TYPE",
+      "timestamp": 1789802486971,
+      "timeDeltaMs": 22562,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-login > div > div > div > div > div > form > div:nth-of-type(1) > input",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-login[1]/div[1]/div[1]/div[1]/div[1]/div[1]/form[1]/div[1]/input[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": null,
+          "name": null,
+          "type": "text",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "form-control",
+            "ng-dirty",
+            "ng-touched",
+            "ng-valid"
+          ],
+          "attributes": {
+            "type": "text"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 363,
+            "height": 38
+          }
+        }
+      },
+      "value": "irfan@tejaniholdings.net",
+      "meta": {
+        "isPassword": false,
+        "charCount": 24
+      }
+    },
+    {
+      "id": "act_16_mu826ti9",
+      "index": 15,
+      "type": "CLICK",
+      "timestamp": 1789802487008,
+      "timeDeltaMs": 37,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-login > div > div > div > div > div",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-login[1]/div[1]/div[1]/div[1]/div[1]/div[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "div",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "UsernamePassword Login Forgot your password? Click here to reset it.",
+          "classes": [
+            "card-body"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 395,
+            "height": 228
+          }
+        }
+      }
+    },
+    {
+      "id": "act_17_mu826tib",
+      "index": 16,
+      "type": "CLICK",
+      "timestamp": 1789802487009,
+      "timeDeltaMs": 1,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-login > div > div > div > div > div",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-login[1]/div[1]/div[1]/div[1]/div[1]/div[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "div",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "UsernamePassword Login Forgot your password? Click here to reset it.",
+          "classes": [
+            "card-body"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 395,
+            "height": 228
+          }
+        }
+      }
+    },
+    {
+      "id": "act_18_mu826u5t",
+      "index": 17,
+      "type": "CLICK",
+      "timestamp": 1789802487856,
+      "timeDeltaMs": 847,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "text",
+            "value": "//button[normalize-space()='Login']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//button[contains(@class, 'btn') and normalize-space()='Login']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-login > div > div > div > div > div > form > button",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-login[1]/div[1]/div[1]/div[1]/div[1]/div[1]/form[1]/button[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "button",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "Login",
+          "classes": [
+            "btn",
+            "btn-primary"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 46,
+            "height": 32
+          }
+        }
+      }
+    },
+    {
+      "id": "act_19_mu826u5v",
+      "index": 18,
+      "type": "CLICK",
+      "timestamp": 1789802487857,
+      "timeDeltaMs": 1,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "text",
+            "value": "//button[normalize-space()='Login']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//button[contains(@class, 'btn') and normalize-space()='Login']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-login > div > div > div > div > div > form > button",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-login[1]/div[1]/div[1]/div[1]/div[1]/div[1]/form[1]/button[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "button",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "Login",
+          "classes": [
+            "btn",
+            "btn-primary"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 46,
+            "height": 32
+          }
+        }
+      }
+    },
+    {
+      "id": "act_20_mu826z9l",
+      "index": 19,
+      "type": "CLICK",
+      "timestamp": 1789802494473,
+      "timeDeltaMs": 6616,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-toolbar > span:nth-of-type(3) > span > button > span:nth-of-type(2)",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-toolbar[1]/span[3]/span[1]/button[1]/span[2]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "text",
+            "value": "//span[normalize-space()='My Reports']",
+            "uniqueness": 6,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//span[contains(@class, 'mdc-button__label') and normalize-space()='My Reports']",
+            "uniqueness": 2,
+            "priority": 4
+          }
+        ],
+        "fingerprint": {
+          "tagName": "span",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "My Reports",
+          "classes": [
+            "mdc-button__label"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 84,
+            "height": 32
+          }
+        }
+      }
+    },
+    {
+      "id": "act_21_mu826z9n",
+      "index": 20,
+      "type": "CLICK",
+      "timestamp": 1789802494473,
+      "timeDeltaMs": 0,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-toolbar > span:nth-of-type(3) > span > button > span:nth-of-type(2)",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-toolbar[1]/span[3]/span[1]/button[1]/span[2]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "text",
+            "value": "//span[normalize-space()='My Reports']",
+            "uniqueness": 6,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//span[contains(@class, 'mdc-button__label') and normalize-space()='My Reports']",
+            "uniqueness": 2,
+            "priority": 4
+          }
+        ],
+        "fingerprint": {
+          "tagName": "span",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "My Reports",
+          "classes": [
+            "mdc-button__label"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 84,
+            "height": 32
+          }
+        }
+      }
+    },
+    {
+      "id": "act_22_mu82722h",
+      "index": 21,
+      "type": "CLICK",
+      "timestamp": 1789802498104,
+      "timeDeltaMs": 3631,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "id",
+            "value": "#mat-select-value-0",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "id",
+            "value": "div#mat-select-value-0",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[@id='mat-select-value-0']",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "div",
+          "id": "mat-select-value-0",
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "mat-mdc-select-value"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 347,
+            "height": 24
+          }
+        }
+      }
+    },
+    {
+      "id": "act_23_mu82722i",
+      "index": 22,
+      "type": "CLICK",
+      "timestamp": 1789802498104,
+      "timeDeltaMs": 0,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "id",
+            "value": "#mat-select-value-0",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "id",
+            "value": "div#mat-select-value-0",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[@id='mat-select-value-0']",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "div",
+          "id": "mat-select-value-0",
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "mat-mdc-select-value"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 347,
+            "height": 24
+          }
+        }
+      }
+    },
+    {
+      "id": "act_24_mu827308",
+      "index": 23,
+      "type": "CLICK",
+      "timestamp": 1789802499320,
+      "timeDeltaMs": 1216,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "#mat-option-1 > span",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/div[3]/div[2]/div[1]/div[1]/mat-option[2]/span[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "span",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "105991 - MIAMI GARDENS ENERGY, LLC (Charge Up 41) - 3701 NW 167 ST MIAMI GARDENS, FL 33055",
+          "classes": [
+            "mdc-list-item__primary-text"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 309,
+            "height": 72
+          }
+        }
+      }
+    },
+    {
+      "id": "act_25_mu82730a",
+      "index": 24,
+      "type": "CLICK",
+      "timestamp": 1789802499320,
+      "timeDeltaMs": 0,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "#mat-option-1 > span",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/div[3]/div[2]/div[1]/div[1]/mat-option[2]/span[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "span",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "105991 - MIAMI GARDENS ENERGY, LLC (Charge Up 41) - 3701 NW 167 ST MIAMI GARDENS, FL 33055",
+          "classes": [
+            "mdc-list-item__primary-text"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 309,
+            "height": 72
+          }
+        }
+      }
+    },
+    {
+      "id": "act_26_mu8274hd",
+      "index": 25,
+      "type": "CLICK",
+      "timestamp": 1789802501232,
+      "timeDeltaMs": 1912,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > div:nth-of-type(3) > div:nth-of-type(1)",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/div[3]/div[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "div",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "cdk-overlay-backdrop",
+            "cdk-overlay-transparent-backdrop",
+            "cdk-overlay-backdrop-showing"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 1265,
+            "height": 578
+          }
+        }
+      }
+    },
+    {
+      "id": "act_27_mu8274he",
+      "index": 26,
+      "type": "CLICK",
+      "timestamp": 1789802501232,
+      "timeDeltaMs": 0,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > div:nth-of-type(3) > div:nth-of-type(1)",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/div[3]/div[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "div",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "cdk-overlay-backdrop",
+            "cdk-overlay-transparent-backdrop",
+            "cdk-overlay-backdrop-showing"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 1265,
+            "height": 578
+          }
+        }
+      }
+    },
+    {
+      "id": "act_28_mu8277dd",
+      "index": 27,
+      "type": "CLICK",
+      "timestamp": 1789802504977,
+      "timeDeltaMs": 3745,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-my-reports > div > input:nth-of-type(1)",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-my-reports[1]/div[1]/input[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": null,
+          "name": null,
+          "type": "button",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "btn",
+            "btn-primary"
+          ],
+          "attributes": {
+            "type": "button",
+            "value": "Run Report"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 80,
+            "height": 32
+          }
+        }
+      }
+    },
+    {
+      "id": "act_29_mu8277df",
+      "index": 28,
+      "type": "CLICK",
+      "timestamp": 1789802504977,
+      "timeDeltaMs": 0,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-my-reports > div > input:nth-of-type(1)",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-my-reports[1]/div[1]/input[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": null,
+          "name": null,
+          "type": "button",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "btn",
+            "btn-primary"
+          ],
+          "attributes": {
+            "type": "button",
+            "value": "Run Report"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 80,
+            "height": 32
+          }
+        }
+      }
+    },
+    {
+      "id": "act_30_mu8279lt",
+      "index": 29,
+      "type": "CLICK",
+      "timestamp": 1789802507872,
+      "timeDeltaMs": 2895,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-my-reports > div > input:nth-of-type(2)",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-my-reports[1]/div[1]/input[2]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": null,
+          "name": null,
+          "type": "button",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "btn",
+            "btn-secondary"
+          ],
+          "attributes": {
+            "type": "button",
+            "value": "Export to Excel"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 104,
+            "height": 32
+          }
+        }
+      }
+    },
+    {
+      "id": "act_31_mu8279lv",
+      "index": 30,
+      "type": "CLICK",
+      "timestamp": 1789802507873,
+      "timeDeltaMs": 1,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-my-reports > div > input:nth-of-type(2)",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-my-reports[1]/div[1]/input[2]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": null,
+          "name": null,
+          "type": "button",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "btn",
+            "btn-secondary"
+          ],
+          "attributes": {
+            "type": "button",
+            "value": "Export to Excel"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 104,
+            "height": 32
+          }
+        }
+      }
+    }
+  ]
+}

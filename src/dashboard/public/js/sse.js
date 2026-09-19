@@ -14,7 +14,7 @@ class SSEManager {
 
     this.eventSource = new EventSource('/api/events');
 
-    const eventNames = ['log', 'action_captured', 'recording_state', 'replay_progress', 'replay_state', 'test_state'];
+    const eventNames = ['log', 'action_captured', 'recording_state', 'replay_progress', 'replay_state', 'run_state', 'test_state'];
 
     eventNames.forEach(evt => {
       this.eventSource.addEventListener(evt, (e) => {

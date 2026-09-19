@@ -12,6 +12,23 @@ const { sendJson } = require('../auth/auth-controller');
 const { syncWorkflowsFromDisk } = require('./workflow-controller');
 const LoopReplayRunner = require('../replay/loop-replay-runner');
 
+// In-memory active runners map: runId -> { runner, userId, workflowId, startedAt }
+const activeRunners = new Map();
+
+/**
+ * Check if there are active runs currently executing
+ */
+function hasActiveRuns() {
+  return activeRunners.size > 0;
+}
+
+/**
+ * Get count of currently executing runs
+ */
+function getActiveRunCount() {
+  return activeRunners.size;
+}
+
 /**
  * Execute a workflow
  * POST /api/workflows/:id/execute
@@ -65,6 +82,14 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
     startedAt: new Date().toISOString()
   });
 
+  const runner = new LoopReplayRunner({ runId });
+  activeRunners.set(runId, {
+    runner,
+    userId,
+    workflowId: workflow.id,
+    startedAt: Date.now()
+  });
+
   // Respond immediately with Accepted (202) and run details
   sendJson(res, 202, {
     success: true,
@@ -78,7 +103,6 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
   (async () => {
     try {
       db.update('runs', runId, { status: 'RUNNING' });
-      const runner = new LoopReplayRunner({ runId });
       const isLoop = Boolean(body.isLoop || (body.loopStepIndex !== null && body.loopStepIndex !== undefined && body.loopStepIndex !== -1));
       let manifest;
       if (isLoop) {
@@ -88,21 +112,133 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
       }
 
       db.update('runs', runId, {
-        status: manifest.status,
+        status: runner.isAborted ? 'STOPPED' : manifest.status,
         itemsTotal: manifest.itemsTotal,
         itemsSucceeded: manifest.itemsSucceeded,
         itemsFailed: manifest.itemsFailed,
         downloadedFiles: manifest.downloadedFiles,
-        completedAt: manifest.endTime
+        completedAt: manifest.endTime || new Date().toISOString()
       });
     } catch (err) {
       db.update('runs', runId, {
-        status: 'FAILED',
+        status: runner.isAborted ? 'STOPPED' : 'FAILED',
         error: err.message,
         completedAt: new Date().toISOString()
       });
+    } finally {
+      activeRunners.delete(runId);
     }
   })();
+}
+
+/**
+ * Stop a specific workflow run
+ * POST /api/runs/:runId/stop
+ */
+async function stopRun(req, res, runId) {
+  const userId = req.user.id;
+  const active = activeRunners.get(runId);
+
+  if (active) {
+    if (active.userId !== userId && req.user.role !== 'admin') {
+      return sendJson(res, 403, { error: 'Unauthorized to stop this run' });
+    }
+    await active.runner.stop();
+    activeRunners.delete(runId);
+    db.update('runs', runId, {
+      status: 'STOPPED',
+      completedAt: new Date().toISOString()
+    });
+    return sendJson(res, 200, {
+      success: true,
+      message: `Execution run ${runId} stopped successfully`,
+      runId,
+      status: 'STOPPED'
+    });
+  }
+
+  // Check database record if already stopped or finished
+  const run = db.findOne('runs', r => r.id === runId && (r.userId === userId || req.user.role === 'admin'));
+  if (!run) {
+    return sendJson(res, 404, { error: 'Run not found or unauthorized' });
+  }
+
+  if (run.status === 'RUNNING' || run.status === 'QUEUED') {
+    db.update('runs', runId, {
+      status: 'STOPPED',
+      completedAt: new Date().toISOString()
+    });
+  }
+
+  return sendJson(res, 200, {
+    success: true,
+    message: `Run ${runId} is marked as STOPPED`,
+    runId,
+    status: 'STOPPED'
+  });
+}
+
+/**
+ * Stop all active runs for the current user
+ * POST /api/runs/stop
+ */
+async function stopAllRuns(req, res) {
+  const userId = req.user.id;
+  let stoppedCount = 0;
+
+  for (const [runId, item] of activeRunners.entries()) {
+    if (item.userId === userId || req.user.role === 'admin') {
+      try {
+        await item.runner.stop();
+        activeRunners.delete(runId);
+        db.update('runs', runId, {
+          status: 'STOPPED',
+          completedAt: new Date().toISOString()
+        });
+        stoppedCount++;
+      } catch (err) {
+        console.error(`Error stopping run ${runId}:`, err);
+      }
+    }
+  }
+
+  // Mark any lingering active status in DB as STOPPED
+  const dbRuns = db.find('runs', r => (r.userId === userId || req.user.role === 'admin') && (r.status === 'RUNNING' || r.status === 'QUEUED'));
+  for (const r of dbRuns) {
+    db.update('runs', r.id, {
+      status: 'STOPPED',
+      completedAt: new Date().toISOString()
+    });
+  }
+
+  return sendJson(res, 200, {
+    success: true,
+    stoppedCount,
+    message: stoppedCount > 0 ? `Stopped ${stoppedCount} active execution(s)` : 'No active executions were running'
+  });
+}
+
+/**
+ * Get all active runs
+ * GET /api/runs/active
+ */
+function getActiveRuns(req, res) {
+  const userId = req.user.id;
+  const running = [];
+  for (const [runId, item] of activeRunners.entries()) {
+    if (item.userId === userId || req.user.role === 'admin') {
+      running.push({
+        runId,
+        workflowId: item.workflowId,
+        startedAt: item.startedAt
+      });
+    }
+  }
+  return sendJson(res, 200, {
+    success: true,
+    hasActive: running.length > 0,
+    activeRuns: running
+  });
 }
 
 /**
@@ -146,12 +282,18 @@ function listRuns(req, res) {
   return sendJson(res, 200, {
     success: true,
     count: runs.length,
+    hasActive: activeRunners.size > 0,
     runs
   });
 }
 
 module.exports = {
   executeWorkflow,
+  stopRun,
+  stopAllRuns,
+  getActiveRuns,
+  hasActiveRuns,
+  getActiveRunCount,
   getRunStatus,
   listRuns
 };

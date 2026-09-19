@@ -86,15 +86,15 @@ async function executeClick(elementHandle, action, options = {}) {
   }
 
   try {
-    // Dispatch native click events
-    await elementHandle.evaluate((el) => {
-      el.focus();
-      el.click();
-      el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-    });
+    // Primary: Trusted Puppeteer CDP click (single authentic event)
+    await elementHandle.click({ delay: 35 });
   } catch (err) {
     try {
-      await elementHandle.click();
+      // Fallback: Clean DOM click without redundant synthetic event duplication
+      await elementHandle.evaluate((el) => {
+        el.focus();
+        el.click();
+      });
     } catch (fallbackErr) {
       throw new ActionExecutionError(`Failed to click element: ${err.message}`, {
         actionIndex: action.index,

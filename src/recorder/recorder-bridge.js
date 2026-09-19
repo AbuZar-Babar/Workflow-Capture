@@ -65,6 +65,38 @@ class RecorderBridge {
     await this.page.evaluate(resolverCode).catch(() => {});
     await this.page.evaluate(recorderCode).catch(() => {});
 
+    // Helper to inject recorder and resolver scripts into any child frame (e.g. DevExpress ReportViewer iframes)
+    const injectIntoFrame = async (frame) => {
+      try {
+        const isLoaded = await frame.evaluate(() => typeof window.__workflowCaptureInitialized !== 'undefined').catch(() => false);
+        if (!isLoaded) {
+          await frame.evaluate(resolverCode).catch(() => {});
+          await frame.evaluate(recorderCode).catch(() => {});
+        }
+      } catch {}
+    };
+
+    // Listen for newly attached / navigated child frames
+    this._onFrameAttached = (frame) => injectIntoFrame(frame);
+    this._onFrameNavigated = (frame) => injectIntoFrame(frame);
+    this.page.on('frameattached', this._onFrameAttached);
+    this.page.on('framenavigated', this._onFrameNavigated);
+
+    // Also inject into all currently existing frames
+    for (const frame of this.page.frames()) {
+      await injectIntoFrame(frame);
+    }
+
+    // Periodically sweep all frames during recording to catch dynamically rendered iframes (e.g. ReportViewer modals)
+    this._framePollInterval = setInterval(async () => {
+      if (!this.isRecording || !this.page || this.page.isClosed()) return;
+      try {
+        for (const frame of this.page.frames()) {
+          await injectIntoFrame(frame);
+        }
+      } catch {}
+    }, 400);
+
     logger.success(`Recorder successfully attached to tab: ${this.startUrl}`);
     logger.info('Perform your actions in the Chrome window. Press Enter or Ctrl+C in this terminal when finished.');
   }
@@ -78,6 +110,22 @@ class RecorderBridge {
     const actionIndex = this.actions.length;
     const prevTimestamp = actionIndex > 0 ? this.actions[actionIndex - 1].timestamp : rawAction.timestamp;
     const timeDeltaMs = rawAction.timestamp - prevTimestamp;
+
+    // Consolidate rapid double-clicks on the same target element within 450ms
+    if (this.actions.length > 0 && (rawAction.type === 'DOUBLE_CLICK' || rawAction.detail === 2)) {
+      const lastAction = this.actions[this.actions.length - 1];
+      const isSameTarget = lastAction.target && rawAction.target &&
+        ((lastAction.target.fingerprint?.id && lastAction.target.fingerprint.id === rawAction.target.fingerprint?.id) ||
+         (lastAction.target.candidates[0]?.value === rawAction.target.candidates[0]?.value) ||
+         (lastAction.target.fingerprint?.tagName === rawAction.target.fingerprint?.tagName));
+
+      if (isSameTarget && timeDeltaMs < 450) {
+        lastAction.type = 'DOUBLE_CLICK';
+        lastAction.timestamp = rawAction.timestamp;
+        logger.info(`[Recorder] Consolidated rapid clicks into DOUBLE_CLICK for step #${lastAction.index + 1}`);
+        return;
+      }
+    }
 
     const action = {
       id: `act_${actionIndex + 1}_${Date.now().toString(36)}`,
@@ -94,8 +142,8 @@ class RecorderBridge {
     this.actions.push(action);
 
     // Terminal log
-    const topCandidate = action.target.candidates[0] ? action.target.candidates[0].value : 'none';
-    const tag = action.target.fingerprint.tagName || 'elem';
+    const topCandidate = action.target && action.target.candidates[0] ? action.target.candidates[0].value : 'none';
+    const tag = (action.target && action.target.fingerprint && action.target.fingerprint.tagName) || 'elem';
     const detail = action.key ? `key="${action.key}"` : (action.value ? `value="${action.value}"` : `tag=<${tag}>`);
     logger.action(actionIndex + 1, action.type, topCandidate, detail);
   }
@@ -105,22 +153,36 @@ class RecorderBridge {
    */
   async stop() {
     if (!this.isRecording) return null;
-    this.isRecording = false;
 
     logger.info('Stopping recording and flushing pending input buffers...');
 
-    // Attempt to flush any active typing buffer in the page
+    if (this._framePollInterval) {
+      clearInterval(this._framePollInterval);
+      this._framePollInterval = null;
+    }
     if (this.page && !this.page.isClosed()) {
-      try {
-        await this.page.evaluate(() => {
-          if (typeof window.__workflowCaptureFlushBuffer === 'function') {
-            window.__workflowCaptureFlushBuffer();
-          }
-        });
-      } catch {
-        // Page might be closed or navigating
+      if (this._onFrameAttached) this.page.off('frameattached', this._onFrameAttached);
+      if (this._onFrameNavigated) this.page.off('framenavigated', this._onFrameNavigated);
+    }
+
+    // 1. Attempt to flush any active typing buffers across all frames WHILE isRecording is still true
+    if (this.page && !this.page.isClosed()) {
+      for (const frame of this.page.frames()) {
+        try {
+          await frame.evaluate(() => {
+            if (typeof window.__workflowCaptureFlushBuffer === 'function') {
+              window.__workflowCaptureFlushBuffer();
+            }
+          });
+        } catch {}
       }
     }
+
+    // 2. Allow short breather for in-flight postMessage events to reach Node.js bridge
+    await new Promise(r => setTimeout(r, 150));
+
+    // 3. Mark recording as finished
+    this.isRecording = false;
 
     const completedAt = new Date().toISOString();
     let viewport = { width: 1280, height: 800 };

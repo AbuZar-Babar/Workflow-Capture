@@ -142,6 +142,33 @@ async function runApiTests() {
   assert(resolvedPortal && resolvedPortal.startsWith('file:///'), 'Relative html must resolve to file URL');
   console.log('  ✅ Target URL resolution passed\n');
 
+  // 7. Stop Execution APIs
+  console.log('🔹 Test 7: Stop Execution APIs (stopRun & stopAllRuns)');
+  const testRunId = `run_test_${Date.now()}`;
+  const { db } = require('../src/database/db');
+  db.insert('runs', {
+    id: testRunId,
+    workflowId: 'test_wf',
+    userId: authHttp.req.user.id,
+    status: 'RUNNING',
+    mode: 'STANDARD',
+    startedAt: new Date().toISOString()
+  });
+
+  const stopSingleHttp = mockHttp('POST');
+  stopSingleHttp.req.user = authHttp.req.user;
+  await runController.stopRun(stopSingleHttp.req, stopSingleHttp.res, testRunId);
+  assert.strictEqual(stopSingleHttp.getStatus(), 200);
+  assert.strictEqual(stopSingleHttp.getData().status, 'STOPPED');
+  const updatedRun = db.findOne('runs', r => r.id === testRunId);
+  assert.strictEqual(updatedRun.status, 'STOPPED');
+
+  const stopAllHttp = mockHttp('POST');
+  stopAllHttp.req.user = authHttp.req.user;
+  await runController.stopAllRuns(stopAllHttp.req, stopAllHttp.res);
+  assert.strictEqual(stopAllHttp.getStatus(), 200);
+  console.log('  ✅ Stop Execution APIs passed\n');
+
   console.log('🎉 ALL BACKEND REST API & AUTH TESTS PASSED!\n');
 }
 

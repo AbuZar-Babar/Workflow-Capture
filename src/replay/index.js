@@ -35,6 +35,9 @@ function parseArgs() {
     } else if (args[i] === '--timeout' && args[i + 1]) {
       options.timeout = parseInt(args[i + 1], 10);
       i++;
+    } else if ((args[i] === '--delay' || args[i] === '--step-delay') && args[i + 1]) {
+      options.stepDelay = parseInt(args[i + 1], 10);
+      i++;
     } else if (!args[i].startsWith('--') && !options.file) {
       options.file = args[i];
     }
@@ -64,14 +67,15 @@ async function main() {
 
   if (!options.file) {
     logger.error('No recording file specified and no recordings found in recordings/ directory.');
-    console.log('\nUsage: npm run replay -- <path-to-recording.json>\n');
+    console.log('\nUsage: npm run replay -- <path-to-recording.json> [--delay <ms>]\n');
     process.exit(1);
   }
 
   const engine = new ReplayEngine({
     browserURL: `http://localhost:${options.port}`,
     speed: options.speed,
-    timeoutMs: options.timeout
+    timeoutMs: options.timeout,
+    stepDelayMs: options.stepDelay || 0
   });
 
   try {

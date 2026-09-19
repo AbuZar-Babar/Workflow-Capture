@@ -1,0 +1,284 @@
+{
+  "metadata": {
+    "recordingId": "rec_1789795635779_1ze7a",
+    "version": "1.0.0",
+    "name": "city-Mart",
+    "startedAt": "2026-09-19T05:26:30.340Z",
+    "completedAt": "2026-09-19T05:27:15.777Z",
+    "startUrl": "https://citymart.i21web.com/iRelyProd/login",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    }
+  },
+  "actions": [
+    {
+      "id": "act_1_mu7y31xx",
+      "index": 0,
+      "type": "CLICK",
+      "timestamp": 1789795592853,
+      "timeDeltaMs": 0,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "id",
+            "value": "#Login",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "id",
+            "value": "input#Login",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "data-attr",
+            "value": "[data-sitekey=\"\\36 Le5hkwUAAAAAKBDYSNqaAhTStSy2brIxy7aOPqM\"]",
+            "uniqueness": 1,
+            "priority": 2
+          },
+          {
+            "strategy": "data-attr",
+            "value": "[data-callback=\"onSubmit\"]",
+            "uniqueness": 1,
+            "priority": 2
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[@id='Login']",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": "Login",
+          "name": null,
+          "type": "submit",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "btn",
+            "btn-default",
+            "g-recaptcha"
+          ],
+          "attributes": {
+            "type": "submit",
+            "value": "Login"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 64,
+            "height": 31
+          }
+        }
+      }
+    },
+    {
+      "id": "act_2_mu7y3blq",
+      "index": 1,
+      "type": "CLICK",
+      "timestamp": 1789795605374,
+      "timeDeltaMs": 12521,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "id",
+            "value": "#menu-833",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "id",
+            "value": "a#menu-833",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "data-attr",
+            "value": "[data-menu=\"\\{\\\"k\\\"\\:\\[\\]\\,\\\"c\\\"\\:\\\"AccountsReceivable\\.view\\.Invoice\\?showSearch\\=true\\\"\\,\\\"n\\\"\\:\\\"Invoices\\\"\\,\\\"o\\\"\\:null\\,\\\"m\\\"\\:\\\"Accounts\\ Receivable\\\"\\,\\\"t\\\"\\:\\\"Screen\\\"\\,\\\"l\\\"\\:false\\,\\\"mid\\\"\\:833\\,\\\"pid\\\"\\:829\\,\\\"r\\\"\\:null\\,\\\"s\\\"\\:3\\,\\\"spid\\\"\\:829\\}\"]",
+            "uniqueness": 1,
+            "priority": 2
+          },
+          {
+            "strategy": "data-attr",
+            "value": "[data-screen-text=\"Invoices\"]",
+            "uniqueness": 1,
+            "priority": 2
+          },
+          {
+            "strategy": "text",
+            "value": "//a[normalize-space()='Invoices']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//a[contains(@class, 'i21-menu-link') and normalize-space()='Invoices']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[@id='menu-833']",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "data-attr",
+            "value": "[data-module-id=\"\\38 29\"]",
+            "uniqueness": 9,
+            "priority": 2
+          },
+          {
+            "strategy": "data-attr",
+            "value": "[data-module=\"AccountsReceivable\"]",
+            "uniqueness": 8,
+            "priority": 2
+          }
+        ],
+        "fingerprint": {
+          "tagName": "a",
+          "id": "menu-833",
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "Invoices",
+          "classes": [
+            "i21-menu-link"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 240,
+            "height": 23
+          }
+        }
+      }
+    },
+    {
+      "id": "act_3_mu7y3ksu",
+      "index": 2,
+      "type": "CLICK",
+      "timestamp": 1789795617293,
+      "timeDeltaMs": 11919,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "#frmadvancesearchgrid-1088-body > div:nth-of-type(1) > div:nth-of-type(3) > table:nth-of-type(7) > tbody > tr > td:nth-of-type(1) > div > span",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/div[16]/div[2]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[5]/div[1]/div[3]/table[7]/tbody[1]/tr[1]/td[1]/div[1]/span[1]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "attribute",
+            "value": "span[aria-label=\"undefined\"]",
+            "uniqueness": 42,
+            "priority": 3
+          },
+          {
+            "strategy": "attribute",
+            "value": "span[role=\"presentation\"]",
+            "uniqueness": 202,
+            "priority": 3
+          }
+        ],
+        "fingerprint": {
+          "tagName": "span",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": "presentation",
+          "placeholder": null,
+          "ariaLabel": "undefined",
+          "text": "",
+          "classes": [
+            "x-grid-checkcolumn"
+          ],
+          "attributes": {
+            "role": "presentation",
+            "aria-label": "undefined"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 13,
+            "height": 13
+          }
+        }
+      }
+    },
+    {
+      "id": "act_4_mu7y3nb0",
+      "index": 3,
+      "type": "CLICK",
+      "timestamp": 1789795620540,
+      "timeDeltaMs": 3247,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "text",
+            "value": "//span[contains(@class, 'x-btn-inner') and normalize-space()='Open Selected']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "css-path",
+            "value": "#toolbar-1091-targetEl > a:nth-of-type(1) > span > span > span:nth-of-type(2)",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/div[16]/div[2]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/a[1]/span[1]/span[1]/span[2]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "data-attr",
+            "value": "[data-ref=\"btnInnerEl\"]",
+            "uniqueness": 34,
+            "priority": 2
+          },
+          {
+            "strategy": "text",
+            "value": "//span[normalize-space()='Open Selected']",
+            "uniqueness": 3,
+            "priority": 4
+          }
+        ],
+        "fingerprint": {
+          "tagName": "span",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "Open Selected",
+          "classes": [
+            "x-btn-inner",
+            "x-btn-inner-default-toolbar-small"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 78,
+            "height": 16
+          }
+        }
+      }
+    }
+  ]
+}
