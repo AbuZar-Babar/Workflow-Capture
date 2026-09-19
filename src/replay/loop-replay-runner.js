@@ -325,7 +325,7 @@ class LoopReplayRunner {
       // 3. Discover the collection from the element the user actually recorded.
       // ItemDiscovery replaces the old nth-child/container-only heuristic for the
       // first generalized execution path.
-      const discovery = await ItemDiscovery.discover(page, targetStep, {
+      const discovery = await ItemDiscovery.discover(page, targetStep.target || targetStep.fingerprint, {
         minItems: 2,
         minScore: 0.55
       });
