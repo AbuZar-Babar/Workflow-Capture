@@ -199,6 +199,58 @@ class ItemDiscovery {
     }, { target, minItems, minScore });
   }
 
+
+  /**
+   * Resolve one discovered item again from the current DOM.
+   * Returns a Puppeteer ElementHandle so replay can execute the recorded action
+   * relative to that item instead of the original recorded element.
+   */
+  static async getItemHandle(page, discovery, index) {
+    if (!page) throw new Error('ItemDiscovery.getItemHandle requires a Puppeteer page.');
+    if (!discovery || !discovery.success || !discovery.collection) {
+      throw new Error('Invalid discovery result.');
+    }
+
+    return page.evaluateHandle(({ collection, index }) => {
+      const visible = (el) => {
+        if (!el || !(el instanceof Element)) return false;
+        const style = getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        return style.display !== 'none' && style.visibility !== 'hidden' &&
+          rect.width > 0 && rect.height > 0;
+      };
+
+      const normalize = (value) => String(value || '').toLowerCase().replace(/\\s+/g, ' ').trim();
+
+      const structuralSignature = (el) => {
+        const children = Array.from(el.children).slice(0, 12)
+          .map(child => child.tagName.toLowerCase()).join('>');
+        return [
+          el.tagName.toLowerCase(),
+          children,
+          el.getAttribute('role') || '',
+          el.getAttribute('data-testid') || '',
+          el.getAttribute('data-qa') || ''
+        ].join('|');
+      };
+
+      const ancestors = Array.from(document.querySelectorAll(collection.ancestorTag))
+        .filter(visible);
+
+      for (const ancestor of ancestors) {
+        const items = Array.from(ancestor.children).filter(child =>
+          visible(child) &&
+          child.tagName.toLowerCase() === collection.itemTag &&
+          structuralSignature(child) === collection.itemSignature
+        );
+
+        if (items.length > index) return items[index];
+      }
+
+      return null;
+    }, { collection: discovery.collection, index });
+  }
+
   /**
    * Select the best candidate from already-collected discovery candidates.
    * Kept pure for deterministic unit testing.
