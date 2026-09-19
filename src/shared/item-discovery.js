@@ -39,7 +39,7 @@ class ItemDiscovery {
 
       const normalize = (value) => String(value || '')
         .toLowerCase()
-        .replace(/\\s+/g, ' ')
+        .replace(/\s+/g, ' ')
         .trim();
 
       const tokenSet = (value) => new Set(
