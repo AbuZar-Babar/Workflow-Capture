@@ -317,10 +317,18 @@ export const OverviewView = {
       if (status.cdp && status.cdp.online) {
         if (elMetric) elMetric.textContent = 'Chrome Active';
         const count = status.cdp.tabs ? status.cdp.tabs.length : 0;
-        if (elTabs) elTabs.textContent = `Tabs: ${count} Connected`;\n        const dot = document.getElementById('overviewBrowserDot');\n        const browserStatus = document.getElementById('overviewBrowserStatus');\n        if (dot) dot.classList.add('online');\n        if (browserStatus) browserStatus.textContent = 'Connected';
+        if (elTabs) elTabs.textContent = `Tabs: ${count} Connected`;
+        const dot = document.getElementById('overviewBrowserDot');
+        const browserStatus = document.getElementById('overviewBrowserStatus');
+        if (dot) dot.classList.add('online');
+        if (browserStatus) browserStatus.textContent = 'Connected';
       } else {
         if (elMetric) elMetric.textContent = 'CDP Standby';
-        if (elTabs) elTabs.textContent = 'Tabs: 0 Connected';\n        const dot = document.getElementById('overviewBrowserDot');\n        const browserStatus = document.getElementById('overviewBrowserStatus');\n        if (dot) dot.classList.remove('online');\n        if (browserStatus) browserStatus.textContent = 'Standby';
+        if (elTabs) elTabs.textContent = 'Tabs: 0 Connected';
+        const dot = document.getElementById('overviewBrowserDot');
+        const browserStatus = document.getElementById('overviewBrowserStatus');
+        if (dot) dot.classList.remove('online');
+        if (browserStatus) browserStatus.textContent = 'Standby';
       }
 
       const res = await Api.getRecordings();
@@ -343,7 +351,9 @@ export const OverviewView = {
       }
 
       // Total steps metric
-      const totalSteps = this.recordings.reduce((sum, wf) => sum + (wf.actionCount || 0), 0);\n      const elWorkflowCount = document.getElementById('overviewWorkflowCount');\n      if (elWorkflowCount) elWorkflowCount.textContent = this.recordings.length.toLocaleString();
+      const totalSteps = this.recordings.reduce((sum, wf) => sum + (wf.actionCount || 0), 0);
+      const elWorkflowCount = document.getElementById('overviewWorkflowCount');
+      if (elWorkflowCount) elWorkflowCount.textContent = this.recordings.length.toLocaleString();
       const elTotalSteps = document.getElementById('overviewTotalSteps');
       if (elTotalSteps) elTotalSteps.textContent = `${totalSteps.toLocaleString()} Steps`;
 
