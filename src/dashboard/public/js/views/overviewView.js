@@ -137,6 +137,19 @@ export const OverviewView = {
           </div>
         </section>
       </div>
+
+      <div class="discovery-overlay hidden" id="workflowDiscoveryOverlay" role="dialog" aria-modal="true" aria-labelledby="discoveryTitle">
+        <div class="discovery-modal">
+          <div class="discovery-modal-header">
+            <div><span class="eyebrow">Preflight check</span><h2 id="discoveryTitle">Workflow Ready</h2><p id="discoverySubtitle">We are checking the page for repeated items before execution.</p></div>
+            <button class="btn btn-secondary btn-sm" id="btnDiscoveryClose">Close</button>
+          </div>
+          <div id="discoveryLoading" class="discovery-loading"><div class="discovery-spinner"></div><div><strong>Discovering repeated items…</strong><span>Inspecting the current page and validating the recorded target.</span></div></div>
+          <div id="discoveryResult" class="hidden"><div class="discovery-summary-grid"><div class="discovery-metric"><span>Items found</span><strong id="discoveryItemCount">0</strong></div><div class="discovery-metric"><span>Confidence</span><strong id="discoveryConfidence">0%</strong></div><div class="discovery-metric"><span>Actions / item</span><strong id="discoveryActions">0</strong></div><div class="discovery-metric"><span>Collection</span><strong id="discoveryCollection">—</strong></div></div><div class="discovery-preview"><div class="card-header-row"><div class="card-title-wrap"><h3>Preview items</h3><p>These are the records the automation will process.</p></div></div><div id="discoveryItemsList" class="discovery-items-list"></div></div><div class="discovery-confirm-note"><span class="status-dot online"></span><span>The workflow will run once per discovered item. Failed items remain isolated and can be retried.</span></div></div>
+          <div id="discoveryError" class="hidden discovery-error"></div>
+          <div class="discovery-modal-actions"><button class="btn btn-secondary" id="btnDiscoveryCancel">Cancel</button><button class="btn btn-primary" id="btnDiscoveryContinue" disabled>Continue &amp; Run</button></div>
+        </div>
+      </div>
     `;
 
 
@@ -187,7 +200,10 @@ export const OverviewView = {
           const res = await Api.stopRecording();
           Toast.success(`Recording saved: ${res.summary.actionCount} steps captured`);
           this.setRecordingState(false);
-          this.loadData();
+          await this.loadData();
+          const filename = (res.summary.filePath || '').split(/[\\\\/]/).pop() || '';
+          const workflowId = filename.replace(/\\.json$/i, '');
+          if (workflowId) await this.openDiscovery(workflowId);
         } catch (err) {
           Toast.error(err.message);
         }
@@ -267,6 +283,31 @@ export const OverviewView = {
     });
   },
 
+  async openDiscovery(workflowId) {
+    const overlay = document.getElementById('workflowDiscoveryOverlay');
+    const loading = document.getElementById('discoveryLoading');
+    const result = document.getElementById('discoveryResult');
+    const errorBox = document.getElementById('discoveryError');
+    const continueBtn = document.getElementById('btnDiscoveryContinue');
+    if (!overlay) return;
+    overlay.classList.remove('hidden'); loading.classList.remove('hidden'); result.classList.add('hidden'); errorBox.classList.add('hidden'); continueBtn.disabled = true;
+    const close = () => overlay.classList.add('hidden');
+    document.getElementById('btnDiscoveryClose').onclick = close; document.getElementById('btnDiscoveryCancel').onclick = close;
+    try {
+      const data = await Api.discoverWorkflow(workflowId); const discovery = data.discovery || {};
+      document.getElementById('discoveryItemCount').textContent = discovery.itemCount ?? 0;
+      document.getElementById('discoveryConfidence').textContent = Math.round((discovery.confidence || 0) * 100) + '%';
+      document.getElementById('discoveryActions').textContent = data.actionsPerItem ?? 0;
+      document.getElementById('discoveryCollection').textContent = discovery.collection ? discovery.collection.itemTag + ' items' : '—';
+      document.getElementById('discoverySubtitle').textContent = 'Found ' + (discovery.itemCount || 0) + ' repeated items on the target page. Review before execution.';
+      const list = document.getElementById('discoveryItemsList');
+      list.innerHTML = (discovery.items || []).slice(0, 8).map((item, index) => '<div class="discovery-item-row"><span class="discovery-item-index">' + (index + 1) + '</span><span class="discovery-item-text">' + this.escapeHtml(item.text || item.id || ('Item ' + (index + 1))) + '</span></div>').join('') || '<div class="dashboard-empty">No preview items available.</div>';
+      loading.classList.add('hidden'); result.classList.remove('hidden'); continueBtn.disabled = !discovery.success || !discovery.itemCount;
+      continueBtn.onclick = async () => { continueBtn.disabled = true; continueBtn.textContent = 'Starting…'; try { const run = await Api.executeWorkflow(workflowId, data.loopStepIndex ?? 0); close(); Toast.success('Automation started — run ' + (run.runId || 'queued')); } catch (err) { Toast.error(err.message); continueBtn.disabled = false; continueBtn.textContent = 'Continue & Run'; } };
+    } catch (err) { loading.classList.add('hidden'); errorBox.textContent = err.message || 'Discovery failed. Make sure Chrome is connected and the target page is open.'; errorBox.classList.remove('hidden'); }
+  },
+
+  escapeHtml(value) { return String(value || '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char])); },
   async loadData() {
     try {
       const status = await Api.getStatus();
