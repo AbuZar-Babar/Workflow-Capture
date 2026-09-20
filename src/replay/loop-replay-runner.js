@@ -809,7 +809,7 @@ class LoopReplayRunner {
           itemResult.status === 'SUCCESS' ? null : itemResult.index,
           null,
           currentPage,
-          itemResult.status === 'SUCCESS' ? null : i,
+          itemResult.status === 'SUCCESS' ? i + 1 : i,
           null
         );
         onProgress({ status: 'ITEM_COMPLETE', itemResult, manifest });
