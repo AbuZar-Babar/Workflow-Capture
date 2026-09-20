@@ -87,6 +87,10 @@ export const Router = {
     // Update Sidebar Active State
     Sidebar.setActive(route);
 
+    // Tear down the previous view before replacing its DOM (pollers/listeners).
+    const previousView = this.views[this.currentRoute];
+    if (previousView && typeof previousView.destroy === 'function') previousView.destroy();
+
     // Render View
     if (this.container && this.views[route]) {
       this.container.setAttribute('data-current-view', route);
