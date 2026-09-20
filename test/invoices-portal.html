@@ -11,6 +11,16 @@
     th, td { padding: 12px; text-align: left; border-bottom: 1px solid #334155; }
     th { background: #0f172a; color: #94a3b8; }
     tr:hover { background: #334155; }
+    .btn-mark {
+      margin-right: 6px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid #64748b;
+      background: #334155;
+      color: white;
+      font-size: 13px;
+      cursor: pointer;
+    }
     .btn-download {
       background: #3b82f6;
       color: white;
@@ -45,6 +55,7 @@
           <td>$1,250.00</td>
           <td>2026-09-01</td>
           <td>
+            <button class="btn-mark" onclick="this.textContent='Marked'">Mark</button>
             <a class="btn-download" download="INV-2026-001.txt" href="data:text/plain;charset=utf-8,Invoice%20INV-2026-001%20for%20Acme%20Corp%0AAmount:%20$1250.00">Download</a>
           </td>
         </tr>
