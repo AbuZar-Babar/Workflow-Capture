@@ -64,9 +64,6 @@ class ActionGeneralizer {
       });
     }
 
-    if (!generalizedCandidates.length) {
-      throw new Error('Recorded action cannot be generalized to the discovered collection item.');
-    }
 
     return {
       ...target,
