@@ -135,6 +135,16 @@ async function runLoopE2E() {
     assert.strictEqual(manifest.itemsSucceeded, 4, 'All 4 rows should succeed');
     assert.strictEqual(manifest.itemsFailed, 0, 'No rows should fail');
     assert.strictEqual(manifest.results.every(result => result.actions?.length === 2), true, 'Each item should execute both recorded actions');
+    assert.strictEqual(manifest.downloadedFiles.length, 4, 'Should capture one downloaded file per invoice');
+    assert.strictEqual(
+      manifest.results.every(result => result.downloadedFiles?.length === 1),
+      true,
+      'Each invoice item should have one associated downloaded file'
+    );
+    for (const file of manifest.downloadedFiles) {
+      assert(fs.existsSync(file.path), `Downloaded file should exist: ${file.filename}`);
+      assert(file.sizeBytes > 0, `Downloaded file should not be empty: ${file.filename}`);
+    }
 
     logger.success(`\n🎉 Verified: Loop runner successfully generalized 2 row actions to 4 table items with 100% success!`);
 
