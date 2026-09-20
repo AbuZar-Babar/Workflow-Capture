@@ -1,0 +1,35 @@
+import { Api } from '../api.js';
+import { Toast } from '../components/toast.js';
+const terminal = new Set(['COMPLETED','COMPLETED_WITH_ERRORS','FAILED','STOPPED']);
+const esc = v => String(v == null ? '' : v).replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
+const label = s => String(s || 'UNKNOWN').replaceAll('_',' ');
+export const ExecutionView = { timer:null, runId:null, router:null, container:null,
+ async render(container, router, runId) {
+  this.container=container; this.router=router; this.runId=runId || sessionStorage.getItem('workflowCaptureActiveRunId');
+  if(!this.runId){ container.innerHTML='<section class="card execution-empty"><h2>No active execution</h2><p>Start a workflow from the dashboard to monitor it here.</p><button class="btn btn-primary" id="btnExecutionBack">Back to Dashboard</button></section>'; document.getElementById('btnExecutionBack')?.addEventListener('click',()=>router.navigate('overview')); return; }
+  sessionStorage.setItem('workflowCaptureActiveRunId',this.runId);
+  container.innerHTML='<div class="execution-shell"><section class="card execution-hero"><div><span class="eyebrow">Live execution</span><h1 id="executionTitle">Workflow execution</h1><p>Run <span class="mono" id="executionRunId">'+esc(this.runId)+'</span></p></div><div class="execution-hero-actions"><span class="run-status-badge queued" id="executionStatusBadge">QUEUED</span><button class="btn btn-danger" id="btnExecutionStop">Stop Execution</button></div></section><section class="execution-summary-grid"><div class="stat-card"><span class="stat-label">Processed</span><strong id="executionProcessed">0 / 0</strong><span class="stat-meta">items</span></div><div class="stat-card"><span class="stat-label">Successful</span><strong id="executionSucceeded">0</strong><span class="stat-meta">completed</span></div><div class="stat-card"><span class="stat-label">Failed</span><strong id="executionFailed">0</strong><span class="stat-meta">isolated</span></div><div class="stat-card"><span class="stat-label">Downloads</span><strong id="executionDownloads">0</strong><span class="stat-meta">artifacts</span></div></section><section class="card execution-progress-card"><div class="execution-progress-head"><div><strong id="executionProgressLabel">Preparing execution…</strong><span id="executionProgressDetail">Waiting for the runner.</span></div><strong id="executionProgressPercent">0%</strong></div><div class="execution-progress-track"><div id="executionProgressBar"></div></div></section><div class="execution-grid"><section class="card"><div class="card-header-row"><div class="card-title-wrap"><h2>Items</h2><p>Live per-item execution state</p></div></div><div class="execution-items" id="executionItems"></div></section><aside class="card execution-current-card"><div class="card-header-row"><div class="card-title-wrap"><h2>Current activity</h2><p>Latest automation state</p></div></div><div class="execution-current" id="executionCurrent">Waiting for runner…</div><button class="btn btn-secondary execution-console-btn" id="btnExecutionConsole">Open Live Console</button></aside></div><div class="execution-error hidden" id="executionError"></div></div>';
+  this.bindEvents(); try{ await this.refresh(); this.startPolling(); }catch(e){ this.showError(e.message); }
+ },
+ bindEvents(){
+  document.getElementById('btnExecutionStop')?.addEventListener('click',async()=>{const b=document.getElementById('btnExecutionStop');b.disabled=true;try{await Api.stopRun(this.runId);Toast.info('Execution stop requested.');await this.refresh();}catch(e){Toast.error(e.message);b.disabled=false;}});
+  document.getElementById('btnExecutionConsole')?.addEventListener('click',()=>this.router.navigate('console'));
+ },
+ startPolling(){this.stopPolling();this.timer=setInterval(()=>this.refresh().catch(e=>this.showError(e.message)),800);},
+ stopPolling(){if(this.timer)clearInterval(this.timer);this.timer=null;},
+ async refresh(){
+  const data=await Api.getRunStatus(this.runId), run=data.run||{}, m=run.manifest||{}, results=Array.isArray(m.results)?m.results:[];
+  const total=Number(m.itemsTotal ?? run.itemsTotal ?? 0), ok=Number(m.itemsSucceeded ?? run.itemsSucceeded ?? 0), fail=Number(m.itemsFailed ?? run.itemsFailed ?? 0), processed=results.filter(x=>['SUCCESS','FAILED','STOPPED'].includes(x.status)).length, files=Array.isArray(m.downloadedFiles)?m.downloadedFiles.length:Number((run.downloadedFiles||[]).length), pct=total?Math.min(100,Math.round(((ok+fail)/total)*100)):0, status=m.status||run.status||'QUEUED';
+  document.getElementById('executionTitle').textContent=run.workflowId?'Workflow: '+run.workflowId:'Workflow execution';
+  document.getElementById('executionProcessed').textContent=Math.min(processed,total||processed)+' / '+(total||'—'); document.getElementById('executionSucceeded').textContent=ok; document.getElementById('executionFailed').textContent=fail; document.getElementById('executionDownloads').textContent=files;
+  const badge=document.getElementById('executionStatusBadge'); badge.textContent=label(status); badge.className='run-status-badge '+String(status).toLowerCase();
+  document.getElementById('executionProgressPercent').textContent=pct+'%'; document.getElementById('executionProgressBar').style.width=pct+'%';
+  document.getElementById('executionProgressLabel').textContent=terminal.has(status)?label(status):(processed?'Processing item '+Math.min(processed+1,total||processed+1)+'…':'Starting execution…'); document.getElementById('executionProgressDetail').textContent=total?ok+' successful · '+fail+' failed · '+files+' downloads':'Discovering items and preparing the runner.';
+  const active=results.find(x=>x.status==='PENDING')||results[results.length-1]; document.getElementById('executionCurrent').textContent=active?'Item #'+(Number(active.index)+1)+': '+label(active.status)+(active.error?' — '+active.error:''):'Waiting for the runner to report the first item.';
+  const list=document.getElementById('executionItems'); list.innerHTML=results.length?results.map(item=>{const s=String(item.status||'PENDING').toLowerCase();const icon=s==='success'?'✓':s==='failed'?'!':s==='stopped'?'×':'•';return '<div class="execution-item-row '+s+'"><span class="execution-item-icon">'+icon+'</span><div class="execution-item-copy"><strong>Item #'+(Number(item.index)+1)+'</strong><span>'+esc(item.error||label(item.status||'PENDING'))+'</span></div><span class="execution-item-status">'+label(item.status||'PENDING')+'</span></div>';}).join(''):'<div class="execution-item-empty">No item results reported yet.</div>';
+  document.getElementById('btnExecutionStop').disabled=terminal.has(status);
+  if(terminal.has(status)){this.stopPolling();sessionStorage.setItem('workflowCaptureLastRunId',this.runId);sessionStorage.removeItem('workflowCaptureActiveRunId');setTimeout(()=>this.router.navigate('results/'+encodeURIComponent(this.runId)),500);}
+ },
+ showError(message){const b=document.getElementById('executionError');if(b){b.textContent=message||'Unable to load execution status.';b.classList.remove('hidden');}},
+ destroy(){this.stopPolling();}
+};
