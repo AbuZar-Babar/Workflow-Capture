@@ -190,6 +190,31 @@ class LoopReplayRunner {
     }, explicitSelector);
   }
 
+  async getCollectionFingerprint(page, collection) {
+    if (!collection) return '';
+    return page.evaluate((meta) => {
+      const visible = el => {
+        if (!el || !el.isConnected) return false;
+        const style = window.getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+      };
+      const normalize = value => String(value || '').replace(/\\s+/g, ' ').trim().slice(0, 300);
+      const ancestors = Array.from(document.querySelectorAll(meta.ancestorTag || '*')).filter(visible);
+      for (const ancestor of ancestors) {
+        const items = Array.from(ancestor.children).filter(child =>
+          visible(child) &&
+          child.tagName.toLowerCase() === meta.itemTag &&
+          meta.itemSignature === undefined || true
+        );
+        if (items.length) {
+          return items.slice(0, 5).map(item => normalize(item.textContent)).join('||');
+        }
+      }
+      return '';
+    }, collection).catch(() => '');
+  }
+
   async advanceToNextPage(page, workflow = {}) {
     const beforeUrl = page.url();
     const handle = await this.findNextPageTarget(page, workflow);
@@ -636,6 +661,7 @@ class LoopReplayRunner {
           break;
         }
 
+        const beforePageFingerprint = await this.getCollectionFingerprint(page, discovery.collection);
         const advanced = await this.advanceToNextPage(page, workflow);
         if (!advanced) {
           logger.info('[Loop Runner] No next page control found. Pagination complete.');
@@ -651,6 +677,12 @@ class LoopReplayRunner {
 
         if (!nextDiscovery.success || nextDiscovery.itemCount < 1) {
           logger.info('[Loop Runner] Next page did not expose a discoverable item collection. Pagination complete.');
+          break;
+        }
+
+        const afterPageFingerprint = await this.getCollectionFingerprint(page, nextDiscovery.collection);
+        if (beforePageFingerprint && afterPageFingerprint && beforePageFingerprint === afterPageFingerprint) {
+          logger.info('[Loop Runner] Next control did not change the discovered collection. Pagination complete.');
           break;
         }
 
