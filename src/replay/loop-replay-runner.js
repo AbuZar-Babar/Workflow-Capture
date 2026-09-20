@@ -307,7 +307,7 @@ class LoopReplayRunner {
       // 1. Partition steps into Setup vs Loop Steps
       const steps = workflow.steps || (workflow.recordingData && workflow.recordingData.actions) || [];
       const partition = LoopDetector.partitionWorkflow(steps, loopStepIndex);
-      const targetStep = steps[loopStepIndex];
+      const targetStep = partition.loopSteps[0];
       const analysis = LoopDetector.analyzeStep(targetStep);
 
       logger.info(`[Loop Runner] Detected pattern: ${analysis.patternType} (Container: ${analysis.containerSelector})`);
@@ -339,14 +339,16 @@ class LoopReplayRunner {
 
       // Convert the concrete recorded target (for example, the first invoice row)
       // into an item-relative target before replaying it across the collection.
-      const generalizedAction = ActionGeneralizer.generalizeAction(
-        targetStep,
-        discovery.collection
-      );
+      const generalizedActions = partition.loopSteps.map(action => {
+        if (!ActionGeneralizer.isItemRelative(action, discovery.collection)) {
+          throw new Error(`Loop action cannot be generalized to the discovered collection: ${action.type || action.action || 'UNKNOWN'}`);
+        }
+        return ActionGeneralizer.generalizeAction(action, discovery.collection);
+      });
 
       logger.info(`[Loop Runner] Discovered ${discovery.itemCount} repeated item(s) with confidence ${Math.round(discovery.confidence * 100)}%`);
-      logger.info(`[Loop Runner] Generalized loop action to item-relative scope.`);
-      onProgress({ status: 'PROCESSING_ITEMS', manifest, discovery, generalizedAction });
+      logger.info(`[Loop Runner] Generalized ${generalizedActions.length} loop action(s) to item-relative scope.`);
+      onProgress({ status: 'PROCESSING_ITEMS', manifest, discovery, generalizedActions });
 
       // 4. Re-query the collection for every item so DOM changes do not invalidate
       // previously captured indexes/handles.
@@ -366,21 +368,39 @@ class LoopReplayRunner {
         };
 
         try {
-          const itemHandle = await ItemDiscovery.getItemHandle(page, discovery, i);
-          const itemElement = itemHandle.asElement();
-          if (!itemElement) {
-            await itemHandle.dispose().catch(() => {});
-            throw new Error(`Item at index ${i} could not be resolved`);
+          itemResult.actions = [];
+
+          for (let actionOffset = 0; actionOffset < generalizedActions.length; actionOffset++) {
+            if (this.isAborted) throw new Error('Execution stopped by user');
+
+            const itemHandle = await ItemDiscovery.getItemHandle(page, discovery, i);
+            const itemElement = itemHandle.asElement();
+            if (!itemElement) {
+              await itemHandle.dispose().catch(() => {});
+              throw new Error(`Item at index ${i} could not be resolved`);
+            }
+
+            try {
+              await this.replayEngine.executeActionWithinItem(
+                itemElement,
+                generalizedActions[actionOffset],
+                loopStepIndex + actionOffset
+              );
+            } finally {
+              await itemElement.dispose().catch(() => {});
+            }
+
+            itemResult.actions.push({
+              index: loopStepIndex + actionOffset + 1,
+              type: generalizedActions[actionOffset].type,
+              status: 'SUCCESS'
+            });
+
+            await new Promise(r => setTimeout(r, 300));
           }
 
-          try {
-            await this.replayEngine.executeActionWithinItem(itemElement, generalizedAction, loopStepIndex);
-          } finally {
-            await itemElement.dispose().catch(() => {});
-          }
-
-          // Allow time for action / download to trigger
-          await new Promise(r => setTimeout(r, 1500));
+          // Allow the complete per-item procedure to settle before restoring state.
+          await new Promise(r => setTimeout(r, 1000));
 
           // State Restoration: If URL changed or modal opened, restore to listPageUrl
           if (page.url() !== listPageUrl) {
