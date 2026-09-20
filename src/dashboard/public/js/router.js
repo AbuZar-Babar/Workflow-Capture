@@ -9,6 +9,8 @@ import { SecretsView } from './views/secretsView.js?v=5';
 import { ArtifactsView } from './views/artifactsView.js?v=5';
 import { WorkflowEditorView } from './views/workflowEditorView.js?v=5';
 import { BotConfigView } from './views/botConfigView.js?v=5';
+import { ExecutionView } from './views/executionView.js?v=1';
+import { ResultsView } from './views/resultsView.js?v=1';
 import { Auth } from './auth.js';
 import { Sidebar } from './components/sidebar.js';
 
@@ -24,7 +26,9 @@ export const Router = {
     secrets: SecretsView,
     artifacts: ArtifactsView,
     'workflow-editor': WorkflowEditorView,
-    'bot-config': BotConfigView
+    'bot-config': BotConfigView,
+    execution: ExecutionView,
+    results: ResultsView
   },
 
   init(containerId = 'appViewContainer') {
