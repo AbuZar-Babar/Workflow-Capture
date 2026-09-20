@@ -40,6 +40,10 @@ async function startChrome() {
     '--headless=new',
     '--no-first-run',
     '--no-default-browser-check',
+    '--disable-background-networking',
+    '--disable-component-update',
+    '--disable-default-apps',
+    '--disable-extensions',
     PORTAL_URL
   ], { detached: false });
 

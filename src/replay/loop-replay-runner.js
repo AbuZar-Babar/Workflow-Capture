@@ -70,7 +70,9 @@ class LoopReplayRunner {
   }
 
   snapshotDownloadedFiles() {
-    return fs.existsSync(this.downloadsDir) ? fs.readdirSync(this.downloadsDir) : [];
+    return fs.existsSync(this.downloadsDir)
+      ? fs.readdirSync(this.downloadsDir).filter(file => !file.endsWith('.crdownload') && !file.endsWith('.tmp'))
+      : [];
   }
 
   writeLoopCheckpoint(
@@ -415,11 +417,13 @@ class LoopReplayRunner {
 
       // Gather downloaded files into manifest
       if (fs.existsSync(this.downloadsDir)) {
-        manifest.downloadedFiles = fs.readdirSync(this.downloadsDir).map(file => ({
-          filename: file,
-          path: path.join(this.downloadsDir, file),
-          sizeBytes: fs.statSync(path.join(this.downloadsDir, file)).size
-        }));
+        manifest.downloadedFiles = fs.readdirSync(this.downloadsDir)
+          .filter(file => !file.endsWith('.crdownload') && !file.endsWith('.tmp'))
+          .map(file => ({
+            filename: file,
+            path: path.join(this.downloadsDir, file),
+            sizeBytes: fs.statSync(path.join(this.downloadsDir, file)).size
+          }));
       }
 
       manifest.status = this.isAborted ? 'STOPPED' : 'COMPLETED';
@@ -860,11 +864,13 @@ class LoopReplayRunner {
 
       // 5. Gather all downloaded files into manifest
       if (fs.existsSync(this.downloadsDir)) {
-        manifest.downloadedFiles = fs.readdirSync(this.downloadsDir).map(file => ({
-          filename: file,
-          path: path.join(this.downloadsDir, file),
-          sizeBytes: fs.statSync(path.join(this.downloadsDir, file)).size
-        }));
+        manifest.downloadedFiles = fs.readdirSync(this.downloadsDir)
+          .filter(file => !file.endsWith('.crdownload') && !file.endsWith('.tmp'))
+          .map(file => ({
+            filename: file,
+            path: path.join(this.downloadsDir, file),
+            sizeBytes: fs.statSync(path.join(this.downloadsDir, file)).size
+          }));
       }
 
       manifest.status = this.isAborted ? 'STOPPED' : (manifest.itemsFailed > 0 ? 'COMPLETED_WITH_ERRORS' : 'COMPLETED');

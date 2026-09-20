@@ -43,12 +43,13 @@ class ItemDiscovery {
         .trim();
 
       const tokenSet = (value) => new Set(
-        normalize(value).split(/[^a-z0-9_-]+/).filter(Boolean)
+        normalize(value).split(/[^a-z0-9_#-]+/).filter(Boolean)
       );
 
       const similarity = (a, b) => {
         const aa = tokenSet(a);
         const bb = tokenSet(b);
+        if (!aa.size && !bb.size) return 1;
         if (!aa.size || !bb.size) return 0;
         let intersection = 0;
         for (const token of aa) if (bb.has(token)) intersection++;
@@ -63,13 +64,14 @@ class ItemDiscovery {
           el.tagName.toLowerCase(),
           children,
           el.getAttribute('role') || '',
-          el.getAttribute('data-testid') || '',
-          el.getAttribute('data-qa') || ''
+          (el.getAttribute('data-testid') || '').replace(/\d+/g, '#').replace(/[0-9a-f]{8,}/gi, '#'),
+          (el.getAttribute('data-qa') || '').replace(/\d+/g, '#').replace(/[0-9a-f]{8,}/gi, '#')
         ].join('|');
       };
 
       const stableClasses = (el) => Array.from(el.classList || [])
         .filter(c => c && !/(active|focus|hover|selected|disabled|loading|open|ng-|cdk-|mat-)/i.test(c))
+        .map(c => c.replace(/\d+/g, '#'))
         .slice(0, 8)
         .join(' ');
 
@@ -256,8 +258,8 @@ class ItemDiscovery {
           el.tagName.toLowerCase(),
           children,
           el.getAttribute('role') || '',
-          el.getAttribute('data-testid') || '',
-          el.getAttribute('data-qa') || ''
+          (el.getAttribute('data-testid') || '').replace(/\d+/g, '#').replace(/[0-9a-f]{8,}/gi, '#'),
+          (el.getAttribute('data-qa') || '').replace(/\d+/g, '#').replace(/[0-9a-f]{8,}/gi, '#')
         ].join('|');
       };
 
