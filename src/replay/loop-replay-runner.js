@@ -204,8 +204,7 @@ class LoopReplayRunner {
       for (const ancestor of ancestors) {
         const items = Array.from(ancestor.children).filter(child =>
           visible(child) &&
-          child.tagName.toLowerCase() === meta.itemTag &&
-          meta.itemSignature === undefined || true
+          child.tagName.toLowerCase() === meta.itemTag
         );
         if (items.length) {
           return items.slice(0, 5).map(item => normalize(item.textContent)).join('||');
