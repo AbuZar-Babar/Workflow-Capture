@@ -147,6 +147,83 @@ class LoopReplayRunner {
   }
 
   /**
+   * Find a likely pagination "next" control on the current page.
+   * The resolver is intentionally conservative: it requires semantic next-page
+   * signals and rejects disabled/hidden controls. A workflow may provide an
+   * explicit selector through workflow.pagination.nextSelector.
+   */
+  async findNextPageTarget(page, workflow = {}) {
+    const explicitSelector = workflow.pagination && workflow.pagination.nextSelector;
+    return page.evaluateHandle((selector) => {
+      const visible = el => {
+        if (!el || !el.isConnected) return false;
+        const style = window.getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+      };
+      const disabled = el => el.disabled || el.getAttribute('aria-disabled') === 'true' || el.classList.contains('disabled');
+
+      if (selector) {
+        const el = document.querySelector(selector);
+        return el && visible(el) && !disabled(el) ? el : null;
+      }
+
+      const candidates = Array.from(document.querySelectorAll('button, a, [role="button"], [aria-label]'))
+        .filter(el => visible(el) && !disabled(el));
+
+      const scored = candidates.map(el => {
+        const text = (el.textContent || '').trim().toLowerCase();
+        const aria = (el.getAttribute('aria-label') || '').trim().toLowerCase();
+        const title = (el.getAttribute('title') || '').trim().toLowerCase();
+        const combined = [text, aria, title].join(' ');
+        let score = 0;
+        if (/^next(?: page)?$/.test(text)) score += 8;
+        if (/next(?: page)?/.test(aria)) score += 7;
+        if (/next(?: page)?/.test(title)) score += 5;
+        if (/^›$|^»$|^>$/.test(text)) score += 4;
+        if (/pagination|pager/.test(combined)) score += 2;
+        if (/previous|back|first|last/.test(combined) && !/next/.test(combined)) score -= 5;
+        return { el, score };
+      }).filter(x => x.score >= 5).sort((a, b) => b.score - a.score);
+
+      return scored.length ? scored[0].el : null;
+    }, explicitSelector);
+  }
+
+  async advanceToNextPage(page, workflow = {}) {
+    const beforeUrl = page.url();
+    const handle = await this.findNextPageTarget(page, workflow);
+    const element = handle && handle.asElement();
+    if (!element) {
+      if (handle) await handle.dispose().catch(() => {});
+      return false;
+    }
+
+    try {
+      await element.scrollIntoViewIfNeeded().catch(() => {});
+      await element.click();
+    } finally {
+      await element.dispose().catch(() => {});
+    }
+
+    const timeout = Number.isInteger(workflow.pagination?.waitTimeoutMs)
+      ? Math.max(1000, workflow.pagination.waitTimeoutMs)
+      : 10000;
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < timeout) {
+      await new Promise(r => setTimeout(r, 250));
+      if (page.url() !== beforeUrl) return true;
+      const state = await page.evaluate(() => document.readyState).catch(() => 'loading');
+      if (state === 'complete' || state === 'interactive') {
+        // Give AJAX/virtualized grids a little time to replace their rows.
+        await new Promise(r => setTimeout(r, 750));
+        return true;
+      }
+    }
+    return true;
+  }
+
+  /**
    * Execute a standard sequential workflow (all steps in order)
    * @param {object} workflow - Stored workflow object with steps array
    * @param {function} onProgress - Progress callback for live updates
@@ -382,6 +459,7 @@ class LoopReplayRunner {
       }
 
       manifest.itemsTotal = discovery.itemCount;
+      manifest.pagesProcessed = 1;
 
       // Convert the concrete recorded target (for example, the first invoice row)
       // into an item-relative target before replaying it across the collection.
@@ -396,9 +474,17 @@ class LoopReplayRunner {
       logger.info(`[Loop Runner] Generalized ${generalizedActions.length} loop action(s) to item-relative scope.`);
       onProgress({ status: 'PROCESSING_ITEMS', manifest, discovery, generalizedActions });
 
-      // 4. Re-query the collection for every item so DOM changes do not invalidate
-      // previously captured indexes/handles.
-      for (let i = 0; i < discovery.itemCount; i++) {
+      // 4. Process the current page, then optionally advance through pagination.
+      // Pagination is opt-in through workflow.pagination.enabled to avoid clicking
+      // unrelated "Next" controls on portals that do not use paging.
+      const paginationEnabled = workflow.pagination?.enabled === true;
+      const maxPages = Number.isInteger(workflow.pagination?.maxPages)
+        ? Math.max(1, workflow.pagination.maxPages)
+        : 100;
+      let currentPage = 1;
+
+      while (true) {
+        for (let i = 0; i < discovery.itemCount; i++) {
         if (this.isAborted) {
           logger.warn(`[Loop Runner] Abort signal active before item #${i + 1}. Stopping loop.`);
           manifest.status = 'STOPPED';
@@ -544,6 +630,39 @@ class LoopReplayRunner {
         manifest.results.push(itemResult);
         this.writeLoopCheckpoint(manifest, itemResult.status === 'SUCCESS' ? null : itemResult.index, null);
         onProgress({ status: 'ITEM_COMPLETE', itemResult, manifest });
+      }
+
+        if (!paginationEnabled || currentPage >= maxPages) {
+          break;
+        }
+
+        const advanced = await this.advanceToNextPage(page, workflow);
+        if (!advanced) {
+          logger.info('[Loop Runner] No next page control found. Pagination complete.');
+          break;
+        }
+
+        const previousItemCount = discovery.itemCount;
+        const nextDiscovery = await ItemDiscovery.discover(
+          page,
+          targetStep.target || targetStep.fingerprint,
+          { minItems: 1, minScore: 0.55 }
+        );
+
+        if (!nextDiscovery.success || nextDiscovery.itemCount < 1) {
+          logger.info('[Loop Runner] Next page did not expose a discoverable item collection. Pagination complete.');
+          break;
+        }
+
+        discovery = nextDiscovery;
+        manifest.pagesProcessed = currentPage + 1;
+        currentPage++;
+        logger.info('[Loop Runner] Advanced to page #' + currentPage + ' with ' + discovery.itemCount + ' item(s).');
+        onProgress({ status: 'PAGE_COMPLETE', page: currentPage, manifest, discovery });
+
+        if (discovery.itemCount === previousItemCount && currentPage >= maxPages) {
+          break;
+        }
       }
 
       // 5. Gather all downloaded files into manifest
