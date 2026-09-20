@@ -24,6 +24,7 @@ class LoopReplayRunner {
     this.runsDir = path.resolve(process.cwd(), 'recordings', 'runs', this.runId);
     this.downloadsDir = path.join(this.runsDir, 'downloads');
     this.replayEngine = new ReplayEngine({ cdpPort: this.cdpPort });
+    this.maxItemRetries = Number.isInteger(options.maxItemRetries) ? Math.max(0, options.maxItemRetries) : 1;
     this.isAborted = false;
   }
 
@@ -69,6 +70,26 @@ class LoopReplayRunner {
 
   snapshotDownloadedFiles() {
     return fs.existsSync(this.downloadsDir) ? fs.readdirSync(this.downloadsDir) : [];
+  }
+
+  writeLoopCheckpoint(manifest, currentItemIndex = null) {
+    const checkpoint = {
+      runId: manifest.runId,
+      workflowId: manifest.workflowId,
+      mode: manifest.mode,
+      status: manifest.status,
+      currentItemIndex,
+      completedItemIndexes: manifest.results
+        .filter(result => result.status === 'SUCCESS')
+        .map(result => result.index),
+      itemsSucceeded: manifest.itemsSucceeded,
+      itemsFailed: manifest.itemsFailed,
+      updatedAt: new Date().toISOString()
+    };
+    fs.writeFileSync(
+      path.join(this.runsDir, 'checkpoint.json'),
+      JSON.stringify(checkpoint, null, 2)
+    );
   }
 
   async configureDownloadInterception(page) {
@@ -394,9 +415,28 @@ class LoopReplayRunner {
         try {
           itemResult.actions = [];
           itemResult.downloadedFiles = [];
-          const beforeItemFiles = this.snapshotDownloadedFiles();
+          itemResult.attempts = 0;
+          itemResult.retryCount = 0;
 
-          for (let actionOffset = 0; actionOffset < generalizedActions.length; actionOffset++) {
+          let completed = false;
+          let lastError = null;
+
+          for (let attempt = 0; attempt <= this.maxItemRetries && !completed; attempt++) {
+            if (this.isAborted) throw new Error('Execution stopped by user');
+
+            itemResult.attempts = attempt + 1;
+            if (attempt > 0) {
+              itemResult.retryCount = attempt;
+              logger.warn('[Loop Runner] Retrying item #' + (i + 1) + ' (attempt ' + (attempt + 1) + '/' + (this.maxItemRetries + 1) + ')');
+              itemResult.actions = [];
+              itemResult.downloadedFiles = [];
+              await new Promise(r => setTimeout(r, 500));
+            }
+
+            try {
+              const beforeItemFiles = this.snapshotDownloadedFiles();
+
+              for (let actionOffset = 0; actionOffset < generalizedActions.length; actionOffset++) {
             if (this.isAborted) throw new Error('Execution stopped by user');
 
             const itemHandle = await ItemDiscovery.getItemHandle(page, discovery, i);
@@ -432,18 +472,37 @@ class LoopReplayRunner {
               }
             }
 
-            itemResult.actions.push(actionResult);
-            await new Promise(r => setTimeout(r, 300));
-          }
+                itemResult.actions.push(actionResult);
+                await new Promise(r => setTimeout(r, 300));
+              }
 
-          // Allow the complete per-item procedure to settle before restoring state.
+              // Allow the complete per-item procedure to settle before restoring state.
           await new Promise(r => setTimeout(r, 1000));
 
-          // State Restoration: If URL changed or modal opened, restore to listPageUrl
-          if (page.url() !== listPageUrl) {
-            logger.info(`[Loop Runner] Restoring state -> Navigating back to: ${listPageUrl}`);
-            await page.goto(listPageUrl, { waitUntil: 'domcontentloaded' });
-            await new Promise(r => setTimeout(r, 1000));
+              // State Restoration: If URL changed or modal opened, restore to listPageUrl
+              if (page.url() !== listPageUrl) {
+                logger.info('[Loop Runner] Restoring state -> Navigating back to: ' + listPageUrl);
+                await page.goto(listPageUrl, { waitUntil: 'domcontentloaded' });
+                await new Promise(r => setTimeout(r, 1000));
+              }
+
+              completed = true;
+            } catch (attemptErr) {
+              lastError = attemptErr;
+              logger.warn('[Loop Runner] Item #' + (i + 1) + ' attempt ' + (attempt + 1) + ' failed: ' + attemptErr.message);
+              try {
+                if (page.url() !== listPageUrl) {
+                  await page.goto(listPageUrl, { waitUntil: 'domcontentloaded' });
+                  await new Promise(r => setTimeout(r, 700));
+                }
+              } catch (recoveryErr) {
+                logger.warn('[Loop Runner] Recovery after item #' + (i + 1) + ' attempt failed: ' + recoveryErr.message);
+              }
+            }
+          }
+
+          if (!completed) {
+            throw lastError || new Error('Item #' + (i + 1) + ' failed after ' + itemResult.attempts + ' attempt(s)');
           }
 
           itemResult.status = 'SUCCESS';
@@ -475,6 +534,7 @@ class LoopReplayRunner {
         }
 
         manifest.results.push(itemResult);
+        this.writeLoopCheckpoint(manifest, itemResult.status === 'SUCCESS' ? null : itemResult.index);
         onProgress({ status: 'ITEM_COMPLETE', itemResult, manifest });
       }
 
