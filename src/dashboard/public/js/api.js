@@ -208,6 +208,17 @@ export const Api = {
     return data;
   },
 
+  async discoverWorkflow(workflowId, loopStepIndex = null) {
+    const res = await Auth.authenticatedFetch(`/api/workflows/${encodeURIComponent(workflowId)}/discover`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(loopStepIndex === null ? {} : { loopStepIndex })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || data.discovery?.reason || 'Item discovery failed');
+    return data;
+  },
+
   async executeWorkflow(workflowId, loopStepIndex = null) {
     const bodyPayload = loopStepIndex !== null ? { isLoop: true, loopStepIndex } : { isLoop: false };
     const res = await Auth.authenticatedFetch(`/api/workflows/${workflowId}/execute`, {
