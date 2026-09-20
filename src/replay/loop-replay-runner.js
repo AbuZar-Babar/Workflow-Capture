@@ -411,6 +411,7 @@ class LoopReplayRunner {
           timestamp: new Date().toISOString(),
           error: null
         };
+        this.writeLoopCheckpoint(manifest, itemResult.index);
 
         try {
           itemResult.actions = [];
