@@ -282,6 +282,12 @@ class ReplayEngine {
         const value = candidate.value;
         const looksXPath = value.startsWith('//') || value.startsWith('(');
         if (looksXPath) continue;
+
+        // :scope represents the discovered item itself. querySelectorAll(':scope')
+        // is not a reliable way to return the context element across browser
+        // implementations, so handle it explicitly.
+        if (value === ':scope') return visible(item) ? item : null;
+
         try {
           const matches = Array.from(item.querySelectorAll(value)).filter(visible);
           if (matches.length === 1) return matches[0];
@@ -297,6 +303,12 @@ class ReplayEngine {
         : '*';
       let pool = Array.from(item.querySelectorAll(tag)).filter(visible);
       if (!pool.length) pool = Array.from(item.querySelectorAll('*')).filter(visible);
+
+      // A generalized target may intentionally point at the item itself.
+      // Include the context item in fingerprint fallback when it matches.
+      if (tag === '*' || item.tagName.toLowerCase() === tag) {
+        if (visible(item) && score(item) >= 0) pool.unshift(item);
+      }
 
       if (fingerprint.ariaLabel) {
         const ariaMatches = pool.filter(el => el.getAttribute('aria-label') === fingerprint.ariaLabel);
