@@ -272,13 +272,24 @@ class ItemDiscovery {
       }
 
       for (const ancestor of ancestors) {
-        const items = Array.from(ancestor.children).filter(child =>
+        // Prefer exact structural matches captured during discovery.
+        const exactItems = Array.from(ancestor.children).filter(child =>
           visible(child) &&
           child.tagName.toLowerCase() === collection.itemTag &&
           structuralSignature(child) === collection.itemSignature
         );
 
-        if (items.length > index) return items[index];
+        if (exactItems.length > index) return exactItems[index];
+
+        // If a portal re-renders a row/card and changes a transient attribute
+        // (role, data-testid, etc.), preserve the collection ordering instead
+        // of losing the item entirely. The item tag remains the hard boundary.
+        const compatibleItems = Array.from(ancestor.children).filter(child =>
+          visible(child) &&
+          child.tagName.toLowerCase() === collection.itemTag
+        );
+
+        if (compatibleItems.length > index) return compatibleItems[index];
       }
 
       return null;
