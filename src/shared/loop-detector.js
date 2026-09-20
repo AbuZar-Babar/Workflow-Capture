@@ -101,14 +101,17 @@ class LoopDetector {
       };
     }
 
+    // MVP loop boundary: every recorded action from the first repeating
+    // interaction onward is treated as part of the per-item procedure.
+    // Explicit teardown boundaries can be added once the workflow schema records
+    // them separately.
     const setupSteps = steps.slice(0, loopStepIndex);
-    const loopSteps = [steps[loopStepIndex]];
-    const teardownSteps = steps.slice(loopStepIndex + 1);
+    const loopSteps = steps.slice(loopStepIndex);
 
     return {
       setupSteps,
       loopSteps,
-      teardownSteps
+      teardownSteps: []
     };
   }
 }
