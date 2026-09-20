@@ -73,6 +73,7 @@ export const Router = {
     if (route === 'dashboard') route = 'overview';
     if (!this.views[route]) route = 'overview';
 
+    const previousRoute = this.currentRoute;
     this.currentRoute = route;
 
     // Update Top Nav Pills Active State
@@ -88,7 +89,7 @@ export const Router = {
     Sidebar.setActive(route);
 
     // Tear down the previous view before replacing its DOM (pollers/listeners).
-    const previousView = this.views[this.currentRoute];
+    const previousView = this.views[previousRoute];
     if (previousView && typeof previousView.destroy === 'function') previousView.destroy();
 
     // Render View
