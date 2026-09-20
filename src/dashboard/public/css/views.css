@@ -397,3 +397,154 @@
   font-weight: 700;
   border-radius: 6px;
 }
+
+
+/* ---------------- Dashboard Control Center ---------------- */
+.dashboard-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 100%;
+  padding-bottom: 1rem;
+}
+
+.dashboard-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1.35rem 1.5rem;
+  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 65%);
+  border: 1px solid var(--brand-light);
+  border-radius: var(--radius-xl);
+}
+
+.dashboard-hero-copy { max-width: 700px; }
+.eyebrow {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--brand-forest);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.dashboard-hero h1 {
+  margin: 0;
+  color: var(--text-main);
+  font-size: clamp(1.35rem, 2vw, 1.85rem);
+  letter-spacing: -0.04em;
+}
+.dashboard-hero p {
+  margin-top: 0.4rem;
+  max-width: 620px;
+  color: var(--text-sub);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+.dashboard-hero-actions { display:flex; align-items:center; gap:0.5rem; flex-shrink:0; }
+.dashboard-primary-action { padding-left: 1rem; padding-right: 1rem; }
+
+.dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.stat-card {
+  padding: 0.9rem 1rem;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+.stat-label { display:block; color:var(--text-sub); font-size:0.67rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
+.stat-card strong { display:block; margin:.3rem 0 .1rem; color:var(--text-main); font-size:1.25rem; letter-spacing:-.025em; }
+.stat-meta { color:var(--text-muted); font-size:.67rem; }
+
+.dashboard-main-grid {
+  display:grid;
+  grid-template-columns:minmax(0, 1.65fr) minmax(280px, .8fr);
+  gap:0.85rem;
+  align-items:stretch;
+}
+.dashboard-workflows-card { min-width:0; }
+.dashboard-side-stack { display:flex; flex-direction:column; gap:.85rem; }
+.dashboard-action-card, .dashboard-system-card { height:auto; }
+.dashboard-button-row { display:flex; gap:.5rem; }
+.dashboard-button-row .btn { flex:1; }
+.dashboard-empty { text-align:center; padding:1.5rem !important; color:var(--text-sub) !important; }
+
+.dashboard-progress-head {
+  display:flex;
+  justify-content:space-between;
+  gap:1rem;
+  margin-top:.65rem;
+  font-size:.68rem;
+  font-weight:700;
+  color:var(--brand-forest);
+}
+.dashboard-progress-track {
+  width:100%;
+  height:6px;
+  margin-top:.3rem;
+  overflow:hidden;
+  background:rgba(12,92,63,.12);
+  border-radius:999px;
+}
+.dashboard-progress-track > div {
+  height:100%;
+  width:0;
+  background:var(--brand-forest);
+  border-radius:inherit;
+  transition:width .25s ease;
+}
+
+.system-status-row {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:.65rem 0;
+  border-bottom:1px solid rgba(0,0,0,.05);
+  color:var(--text-body);
+  font-size:.72rem;
+}
+.system-status-row:last-of-type { margin-bottom:.75rem; border-bottom:0; }
+.system-status-row span { display:flex; align-items:center; gap:.45rem; }
+.system-status-row strong { color:var(--text-main); font-size:.7rem; }
+
+.dashboard-recorder-card {
+  border-color: var(--brand-light);
+  background: linear-gradient(180deg, #ffffff 0%, #f9fdfb 100%);
+}
+.dashboard-recorder-main {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:1.5rem;
+}
+.dashboard-recorder-main h3 { margin:0; font-size:1rem; font-weight:800; }
+.dashboard-recorder-main p { margin-top:.25rem; color:var(--text-sub); font-size:.72rem; }
+.dashboard-recorder-controls {
+  display:flex;
+  align-items:center;
+  gap:.5rem;
+  width:min(460px, 45%);
+}
+.dashboard-recorder-controls .form-control { flex:1; min-width:180px; }
+
+@media (max-width: 1100px) {
+  .dashboard-stats { grid-template-columns:repeat(2, minmax(0,1fr)); }
+  .dashboard-main-grid { grid-template-columns:1fr; }
+}
+@media (max-width: 760px) {
+  .dashboard-hero, .dashboard-recorder-main { flex-direction:column; align-items:stretch; }
+  .dashboard-hero-actions, .dashboard-recorder-controls { width:100%; }
+  .dashboard-recorder-controls { flex-wrap:wrap; }
+  .dashboard-recorder-controls .form-control { width:100%; }
+  .dashboard-stats { grid-template-columns:1fr 1fr; }
+}
+@media (max-width: 480px) {
+  .dashboard-stats { grid-template-columns:1fr; }
+  .dashboard-hero-actions { flex-direction:column; }
+  .dashboard-hero-actions .btn { width:100%; }
+}
