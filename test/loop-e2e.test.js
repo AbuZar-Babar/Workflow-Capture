@@ -75,6 +75,24 @@ async function runLoopE2E() {
       name: 'Invoice Downloader',
       steps: [
         { type: 'NAVIGATE', url: PORTAL_URL },
+                {
+          type: 'CLICK',
+          target: {
+            candidates: [
+              {
+                strategy: 'css-path',
+                value: 'table#invoices-table tbody > tr:nth-child(1) > td:nth-child(5) > button.btn-mark',
+                uniqueness: 1,
+                priority: 5
+              }
+            ],
+            fingerprint: {
+              tagName: 'button',
+              text: 'Mark',
+              classes: ['btn-mark']
+            }
+          }
+        },
         {
           type: 'CLICK',
           target: {
@@ -116,8 +134,9 @@ async function runLoopE2E() {
     assert.strictEqual(manifest.itemsTotal, 4, 'Should detect all 4 invoice rows');
     assert.strictEqual(manifest.itemsSucceeded, 4, 'All 4 rows should succeed');
     assert.strictEqual(manifest.itemsFailed, 0, 'No rows should fail');
+    assert.strictEqual(manifest.results.every(result => result.actions?.length === 2), true, 'Each item should execute both recorded actions');
 
-    logger.success(`\n🎉 Verified: Loop runner successfully generalized 1 row click to 4 table items with 100% success!`);
+    logger.success(`\n🎉 Verified: Loop runner successfully generalized 2 row actions to 4 table items with 100% success!`);
 
   } finally {
     if (chromeProc) {
