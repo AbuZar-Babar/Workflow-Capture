@@ -102,6 +102,11 @@
     });
 
     window.setTimeout(() => {
+      document.querySelectorAll('tbody > tr').forEach((row, index) => {
+        // Simulate a framework re-render adding a transient structural attribute.
+        row.setAttribute('data-testid', 'invoice-row-' + (index + 1));
+      });
+
       document.querySelectorAll('.btn-mark, .btn-download').forEach(control => {
         control.dataset.ready = 'true';
         control.style.visibility = 'visible';
