@@ -47,6 +47,30 @@ class LoopReplayRunner {
   /**
    * Configure CDP browser download behavior to capture files into this run's folder
    */
+  async waitForDownload(previousFiles = [], timeoutMs = 10000) {
+    const startedAt = Date.now();
+    const previous = new Set(previousFiles);
+    while (Date.now() - startedAt < timeoutMs) {
+      const files = fs.existsSync(this.downloadsDir)
+        ? fs.readdirSync(this.downloadsDir)
+        : [];
+      const candidates = files.filter(file => !previous.has(file) && !file.endsWith('.crdownload'));
+      if (candidates.length) {
+        return candidates.map(filename => ({
+          filename,
+          path: path.join(this.downloadsDir, filename),
+          sizeBytes: fs.statSync(path.join(this.downloadsDir, filename)).size
+        }));
+      }
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    return [];
+  }
+
+  snapshotDownloadedFiles() {
+    return fs.existsSync(this.downloadsDir) ? fs.readdirSync(this.downloadsDir) : [];
+  }
+
   async configureDownloadInterception(page) {
     this.initDirectories();
     try {
@@ -369,6 +393,8 @@ class LoopReplayRunner {
 
         try {
           itemResult.actions = [];
+          itemResult.downloadedFiles = [];
+          const beforeItemFiles = this.snapshotDownloadedFiles();
 
           for (let actionOffset = 0; actionOffset < generalizedActions.length; actionOffset++) {
             if (this.isAborted) throw new Error('Execution stopped by user');
@@ -390,12 +416,23 @@ class LoopReplayRunner {
               await itemElement.dispose().catch(() => {});
             }
 
-            itemResult.actions.push({
+            const action = generalizedActions[actionOffset];
+            const actionType = action.type || action.action || 'CLICK';
+            const actionResult = {
               index: loopStepIndex + actionOffset + 1,
-              type: generalizedActions[actionOffset].type,
+              type: actionType,
               status: 'SUCCESS'
-            });
+            };
 
+            if (actionType === 'CLICK' && this.downloadsDir) {
+              const downloaded = await this.waitForDownload(beforeItemFiles, 1200);
+              if (downloaded.length) {
+                itemResult.downloadedFiles.push(...downloaded);
+                actionResult.downloadedFiles = downloaded.map(file => file.filename);
+              }
+            }
+
+            itemResult.actions.push(actionResult);
             await new Promise(r => setTimeout(r, 300));
           }
 
@@ -411,6 +448,9 @@ class LoopReplayRunner {
 
           itemResult.status = 'SUCCESS';
           manifest.itemsSucceeded++;
+          if (itemResult.downloadedFiles.length) {
+            manifest.downloadedFiles.push(...itemResult.downloadedFiles);
+          }
         } catch (itemErr) {
           if (this.isAborted) {
             itemResult.status = 'STOPPED';
