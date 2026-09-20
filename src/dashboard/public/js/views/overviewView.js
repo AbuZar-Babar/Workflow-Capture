@@ -154,6 +154,7 @@ export const OverviewView = {
 
 
 
+    this.router = router;
     this.bindEvents(router);
     this.loadData();
   },
@@ -303,7 +304,7 @@ export const OverviewView = {
       const list = document.getElementById('discoveryItemsList');
       list.innerHTML = (discovery.items || []).slice(0, 8).map((item, index) => '<div class="discovery-item-row"><span class="discovery-item-index">' + (index + 1) + '</span><span class="discovery-item-text">' + this.escapeHtml(item.text || item.id || ('Item ' + (index + 1))) + '</span></div>').join('') || '<div class="dashboard-empty">No preview items available.</div>';
       loading.classList.add('hidden'); result.classList.remove('hidden'); continueBtn.disabled = !discovery.success || !discovery.itemCount;
-      continueBtn.onclick = async () => { continueBtn.disabled = true; continueBtn.textContent = 'Starting…'; try { const run = await Api.executeWorkflow(workflowId, data.loopStepIndex ?? 0); close(); Toast.success('Automation started — run ' + (run.runId || 'queued')); } catch (err) { Toast.error(err.message); continueBtn.disabled = false; continueBtn.textContent = 'Continue & Run'; } };
+      continueBtn.onclick = async () => { continueBtn.disabled = true; continueBtn.textContent = 'Starting…'; try { const run = await Api.executeWorkflow(workflowId, data.loopStepIndex ?? 0); close(); if (run.runId) { sessionStorage.setItem('workflowCaptureActiveRunId', run.runId); this.router.navigate('execution/' + encodeURIComponent(run.runId)); } else { Toast.success('Automation queued'); } } catch (err) { Toast.error(err.message); continueBtn.disabled = false; continueBtn.textContent = 'Continue & Run'; } };
     } catch (err) { loading.classList.add('hidden'); errorBox.textContent = err.message || 'Discovery failed. Make sure Chrome is connected and the target page is open.'; errorBox.classList.remove('hidden'); }
   },
 
@@ -384,7 +385,7 @@ export const OverviewView = {
           btn.onclick = () => {
             const wfId = (btn.dataset.file || '').replace('.json', '');
             Api.executeWorkflow(wfId)
-              .then(() => Toast.info(`Executing workflow: ${wfId}`))
+              .then(res => { if (res.runId) { sessionStorage.setItem('workflowCaptureActiveRunId', res.runId); this.router.navigate('execution/' + encodeURIComponent(res.runId)); } else { Toast.info(`Executing workflow: ${wfId}`); } })
               .catch(e => Toast.error(e.message));
           };
         });
