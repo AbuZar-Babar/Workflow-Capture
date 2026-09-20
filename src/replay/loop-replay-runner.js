@@ -45,7 +45,7 @@ class LoopReplayRunner {
   }
 
   /**
-   * Configure CDP browser download behavior to capture files into this run's folder
+   * Wait for a new completed download in this run's download directory.
    */
   async waitForDownload(previousFiles = [], timeoutMs = 10000) {
     const startedAt = Date.now();
