@@ -24,6 +24,23 @@ class ActionGeneralizer {
     };
   }
 
+  static generalizeActions(actions, collection) {
+    if (!Array.isArray(actions)) {
+      throw new Error('ActionGeneralizer requires an action array.');
+    }
+    return actions.map(action => this.generalizeAction(action, collection));
+  }
+
+  static isItemRelative(action, collection) {
+    if (!action || !collection || !collection.itemTag) return false;
+    const target = action.target || action;
+    const candidates = Array.isArray(target?.candidates) ? target.candidates : [];
+    return candidates.some(candidate => {
+      if (!candidate || candidate.strategy !== 'css-path' || !candidate.value) return false;
+      return Boolean(this.toRelativeCss(candidate.value, collection.itemTag));
+    });
+  }
+
   static generalizeTarget(target, collection) {
     if (!target || typeof target !== 'object') {
       throw new Error('Recorded target is required.');
@@ -45,6 +62,10 @@ class ActionGeneralizer {
         priority: Math.max(Number(candidate.priority) || 0, 6),
         scope: 'item'
       });
+    }
+
+    if (!generalizedCandidates.length) {
+      throw new Error('Recorded action cannot be generalized to the discovered collection item.');
     }
 
     return {
