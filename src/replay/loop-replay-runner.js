@@ -449,7 +449,7 @@ class LoopReplayRunner {
       // 3. Discover the collection from the element the user actually recorded.
       // ItemDiscovery replaces the old nth-child/container-only heuristic for the
       // first generalized execution path.
-      const discovery = await ItemDiscovery.discover(page, targetStep.target || targetStep.fingerprint, {
+      let discovery = await ItemDiscovery.discover(page, targetStep.target || targetStep.fingerprint, {
         minItems: 2,
         minScore: 0.55
       });
@@ -493,7 +493,7 @@ class LoopReplayRunner {
 
         logger.info(`\n[Loop Runner] --- Processing item [${i + 1}/${discovery.itemCount}] ---`);
         const itemResult = {
-          index: i + 1,
+          index: manifest.itemsSucceeded + manifest.itemsFailed + 1,
           status: 'PENDING',
           timestamp: new Date().toISOString(),
           error: null
@@ -655,6 +655,7 @@ class LoopReplayRunner {
         }
 
         discovery = nextDiscovery;
+        manifest.itemsTotal += discovery.itemCount;
         manifest.pagesProcessed = currentPage + 1;
         currentPage++;
         logger.info('[Loop Runner] Advanced to page #' + currentPage + ' with ' + discovery.itemCount + ' item(s).');
