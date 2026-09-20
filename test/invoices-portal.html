@@ -92,5 +92,16 @@
       </tbody>
     </table>
   </div>
+
+  <script>
+    // Simulate a portal that hydrates row actions after the table is rendered.
+    // The rows exist immediately, but action controls become interactable shortly
+    // afterward. This exercises condition-based target resolution and retry logic.
+    window.setTimeout(() => {
+      document.querySelectorAll('.btn-mark, .btn-download').forEach(control => {
+        control.dataset.ready = 'true';
+      });
+    }, 150);
+  </script>
 </body>
 </html>
