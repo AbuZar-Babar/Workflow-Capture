@@ -72,13 +72,14 @@ class LoopReplayRunner {
     return fs.existsSync(this.downloadsDir) ? fs.readdirSync(this.downloadsDir) : [];
   }
 
-  writeLoopCheckpoint(manifest, currentItemIndex = null) {
+  writeLoopCheckpoint(manifest, currentItemIndex = null, currentActionOffset = null) {
     const checkpoint = {
       runId: manifest.runId,
       workflowId: manifest.workflowId,
       mode: manifest.mode,
       status: manifest.status,
       currentItemIndex,
+      currentActionOffset,
       completedItemIndexes: manifest.results
         .filter(result => result.status === 'SUCCESS')
         .map(result => result.index),
@@ -447,6 +448,7 @@ class LoopReplayRunner {
               for (let actionOffset = nextActionOffset; actionOffset < generalizedActions.length; actionOffset++) {
                 if (this.isAborted) throw new Error('Execution stopped by user');
 
+                const beforeActionFiles = this.snapshotDownloadedFiles();
                 const itemHandle = await ItemDiscovery.getItemHandle(page, discovery, i);
                 const itemElement = itemHandle.asElement();
                 if (!itemElement) {
@@ -472,7 +474,6 @@ class LoopReplayRunner {
                   status: 'SUCCESS'
                 };
 
-                const beforeActionFiles = this.snapshotDownloadedFiles();
                 if (actionType === 'CLICK' && this.downloadsDir) {
                   const downloaded = await this.waitForDownload(beforeActionFiles, 1200);
                   if (downloaded.length) {
@@ -483,6 +484,7 @@ class LoopReplayRunner {
 
                 itemResult.actions.push(actionResult);
                 nextActionOffset = actionOffset + 1;
+                this.writeLoopCheckpoint(manifest, itemResult.index, nextActionOffset);
                 await new Promise(r => setTimeout(r, 300));
               }
 
@@ -540,7 +542,7 @@ class LoopReplayRunner {
         }
 
         manifest.results.push(itemResult);
-        this.writeLoopCheckpoint(manifest, itemResult.status === 'SUCCESS' ? null : itemResult.index);
+        this.writeLoopCheckpoint(manifest, itemResult.status === 'SUCCESS' ? null : itemResult.index, null);
         onProgress({ status: 'ITEM_COMPLETE', itemResult, manifest });
       }
 
