@@ -78,7 +78,8 @@ class LoopReplayRunner {
     currentItemIndex = null,
     currentActionOffset = null,
     currentPage = 1,
-    currentPageItemIndex = null
+    currentPageItemIndex = null,
+    activeItem = null
   ) {
     const checkpoint = {
       runId: manifest.runId,
@@ -95,8 +96,10 @@ class LoopReplayRunner {
       itemsSucceeded: manifest.itemsSucceeded,
       itemsFailed: manifest.itemsFailed,
       pagesProcessed: manifest.pagesProcessed || currentPage,
+      itemsTotal: manifest.itemsTotal,
       results: manifest.results,
       downloadedFiles: manifest.downloadedFiles,
+      activeItem,
       updatedAt: new Date().toISOString()
     };
     fs.writeFileSync(
@@ -476,6 +479,10 @@ class LoopReplayRunner {
       manifest.pagesProcessed = Number.isInteger(checkpoint.pagesProcessed)
         ? checkpoint.pagesProcessed
         : 1;
+      manifest.itemsTotal = Number.isInteger(checkpoint.itemsTotal)
+        ? checkpoint.itemsTotal
+        : 0;
+      manifest.activeItem = checkpoint.activeItem || null;
     }
 
     logger.info(`[Loop Runner] Starting execution run ${this.runId} for workflow "${workflow.name}"`);
@@ -546,8 +553,10 @@ class LoopReplayRunner {
         throw new Error(`Item discovery failed: ${discovery.reason || 'unknown reason'}`);
       }
 
-      manifest.itemsTotal = discovery.itemCount;
-      manifest.pagesProcessed = 1;
+      if (!checkpoint) {
+        manifest.itemsTotal = discovery.itemCount;
+        manifest.pagesProcessed = 1;
+      }
 
       // Convert the concrete recorded target (for example, the first invoice row)
       // into an item-relative target before replaying it across the collection.
@@ -587,6 +596,7 @@ class LoopReplayRunner {
         currentPageUrl = page.url();
 
         if (currentPage < resumePage) {
+          const beforeResumeFingerprint = await this.getCollectionFingerprint(page, discovery.collection);
           const advancedToResumePage = await this.advanceToNextPage(page, workflow);
           if (!advancedToResumePage) {
             throw new Error(`Could not reach checkpoint page #${resumePage}`);
@@ -601,7 +611,6 @@ class LoopReplayRunner {
             throw new Error(`Could not rediscover item collection while resuming page #${currentPage + 1}`);
           }
 
-          const beforeResumeFingerprint = await this.getCollectionFingerprint(page, discovery.collection);
           const afterResumeFingerprint = await this.getCollectionFingerprint(page, nextDiscovery.collection);
           if (
             beforeResumeFingerprint &&
@@ -631,14 +640,22 @@ class LoopReplayRunner {
         }
 
         logger.info(`\n[Loop Runner] --- Processing item [${i + 1}/${discovery.itemCount}] ---`);
-        const itemResult = {
-          index: resumeItemIndex != null && currentPage === resumePage && i === resumePageItemIndex
-            ? resumeItemIndex
-            : manifest.results.reduce((max, result) => Math.max(max, Number(result.index) || 0), 0) + 1,
-          status: 'PENDING',
-          timestamp: new Date().toISOString(),
-          error: null
-        };
+        const isResumingCurrentItem =
+          checkpoint &&
+          currentPage === resumePage &&
+          i === resumePageItemIndex &&
+          resumeItemIndex != null;
+
+        const itemResult = isResumingCurrentItem && checkpoint.activeItem
+          ? { ...checkpoint.activeItem, status: 'PENDING', error: null }
+          : {
+              index: resumeItemIndex != null && currentPage === resumePage && i === resumePageItemIndex
+                ? resumeItemIndex
+                : manifest.results.reduce((max, result) => Math.max(max, Number(result.index) || 0), 0) + 1,
+              status: 'PENDING',
+              timestamp: new Date().toISOString(),
+              error: null
+            };
         const startingActionOffset =
           checkpoint && currentPage === resumePage && i === resumePageItemIndex
             ? resumeActionOffset
@@ -648,14 +665,15 @@ class LoopReplayRunner {
           itemResult.index,
           startingActionOffset,
           currentPage,
-          i
+          i,
+          itemResult
         );
 
         try {
-          itemResult.actions = [];
-          itemResult.downloadedFiles = [];
-          itemResult.attempts = 0;
-          itemResult.retryCount = 0;
+          itemResult.actions = Array.isArray(itemResult.actions) ? itemResult.actions : [];
+          itemResult.downloadedFiles = Array.isArray(itemResult.downloadedFiles) ? itemResult.downloadedFiles : [];
+          itemResult.attempts = Number.isInteger(itemResult.attempts) ? itemResult.attempts : 0;
+          itemResult.retryCount = Number.isInteger(itemResult.retryCount) ? itemResult.retryCount : 0;
 
           let completed = false;
           let lastError = null;
@@ -726,7 +744,8 @@ class LoopReplayRunner {
                   itemResult.index,
                   nextActionOffset,
                   currentPage,
-                  i
+                  i,
+                  itemResult
                 );
                 await new Promise(r => setTimeout(r, 300));
               }
@@ -790,7 +809,8 @@ class LoopReplayRunner {
           itemResult.status === 'SUCCESS' ? null : itemResult.index,
           null,
           currentPage,
-          itemResult.status === 'SUCCESS' ? null : i
+          itemResult.status === 'SUCCESS' ? null : i,
+          null
         );
         onProgress({ status: 'ITEM_COMPLETE', itemResult, manifest });
       }
@@ -829,7 +849,7 @@ class LoopReplayRunner {
         manifest.pagesProcessed = currentPage + 1;
         currentPage++;
         currentPageUrl = page.url();
-        this.writeLoopCheckpoint(manifest, null, null, currentPage, null);
+        this.writeLoopCheckpoint(manifest, null, null, currentPage, null, null);
         logger.info('[Loop Runner] Advanced to page #' + currentPage + ' with ' + discovery.itemCount + ' item(s).');
         onProgress({ status: 'PAGE_COMPLETE', page: currentPage, manifest, discovery });
 
@@ -849,7 +869,7 @@ class LoopReplayRunner {
 
       manifest.status = this.isAborted ? 'STOPPED' : (manifest.itemsFailed > 0 ? 'COMPLETED_WITH_ERRORS' : 'COMPLETED');
       manifest.endTime = new Date().toISOString();
-      this.writeLoopCheckpoint(manifest, null, null, currentPage, null);
+      this.writeLoopCheckpoint(manifest, null, null, currentPage, null, null);
       logger.success(`\n[Loop Runner] Run ${this.runId} ${manifest.status}! Succeeded: ${manifest.itemsSucceeded}, Failed: ${manifest.itemsFailed}`);
 
     } catch (err) {
