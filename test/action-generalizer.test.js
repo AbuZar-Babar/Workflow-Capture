@@ -37,7 +37,22 @@ function run() {
   assert.strictEqual(ActionGeneralizer.isGeneralized(generalized), true);
   console.log('  ✅ Action generalization passed\n');
 
-  console.log('🔹 Test 4: Ignore non-CSS candidates');
+  console.log('🔹 Test 4: Generalize multiple actions');
+  const generalizedActions = ActionGeneralizer.generalizeActions([
+    action,
+    {
+      type: 'CLICK',
+      target: {
+        candidates: [{ strategy: 'css-path', value: 'table tbody > tr:nth-child(1) > td:nth-child(5) > a.btn-mark', priority: 4 }],
+        fingerprint: { tagName: 'a', text: 'Mark' }
+      }
+    }
+  ], { itemTag: 'tr' });
+  assert.strictEqual(generalizedActions.length, 2);
+  assert(generalizedActions.every(ActionGeneralizer.isGeneralized));
+  console.log('  ✅ Multi-action generalization passed\\n');
+
+  console.log('🔹 Test 5: Ignore non-CSS candidates');
   const target = ActionGeneralizer.generalizeTarget({
     candidates: [{ strategy: 'xpath', value: '//a[text()="Download"]' }],
     fingerprint: { tagName: 'a', text: 'Download' }
