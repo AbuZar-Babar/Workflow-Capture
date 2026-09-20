@@ -12,6 +12,8 @@ const path = require('path');
 const { spawn } = require('child_process');
 const RecorderBridge = require('../recorder/recorder-bridge');
 const ReplayEngine = require('../replay/replay-engine');
+const LoopDetector = require('../shared/loop-detector');
+const ItemDiscovery = require('../shared/item-discovery');
 const { connectToBrowser } = require('../utils/cdp-connector');
 const logger = require('../utils/logger');
 const authController = require('../auth/auth-controller');
@@ -290,6 +292,69 @@ const server = http.createServer(async (req, res) => {
       const secretId = secretMatch[1];
       if (!requireAuth(req, res)) return;
       return secretController.deleteSecret(req, res, secretId);
+    }
+
+    // -------------------------------------------------------------
+    // Item Discovery REST API
+    // -------------------------------------------------------------
+    const discoverMatch = pathname.match(/^\/api\/workflows\/([^/]+)\/discover$/);
+    if (discoverMatch && req.method === 'POST') {
+      const workflowId = discoverMatch[1];
+      if (!requireAuth(req, res)) return;
+      const body = await parseJsonBody(req).catch(() => ({}));
+      if (body.loopStepIndex !== undefined && body.loopStepIndex !== null && !Number.isInteger(body.loopStepIndex)) {
+        return sendJson(res, 400, { error: 'loopStepIndex must be an integer' });
+      }
+
+      try {
+        workflowController.syncWorkflowsFromDisk(req.user.id);
+        let workflow = require('../database/db').db.findOne('workflows', wf =>
+          wf.id === workflowId && (wf.userId === req.user.id || !wf.userId || wf.userId === 'system' || wf.isGlobal)
+        );
+        if (!workflow) workflow = require('../database/db').db.findOne('workflows', wf => wf.id === workflowId);
+        if (!workflow) return sendJson(res, 404, { error: 'Workflow not found or unauthorized' });
+
+        const steps = workflow.steps || (workflow.recordingData && workflow.recordingData.actions) || [];
+        if (!steps.length) return sendJson(res, 400, { error: 'Workflow contains no recorded actions' });
+
+        const loopStepIndex = Number.isInteger(body.loopStepIndex) ? body.loopStepIndex : 0;
+        const partition = LoopDetector.partitionWorkflow(steps, loopStepIndex);
+        const targetStep = partition.loopSteps[0];
+        if (!targetStep) return sendJson(res, 400, { error: 'No loop target action could be identified' });
+
+        const { browser, page } = await connectToBrowser();
+        try {
+          await page.bringToFront().catch(() => {});
+          const targetUrl = workflow.targetUrl || (workflow.recordingData?.metadata?.startUrl) || targetStep.url;
+          if (targetUrl && page.url() !== targetUrl) {
+            await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+            await new Promise(resolve => setTimeout(resolve, 600));
+          }
+          const engine = new ReplayEngine({ cdpPort: 9222 });
+          engine.page = page;
+          await engine._ensureSelectorResolverInFrame(page.mainFrame());
+          const discovery = await ItemDiscovery.discover(page, targetStep.target || targetStep.fingerprint, {
+            minItems: 2,
+            minScore: 0.55
+          });
+          return sendJson(res, discovery.success ? 200 : 422, {
+            success: discovery.success,
+            workflowId,
+            workflowName: workflow.name,
+            loopStepIndex,
+            actionsPerItem: partition.loopSteps.length,
+            setupActionCount: partition.setupSteps.length,
+            targetAction: targetStep.type || targetStep.action || 'ACTION',
+            targetUrl: page.url(),
+            discovery
+          });
+        } finally {
+          await browser.disconnect().catch(() => {});
+        }
+      } catch (err) {
+        logger.error('[Discovery] Failed:', err.message);
+        return sendJson(res, 500, { error: err.message });
+      }
     }
 
     // -------------------------------------------------------------
