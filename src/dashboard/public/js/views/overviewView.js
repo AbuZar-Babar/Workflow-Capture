@@ -201,8 +201,8 @@ export const OverviewView = {
           Toast.success(`Recording saved: ${res.summary.actionCount} steps captured`);
           this.setRecordingState(false);
           await this.loadData();
-          const filename = (res.summary.filePath || '').split(/[\\\\/]/).pop() || '';
-          const workflowId = filename.replace(/\\.json$/i, '');
+          const filename = (res.summary.filePath || '').split(/[\\/]/).pop() || '';
+          const workflowId = filename.replace(/\.json$/i, '');
           if (workflowId) await this.openDiscovery(workflowId);
         } catch (err) {
           Toast.error(err.message);
