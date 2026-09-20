@@ -421,6 +421,7 @@ class LoopReplayRunner {
 
           let completed = false;
           let lastError = null;
+          let nextActionOffset = 0;
 
           for (let attempt = 0; attempt <= this.maxItemRetries && !completed; attempt++) {
             if (this.isAborted) throw new Error('Execution stopped by user');
@@ -429,58 +430,65 @@ class LoopReplayRunner {
             if (attempt > 0) {
               itemResult.retryCount = attempt;
               logger.warn('[Loop Runner] Retrying item #' + (i + 1) + ' (attempt ' + (attempt + 1) + '/' + (this.maxItemRetries + 1) + ')');
-              itemResult.actions = [];
-              itemResult.downloadedFiles = [];
               await new Promise(r => setTimeout(r, 500));
-            }
 
-            try {
-              const beforeItemFiles = this.snapshotDownloadedFiles();
-
-              for (let actionOffset = 0; actionOffset < generalizedActions.length; actionOffset++) {
-            if (this.isAborted) throw new Error('Execution stopped by user');
-
-            const itemHandle = await ItemDiscovery.getItemHandle(page, discovery, i);
-            const itemElement = itemHandle.asElement();
-            if (!itemElement) {
-              await itemHandle.dispose().catch(() => {});
-              throw new Error(`Item at index ${i} could not be resolved`);
-            }
-
-            try {
-              await this.replayEngine.executeActionWithinItem(
-                itemElement,
-                generalizedActions[actionOffset],
-                loopStepIndex + actionOffset
-              );
-            } finally {
-              await itemElement.dispose().catch(() => {});
-            }
-
-            const action = generalizedActions[actionOffset];
-            const actionType = action.type || action.action || 'CLICK';
-            const actionResult = {
-              index: loopStepIndex + actionOffset + 1,
-              type: actionType,
-              status: 'SUCCESS'
-            };
-
-            if (actionType === 'CLICK' && this.downloadsDir) {
-              const downloaded = await this.waitForDownload(beforeItemFiles, 1200);
-              if (downloaded.length) {
-                itemResult.downloadedFiles.push(...downloaded);
-                actionResult.downloadedFiles = downloaded.map(file => file.filename);
+              // Reacquire the live DOM item and resume at the failed action checkpoint.
+              if (page.url() !== listPageUrl) {
+                try {
+                  await page.goto(listPageUrl, { waitUntil: 'domcontentloaded' });
+                  await new Promise(r => setTimeout(r, 1000));
+                } catch (restoreErr) {
+                  logger.warn('[Loop Runner] Could not restore list state before retry: ' + restoreErr.message);
+                }
               }
             }
 
+            try {
+              for (let actionOffset = nextActionOffset; actionOffset < generalizedActions.length; actionOffset++) {
+                if (this.isAborted) throw new Error('Execution stopped by user');
+
+                const itemHandle = await ItemDiscovery.getItemHandle(page, discovery, i);
+                const itemElement = itemHandle.asElement();
+                if (!itemElement) {
+                  await itemHandle.dispose().catch(() => {});
+                  throw new Error(`Item at index ${i} could not be resolved`);
+                }
+
+                try {
+                  await this.replayEngine.executeActionWithinItem(
+                    itemElement,
+                    generalizedActions[actionOffset],
+                    loopStepIndex + actionOffset
+                  );
+                } finally {
+                  await itemElement.dispose().catch(() => {});
+                }
+
+                const action = generalizedActions[actionOffset];
+                const actionType = action.type || action.action || 'CLICK';
+                const actionResult = {
+                  index: loopStepIndex + actionOffset + 1,
+                  type: actionType,
+                  status: 'SUCCESS'
+                };
+
+                const beforeActionFiles = this.snapshotDownloadedFiles();
+                if (actionType === 'CLICK' && this.downloadsDir) {
+                  const downloaded = await this.waitForDownload(beforeActionFiles, 1200);
+                  if (downloaded.length) {
+                    itemResult.downloadedFiles.push(...downloaded);
+                    actionResult.downloadedFiles = downloaded.map(file => file.filename);
+                  }
+                }
+
                 itemResult.actions.push(actionResult);
+                nextActionOffset = actionOffset + 1;
                 await new Promise(r => setTimeout(r, 300));
               }
 
               // Allow the complete per-item procedure to settle before restoring state.
-          await new Promise(r => setTimeout(r, 1000));
+              await new Promise(r => setTimeout(r, 1000));
 
-              // State Restoration: If URL changed or modal opened, restore to listPageUrl
               if (page.url() !== listPageUrl) {
                 logger.info('[Loop Runner] Restoring state -> Navigating back to: ' + listPageUrl);
                 await page.goto(listPageUrl, { waitUntil: 'domcontentloaded' });
@@ -490,14 +498,11 @@ class LoopReplayRunner {
               completed = true;
             } catch (attemptErr) {
               lastError = attemptErr;
-              logger.warn('[Loop Runner] Item #' + (i + 1) + ' attempt ' + (attempt + 1) + ' failed: ' + attemptErr.message);
-              try {
-                if (page.url() !== listPageUrl) {
-                  await page.goto(listPageUrl, { waitUntil: 'domcontentloaded' });
-                  await new Promise(r => setTimeout(r, 700));
-                }
-              } catch (recoveryErr) {
-                logger.warn('[Loop Runner] Recovery after item #' + (i + 1) + ' attempt failed: ' + recoveryErr.message);
+              logger.warn('[Loop Runner] Item #' + (i + 1) + ' attempt ' + (attempt + 1) + ' failed at action #' + (nextActionOffset + 1) + ': ' + attemptErr.message);
+
+              if (attempt < this.maxItemRetries) {
+                // Keep the checkpoint at the first action that did not complete.
+                continue;
               }
             }
           }
