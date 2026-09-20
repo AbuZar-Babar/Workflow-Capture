@@ -25,6 +25,7 @@ class LoopReplayRunner {
     this.downloadsDir = path.join(this.runsDir, 'downloads');
     this.replayEngine = new ReplayEngine({ cdpPort: this.cdpPort });
     this.maxItemRetries = Number.isInteger(options.maxItemRetries) ? Math.max(0, options.maxItemRetries) : 1;
+    this.resumeFromCheckpoint = options.resumeFromCheckpoint === true;
     this.isAborted = false;
   }
 
@@ -72,12 +73,20 @@ class LoopReplayRunner {
     return fs.existsSync(this.downloadsDir) ? fs.readdirSync(this.downloadsDir) : [];
   }
 
-  writeLoopCheckpoint(manifest, currentItemIndex = null, currentActionOffset = null) {
+  writeLoopCheckpoint(
+    manifest,
+    currentItemIndex = null,
+    currentActionOffset = null,
+    currentPage = 1,
+    currentPageItemIndex = null
+  ) {
     const checkpoint = {
       runId: manifest.runId,
       workflowId: manifest.workflowId,
       mode: manifest.mode,
       status: manifest.status,
+      currentPage,
+      currentPageItemIndex,
       currentItemIndex,
       currentActionOffset,
       completedItemIndexes: manifest.results
@@ -85,12 +94,49 @@ class LoopReplayRunner {
         .map(result => result.index),
       itemsSucceeded: manifest.itemsSucceeded,
       itemsFailed: manifest.itemsFailed,
+      pagesProcessed: manifest.pagesProcessed || currentPage,
+      results: manifest.results,
+      downloadedFiles: manifest.downloadedFiles,
       updatedAt: new Date().toISOString()
     };
     fs.writeFileSync(
       path.join(this.runsDir, 'checkpoint.json'),
       JSON.stringify(checkpoint, null, 2)
     );
+  }
+
+  loadLoopCheckpoint(workflow) {
+    if (!this.resumeFromCheckpoint) return null;
+
+    const checkpointPath = path.join(this.runsDir, 'checkpoint.json');
+    if (!fs.existsSync(checkpointPath)) return null;
+
+    try {
+      const checkpoint = JSON.parse(fs.readFileSync(checkpointPath, 'utf8'));
+
+      if (
+        checkpoint.runId !== this.runId ||
+        checkpoint.workflowId !== workflow.id ||
+        checkpoint.mode !== 'LOOP'
+      ) {
+        logger.warn('[Loop Runner] Existing checkpoint does not match this run/workflow. Starting fresh.');
+        return null;
+      }
+
+      logger.info(
+        '[Loop Runner] Resuming checkpoint: page ' +
+        (checkpoint.currentPage || 1) +
+        ', item ' +
+        (checkpoint.currentPageItemIndex == null ? '-' : checkpoint.currentPageItemIndex + 1) +
+        ', action offset ' +
+        (checkpoint.currentActionOffset || 0)
+      );
+
+      return checkpoint;
+    } catch (err) {
+      logger.warn('[Loop Runner] Could not read checkpoint. Starting fresh: ' + err.message);
+      return null;
+    }
   }
 
   async configureDownloadInterception(page) {
@@ -415,8 +461,25 @@ class LoopReplayRunner {
       downloadedFiles: []
     };
 
+    const checkpoint = this.loadLoopCheckpoint(workflow);
+    if (checkpoint) {
+      manifest.results = Array.isArray(checkpoint.results) ? checkpoint.results : [];
+      manifest.itemsSucceeded = Number.isInteger(checkpoint.itemsSucceeded)
+        ? checkpoint.itemsSucceeded
+        : manifest.results.filter(result => result.status === 'SUCCESS').length;
+      manifest.itemsFailed = Number.isInteger(checkpoint.itemsFailed)
+        ? checkpoint.itemsFailed
+        : manifest.results.filter(result => result.status === 'FAILED').length;
+      manifest.downloadedFiles = Array.isArray(checkpoint.downloadedFiles)
+        ? checkpoint.downloadedFiles
+        : [];
+      manifest.pagesProcessed = Number.isInteger(checkpoint.pagesProcessed)
+        ? checkpoint.pagesProcessed
+        : 1;
+    }
+
     logger.info(`[Loop Runner] Starting execution run ${this.runId} for workflow "${workflow.name}"`);
-    onProgress({ status: 'STARTING', manifest });
+    onProgress({ status: checkpoint ? 'RESUMING' : 'STARTING', manifest, checkpoint });
 
     try {
       const browser = await this.replayEngine.connect();
@@ -467,8 +530,9 @@ class LoopReplayRunner {
         }
       }
 
-      // Record baseline list page URL for state restoration
-      const listPageUrl = page.url();
+      // Capture the current page URL for state restoration. This must be updated
+      // per pagination page so retries on page 2+ do not accidentally return to page 1.
+      let currentPageUrl = page.url();
 
       // 3. Discover the collection from the element the user actually recorded.
       // ItemDiscovery replaces the old nth-child/container-only heuristic for the
@@ -506,8 +570,55 @@ class LoopReplayRunner {
         ? Math.max(1, workflow.pagination.maxPages)
         : 100;
       let currentPage = 1;
+      const resumePage = checkpoint && Number.isInteger(checkpoint.currentPage)
+        ? checkpoint.currentPage
+        : 1;
+      const resumePageItemIndex = checkpoint && Number.isInteger(checkpoint.currentPageItemIndex)
+        ? checkpoint.currentPageItemIndex
+        : 0;
+      const resumeActionOffset = checkpoint && Number.isInteger(checkpoint.currentActionOffset)
+        ? checkpoint.currentActionOffset
+        : 0;
+      const resumeItemIndex = checkpoint && Number.isInteger(checkpoint.currentItemIndex)
+        ? checkpoint.currentItemIndex
+        : null;
 
       while (true) {
+        currentPageUrl = page.url();
+
+        if (currentPage < resumePage) {
+          const advancedToResumePage = await this.advanceToNextPage(page, workflow);
+          if (!advancedToResumePage) {
+            throw new Error(`Could not reach checkpoint page #${resumePage}`);
+          }
+
+          const nextDiscovery = await ItemDiscovery.discover(
+            page,
+            targetStep.target || targetStep.fingerprint,
+            { minItems: 1, minScore: 0.55 }
+          );
+          if (!nextDiscovery.success || nextDiscovery.itemCount < 1) {
+            throw new Error(`Could not rediscover item collection while resuming page #${currentPage + 1}`);
+          }
+
+          const beforeResumeFingerprint = await this.getCollectionFingerprint(page, discovery.collection);
+          const afterResumeFingerprint = await this.getCollectionFingerprint(page, nextDiscovery.collection);
+          if (
+            beforeResumeFingerprint &&
+            afterResumeFingerprint &&
+            beforeResumeFingerprint === afterResumeFingerprint
+          ) {
+            throw new Error(`Pagination did not advance while resuming page #${currentPage + 1}`);
+          }
+
+          discovery = nextDiscovery;
+          currentPage++;
+          manifest.pagesProcessed = currentPage;
+          manifest.itemsTotal += discovery.itemCount;
+          currentPageUrl = page.url();
+          continue;
+        }
+
         for (let i = 0; i < discovery.itemCount; i++) {
         if (this.isAborted) {
           logger.warn(`[Loop Runner] Abort signal active before item #${i + 1}. Stopping loop.`);
@@ -515,14 +626,30 @@ class LoopReplayRunner {
           break;
         }
 
+        if (checkpoint && currentPage === resumePage && i < resumePageItemIndex) {
+          continue;
+        }
+
         logger.info(`\n[Loop Runner] --- Processing item [${i + 1}/${discovery.itemCount}] ---`);
         const itemResult = {
-          index: manifest.itemsSucceeded + manifest.itemsFailed + 1,
+          index: resumeItemIndex != null && currentPage === resumePage && i === resumePageItemIndex
+            ? resumeItemIndex
+            : manifest.results.reduce((max, result) => Math.max(max, Number(result.index) || 0), 0) + 1,
           status: 'PENDING',
           timestamp: new Date().toISOString(),
           error: null
         };
-        this.writeLoopCheckpoint(manifest, itemResult.index);
+        const startingActionOffset =
+          checkpoint && currentPage === resumePage && i === resumePageItemIndex
+            ? resumeActionOffset
+            : 0;
+        this.writeLoopCheckpoint(
+          manifest,
+          itemResult.index,
+          startingActionOffset,
+          currentPage,
+          i
+        );
 
         try {
           itemResult.actions = [];
@@ -532,7 +659,7 @@ class LoopReplayRunner {
 
           let completed = false;
           let lastError = null;
-          let nextActionOffset = 0;
+          let nextActionOffset = startingActionOffset;
 
           for (let attempt = 0; attempt <= this.maxItemRetries && !completed; attempt++) {
             if (this.isAborted) throw new Error('Execution stopped by user');
@@ -544,9 +671,9 @@ class LoopReplayRunner {
               await new Promise(r => setTimeout(r, 500));
 
               // Reacquire the live DOM item and resume at the failed action checkpoint.
-              if (page.url() !== listPageUrl) {
+              if (page.url() !== currentPageUrl) {
                 try {
-                  await page.goto(listPageUrl, { waitUntil: 'domcontentloaded' });
+                  await page.goto(currentPageUrl, { waitUntil: 'domcontentloaded' });
                   await new Promise(r => setTimeout(r, 1000));
                 } catch (restoreErr) {
                   logger.warn('[Loop Runner] Could not restore list state before retry: ' + restoreErr.message);
@@ -594,16 +721,22 @@ class LoopReplayRunner {
 
                 itemResult.actions.push(actionResult);
                 nextActionOffset = actionOffset + 1;
-                this.writeLoopCheckpoint(manifest, itemResult.index, nextActionOffset);
+                this.writeLoopCheckpoint(
+                  manifest,
+                  itemResult.index,
+                  nextActionOffset,
+                  currentPage,
+                  i
+                );
                 await new Promise(r => setTimeout(r, 300));
               }
 
               // Allow the complete per-item procedure to settle before restoring state.
               await new Promise(r => setTimeout(r, 1000));
 
-              if (page.url() !== listPageUrl) {
-                logger.info('[Loop Runner] Restoring state -> Navigating back to: ' + listPageUrl);
-                await page.goto(listPageUrl, { waitUntil: 'domcontentloaded' });
+              if (page.url() !== currentPageUrl) {
+                logger.info('[Loop Runner] Restoring state -> Navigating back to: ' + currentPageUrl);
+                await page.goto(currentPageUrl, { waitUntil: 'domcontentloaded' });
                 await new Promise(r => setTimeout(r, 1000));
               }
 
@@ -643,8 +776,8 @@ class LoopReplayRunner {
 
           // Attempt recovery
           try {
-            if (page.url() !== listPageUrl) {
-              await page.goto(listPageUrl, { waitUntil: 'domcontentloaded' });
+            if (page.url() !== currentPageUrl) {
+              await page.goto(currentPageUrl, { waitUntil: 'domcontentloaded' });
             }
           } catch {
             // Ignore recovery error
@@ -652,7 +785,13 @@ class LoopReplayRunner {
         }
 
         manifest.results.push(itemResult);
-        this.writeLoopCheckpoint(manifest, itemResult.status === 'SUCCESS' ? null : itemResult.index, null);
+        this.writeLoopCheckpoint(
+          manifest,
+          itemResult.status === 'SUCCESS' ? null : itemResult.index,
+          null,
+          currentPage,
+          itemResult.status === 'SUCCESS' ? null : i
+        );
         onProgress({ status: 'ITEM_COMPLETE', itemResult, manifest });
       }
 
@@ -689,6 +828,8 @@ class LoopReplayRunner {
         manifest.itemsTotal += discovery.itemCount;
         manifest.pagesProcessed = currentPage + 1;
         currentPage++;
+        currentPageUrl = page.url();
+        this.writeLoopCheckpoint(manifest, null, null, currentPage, null);
         logger.info('[Loop Runner] Advanced to page #' + currentPage + ' with ' + discovery.itemCount + ' item(s).');
         onProgress({ status: 'PAGE_COMPLETE', page: currentPage, manifest, discovery });
 
@@ -708,6 +849,7 @@ class LoopReplayRunner {
 
       manifest.status = this.isAborted ? 'STOPPED' : (manifest.itemsFailed > 0 ? 'COMPLETED_WITH_ERRORS' : 'COMPLETED');
       manifest.endTime = new Date().toISOString();
+      this.writeLoopCheckpoint(manifest, null, null, currentPage, null);
       logger.success(`\n[Loop Runner] Run ${this.runId} ${manifest.status}! Succeeded: ${manifest.itemsSucceeded}, Failed: ${manifest.itemsFailed}`);
 
     } catch (err) {
