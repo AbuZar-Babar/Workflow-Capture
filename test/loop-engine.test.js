@@ -51,12 +51,13 @@ function runLoopTests() {
     { type: 'TYPE', value: 'admin' },
     { type: 'CLICK', target: 'login-button' },
     { type: 'NAVIGATE', url: 'https://example.com/reports' },
-    { type: 'CLICK', selectors: { cssPath: 'table tbody tr:nth-child(1) a.download' } } // Loop target (index 4)
+    { type: 'CLICK', selectors: { cssPath: 'table tbody tr:nth-child(1) a.view' } }, // Loop action 1
+    { type: 'CLICK', selectors: { cssPath: 'table tbody tr:nth-child(1) a.download' } } // Loop action 2
   ];
 
   const partition = LoopDetector.partitionWorkflow(steps, 4);
   assert.strictEqual(partition.setupSteps.length, 4, 'Setup steps should contain 4 steps');
-  assert.strictEqual(partition.loopSteps.length, 1, 'Loop steps should contain target step');
+  assert.strictEqual(partition.loopSteps.length, 2, 'Loop steps should contain the complete per-item procedure');
   assert.strictEqual(partition.loopSteps[0].type, 'CLICK');
   console.log('  ✅ Step partitioning passed\n');
 
