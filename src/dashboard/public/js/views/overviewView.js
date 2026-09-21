@@ -23,13 +23,15 @@ export const OverviewView = {
             <p>Record a browser workflow, discover the items it should process, then execute it with progress and recovery.</p>
           </div>
           <div class="dashboard-hero-actions">
-            <button class="btn btn-primary dashboard-primary-action" id="btnOverviewStartRec" aria-live="polite">
-              <svg class="record-button-icon" width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
-              <span id="overviewRecordButtonLabel">Start Recording</span>
-              <span class="record-button-meta hidden" id="overviewRecordButtonMeta">00:00 · 0 actions</span>
-            </button>
-            <button class="btn btn-danger dashboard-hero-stop hidden" id="btnOverviewStopRecHero" aria-label="Stop and save recording"><span>■</span> <span>Stop &amp; Save</span></button>
-            <button class="btn btn-secondary" id="btnOverviewLaunchChrome">
+            <div class="dashboard-hero-recorder-group">
+              <input type="text" id="overviewRecName" class="form-control hero-rec-input" placeholder="Workflow name (e.g. process-invoices)" spellcheck="false" title="Workflow Name">
+              <button class="btn btn-primary dashboard-primary-action" id="btnOverviewStartRec" aria-live="polite">
+                <svg class="record-button-icon" width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
+                <span id="overviewRecordButtonLabel">Start Recording</span>
+                <span class="record-button-meta hidden" id="overviewRecordButtonMeta">00:00 · 0 actions</span>
+              </button>
+            </div>
+            <button class="btn btn-secondary" id="btnOverviewLaunchChrome" title="Launch Google Chrome with CDP Remote Debugging enabled">
               <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15.5 14.5a6 6 0 1 1-5.8-7.4h1.8a4 4 0 0 0-3.6 2.5m1.3-3.1 4.2-4.2a1 1 0 0 1 1.4 0l1.4 1.4a1 1 0 0 1 0 1.4l-4.2 4.2"/></svg>
               <span>Launch Chrome</span>
             </button>
@@ -123,23 +125,6 @@ export const OverviewView = {
             </section>
           </aside>
         </div>
-
-        <section class="card dashboard-recorder-card">
-          <div class="dashboard-recorder-main">
-            <div>
-              <span class="eyebrow">Current recording</span>
-              <h3>Capture a workflow</h3>
-              <p>Name your procedure, interact with the browser, and save the captured actions for replay.</p>
-            </div>
-            <div class="dashboard-recorder-controls">
-              <input type="text" id="overviewRecName" class="form-control" placeholder="e.g. process-invoices" spellcheck="false">
-              <button class="btn btn-danger hidden" id="btnOverviewStopRec">Stop & Save</button>
-            </div>
-          </div>
-          <div class="progress-container hidden" id="overviewRecStats">
-            <div class="dashboard-progress-head"><span><strong id="overviewRecActionCount">0</strong> actions captured</span><span id="overviewRecElapsed">00:00</span></div>
-          </div>
-        </section>
       </div>
 
       <div class="discovery-overlay hidden" id="workflowDiscoveryOverlay" role="dialog" aria-modal="true" aria-labelledby="discoveryTitle">
@@ -181,10 +166,8 @@ export const OverviewView = {
       };
     }
 
-    // Recorder bindings
+    // Unified Hero Recorder bindings
     const btnStart = document.getElementById('btnOverviewStartRec');
-    const btnStop = document.getElementById('btnOverviewStopRec');
-    const btnStopHero = document.getElementById('btnOverviewStopRecHero');
     const inputName = document.getElementById('overviewRecName');
 
     const startRecording = async () => {
@@ -200,16 +183,10 @@ export const OverviewView = {
 
     const stopRecording = async () => {
       try {
-        if (btnStopHero) {
-          btnStopHero.disabled = true;
-          btnStopHero.innerHTML = '<span>⏳</span> <span>Saving…</span>';
-        }
-        if (btnStop) {
-          btnStop.disabled = true;
-          btnStop.textContent = 'Saving…';
-        }
         if (btnStart) {
           btnStart.disabled = true;
+          const label = document.getElementById('overviewRecordButtonLabel');
+          if (label) label.textContent = 'Saving…';
         }
         const res = await Api.stopRecording();
         Toast.success(`Recording saved: ${res.summary.actionCount} steps captured`);
@@ -222,14 +199,6 @@ export const OverviewView = {
         Toast.error(err.message);
         this.setRecordingState(false);
       } finally {
-        if (btnStopHero) {
-          btnStopHero.disabled = false;
-          btnStopHero.innerHTML = '<span>■</span> <span>Stop &amp; Save</span>';
-        }
-        if (btnStop) {
-          btnStop.disabled = false;
-          btnStop.textContent = 'Stop & Save';
-        }
         if (btnStart) {
           btnStart.disabled = false;
         }
@@ -246,8 +215,13 @@ export const OverviewView = {
       };
     }
 
-    if (btnStop) btnStop.onclick = stopRecording;
-    if (btnStopHero) btnStopHero.onclick = stopRecording;
+    if (inputName) {
+      inputName.onkeydown = (e) => {
+        if (e.key === 'Enter' && !this.isRecording) {
+          startRecording();
+        }
+      };
+    }
 
     // Replay bindings
     const speedRange = document.getElementById('overviewSpeedRange');
@@ -440,12 +414,9 @@ export const OverviewView = {
 
   setRecordingState(isRecording, meta = {}) {
     const btnStart = document.getElementById('btnOverviewStartRec');
-    const btnStop = document.getElementById('btnOverviewStopRec');
-    const btnStopHero = document.getElementById('btnOverviewStopRecHero');
-    const badge = document.getElementById('overviewRecBadge');
-    const stats = document.getElementById('overviewRecStats');
     const input = document.getElementById('overviewRecName');
-    const elElapsed = document.getElementById('overviewRecElapsed');
+    const btnLabel = document.getElementById('overviewRecordButtonLabel');
+    const btnMeta = document.getElementById('overviewRecordButtonMeta');
 
     if (isRecording) {
       this.isRecording = true;
@@ -455,14 +426,8 @@ export const OverviewView = {
         btnStart.setAttribute('aria-label', 'Stop and save recording');
         btnStart.disabled = false;
       }
-      const btnLabel = document.getElementById('overviewRecordButtonLabel');
-      const btnMeta = document.getElementById('overviewRecordButtonMeta');
       if (btnLabel) btnLabel.textContent = 'Stop Recording';
       if (btnMeta) btnMeta.classList.remove('hidden');
-      if (btnStop) btnStop.classList.remove('hidden');
-      if (btnStopHero) btnStopHero.classList.remove('hidden');
-      if (badge) badge.classList.remove('hidden');
-      if (stats) stats.classList.remove('hidden');
       if (input) input.disabled = true;
 
       Header.setEngineState('RECORDING');
@@ -472,8 +437,6 @@ export const OverviewView = {
         const mins = String(Math.floor(sec / 60)).padStart(2, '0');
         const secs = String(sec % 60).padStart(2, '0');
         const elapsed = mins + ':' + secs;
-        if (elElapsed) elElapsed.textContent = elapsed;
-        const btnMeta = document.getElementById('overviewRecordButtonMeta');
         if (btnMeta) btnMeta.textContent = elapsed + ' · 0 actions';
         try {
           const status = await Api.getStatus();
@@ -482,8 +445,6 @@ export const OverviewView = {
           const startedAt = recorder.startedAt ? new Date(recorder.startedAt).getTime() : this.recordStartTime;
           if (startedAt) this.recordStartTime = startedAt;
           if (btnMeta) btnMeta.textContent = elapsed + ' · ' + actionCount + ' action' + (actionCount === 1 ? '' : 's');
-          const actionCountEl = document.getElementById('overviewRecActionCount');
-          if (actionCountEl) actionCountEl.textContent = actionCount;
           if (!recorder.isRecording && this.isRecording) this.setRecordingState(false);
         } catch (err) {
           // Keep the local indicator alive if the status endpoint is temporarily unavailable.
@@ -499,14 +460,8 @@ export const OverviewView = {
         btnStart.disabled = false;
         btnStart.setAttribute('aria-label', 'Start recording');
       }
-      const btnLabel = document.getElementById('overviewRecordButtonLabel');
-      const btnMeta = document.getElementById('overviewRecordButtonMeta');
       if (btnLabel) btnLabel.textContent = 'Start Recording';
       if (btnMeta) btnMeta.classList.add('hidden');
-      if (btnStop) btnStop.classList.add('hidden');
-      if (btnStopHero) btnStopHero.classList.add('hidden');
-      if (badge) badge.classList.add('hidden');
-      if (stats) stats.classList.add('hidden');
       if (input) input.disabled = false;
 
       Header.setEngineState('IDLE');

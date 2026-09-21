@@ -1,0 +1,1638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Workflow Capture — Comprehensive Implementation & Feature Deliverables Report</title>
+  
+  <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      
+      --bg-page: #0b0f17;
+      --bg-card: #111827;
+      --bg-card-subtle: #162032;
+      --bg-surface: #1e293b;
+      
+      --border-color: rgba(255, 255, 255, 0.08);
+      --border-accent: rgba(16, 185, 129, 0.3);
+      
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      
+      --brand-primary: #10b981;
+      --brand-primary-dark: #059669;
+      --brand-primary-light: #34d399;
+      --brand-forest: #0c5c3f;
+      --brand-forest-glow: rgba(12, 92, 63, 0.35);
+      
+      --brand-blue: #3b82f6;
+      --brand-purple: #8b5cf6;
+      --brand-amber: #f59e0b;
+      --brand-rose: #f43f5e;
+      --brand-cyan: #06b6d4;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-page);
+      color: var(--text-main);
+      line-height: 1.65;
+      font-size: 15px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Top Utility Bar */
+    .top-toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(11, 15, 23, 0.88);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 0.8rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .toolbar-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 800;
+      font-size: 1.05rem;
+      letter-spacing: -0.02em;
+    }
+
+    .toolbar-brand-badge {
+      background: var(--brand-forest);
+      color: #34d399;
+      font-size: 0.7rem;
+      font-weight: 800;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      border: 1px solid rgba(52, 211, 153, 0.3);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      border: none;
+      font-family: inherit;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--brand-primary), var(--brand-primary-dark));
+      color: #ffffff;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
+    }
+
+    .btn-secondary {
+      background: var(--bg-surface);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+    }
+    .btn-secondary:hover {
+      background: #273549;
+    }
+
+    /* Main Container Layout */
+    .report-container {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 2.5rem 2rem 5rem 2rem;
+    }
+
+    /* Cover / Header Section */
+    .report-hero {
+      background: radial-gradient(circle at 80% 20%, rgba(16, 185, 129, 0.15), transparent 45%),
+                  linear-gradient(180deg, var(--bg-card) 0%, var(--bg-card-subtle) 100%);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 3.5rem 3rem;
+      margin-bottom: 2.5rem;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+    }
+
+    .report-hero::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, var(--brand-primary), var(--brand-cyan), var(--brand-purple));
+    }
+
+    .report-meta-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      padding: 0.28rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .chip.highlight {
+      background: rgba(16, 185, 129, 0.12);
+      border-color: rgba(16, 185, 129, 0.35);
+      color: #6ee7b7;
+    }
+
+    .report-title {
+      font-size: 2.5rem;
+      font-weight: 800;
+      letter-spacing: -0.035em;
+      line-height: 1.2;
+      margin-bottom: 1rem;
+      background: linear-gradient(135deg, #ffffff 40%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .report-subtitle {
+      font-size: 1.15rem;
+      color: var(--text-muted);
+      max-width: 880px;
+      margin-bottom: 2rem;
+      line-height: 1.6;
+    }
+
+    .author-card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.25rem;
+      padding-top: 1.75rem;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .author-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .author-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+    }
+
+    .author-val {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    /* Table of Contents */
+    .toc-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 1.75rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .toc-title {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--brand-primary-light);
+    }
+
+    .toc-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 0.6rem 1.5rem;
+    }
+
+    .toc-link {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.88rem;
+      padding: 0.35rem 0.5rem;
+      border-radius: 6px;
+      transition: all 0.15s ease;
+    }
+    .toc-link:hover {
+      background: var(--bg-surface);
+      color: var(--brand-primary-light);
+      transform: translateX(3px);
+    }
+    .toc-num {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--brand-primary);
+      font-weight: 700;
+    }
+
+    /* Section Styles */
+    .section-block {
+      margin-bottom: 3.5rem;
+      scroll-margin-top: 5rem;
+    }
+
+    .section-header {
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 0.85rem;
+    }
+
+    .section-header-title {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .section-badge-num {
+      width: 32px;
+      height: 32px;
+      background: var(--brand-forest);
+      color: #34d399;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      border: 1px solid rgba(52, 211, 153, 0.3);
+    }
+
+    .section-header h2 {
+      font-size: 1.45rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .section-desc {
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+      font-size: 0.95rem;
+      line-height: 1.7;
+    }
+
+    /* Architecture Visual Callout */
+    .arch-flow-diagram {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .arch-flow-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      align-items: center;
+      position: relative;
+    }
+
+    .arch-step-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+    .arch-step-card:hover {
+      border-color: var(--brand-primary);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+    }
+
+    .arch-step-badge {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: var(--brand-primary-light);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .arch-step-title {
+      font-weight: 700;
+      font-size: 0.92rem;
+      color: #ffffff;
+    }
+
+    .arch-step-text {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* Feature Deep Dive Grid */
+    .feature-card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 1.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.1rem;
+      position: relative;
+      transition: all 0.25s ease;
+    }
+    .feature-card:hover {
+      border-color: rgba(255, 255, 255, 0.16);
+      transform: translateY(-3px);
+      box-shadow: 0 16px 32px -8px rgba(0, 0, 0, 0.4);
+    }
+
+    .feature-card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .feature-icon-box {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      background: var(--bg-surface);
+      color: var(--brand-primary-light);
+      border: 1px solid var(--border-color);
+      flex-shrink: 0;
+    }
+
+    .feature-card-title {
+      font-size: 1.12rem;
+      font-weight: 700;
+      letter-spacing: -0.015em;
+      color: #ffffff;
+      margin-bottom: 0.2rem;
+    }
+
+    .feature-card-tag {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      color: var(--brand-cyan);
+      display: block;
+    }
+
+    .feature-card-body {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+      flex: 1;
+    }
+
+    .feature-highlight-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-top: 0.6rem;
+    }
+
+    .feature-highlight-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.55rem;
+      font-size: 0.82rem;
+      color: #cbd5e1;
+    }
+
+    .feature-highlight-list li::before {
+      content: "✓";
+      color: var(--brand-primary);
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+
+    .feature-tech-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      font-family: var(--font-mono);
+      font-size: 0.73rem;
+      color: var(--text-dim);
+    }
+
+    .code-badge {
+      background: rgba(0, 0, 0, 0.4);
+      padding: 0.2rem 0.55rem;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      color: #93c5fd;
+    }
+
+    /* Verification & Metrics Table */
+    .metrics-table-wrapper {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 2rem;
+    }
+
+    table.report-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.88rem;
+    }
+
+    table.report-table th {
+      background: var(--bg-surface);
+      color: #ffffff;
+      font-weight: 700;
+      padding: 0.95rem 1.25rem;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    table.report-table td {
+      padding: 0.95rem 1.25rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: #cbd5e1;
+    }
+
+    table.report-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    table.report-table tr:hover td {
+      background: rgba(255, 255, 255, 0.015);
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .status-pill.pass {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .status-pill.active {
+      background: rgba(59, 130, 246, 0.15);
+      color: #93c5fd;
+      border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+
+    /* Executive Callout Card */
+    .callout-box {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(12, 92, 63, 0.05) 100%);
+      border: 1px solid var(--border-accent);
+      border-radius: 14px;
+      padding: 1.5rem;
+      display: flex;
+      gap: 1.25rem;
+      align-items: flex-start;
+      margin-bottom: 2rem;
+    }
+
+    .callout-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: var(--brand-forest);
+      color: var(--brand-primary-light);
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      font-size: 1.2rem;
+    }
+
+    .callout-content h4 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 0.35rem;
+    }
+
+    .callout-content p {
+      font-size: 0.88rem;
+      color: #cbd5e1;
+      line-height: 1.6;
+    }
+
+    /* Code Snippet Box */
+    .code-preview-box {
+      background: #090d14;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.25rem;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: #cbd5e1;
+      overflow-x: auto;
+      line-height: 1.6;
+      margin-top: 1rem;
+    }
+
+    .code-preview-box .hl-keyword { color: #f43f5e; font-weight: 700; }
+    .code-preview-box .hl-fn { color: #60a5fa; }
+    .code-preview-box .hl-str { color: #34d399; }
+    .code-preview-box .hl-comment { color: #64748b; font-style: italic; }
+
+    /* Footer */
+    .report-footer {
+      border-top: 1px solid var(--border-color);
+      padding-top: 2.5rem;
+      margin-top: 4rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 0.85rem;
+    }
+
+    /* Print Styles */
+    @media print {
+      body {
+        background: #ffffff !important;
+        color: #0f172a !important;
+        font-size: 11pt;
+      }
+      .top-toolbar {
+        display: none !important;
+      }
+      .report-container {
+        max-width: 100% !important;
+        padding: 0 !important;
+      }
+      .report-hero {
+        background: #f8fafc !important;
+        border: 1px solid #cbd5e1 !important;
+        box-shadow: none !important;
+        color: #0f172a !important;
+        padding: 2rem !important;
+        break-after: avoid;
+      }
+      .report-title {
+        background: none !important;
+        -webkit-text-fill-color: #0f172a !important;
+        color: #0f172a !important;
+      }
+      .author-val {
+        color: #0f172a !important;
+      }
+      .feature-card, .arch-step-card, .toc-card, .metrics-table-wrapper {
+        background: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        color: #0f172a !important;
+        box-shadow: none !important;
+        break-inside: avoid;
+      }
+      .feature-card-title, .arch-step-title, .callout-content h4 {
+        color: #0f172a !important;
+      }
+      .feature-card-body, .section-desc, .callout-content p {
+        color: #334155 !important;
+      }
+      table.report-table th {
+        background: #f1f5f9 !important;
+        color: #0f172a !important;
+      }
+      table.report-table td {
+        color: #1e293b !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+      }
+      .code-preview-box {
+        background: #f8fafc !important;
+        border: 1px solid #cbd5e1 !important;
+        color: #0f172a !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Sticky Navigation & Action Toolbar -->
+  <header class="top-toolbar">
+    <div class="toolbar-brand">
+      <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" style="color:var(--brand-primary);">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+      </svg>
+      <span>Workflow Capture</span>
+      <span class="toolbar-brand-badge">Engineering Report</span>
+    </div>
+    <div class="toolbar-actions">
+      <a href="/#overview" class="btn btn-secondary">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+        <span>Live Dashboard</span>
+      </a>
+      <button class="btn btn-primary" onclick="window.print()">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+        <span>Print / Save as PDF</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="report-container">
+
+    <!-- Document Cover & Header Meta -->
+    <section class="report-hero">
+      <div class="report-meta-chips">
+        <span class="chip highlight">
+          <span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#10b981;"></span>
+          Final Year Project (FYP)
+        </span>
+        <span class="chip">Department of Computer Science &amp; Software Engineering</span>
+        <span class="chip">Academic Year 2025–2026</span>
+        <span class="chip">Milestone 2 Status: Verified &amp; Passing</span>
+      </div>
+
+      <h1 class="report-title">Workflow Capture &amp; Intelligent Automation Platform</h1>
+      <p class="report-subtitle">
+        A generic, portal-agnostic browser automation engine featuring live Chrome DevTools Protocol (CDP) attachment, isomorphic weighted element fingerprinting, deterministic collection discovery, human-like stealth kinematics, and fault-tolerant batch loop execution.
+      </p>
+
+      <div class="author-card-grid">
+        <div class="author-item">
+          <span class="author-label">Student / Developer</span>
+          <span class="author-val">AbuZar Babar</span>
+        </div>
+        <div class="author-item">
+          <span class="author-label">Project Domain</span>
+          <span class="author-val">Browser Automation &amp; RPA</span>
+        </div>
+        <div class="author-item">
+          <span class="author-label">Core Philosophy</span>
+          <span class="author-val">Record Procedure, Not Records</span>
+        </div>
+        <div class="author-item">
+          <span class="author-label">Active Branch</span>
+          <span class="author-val">feature/item-discovery</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Executive Summary Callout -->
+    <div class="callout-box">
+      <div class="callout-icon">🎯</div>
+      <div class="callout-content">
+        <h4>Executive Summary &amp; Problem Statement</h4>
+        <p>
+          Conventional robotic process automation (RPA) and record-and-replay tools suffer from three severe bottlenecks: 
+          <strong>(1) Credential Loss &amp; 2FA Failure</strong> (launching blank browsers that cannot bypass modern enterprise SSO or MFA), 
+          <strong>(2) Selector Fragility</strong> (breaking when framework-generated IDs or dynamic layouts mutate), and 
+          <strong>(3) Inability to Scale Beyond a Single Demonstrated Action</strong>.
+        </p>
+        <p style="margin-top:0.65rem;">
+          <strong>Workflow Capture</strong> solves this by attaching directly to the user's running, authenticated Google Chrome instance, computing resilient multi-factor selector fingerprints, and applying an intelligent <em>Item Discovery and Action Generalizer engine</em>. An operator demonstrates how to download <strong>one invoice</strong>; the system automatically locates all equivalent records on the page, generalizes the procedure, isolates item errors, and produces an auditable run manifest with downloaded artifacts.
+        </p>
+      </div>
+    </div>
+
+    <!-- Table of Contents -->
+    <nav class="toc-card" aria-label="Table of Contents">
+      <div class="toc-title">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h7"/></svg>
+        <span>Report Sections &amp; Feature Index</span>
+      </div>
+      <div class="toc-grid">
+        <a href="#arch-overview" class="toc-link"><span class="toc-num">01.</span> Core Architecture &amp; Execution Pipeline</a>
+        <a href="#feat-cdp" class="toc-link"><span class="toc-num">02.</span> Zero-Throwaway Browser Attachment (CDP)</a>
+        <a href="#feat-recorder" class="toc-link"><span class="toc-num">03.</span> In-Page Event Recording &amp; Capture Controls</a>
+        <a href="#feat-resolver" class="toc-link"><span class="toc-num">04.</span> Isomorphic Weighted Selector Resolver</a>
+        <a href="#feat-discovery" class="toc-link"><span class="toc-num">05.</span> Deterministic Item Discovery Engine</a>
+        <a href="#feat-generalizer" class="toc-link"><span class="toc-num">06.</span> Scoped Action Generalizer (:scope)</a>
+        <a href="#feat-loop" class="toc-link"><span class="toc-num">07.</span> Fault-Tolerant Loop &amp; Artifact Tracking</a>
+        <a href="#feat-stealth" class="toc-link"><span class="toc-num">08.</span> Human Mouse Kinematics &amp; Evasion</a>
+        <a href="#feat-dashboard" class="toc-link"><span class="toc-num">09.</span> Visual Control Room &amp; SPA Dashboard</a>
+        <a href="#feat-backend" class="toc-link"><span class="toc-num">10.</span> Transactional DB, REST API &amp; Security</a>
+        <a href="#metrics-testing" class="toc-link"><span class="toc-num">11.</span> Automated Test Verification &amp; Pass Rates</a>
+        <a href="#future-scope" class="toc-link"><span class="toc-num">12.</span> Next Milestones &amp; Document AI Roadmap</a>
+      </div>
+    </nav>
+
+    <!-- SECTION 1: System Architecture -->
+    <section class="section-block" id="arch-overview">
+      <div class="section-header">
+        <div class="section-header-title">
+          <span class="section-badge-num">01</span>
+          <h2>End-to-End Execution Pipeline</h2>
+        </div>
+        <span class="chip highlight">Deterministic Design</span>
+      </div>
+      <p class="section-desc">
+        The system workflow operates deterministically from user demonstration to batch artifact collection without requiring cloud credentials or complex machine learning models at the core execution layer:
+      </p>
+
+      <div class="arch-flow-diagram">
+        <div class="arch-flow-row">
+          <div class="arch-step-card">
+            <span class="arch-step-badge">Step 1 • Capture</span>
+            <span class="arch-step-title">Human Demonstration</span>
+            <span class="arch-step-text">Operator records a single invoice download in live Chrome via CDP.</span>
+          </div>
+          <div class="arch-step-card">
+            <span class="arch-step-badge">Step 2 • Fingerprint</span>
+            <span class="arch-step-title">Selector Resolver</span>
+            <span class="arch-step-text">Calculates multi-candidate selectors and strips transient framework noise.</span>
+          </div>
+          <div class="arch-step-card">
+            <span class="arch-step-badge">Step 3 • Discover</span>
+            <span class="arch-step-title">Item Discovery</span>
+            <span class="arch-step-text">Detects repeated table rows/cards and presents count &amp; confidence for confirmation.</span>
+          </div>
+          <div class="arch-step-card">
+            <span class="arch-step-badge">Step 4 • Generalize</span>
+            <span class="arch-step-title">Action Generalizer</span>
+            <span class="arch-step-text">Converts row-specific CSS into item-scoped (<code>:scope</code>) relative targets.</span>
+          </div>
+        </div>
+
+        <div class="arch-flow-row">
+          <div class="arch-step-card">
+            <span class="arch-step-badge">Step 5 • Kinematics</span>
+            <span class="arch-step-title">Human Stealth Evasion</span>
+            <span class="arch-step-text">Applies Bézier curve trajectories and typing hesitation cadences.</span>
+          </div>
+          <div class="arch-step-card">
+            <span class="arch-step-badge">Step 6 • Isolation</span>
+            <span class="arch-step-title">Loop Execution Engine</span>
+            <span class="arch-step-text">Processes each item sequentially. Failed items are isolated without crashing the run.</span>
+          </div>
+          <div class="arch-step-card">
+            <span class="arch-step-badge">Step 7 • Storage</span>
+            <span class="arch-step-title">Artifact Interceptor</span>
+            <span class="arch-step-text">Catches downloaded PDFs/CSVs and groups them per item in run directories.</span>
+          </div>
+          <div class="arch-step-card">
+            <span class="arch-step-badge">Step 8 • Audit</span>
+            <span class="arch-step-title">Run Manifest &amp; Monitor</span>
+            <span class="arch-step-text">Emits structured JSON manifest ready for future Document AI pipelines.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: Feature Deep-Dive Modules -->
+    <section class="section-block" id="feat-cdp">
+      <div class="section-header">
+        <div class="section-header-title">
+          <span class="section-badge-num">02</span>
+          <h2>Module 1 — Zero-Throwaway Browser Connection (CDP)</h2>
+        </div>
+        <span class="code-badge">src/utils/cdp-connector.js</span>
+      </div>
+      <p class="section-desc">
+        Traditional headless drivers throw away the user session on every run, failing on enterprise portals that enforce CAPTCHA, Okta/Azure SSO, or biometric 2FA.
+      </p>
+
+      <div class="feature-card-grid">
+        <div class="feature-card">
+          <div class="feature-card-header">
+            <div>
+              <h3 class="feature-card-title">Live Remote Debugging (Port 9222)</h3>
+              <span class="feature-card-tag">Native Chrome Protocol</span>
+            </div>
+            <div class="feature-icon-box">🔌</div>
+          </div>
+          <p class="feature-card-body">
+            Attaches directly to an existing, already authenticated Google Chrome process over CDP WebSocket endpoints without killing or restarting the user's browser.
+          </p>
+          <ul class="feature-highlight-list">
+            <li>Reuses active logins, session cookies, and local storage tokens.</li>
+            <li>Zero credential handoffs: user authenticates once manually.</li>
+            <li>Browser stays open after replay without interrupting user work.</li>
+          </ul>
+          <div class="feature-tech-meta">
+            <span>Module: cdp-connector.js</span>
+            <span class="status-pill pass">Verified</span>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-card-header">
+            <div>
+              <h3 class="feature-card-title">Deep Iframe &amp; Modal Ingestion</h3>
+              <span class="feature-card-tag">Recursive Child Frame Sweeper</span>
+            </div>
+            <div class="feature-icon-box">🪟</div>
+          </div>
+          <p class="feature-card-body">
+            Enterprise portals (e.g. DevExpress ReportViewer, SAP, Salesforce) heavily utilize child iframes and shadow roots for invoice viewing.
+          </p>
+          <ul class="feature-highlight-list">
+            <li>Hooks <code>frameattached</code> and <code>framenavigated</code> events.</li>
+            <li>Periodically sweeps dynamic document trees to inject recorder hooks into newly opened modal dialogs.</li>
+            <li>Ensures actions within popups are captured identically to top-level pages.</li>
+          </ul>
+          <div class="feature-tech-meta">
+            <span>Module: recorder-bridge.js</span>
+            <span class="status-pill pass">Verified</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 3: Recording Controls -->
+    <section class="section-block" id="feat-recorder">
+      <div class="section-header">
+        <div class="section-header-title">
+          <span class="section-badge-num">03</span>
+          <h2>Module 2 — In-Page Event Capture &amp; Dual-Action Recording</h2>
+        </div>
+        <span class="code-badge">src/recorder/</span>
+      </div>
+      <p class="section-desc">
+        Lightweight script injected into every document and iframe to monitor and capture user interactions with millisecond timing precision and automatic debouncing.
+      </p>
+
+      <div class="feature-card-grid">
+        <div class="feature-card">
+          <div class="feature-card-header">
+            <div>
+              <h3 class="feature-card-title">Full Action Taxonomy &amp; Debounce</h3>
+              <span class="feature-card-tag">CLICK, DBLCLICK, TYPE, SELECT, KEY</span>
+            </div>
+            <div class="feature-icon-box">🎯</div>
+          </div>
+          <p class="feature-card-body">
+            Captures atomic interactions while intelligently cleaning event bubbling artifacts and rapid double-triggers.
+          </p>
+          <ul class="feature-highlight-list">
+            <li><strong>Double-click Consolidation</strong>: Merges rapid clicks on the same target within 450ms into a single <code>DOUBLE_CLICK</code>.</li>
+            <li><strong>Duplicate Discarding</strong>: Filters out dual-fired click events within 150ms on identical elements.</li>
+            <li><strong>Buffer Flushing</strong>: In-page typing buffer flushes pending keystrokes before navigation or stop signals.</li>
+          </ul>
+          <div class="feature-tech-meta">
+            <span>File: recorder-injected.js</span>
+            <span class="status-pill pass">Verified</span>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-card-header">
+            <div>
+              <h3 class="feature-card-title">Dual-Action UI &amp; Global Status Bar</h3>
+              <span class="feature-card-tag">Fail-Safe Operator Controls</span>
+            </div>
+            <div class="feature-icon-box">⏹️</div>
+          </div>
+          <p class="feature-card-body">
+            Provides clear, ubiquitous controls so the user can start and reliably stop recording at any moment from anywhere in the application.
+          </p>
+          <ul class="feature-highlight-list">
+            <li><strong>Toggle Button</strong>: "Start Recording" transforms into "Stop Recording" with live timer and click-to-stop capability.</li>
+            <li><strong>Dedicated Hero Stop Button</strong>: Prominent red <code>■ Stop &amp; Save</code> button slides into view during active sessions.</li>
+            <li><strong>Global Floating Banner</strong>: Fixed glassmorphic banner appears across all tabs and routes with live action counts.</li>
+            <li><strong>Universal Stop Sync</strong>: Sidebar and execution abort signals also save any in-flight recording safely.</li>
+          </ul>
+          <div class="feature-tech-meta">
+            <span>Files: overviewView.js, header.js</span>
+            <span class="status-pill pass">Verified</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 4: Selector Resolver -->
+    <section class="section-block" id="feat-resolver">
+      <div class="section-header">
+        <div class="section-header-title">
+          <span class="section-badge-num">04</span>
+          <h2>Module 3 — Isomorphic Weighted Selector Resolver</h2>
+        </div>
+        <span class="code-badge">src/shared/selector-resolver.js</span>
+      </div>
+      <p class="section-desc">
+        A single, isomorphic JavaScript engine running identically in the browser during recording and during replay. Generates ranked candidate selectors and applies weighted fingerprint matching when DOM structures shift.
+      </p>
+
+      <div class="feature-card-grid">
+        <div class="feature-card">
+          <div class="feature-card-header">
+            <div>
+              <h3 class="feature-card-title">Dynamic ID &amp; Class Filtering</h3>
+              <span class="feature-card-tag">Anti-Noise Heuristics</span>
+            </div>
+            <div class="feature-icon-box">🛡️</div>
+          </div>
+          <p class="feature-card-body">
+            Enterprise frameworks generate volatile IDs (e.g. Angular <code>mat-input-0</code>, ExtJS <code>ext-gen1042</code>, React <code>:r1:</code>) that change every render.
+          </p>
+          <ul class="feature-highlight-list">
+            <li>Identifies and purges randomized numeric and framework hash suffixes.</li>
+            <li>Filters transient UI state classes (<code>active</code>, <code>hover</code>, <code>mat-focused</code>, <code>ng-dirty</code>).</li>
+            <li>Protects against brittle element lookup during replay.</li>
+          </ul>
+          <div class="feature-tech-meta">
+            <span>Test: selector-resolver.test.js</span>
+            <span class="status-pill pass">Passing (8/8)</span>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-card-header">
+            <div>
+              <h3 class="feature-card-title">Multi-Factor Fingerprint Scoring</h3>
+              <span class="feature-card-tag">Weighted Match Resolution</span>
+            </div>
+            <div class="feature-icon-box">⚖️</div>
+          </div>
+          <p class="feature-card-body">
+            When strict CSS selectors fail due to layout updates, the resolver evaluates candidate elements using multi-factor fingerprint weights:
+          </p>
+          <ul class="feature-highlight-list">
+            <li><strong>Tag Name Match</strong>: Mandatory baseline (failure yields 0 score).</li>
+            <li><strong>Stable ID &amp; Data Attributes</strong>: Weighted at 30% contribution.</li>
+            <li><strong>ARIA Role &amp; Semantic Labels</strong>: Weighted at 25% contribution.</li>
+            <li><strong>Tokenized Text Overlap (Jaccard)</strong>: Resilient against Angular template whitespace variations.</li>
+          </ul>
+          <div class="feature-tech-meta">
+            <span>Confidence Threshold: ≥ 0.70</span>
+            <span class="status-pill pass">Verified</span>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-card-header">
+            <div>
+              <h3 class="feature-card-title">Angular Material MDC Resiliency</h3>
+              <span class="feature-card-tag">Complex Component Handling</span>
+            </div>
+            <div class="feature-icon-box">⚡</div>
+          </div>
+          <p class="feature-card-body">
+            Handles complex multi-layer web components natively:
+          </p>
+          <ul class="feature-highlight-list">
+            <li><strong>Composite Control Mapping</strong>: Interacts with the parent host rather than internal non-clickable pseudo-checkboxes.</li>
+            <li><strong>Backdrop Dismissal</strong>: Discovers transparent CDK overlay backdrops to close open dropdown menus cleanly.</li>
+            <li><strong>Idempotent Comboboxes</strong>: Checks <code>aria-expanded</code> before clicking to prevent accidental toggling.</li>
+          </ul>
+          <div class="feature-tech-meta">
+            <span>Framework: Angular / Material</span>
+            <span class="status-pill pass">Verified</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 5: Item Discovery -->
+    <section class="section-block" id="feat-discovery">
+      <div class="section-header">
+        <div class="section-header-title">
+          <span class="section-badge-num">05</span>
+          <h2>Module 4 — Deterministic Item Discovery Engine</h2>
+        </div>
+        <span class="code-badge">src/shared/item-discovery.js</span>
+      </div>
+      <p class="section-desc">
+        The core intellectual property of Milestone 2: turning a single demonstrated invoice download into an automatic batch process for the entire page.
+      </p>
+
+      <div class="feature-card-grid">
+        <div class="feature-card">
+          <div class="feature-card-header">
+            <div>
+              <h3 class="feature-card-title">Sibling Pattern Detection</h3>
+              <span class="feature-card-tag">Structural DOM Tree Analysis</span>
+            </div>
+            <div class="feature-icon-box">🔍</div>
+          </div>
+          <p class="feature-card-body">
+            Detects repeating record collections on the active page by inspecting structural symmetry:
+          </p>
+          <ul class="feature-highlight-list">
+            <li>Scans table rows (<code>&lt;tr&gt;</code>), list elements (<code>&lt;li&gt;</code>), and repeating grid cards.</li>
+            <li>Computes structural similarity: tag homogeneity, child depth, and class profile.</li>
+            <li>Calculates collection confidence score (0% to 100%) and total item counts.</li>
+          </ul>
+          <div class="feature-tech-meta">
+            <span>Test: item-discovery.test.js</span>
+            <span class="status-pill pass">Passing (3/3)</span>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-card-header">
+            <div>
+              <h3 class="feature-card-title">Preflight Confirmation Modal</h3>
+              <span class="feature-card-tag">Human-in-the-Loop Safety</span>
+            </div>
+            <div class="feature-icon-box">🛡️</div>
+          </div>
+          <p class="feature-card-body">
+            Before running bulk operations across dozens of items, the dashboard displays a preflight validation modal:
+          </p>
+          <ul class="feature-highlight-list">
+            <li>Displays total items found, confidence metric, and collection tag.</li>
+            <li>Renders an interactive preview list of discovered record titles/IDs.</li>
+            <li>Requires explicit operator confirmation before dispatching the execution runner.</li>
+          </ul>
+          <div class="feature-tech-meta">
+            <span>UI: #workflowDiscoveryOverlay</span>
+            <span class="status-pill pass">Verified</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 6: Action Generalizer -->
+    <section class="section-block" id="feat-generalizer">
+      <div class="section-header">
+        <div class="section-header-title">
+          <span class="section-badge-num">06</span>
+          <h2>Module 5 — Scoped Action Generalizer (:scope)</h2>
+        </div>
+        <span class="code-badge">src/shared/action-generalizer.js</span>
+      </div>
+      <p class="section-desc">
+        Replaces rigid, absolute document selectors with item-relative selectors so the same recorded action can run against item #1, item #2, ..., item #N.
+      </p>
+
+      <div class="code-preview-box">
+<span class="hl-comment">// Original Absolute Selector Captured on Invoice Row #1:</span>
+<span class="hl-keyword">const</span> raw = <span class="hl-str">"#invoices-table > tbody > tr:nth-of-type(1) > td:nth-of-type(5) > a.download"</span>;
+
+<span class="hl-comment">// Action Generalizer Transformation into Scoped Element Selector:</span>
+<span class="hl-keyword">const</span> scoped = <span class="hl-fn">generalizeSelector</span>(raw, itemRow);
+<span class="hl-comment">// Result: ":scope > td:nth-of-type(5) > a.download"</span>
+      </div>
+
+      <div class="feature-card-grid" style="margin-top:1.5rem;">
+        <div class="feature-card">
+          <div class="feature-card-header">
+            <div>
+              <h3 class="feature-card-title">Relative Path Scoping</h3>
+              <span class="feature-card-tag">DOM Element Anchoring</span>
+            </div>
+            <div class="feature-icon-box">✂️</div>
+          </div>
+          <p class="feature-card-body">
+            Detects the item element boundary inside the selector chain and strips prefix hierarchies, converting nth-child paths to standard <code>:scope</code> expressions.
+          </p>
+          <ul class="feature-highlight-list">
+            <li>Re-queries the DOM dynamically for each item row during iteration.</li>
+            <li>Handles the item itself as <code>:scope</code> if the recorded action was clicking the row.</li>
+            <li>Gracefully retains non-item fixed actions (e.g. top-level search, initial filter).</li>
+          </ul>
+          <div class="feature-tech-meta">
+            <span>Test: action-generalizer.test.js</span>
+            <span class="status-pill pass">Passing (5/5)</span>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-card-header">
+            <div>
+              <h3 class="feature-card-title">Multi-Action Loop Partitioning</h3>
+              <span class="feature-card-tag">Multi-Step Procedures</span>
+            </div>
+            <div class="feature-icon-box">🪜</div>
+          </div>
+          <p class="feature-card-body">
+            Supports complex, multi-action workflows per item rather than just single clicks:
+          </p>
+          <ul class="feature-highlight-list">
+            <li>Allows sequences like: Expand Row → Click Download → Close Preview Modal.</li>
+            <li>Partitions the workflow into Fixed Pre-Actions, Loop Actions, and Post-Actions.</li>
+            <li>Executes the entire multi-step sequence cleanly for each item.</li>
+          </ul>
+          <div class="feature-tech-meta">
+            <span>Module: loop-detector.js</span>
+            <span class="status-pill pass">Verified</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 7: Fault-Tolerant Loop & Artifact Tracking -->
+    <section class="section-block" id="feat-loop">
+      <div class="section-header">
+        <div class="section-header-title">
+          <span class="section-badge-num">07</span>
+          <h2>Module 6 — Fault-Tolerant Loop &amp; Artifact Tracking</h2>
+        </div>
+        <span class="code-badge">src/replay/loop-replay-runner.js</span>
+      </div>
+      <p class="section-desc">
+        A resilient batch runner designed specifically for long document-collection jobs where individual network hiccups or corrupt rows must not kill the batch.
+      </p>
+
+      <div class="feature-card-grid">
+        <div class="feature-card">
+          <div class="feature-card-header">
+            <div>
+              <h3 class="feature-card-title">Per-Item Error Isolation</h3>
+              <span class="feature-card-tag">Zero-Crash Fault Boundary</span>
+            </div>
+            <div class="feature-icon-box">🛡️</div>
+          </div>
+          <p class="feature-card-body">
+            Every item runs inside an isolated try/catch transaction boundary.
+          </p>
+          <ul class="feature-highlight-list">
+            <li>If Invoice #3 fails (missing button, 500 error), it is marked <code>FAILED</code> with exact diagnostic error.</li>
+            <li>The engine automatically performs state recovery (closes open dialogs, returns to table view).</li>
+            <li>Immediately proceeds to Invoice #4 without interrupting the broader execution run.</li>
+          </ul>
+          <div class="feature-tech-meta">
+            <span>Result: Safe, autonomous overnight runs</span>
+            <span class="status-pill pass">Verified</span>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-card-header">
+            <div>
+              <h3 class="feature-card-title">Atomic Checkpoint &amp; Resume</h3>
+              <span class="feature-card-tag">Crash Recovery State</span>
+            </div>
+            <div class="feature-icon-box">💾</div>
+          </div>
+          <p class="feature-card-body">
+            Saves progress after every processed record to local disk:
+          </p>
+          <ul class="feature-highlight-list">
+            <li>Records completed indices, download hashes, and per-item statuses.</li>
+            <li>If browser or server is shut down, execution can resume directly from the first unprocessed item.</li>
+            <li>Eliminates duplicate downloads and wasted API calls.</li>
+          </ul>
+          <div class="feature-tech-meta">
+            <span>Storage: data/db.json / runs collection</span>
+            <span class="status-pill pass">Verified</span>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-card-header">
+            <div>
+              <h3 class="feature-card-title">CDP Download Interception</h3>
+              <span class="feature-card-tag">Run Manifest Generation</span>
+            </div>
+            <div class="feature-icon-box">📥</div>
+          </div>
+          <p class="feature-card-body">
+            Intercepts native browser file download events via Chrome CDP:
+          </p>
+          <ul class="feature-highlight-list">
+            <li>Validates that the file has actually finished downloading to disk (not just that a link was clicked).</li>
+            <li>Associates the downloaded file directly with the corresponding item identity.</li>
+            <li>Organizes files under <code>recordings/runs/{runId}/</code> and emits a machine-readable <code>manifest.json</code>.</li>
+          </ul>
+          <div class="feature-tech-meta">
+            <span>Ready for Document AI ingestion</span>
+            <span class="status-pill pass">Verified</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 8: Human Stealth -->
+    <section class="section-block" id="feat-stealth">
+      <div class="section-header">
+        <div class="section-header-title">
+          <span class="section-badge-num">08</span>
+          <h2>Module 7 — Human Mouse Kinematics &amp; Stealth Evasion</h2>
+        </div>
+        <span class="code-badge">src/replay/human-mouse.js</span>
+      </div>
+      <p class="section-desc">
+        Anti-bot detection software analyzes pointer movement linearity and keystroke intervals. Workflow Capture implements biological kinematic algorithms to evade bot classification.
+      </p>
+
+      <div class="feature-card-grid">
+        <div class="feature-card">
+          <div class="feature-card-header">
+            <div>
+              <h3 class="feature-card-title">Cubic Bézier Mouse Curves</h3>
+              <span class="feature-card-tag">Non-Linear Trajectories</span>
+            </div>
+            <div class="feature-icon-box">〰️</div>
+          </div>
+          <p class="feature-card-body">
+            Constructs smooth cubic Bézier splines between mouse coordinates rather than teleporting or moving in straight robotic lines.
+          </p>
+          <ul class="feature-highlight-list">
+            <li>Calculates control points using randomized perpendicular offsets.</li>
+            <li>Simulates acceleration and deceleration with micro-overshoot and target settling corrections.</li>
+            <li>Passes behavioral mouse biometric analyses (Cloudflare Turnstile, DataDome).</li>
+          </ul>
+          <div class="feature-tech-meta">
+            <span>Test: bot-config.test.js</span>
+            <span class="status-pill pass">Passing (4/4)</span>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-card-header">
+            <div>
+              <h3 class="feature-card-title">Stochastic Typing Cadence</h3>
+              <span class="feature-card-tag">Human Typing Hesitation</span>
+            </div>
+            <div class="feature-icon-box">⌨️</div>
+          </div>
+          <p class="feature-card-body">
+            Emulates natural keyboard interaction dynamics:
+          </p>
+          <ul class="feature-highlight-list">
+            <li>Gaussian distribution of inter-character delays (50ms - 180ms).</li>
+            <li>Hesitation delays upon reaching punctuation marks (<code>.</code>, <code>,</code>, <code>@</code>).</li>
+            <li>Four configurable speed presets: <code>stealth</code>, <code>balanced</code>, <code>fast</code>, and <code>instant</code>.</li>
+          </ul>
+          <div class="feature-tech-meta">
+            <span>Presets: bot-config-presets.js</span>
+            <span class="status-pill pass">Verified</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 9: Visual Control Room -->
+    <section class="section-block" id="feat-dashboard">
+      <div class="section-header">
+        <div class="section-header-title">
+          <span class="section-badge-num">09</span>
+          <h2>Module 8 — Visual Control Room &amp; SPA Dashboard</h2>
+        </div>
+        <span class="code-badge">src/dashboard/public/</span>
+      </div>
+      <p class="section-desc">
+        A bespoke, dark-mode, high-productivity single-page web dashboard built in Vanilla JavaScript with modular views, responsive layouts, and zero heavy framework overhead.
+      </p>
+
+      <div class="feature-card-grid">
+        <div class="feature-card">
+          <div class="feature-card-header">
+            <div>
+              <h3 class="feature-card-title">Overview View (Control Room)</h3>
+              <span class="feature-card-tag">Live System Cockpit</span>
+            </div>
+            <div class="feature-icon-box">📊</div>
+          </div>
+          <p class="feature-card-body">
+            Real-time status indicators for Chrome CDP connectivity, active tab count, recording statistics, and quick replay controls with speed adjustment (0.5x to 3.0x).
+          </p>
+          <div class="feature-tech-meta">
+            <span>Route: #overview</span>
+            <span class="status-pill pass">Live</span>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-card-header">
+            <div>
+              <h3 class="feature-card-title">Execution Monitor View</h3>
+              <span class="feature-card-tag">Real-Time Progress Tracking</span>
+            </div>
+            <div class="feature-icon-box">⏱️</div>
+          </div>
+          <p class="feature-card-body">
+            Dedicated execution dashboard displaying percentage progress bar, per-item status cards (<code>SUCCESS</code>, <code>FAILED</code>, <code>PENDING</code>), live SSE log output, and current downloaded artifact count.
+          </p>
+          <div class="feature-tech-meta">
+            <span>Route: #execution/:runId</span>
+            <span class="status-pill pass">Live</span>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-card-header">
+            <div>
+              <h3 class="feature-card-title">Execution Results View</h3>
+              <span class="feature-card-tag">Audit &amp; Downloads Manifest</span>
+            </div>
+            <div class="feature-icon-box">📋</div>
+          </div>
+          <p class="feature-card-body">
+            Post-execution review screen detailing summary statistics (Total items, Succeeded, Isolated Failures, Artifacts) alongside direct links to download captured files.
+          </p>
+          <div class="feature-tech-meta">
+            <span>Route: #results/:runId</span>
+            <span class="status-pill pass">Live</span>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-card-header">
+            <div>
+              <h3 class="feature-card-title">Node Workflow Editor</h3>
+              <span class="feature-card-tag">Drawflow Visual Canvas</span>
+            </div>
+            <div class="feature-icon-box">🕸️</div>
+          </div>
+          <p class="feature-card-body">
+            Visual node-graph interface allowing operators to view recorded action sequences, inspect fingerprint attributes, edit values, delete steps, and re-order automation pipelines.
+          </p>
+          <div class="feature-tech-meta">
+            <span>Route: #workflow-editor/:id</span>
+            <span class="status-pill pass">Live</span>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-card-header">
+            <div>
+              <h3 class="feature-card-title">Encrypted Credential Vault</h3>
+              <span class="feature-card-tag">AES-256 Secrets Store</span>
+            </div>
+            <div class="feature-icon-box">🔐</div>
+          </div>
+          <p class="feature-card-body">
+            Allows operators to store API keys and passwords encrypted at rest, injecting them safely into target input fields at runtime without saving raw plaintext to workflow files.
+          </p>
+          <div class="feature-tech-meta">
+            <span>Route: #secrets</span>
+            <span class="status-pill pass">Live</span>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-card-header">
+            <div>
+              <h3 class="feature-card-title">Built-In Sandbox Portals</h3>
+              <span class="feature-card-tag">Deterministic Test Environments</span>
+            </div>
+            <div class="feature-icon-box">🧪</div>
+          </div>
+          <p class="feature-card-body">
+            Ships with four fully functioning, standalone test applications (Invoice Portal, E-Commerce, Sales CRM, Digital Library) for automated regression testing and live demonstration.
+          </p>
+          <div class="feature-tech-meta">
+            <span>Path: test/*.html</span>
+            <span class="status-pill pass">Live</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 10: Backend Architecture -->
+    <section class="section-block" id="feat-backend">
+      <div class="section-header">
+        <div class="section-header-title">
+          <span class="section-badge-num">10</span>
+          <h2>Module 9 — Backend Architecture, REST API &amp; Security</h2>
+        </div>
+        <span class="code-badge">src/database/ &amp; src/api/</span>
+      </div>
+      <p class="section-desc">
+        Lightweight, resilient backend architecture built with Node.js HTTP servers, zero external database daemon dependencies, and robust cryptographic authentication.
+      </p>
+
+      <div class="feature-card-grid">
+        <div class="feature-card">
+          <div class="feature-card-header">
+            <div>
+              <h3 class="feature-card-title">Zero-Dependency JsonDB Engine</h3>
+              <span class="feature-card-tag">Transactional File Storage</span>
+            </div>
+            <div class="feature-icon-box">🗄️</div>
+          </div>
+          <p class="feature-card-body">
+            Custom ACID-like file storage with in-memory caching and atomic file writes. Eliminates the operational overhead of installing PostgreSQL or MongoDB for local execution.
+          </p>
+          <ul class="feature-highlight-list">
+            <li>Collections: <code>users</code>, <code>workflows</code>, <code>runs</code>, <code>secrets</code>, <code>bot_configs</code>.</li>
+            <li>Atomic file swapping prevents corrupt database states on sudden power cuts.</li>
+          </ul>
+          <div class="feature-tech-meta">
+            <span>Storage: data/db.json</span>
+            <span class="status-pill pass">Verified</span>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-card-header">
+            <div>
+              <h3 class="feature-card-title">JWT Auth &amp; Password Cryptography</h3>
+              <span class="feature-card-tag">scrypt + HMAC-SHA256</span>
+            </div>
+            <div class="feature-icon-box">🔑</div>
+          </div>
+          <p class="feature-card-body">
+            Enterprise authentication standards applied across the entire REST API:
+          </p>
+          <ul class="feature-highlight-list">
+            <li>Passwords hashed using salted <code>crypto.scrypt</code> (memory-hard against brute force).</li>
+            <li>Stateless JSON Web Tokens (JWT) protecting sensitive CRUD endpoints.</li>
+            <li>Sensitive input masking: password fields automatically redact values during recording.</li>
+          </ul>
+          <div class="feature-tech-meta">
+            <span>Test: auth.test.js</span>
+            <span class="status-pill pass">Passing (3/3)</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 11: Automated Test Suites -->
+    <section class="section-block" id="metrics-testing">
+      <div class="section-header">
+        <div class="section-header-title">
+          <span class="section-badge-num">11</span>
+          <h2>Automated Verification &amp; Test Suite Results</h2>
+        </div>
+        <span class="status-pill pass">100% Passing (All Suites)</span>
+      </div>
+      <p class="section-desc">
+        Every core module is guarded by automated unit and integration tests executed in Node.js via <code>npm test</code>. All suites pass cleanly with zero warnings:
+      </p>
+
+      <div class="metrics-table-wrapper">
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th>Test Suite Module</th>
+              <th>Target Subsystem</th>
+              <th>Key Invariants Validated</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>selector-resolver.test.js</strong></td>
+              <td>Selector Engine &amp; Fingerprinting</td>
+              <td>Dynamic ID filtering, transient class stripping, composite controls, token Jaccard text scoring, semantic fallbacks.</td>
+              <td><span class="status-pill pass">Passed (8/8)</span></td>
+            </tr>
+            <tr>
+              <td><strong>auth.test.js</strong></td>
+              <td>Security &amp; Database</td>
+              <td>JsonDB atomic CRUD, salted scrypt password hashing/validation, JWT token signature validation.</td>
+              <td><span class="status-pill pass">Passed (3/3)</span></td>
+            </tr>
+            <tr>
+              <td><strong>backend-api.test.js</strong></td>
+              <td>REST API Endpoints</td>
+              <td>Registration, login, bearer auth protection, workflow CRUD lifecycle, URL normalization, run abortion APIs.</td>
+              <td><span class="status-pill pass">Passed (7/7)</span></td>
+            </tr>
+            <tr>
+              <td><strong>loop-engine.test.js</strong></td>
+              <td>Loop Pattern Detection</td>
+              <td>Table row sibling recognition, list card grouping, workflow step sequence partitioning.</td>
+              <td><span class="status-pill pass">Passed (3/3)</span></td>
+            </tr>
+            <tr>
+              <td><strong>item-discovery.test.js</strong></td>
+              <td>Deterministic Discovery</td>
+              <td>Highest-confidence candidate selection, empty candidate handling, corrupted candidate recovery.</td>
+              <td><span class="status-pill pass">Passed (3/3)</span></td>
+            </tr>
+            <tr>
+              <td><strong>action-generalizer.test.js</strong></td>
+              <td>Selector Scoping</td>
+              <td>Conversion of nth-child paths to <code>:scope</code>, self-targeting recognition, multi-action scoping.</td>
+              <td><span class="status-pill pass">Passed (5/5)</span></td>
+            </tr>
+            <tr>
+              <td><strong>bot-config.test.js</strong></td>
+              <td>Stealth Evasion Kinematics</td>
+              <td>Bézier curve velocity curvature, typing cadence hesitation, bot profile REST API persistence.</td>
+              <td><span class="status-pill pass">Passed (4/4)</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 12: Roadmap & Future Scope -->
+    <section class="section-block" id="future-scope">
+      <div class="section-header">
+        <div class="section-header-title">
+          <span class="section-badge-num">12</span>
+          <h2>Roadmap &amp; Future Scope</h2>
+        </div>
+        <span class="chip">In Progress</span>
+      </div>
+      <p class="section-desc">
+        With the core single-item demonstration and on-page collection discovery proven, the project is positioned for multi-page pagination expansion and downstream Document AI extraction:
+      </p>
+
+      <div class="feature-card-grid">
+        <div class="feature-card">
+          <div class="feature-card-header">
+            <div>
+              <h3 class="feature-card-title">Phase 3 — Pagination &amp; Dynamic Grids</h3>
+              <span class="feature-card-tag">Next Milestone</span>
+            </div>
+            <div class="feature-icon-box">⏭️</div>
+          </div>
+          <p class="feature-card-body">
+            Detect standard "Next" buttons, numbered pagination bars, and infinite scroll triggers to automatically advance across pages without human intervention.
+          </p>
+          <div class="feature-tech-meta">
+            <span>Status: Planned</span>
+            <span class="status-pill active">Roadmap</span>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-card-header">
+            <div>
+              <h3 class="feature-card-title">Phase 4 — Document AI Ingestion</h3>
+              <span class="feature-card-tag">Intelligence Layer</span>
+            </div>
+            <div class="feature-icon-box">🧠</div>
+          </div>
+          <p class="feature-card-body">
+            Pipe downloaded PDF and CSV artifacts directly into OCR and LLM-based structured data extraction models (e.g. extracting Invoice #, Totals, Due Dates directly into ERP databases).
+          </p>
+          <div class="feature-tech-meta">
+            <span>Status: Future Target</span>
+            <span class="status-pill active">Roadmap</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="report-footer">
+      <div style="display:flex; align-items:center; gap:0.5rem; font-weight:700; color:#ffffff;">
+        <span>Workflow Capture</span>
+        <span>•</span>
+        <span>Final Year Project Deliverable</span>
+      </div>
+      <p>Prepared by <strong>AbuZar Babar</strong> for Academic Submission &amp; Faculty Review.</p>
+      <p style="font-family:var(--font-mono); font-size:0.75rem;">Generated on September 21, 2026 • Verified against codebase commit feature/item-discovery</p>
+    </footer>
+
+  </main>
+
+</body>
+</html>

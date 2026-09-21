@@ -41,10 +41,6 @@ export const WorkflowsView = {
               <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
               <span>Refresh List</span>
             </button>
-            <button class="btn btn-sm" id="btnWfStopExecution" style="background:#dc2626; color:#ffffff; border:1px solid #b91c1c; font-weight:700; display:inline-flex; align-items:center; gap:0.35rem; cursor:pointer;" title="Stop Running Execution">
-              <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
-              <span>Stop Execution</span>
-            </button>
           </div>
         </div>
 
@@ -81,7 +77,6 @@ export const WorkflowsView = {
   bindEvents(router) {
     const searchInput = document.getElementById('wfSearchInput');
     const btnRefresh = document.getElementById('btnRefreshWorkflows');
-    const btnStop = document.getElementById('btnWfStopExecution');
 
     if (searchInput) {
       searchInput.oninput = (e) => {
@@ -92,27 +87,6 @@ export const WorkflowsView = {
 
     if (btnRefresh) {
       btnRefresh.onclick = () => this.loadWorkflows();
-    }
-
-    if (btnStop) {
-      btnStop.onclick = async () => {
-        btnStop.disabled = true;
-        btnStop.style.opacity = '0.7';
-        Toast.info('Stopping active execution...');
-        try {
-          const res = await Api.stopExecution();
-          Toast.success(res.message || 'Execution stopped successfully');
-        } catch (err) {
-          Toast.error(err.message || 'Failed to stop execution');
-        } finally {
-          setTimeout(() => {
-            if (btnStop) {
-              btnStop.disabled = false;
-              btnStop.style.opacity = '1';
-            }
-          }, 800);
-        }
-      };
     }
   },
 
