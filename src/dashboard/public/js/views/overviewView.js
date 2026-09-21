@@ -8,8 +8,10 @@ import { Header } from '../components/header.js';
 
 export const OverviewView = {
   recordTimer: null,
+  recordStatusTimer: null,
   recordStartTime: 0,
   recordings: [],
+  isRecording: false,
 
   async render(container, router) {
     container.innerHTML = `
@@ -21,9 +23,10 @@ export const OverviewView = {
             <p>Record a browser workflow, discover the items it should process, then execute it with progress and recovery.</p>
           </div>
           <div class="dashboard-hero-actions">
-            <button class="btn btn-primary dashboard-primary-action" id="btnOverviewStartRec">
-              <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
-              <span>Start Recording</span>
+            <button class="btn btn-primary dashboard-primary-action" id="btnOverviewStartRec" aria-live="polite">
+              <svg class="record-button-icon" width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
+              <span id="overviewRecordButtonLabel">Start Recording</span>
+              <span class="record-button-meta hidden" id="overviewRecordButtonMeta">00:00 · 0 actions</span>
             </button>
             <button class="btn btn-secondary" id="btnOverviewLaunchChrome">
               <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15.5 14.5a6 6 0 1 1-5.8-7.4h1.8a4 4 0 0 0-3.6 2.5m1.3-3.1 4.2-4.2a1 1 0 0 1 1.4 0l1.4 1.4a1 1 0 0 1 0 1.4l-4.2 4.2"/></svg>
@@ -405,7 +408,17 @@ export const OverviewView = {
     const elElapsed = document.getElementById('overviewRecElapsed');
 
     if (isRecording) {
-      if (btnStart) btnStart.classList.add('hidden');
+      this.isRecording = true;
+      if (btnStart) {
+        btnStart.classList.remove('hidden');
+        btnStart.classList.add('recording-active');
+        btnStart.setAttribute('aria-label', 'Recording in progress');
+        btnStart.disabled = true;
+      }
+      const btnLabel = document.getElementById('overviewRecordButtonLabel');
+      const btnMeta = document.getElementById('overviewRecordButtonMeta');
+      if (btnLabel) btnLabel.textContent = 'Recording…';
+      if (btnMeta) btnMeta.classList.remove('hidden');
       if (btnStop) btnStop.classList.remove('hidden');
       if (badge) badge.classList.remove('hidden');
       if (stats) stats.classList.remove('hidden');
@@ -413,16 +426,42 @@ export const OverviewView = {
 
       Header.setEngineState('RECORDING');
       this.recordStartTime = meta.startedAt ? new Date(meta.startedAt).getTime() : Date.now();
-      if (!this.recordTimer) {
-        this.recordTimer = setInterval(() => {
-          const sec = Math.floor((Date.now() - this.recordStartTime) / 1000);
-          const mins = String(Math.floor(sec / 60)).padStart(2, '0');
-          const secs = String(sec % 60).padStart(2, '0');
-          if (elElapsed) elElapsed.textContent = `${mins}:${secs}`;
-        }, 1000);
-      }
+      const updateRecordingUi = async () => {
+        const sec = Math.max(0, Math.floor((Date.now() - this.recordStartTime) / 1000));
+        const mins = String(Math.floor(sec / 60)).padStart(2, '0');
+        const secs = String(sec % 60).padStart(2, '0');
+        const elapsed = mins + ':' + secs;
+        if (elElapsed) elElapsed.textContent = elapsed;
+        const btnMeta = document.getElementById('overviewRecordButtonMeta');
+        if (btnMeta) btnMeta.textContent = elapsed + ' · 0 actions';
+        try {
+          const status = await Api.getStatus();
+          const recorder = status.recorder || {};
+          const actionCount = Number(recorder.actionCount || 0);
+          const startedAt = recorder.startedAt ? new Date(recorder.startedAt).getTime() : this.recordStartTime;
+          if (startedAt) this.recordStartTime = startedAt;
+          if (btnMeta) btnMeta.textContent = elapsed + ' · ' + actionCount + ' action' + (actionCount === 1 ? '' : 's');
+          const actionCountEl = document.getElementById('overviewRecActionCount');
+          if (actionCountEl) actionCountEl.textContent = actionCount;
+          if (!recorder.isRecording && this.isRecording) this.setRecordingState(false);
+        } catch (err) {
+          // Keep the local indicator alive if the status endpoint is temporarily unavailable.
+        }
+      };
+      updateRecordingUi();
+      if (!this.recordTimer) this.recordTimer = setInterval(updateRecordingUi, 1000);
     } else {
-      if (btnStart) btnStart.classList.remove('hidden');
+      this.isRecording = false;
+      if (btnStart) {
+        btnStart.classList.remove('hidden');
+        btnStart.classList.remove('recording-active');
+        btnStart.disabled = false;
+        btnStart.setAttribute('aria-label', 'Start recording');
+      }
+      const btnLabel = document.getElementById('overviewRecordButtonLabel');
+      const btnMeta = document.getElementById('overviewRecordButtonMeta');
+      if (btnLabel) btnLabel.textContent = 'Start Recording';
+      if (btnMeta) btnMeta.classList.add('hidden');
       if (btnStop) btnStop.classList.add('hidden');
       if (badge) badge.classList.add('hidden');
       if (stats) stats.classList.add('hidden');
@@ -432,6 +471,10 @@ export const OverviewView = {
       if (this.recordTimer) {
         clearInterval(this.recordTimer);
         this.recordTimer = null;
+      }
+      if (this.recordStatusTimer) {
+        clearInterval(this.recordStatusTimer);
+        this.recordStatusTimer = null;
       }
     }
   },
