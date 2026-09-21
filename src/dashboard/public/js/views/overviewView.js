@@ -318,6 +318,10 @@ export const OverviewView = {
       const elMetric = document.getElementById('overviewCdpMetric');
       const elTabs = document.getElementById('overviewTabsCount');
 
+      if (status.recorder && status.recorder.isRecording && !this.isRecording) {
+        this.setRecordingState(true, { startedAt: status.recorder.startedAt });
+      }
+
       if (status.cdp && status.cdp.online) {
         if (elMetric) elMetric.textContent = 'Chrome Active';
         const count = status.cdp.tabs ? status.cdp.tabs.length : 0;
