@@ -128,8 +128,13 @@ async function executeClick(elementHandle, action, options = {}) {
 
   if (isBackdropTarget) {
     try {
-      await clickTarget.evaluate(el => el.click());
-      logger.info(`[Replay] Dispatched click on backdrop to dismiss open overlay.`);
+      await clickTarget.evaluate(el => {
+        el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+        el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+        el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+        el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      });
+      logger.info(`[Replay] Dispatched full click sequence on backdrop to dismiss open overlay.`);
       return;
     } catch {}
   }
@@ -159,15 +164,25 @@ async function executeClick(elementHandle, action, options = {}) {
 
   // 3. Option Selection State Verification:
   // In Angular Material / custom multi-selects, verify that the option's selection state actually toggled.
-  // If aria-selected remains false after click (e.g. CDP mouse hit an invisible overlay or ripple mask),
-  // trigger native host click directly.
+  // If action explicitly requested unchecking (action.desiredState === false or action.isUncheck === true),
+  // ensure we do NOT re-toggle it back on.
   try {
-    await clickTarget.evaluate((el) => {
+    const isUncheck = action.isUncheck === true || action.desiredState === false;
+    await clickTarget.evaluate((el, isUncheck) => {
       const opt = el.closest('mat-option, [role="option"]');
-      if (opt && opt.getAttribute('aria-selected') === 'false') {
+      if (!opt) return;
+      const isSelected = opt.getAttribute('aria-selected') === 'true' ||
+                         opt.classList.contains('mat-mdc-option-selected') ||
+                         !!opt.querySelector('.mat-pseudo-checkbox-checked');
+
+      if (isUncheck && isSelected) {
+        // Still selected after click, force click again to uncheck
+        opt.click();
+      } else if (!isUncheck && !isSelected) {
+        // Expected to be selected but still false, force click to select
         opt.click();
       }
-    });
+    }, isUncheck);
   } catch {}
 }
 

@@ -14,6 +14,13 @@ class ActionGeneralizer {
       throw new Error('ActionGeneralizer requires discovered collection metadata.');
     }
 
+    if (!this.isItemRelative(action, collection)) {
+      return {
+        ...action,
+        scope: 'page'
+      };
+    }
+
     const target = action.target || action;
     const generalizedTarget = this.generalizeTarget(target, collection);
 
@@ -34,10 +41,24 @@ class ActionGeneralizer {
   static isItemRelative(action, collection) {
     if (!action || !collection || !collection.itemTag) return false;
     const target = action.target || action;
-    const candidates = Array.isArray(target?.candidates) ? target.candidates : [];
+    const tag = String(collection.itemTag).toLowerCase();
+
+    // Check if fingerprint directly matches the item or known child elements
+    const fpTag = String(target.fingerprint?.tagName || '').toLowerCase();
+    if (fpTag === tag) return true;
+    if (tag === 'mat-option' && (fpTag === 'mat-pseudo-checkbox' || target.fingerprint?.role === 'option')) return true;
+    if (tag === 'tr' && (fpTag === 'td' || fpTag === 'th')) return true;
+
+    const candidates = Array.isArray(target?.candidates) ? [...target.candidates] : [];
+
+    const cssPath = target.selectors?.cssPath || target.cssPath || action.selectors?.cssPath || (typeof target === 'string' ? target : null);
+    if (cssPath && !candidates.some(c => c && c.value === cssPath)) {
+      candidates.push({ strategy: 'css-path', value: cssPath });
+    }
+
     return candidates.some(candidate => {
-      if (!candidate || candidate.strategy !== 'css-path' || !candidate.value) return false;
-      return Boolean(this.toRelativeCss(candidate.value, collection.itemTag));
+      if (!candidate || !candidate.value) return false;
+      return Boolean(this.toRelativeCss(candidate.value, tag));
     });
   }
 
@@ -46,11 +67,16 @@ class ActionGeneralizer {
       throw new Error('Recorded target is required.');
     }
 
-    const candidates = Array.isArray(target.candidates) ? target.candidates : [];
+    const candidates = Array.isArray(target.candidates) ? [...target.candidates] : [];
+    const cssPath = target.selectors?.cssPath || target.cssPath;
+    if (cssPath && !candidates.some(c => c && c.value === cssPath)) {
+      candidates.push({ strategy: 'css-path', value: cssPath, priority: 5 });
+    }
+
     const generalizedCandidates = [];
 
     for (const candidate of candidates) {
-      if (!candidate || candidate.strategy !== 'css-path' || !candidate.value) continue;
+      if (!candidate || !candidate.value) continue;
 
       const relative = this.toRelativeCss(candidate.value, collection.itemTag);
       if (!relative) continue;
@@ -63,7 +89,6 @@ class ActionGeneralizer {
         scope: 'item'
       });
     }
-
 
     return {
       ...target,
@@ -87,8 +112,11 @@ class ActionGeneralizer {
     const tag = String(itemTag || '').toLowerCase();
     if (!tag) return null;
 
-    const segments = cssPath
-      .split('>')
+    const cleanPath = cssPath.trim();
+
+    // Check if path splits by '>'
+    const segments = cleanPath
+      .split(/\s*>\s*/)
       .map(segment => segment.trim())
       .filter(Boolean);
 
@@ -97,10 +125,24 @@ class ActionGeneralizer {
       return match && match[1].toLowerCase() === tag;
     });
 
-    if (itemIndex < 0) return null;
+    if (itemIndex >= 0) {
+      const remainder = segments.slice(itemIndex + 1);
+      return remainder.length ? remainder.join(' > ') : ':scope';
+    }
 
-    const remainder = segments.slice(itemIndex + 1);
-    return remainder.length ? remainder.join(' > ') : ':scope';
+    // Check if path uses descendant spaces: "table.data-table tr td a"
+    const spaceTokens = cleanPath.split(/\s+/);
+    const tokenIdx = spaceTokens.findIndex(token => {
+      const match = token.match(/^([a-z][a-z0-9-]*)/i);
+      return match && match[1].toLowerCase() === tag;
+    });
+
+    if (tokenIdx >= 0) {
+      const remainder = spaceTokens.slice(tokenIdx + 1);
+      return remainder.length ? remainder.join(' ') : ':scope';
+    }
+
+    return null;
   }
 
   static isGeneralized(action) {

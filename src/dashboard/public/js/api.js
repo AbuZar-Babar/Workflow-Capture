@@ -220,7 +220,11 @@ export const Api = {
   },
 
   async executeWorkflow(workflowId, loopStepIndex = null) {
-    const bodyPayload = loopStepIndex !== null ? { isLoop: true, loopStepIndex } : { isLoop: false };
+    const bodyPayload = {};
+    if (loopStepIndex !== null && loopStepIndex !== undefined) {
+      bodyPayload.isLoop = true;
+      bodyPayload.loopStepIndex = loopStepIndex;
+    }
     const res = await Auth.authenticatedFetch(`/api/workflows/${workflowId}/execute`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

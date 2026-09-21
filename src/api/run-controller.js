@@ -11,6 +11,8 @@ const { db } = require('../database/db');
 const { sendJson } = require('../auth/auth-controller');
 const { syncWorkflowsFromDisk } = require('./workflow-controller');
 const LoopReplayRunner = require('../replay/loop-replay-runner');
+const LoopDetector = require('../shared/loop-detector');
+const logger = require('../utils/logger');
 
 // In-memory active runners map: runId -> { runner, userId, workflowId, startedAt }
 const activeRunners = new Map();
@@ -72,13 +74,43 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
     workflow.steps = workflow.recordingData.actions;
   }
 
+  const steps = workflow.steps || [];
+
+  // Auto-detect if this workflow operates on a repeating collection/table
+  let isLoop = body.isLoop === true || (body.loopStepIndex !== null && body.loopStepIndex !== undefined && body.loopStepIndex !== -1);
+  let loopStepIndex = Number.isInteger(body.loopStepIndex) ? body.loopStepIndex : null;
+
+  if (loopStepIndex === null) {
+    if (Number.isInteger(workflow.loopStepIndex) && workflow.loopStepIndex >= 0) {
+      loopStepIndex = workflow.loopStepIndex;
+      isLoop = true;
+    } else if (Number.isInteger(workflow.settings?.loopStepIndex) && workflow.settings.loopStepIndex >= 0) {
+      loopStepIndex = workflow.settings.loopStepIndex;
+      isLoop = true;
+    }
+  }
+
+  if (body.isLoop !== false && !isLoop) {
+    const candidateIdx = LoopDetector.findLoopCandidateIndex(steps);
+    if (candidateIdx >= 0) {
+      isLoop = true;
+      loopStepIndex = candidateIdx;
+      logger.info(`[Auto-Discovery] Detected repeating collection pattern at step #${candidateIdx + 1}. Auto-enabling loop execution.`);
+    }
+  }
+
+  const totalSteps = steps.length;
   const runId = `run_${Date.now()}`;
   const runRecord = db.insert('runs', {
     id: runId,
     workflowId: workflow.id,
     userId,
-    status: 'QUEUED',
-    mode: body.isLoop ? 'LOOP' : 'STANDARD',
+    status: 'RUNNING',
+    itemsTotal: totalSteps,
+    itemsSucceeded: 0,
+    itemsFailed: 0,
+    mode: isLoop ? 'LOOP' : 'STANDARD',
+    loopStepIndex: isLoop ? loopStepIndex : null,
     startedAt: new Date().toISOString()
   });
 
@@ -103,12 +135,21 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
   (async () => {
     try {
       db.update('runs', runId, { status: 'RUNNING' });
-      const isLoop = Boolean(body.isLoop || (body.loopStepIndex !== null && body.loopStepIndex !== undefined && body.loopStepIndex !== -1));
+      const onProgress = (progress) => {
+        if (progress && progress.manifest) {
+          db.update('runs', runId, {
+            itemsTotal: progress.manifest.itemsTotal,
+            itemsSucceeded: progress.manifest.itemsSucceeded,
+            itemsFailed: progress.manifest.itemsFailed
+          });
+        }
+      };
+
       let manifest;
       if (isLoop) {
-        manifest = await runner.executeLoop(workflow, body.loopStepIndex || 0);
+        manifest = await runner.executeLoop(workflow, loopStepIndex !== null ? loopStepIndex : 0, onProgress);
       } else {
-        manifest = await runner.executeStandard(workflow);
+        manifest = await runner.executeStandard(workflow, onProgress);
       }
 
       db.update('runs', runId, {
@@ -263,19 +304,45 @@ function getRunStatus(req, res, runId) {
     return sendJson(res, 404, { error: 'Run not found or unauthorized' });
   }
 
+  // Check active runner in-memory manifest first
+  const active = activeRunners.get(runId);
+  let manifest = (active && active.runner && active.runner.manifest) ? active.runner.manifest : null;
+
   // If manifest file exists on disk, attach latest live manifest
-  const manifestPath = path.resolve(process.cwd(), 'recordings', 'runs', runId, 'manifest.json');
-  let manifest = null;
-  if (fs.existsSync(manifestPath)) {
-    try {
-      manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-    } catch {}
+  if (!manifest) {
+    const manifestPath = path.resolve(process.cwd(), 'recordings', 'runs', runId, 'manifest.json');
+    if (fs.existsSync(manifestPath)) {
+      try {
+        manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+      } catch {}
+    }
   }
+
+  // Find workflow metadata and steps
+  let workflow = db.findOne('workflows', w => w.id === run.workflowId && (w.userId === userId || w.isGlobal));
+  if (!workflow) {
+    const recPath = path.resolve(process.cwd(), 'recordings', `${run.workflowId}.json`);
+    if (fs.existsSync(recPath)) {
+      try {
+        const content = JSON.parse(fs.readFileSync(recPath, 'utf8'));
+        workflow = {
+          id: run.workflowId,
+          name: (content.metadata && content.metadata.name) || run.workflowId,
+          steps: Array.isArray(content.actions) ? content.actions : []
+        };
+      } catch {}
+    }
+  }
+
+  const workflowSteps = workflow ? (workflow.steps || (workflow.recordingData && workflow.recordingData.actions) || []) : [];
+  const workflowName = workflow ? workflow.name : (run.workflowId || 'Workflow');
 
   return sendJson(res, 200, {
     success: true,
     run: {
       ...run,
+      workflowName,
+      workflowSteps,
       manifest: manifest || null
     }
   });

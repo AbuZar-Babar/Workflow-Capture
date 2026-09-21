@@ -34,6 +34,27 @@ function runItemDiscoveryTests() {
   assert.strictEqual(result.score, 0.8);
   console.log('  ✅ Invalid candidate handling passed\n');
 
+  console.log('🔹 Test 4: Exclude navigation/toolbar candidates even with high score');
+  const navCandidate = {
+    score: 0.98,
+    itemCount: 8,
+    ancestorTag: 'mat-toolbar',
+    role: 'tablist'
+  };
+  const tableCandidate = {
+    score: 0.85,
+    itemCount: 15,
+    ancestorTag: 'tbody',
+    itemTag: 'tr'
+  };
+  assert.strictEqual(ItemDiscovery.isNavigationCandidate(navCandidate), true);
+  assert.strictEqual(ItemDiscovery.isNavigationCandidate(tableCandidate), false);
+
+  const chosen = ItemDiscovery.selectBestCandidate([navCandidate, tableCandidate]);
+  assert.strictEqual(chosen.ancestorTag, 'tbody', 'Must choose data table collection over navigation toolbar');
+  assert.strictEqual(chosen.score, 0.85);
+  console.log('  ✅ Navigation candidate exclusion passed\n');
+
   console.log('🎉 ALL ITEM DISCOVERY TESTS PASSED SUCCESSFULLY!\n');
 }
 

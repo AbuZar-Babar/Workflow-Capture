@@ -23,14 +23,12 @@ export const OverviewView = {
             <p>Record a browser workflow, discover the items it should process, then execute it with progress and recovery.</p>
           </div>
           <div class="dashboard-hero-actions">
-            <div class="dashboard-hero-recorder-group">
-              <input type="text" id="overviewRecName" class="form-control hero-rec-input" placeholder="Workflow name (e.g. process-invoices)" spellcheck="false" title="Workflow Name">
-              <button class="btn btn-primary dashboard-primary-action" id="btnOverviewStartRec" aria-live="polite">
-                <svg class="record-button-icon" width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
-                <span id="overviewRecordButtonLabel">Start Recording</span>
-                <span class="record-button-meta hidden" id="overviewRecordButtonMeta">00:00 · 0 actions</span>
-              </button>
-            </div>
+            <input type="text" id="overviewRecName" class="form-control hero-rec-input-standalone" placeholder="Workflow name (e.g. process-invoices)" spellcheck="false" title="Workflow Name">
+            <button class="btn btn-primary dashboard-primary-action" id="btnOverviewStartRec" aria-live="polite">
+              <svg class="record-button-icon" width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
+              <span id="overviewRecordButtonLabel">Start Recording</span>
+              <span class="record-button-meta hidden" id="overviewRecordButtonMeta">00:00 · 0 actions</span>
+            </button>
             <button class="btn btn-secondary" id="btnOverviewLaunchChrome" title="Launch Google Chrome with CDP Remote Debugging enabled">
               <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15.5 14.5a6 6 0 1 1-5.8-7.4h1.8a4 4 0 0 0-3.6 2.5m1.3-3.1 4.2-4.2a1 1 0 0 1 1.4 0l1.4 1.4a1 1 0 0 1 0 1.4l-4.2 4.2"/></svg>
               <span>Launch Chrome</span>
@@ -61,70 +59,21 @@ export const OverviewView = {
           </article>
         </section>
 
-        <div class="dashboard-main-grid">
-          <section class="card dashboard-workflows-card">
-            <div class="card-header-row">
-              <div class="card-title-wrap">
-                <h3>Recent Workflows</h3>
-                <p>Your latest recorded automation procedures</p>
-              </div>
-              <button class="btn btn-secondary btn-sm" id="btnOverviewViewAllWorkflows">View All</button>
+        <section class="card dashboard-system-card" style="margin-top:0.75rem;">
+          <div class="card-header-row">
+            <div class="card-title-wrap">
+              <h3>System Status</h3>
+              <p>Browser and automation engine</p>
             </div>
-            <div class="table-responsive">
-              <table class="quixotic-table">
-                <thead><tr><th>Workflow</th><th>Steps</th><th>Date</th><th style="text-align:right">Action</th></tr></thead>
-                <tbody id="overviewRecentList">
-                  <tr><td colspan="4" class="dashboard-empty">Loading workflows...</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          <aside class="dashboard-side-stack">
-            <section class="card dashboard-action-card">
-              <div class="card-header-row">
-                <div class="card-title-wrap">
-                  <h3>Quick Replay</h3>
-                  <p>Run a saved workflow</p>
-                </div>
-              </div>
-              <div class="form-group">
-                <label for="overviewSelectWorkflow">Workflow</label>
-                <select id="overviewSelectWorkflow" class="form-control">
-                  <option value="" disabled selected>Loading recordings...</option>
-                </select>
-              </div>
-              <div class="slider-wrap">
-                <div class="slider-header"><label>Speed</label><span class="slider-val" id="overviewSpeedVal">1.00x</span></div>
-                <input type="range" id="overviewSpeedRange" min="0.5" max="3.0" step="0.25" value="1.0">
-              </div>
-              <div class="dashboard-button-row">
-                <button class="btn btn-dark" id="btnOverviewRunReplay">Run Replay</button>
-                <button class="btn btn-danger" id="btnOverviewStopReplay">Stop</button>
-              </div>
-              <div class="progress-container hidden" id="overviewReplayProgress">
-                <div class="dashboard-progress-head"><span id="overviewReplayStep">Action #0/0</span><span id="overviewReplayPercent">0%</span></div>
-                <div class="dashboard-progress-track"><div id="overviewReplayBar"></div></div>
-              </div>
-            </section>
-
-            <section class="card dashboard-system-card">
-              <div class="card-header-row">
-                <div class="card-title-wrap">
-                  <h3>System Status</h3>
-                  <p>Browser and automation engine</p>
-                </div>
-              </div>
-              <div class="system-status-row">
-                <span><i class="status-dot online"></i> Automation engine</span><strong>Ready</strong>
-              </div>
-              <div class="system-status-row">
-                <span><i class="status-dot" id="overviewBrowserDot"></i> Chrome / CDP</span><strong id="overviewBrowserStatus">Standby</strong>
-              </div>
-              <button class="btn btn-secondary" id="btnOverviewViewArtifacts">Open Artifacts</button>
-            </section>
-          </aside>
-        </div>
+          </div>
+          <div class="system-status-row">
+            <span><i class="status-dot online"></i> Automation engine</span><strong>Ready</strong>
+          </div>
+          <div class="system-status-row">
+            <span><i class="status-dot" id="overviewBrowserDot"></i> Chrome / CDP</span><strong id="overviewBrowserStatus">Standby</strong>
+          </div>
+          <button class="btn btn-secondary" id="btnOverviewViewArtifacts">Open Artifacts</button>
+        </section>
       </div>
 
       <div class="discovery-overlay hidden" id="workflowDiscoveryOverlay" role="dialog" aria-modal="true" aria-labelledby="discoveryTitle">
@@ -189,12 +138,10 @@ export const OverviewView = {
           if (label) label.textContent = 'Saving…';
         }
         const res = await Api.stopRecording();
-        Toast.success(`Recording saved: ${res.summary.actionCount} steps captured`);
+        const count = res.summary?.actionCount || 0;
+        Toast.success(`Recording saved: ${count} steps captured. Ready in Workflows.`);
         this.setRecordingState(false);
         await this.loadData();
-        const filename = (res.summary.filePath || '').split(/[\\/]/).pop() || '';
-        const workflowId = filename.replace(/\.json$/i, '');
-        if (workflowId) await this.openDiscovery(workflowId);
       } catch (err) {
         Toast.error(err.message);
         this.setRecordingState(false);

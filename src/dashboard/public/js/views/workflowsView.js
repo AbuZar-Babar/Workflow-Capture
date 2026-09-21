@@ -187,13 +187,21 @@ export const WorkflowsView = {
     // Bind action buttons
     tbody.querySelectorAll('.btn-replay-flow').forEach(btn => {
       btn.onclick = async () => {
-        Toast.info(`Executing workflow...`);
+        const wfId = btn.dataset.id;
+        Toast.info(`Starting execution for workflow...`);
+        btn.disabled = true;
         try {
-          await Api.executeWorkflow(btn.dataset.id);
+          const res = await Api.executeWorkflow(wfId);
           Toast.success(`Workflow execution dispatched!`);
-          setTimeout(() => Router.navigate('console'), 1000);
+          if (res && res.runId) {
+            sessionStorage.setItem('workflowCaptureActiveRunId', res.runId);
+            Router.navigate(`execution/${encodeURIComponent(res.runId)}`);
+          } else {
+            Router.navigate('execution');
+          }
         } catch (err) {
-          Toast.error(err.message);
+          Toast.error(err.message || 'Execution failed to start');
+          btn.disabled = false;
         }
       };
     });

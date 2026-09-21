@@ -48,12 +48,24 @@ class JsonDB {
   }
 
   save() {
+    const dataStr = JSON.stringify(this.state, null, 2);
     try {
-      const tempPath = `${this.dbPath}.${crypto.randomBytes(4).toString('hex')}.tmp`;
-      fs.writeFileSync(tempPath, JSON.stringify(this.state, null, 2), 'utf8');
-      fs.renameSync(tempPath, this.dbPath);
-    } catch (err) {
-      console.error('[DB] Error persisting database to disk:', err);
+      // Primary: direct write (resilient on Windows when file is open in editors/watchers)
+      fs.writeFileSync(this.dbPath, dataStr, 'utf8');
+    } catch (writeErr) {
+      // Fallback: atomic temp file + copy overwrite
+      try {
+        const tempPath = `${this.dbPath}.${crypto.randomBytes(4).toString('hex')}.tmp`;
+        fs.writeFileSync(tempPath, dataStr, 'utf8');
+        try {
+          fs.copyFileSync(tempPath, this.dbPath);
+          fs.unlinkSync(tempPath);
+        } catch {
+          fs.renameSync(tempPath, this.dbPath);
+        }
+      } catch (err) {
+        console.error('[DB] Error persisting database to disk:', err);
+      }
     }
   }
 

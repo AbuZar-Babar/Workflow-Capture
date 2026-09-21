@@ -171,6 +171,24 @@ export const WorkflowEditorView = {
       const availableOptions = this.extractAvailableOptions(step);
       const isListOrSelect = actionType === 'SELECT' || availableOptions.length > 0 || /select|dropdown|list|option|:nth-child/i.test(targetSelector);
 
+      // Determine step role (SETUP vs LOOP)
+      let isLoopStep = false;
+      if (step.role) {
+        isLoopStep = step.role === 'LOOP';
+      } else if (Number.isInteger(this.workflow.loopStepIndex) && this.workflow.loopStepIndex >= 0) {
+        isLoopStep = index >= this.workflow.loopStepIndex;
+      } else {
+        // Fallback auto-detection: Navigation/login controls are never loops
+        const isNav = /(mat-toolbar|mat-tab|navbar|nav-item|nav-link|nav|header|footer|login|auth|password)/i.test(targetSelector) ||
+                      /(mat-toolbar|nav|header|footer)/i.test(step.fingerprint?.tagName || '') ||
+                      step.fingerprint?.role === 'tab';
+        const isTableOrList = /(tbody\s*>\s*tr|tr:nth|table.*tr|ul\s*>\s*li|li:nth|:nth-child)/i.test(targetSelector) ||
+                              step.fingerprint?.tagName === 'tr' ||
+                              step.fingerprint?.parentTag === 'tr' ||
+                              step.fingerprint?.parentTag === 'td';
+        isLoopStep = !isNav && isTableOrList;
+      }
+
       // Step Node HTML setup
       let html = `
         <div class="df-node-header">
@@ -179,31 +197,24 @@ export const WorkflowEditorView = {
             <span>${this.escapeHtml(actionType)}</span>
           </div>
           <div style="display:flex; align-items:center; gap:0.35rem;">
+            <span class="df-role-badge ${isLoopStep ? 'role-loop' : 'role-setup'}" id="badge-role-${index}">
+              ${isLoopStep ? '🔁 LOOP TARGET' : '⚙️ SETUP'}
+            </span>
             ${isListOrSelect ? `<span class="df-badge-pill options" title="Contains selectable options / list items" style="display:inline-flex; align-items:center; gap:0.25rem;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg> Choices</span>` : ''}
             <span class="df-step-number">#${index + 1}</span>
           </div>
         </div>
         <div class="df-node-body">
-      `;
-
-      // Candidate Selectors (if recorded multiple candidates)
-      if (candidates.length > 1) {
-        html += `
-          <div class="df-input-group">
-            <label>Selector Strategy</label>
-            <select class="df-candidate-select" style="font-size:0.72rem; padding:5px 8px;">
-              ${candidates.map((c, cIdx) => `
-                <option value="${this.escapeHtml(c.value)}" ${cIdx === 0 ? 'selected' : ''}>
-                  ${this.escapeHtml(c.strategy ? c.strategy.toUpperCase() : 'CSS')}: ${this.escapeHtml(c.value)}
-                </option>
-              `).join('')}
-              <option value="__custom__">Custom Selector...</option>
+          <div class="df-input-group" style="background:${isLoopStep ? '#fef3c7' : '#f8fafc'}; padding:0.45rem 0.55rem; border-radius:6px; border:1px solid ${isLoopStep ? '#fcd34d' : '#e2e8f0'}; margin-bottom:0.25rem;">
+            <label style="color:${isLoopStep ? '#92400e' : '#475569'}; font-weight:700; font-size:0.7rem; display:flex; justify-content:space-between; align-items:center;">
+              <span>Execution Role</span>
+              <span class="df-role-helper" style="font-size:0.65rem; color:${isLoopStep ? '#b45309' : '#64748b'};">${isLoopStep ? 'Repeats for all items' : 'Runs once (navigation / form)'}</span>
+            </label>
+            <select class="df-role-select" style="font-size:0.75rem; font-weight:600; background:#fff; border-color:${isLoopStep ? '#f59e0b' : '#cbd5e1'};">
+              <option value="SETUP" ${!isLoopStep ? 'selected' : ''}>⚙️ SETUP — Run once (Tabs, Login, Search)</option>
+              <option value="LOOP" ${isLoopStep ? 'selected' : ''}>🔁 LOOP TARGET — Iterate across table rows/items</option>
             </select>
           </div>
-        `;
-      }
-
-      html += `
           <div class="df-input-group">
             <label>Target Selector (CSS / XPath)</label>
             <input type="text" class="df-target-input" value="${this.escapeHtml(targetSelector)}" placeholder="#element-id or .class" spellcheck="false" />
@@ -310,6 +321,45 @@ export const WorkflowEditorView = {
               }
             };
           }
+
+          const roleSelect = nodeEl.querySelector('.df-role-select');
+          if (roleSelect) {
+            roleSelect.onchange = (e) => {
+              const newRole = e.target.value;
+              const roleBadge = document.getElementById(`badge-role-${index}`);
+              const roleHelper = nodeEl.querySelector('.df-role-helper');
+              const roleGroup = roleSelect.closest('.df-input-group');
+              if (newRole === 'LOOP') {
+                if (roleBadge) {
+                  roleBadge.className = 'df-role-badge role-loop';
+                  roleBadge.textContent = '🔁 LOOP TARGET';
+                }
+                if (roleHelper) {
+                  roleHelper.textContent = 'Repeats for all items';
+                  roleHelper.style.color = '#b45309';
+                }
+                if (roleGroup) {
+                  roleGroup.style.background = '#fef3c7';
+                  roleGroup.style.borderColor = '#fcd34d';
+                }
+                Toast.info(`Step #${index + 1} marked as LOOP TARGET (repeats per item)`);
+              } else {
+                if (roleBadge) {
+                  roleBadge.className = 'df-role-badge role-setup';
+                  roleBadge.textContent = '⚙️ SETUP';
+                }
+                if (roleHelper) {
+                  roleHelper.textContent = 'Runs once (navigation / form)';
+                  roleHelper.style.color = '#64748b';
+                }
+                if (roleGroup) {
+                  roleGroup.style.background = '#f8fafc';
+                  roleGroup.style.borderColor = '#e2e8f0';
+                }
+                Toast.info(`Step #${index + 1} marked as SETUP (runs once)`);
+              }
+            };
+          }
         }
       }, 50);
 
@@ -352,88 +402,11 @@ export const WorkflowEditorView = {
     return options;
   },
 
+  isSaving: false,
+
   async saveWorkflow() {
-    const exported = this.editor.export();
-    const data = exported.drawflow.Home.data;
-    
-    let startNodeId = null;
-    const nodes = Object.values(data);
-    
-    if (nodes.length === 0) {
-      Toast.error("Workflow is empty!");
-      return;
-    }
-
-    for (const node of nodes) {
-      if (Object.keys(node.inputs).length === 0 || !node.inputs.input_1 || node.inputs.input_1.connections.length === 0) {
-        startNodeId = node.id;
-        break;
-      }
-    }
-
-    if (!startNodeId) {
-      startNodeId = nodes[0].id;
-    }
-
-    // Traverse the chain in visual order
-    const newSteps = [];
-    let currentNodeId = startNodeId;
-    let visited = new Set();
-
-    while (currentNodeId && !visited.has(currentNodeId)) {
-      visited.add(currentNodeId);
-      const node = data[currentNodeId];
-      if (!node) break;
-      
-      const nodeElement = document.getElementById(`node-${node.id}`);
-      const targetInput = nodeElement ? nodeElement.querySelector('.df-target-input') : null;
-      const valueInput = nodeElement ? nodeElement.querySelector('.df-value-input') : null;
-      const optionSelect = nodeElement ? nodeElement.querySelector('.df-option-select') : null;
-
-      const originalStep = node.data.originalStep || {};
-      const actionType = node.data.action || originalStep.action || originalStep.type || 'CLICK';
-      const newTargetVal = targetInput ? targetInput.value.trim() : '';
-      
-      let newTarget = originalStep.target;
-      if (typeof originalStep.target === 'object' && originalStep.target !== null) {
-        const candidates = originalStep.target.candidates ? [...originalStep.target.candidates] : [];
-        if (candidates.length > 0) {
-          candidates[0] = { ...candidates[0], value: newTargetVal };
-        } else {
-          candidates.push({ strategy: 'css', value: newTargetVal, priority: 1, uniqueness: 1 });
-        }
-        newTarget = { ...originalStep.target, candidates };
-      } else {
-        newTarget = newTargetVal;
-      }
-
-      const stepData = {
-        ...originalStep,
-        action: actionType,
-        type: actionType,
-        target: newTarget,
-      };
-
-      if (optionSelect && optionSelect.value === '__dynamic_loop__') {
-        stepData.isLoop = true;
-        stepData.loopMode = 'sequential_iteration';
-      }
-
-      if (valueInput) {
-        stepData.value = valueInput.value;
-        if (actionType === 'KEY_PRESS' || actionType === 'PRESS_KEY' || actionType === 'ENTER') {
-          stepData.key = valueInput.value || 'Enter';
-        }
-      }
-
-      newSteps.push(stepData);
-
-      if (node.outputs && node.outputs.output_1 && node.outputs.output_1.connections.length > 0) {
-        currentNodeId = node.outputs.output_1.connections[0].node;
-      } else {
-        currentNodeId = null;
-      }
-    }
+    if (this.isSaving) return;
+    this.isSaving = true;
 
     const btn = document.getElementById('btnSaveFlow');
     const origText = btn ? btn.innerHTML : '';
@@ -443,19 +416,142 @@ export const WorkflowEditorView = {
     }
 
     try {
+      if (!this.editor || !this.workflowId) return;
+
+      const exported = this.editor.export();
+      const data = exported.drawflow.Home.data;
+      const nodes = Object.values(data);
+      
+      if (nodes.length === 0) {
+        Toast.error("Workflow is empty!");
+        return;
+      }
+
+      // Find the start node (node with no input connections)
+      let startNodeId = null;
+      for (const node of nodes) {
+        const inputConn = node.inputs?.input_1?.connections;
+        if (!inputConn || inputConn.length === 0) {
+          startNodeId = node.id;
+          break;
+        }
+      }
+
+      if (!startNodeId) {
+        // Fallback to leftmost node by X position
+        const sorted = [...nodes].sort((a, b) => (a.pos_x || 0) - (b.pos_x || 0));
+        startNodeId = sorted[0].id;
+      }
+
+      // Helper to extract clean step data from a Drawflow node
+      const extractStep = (node, index) => {
+        const nodeElement = document.getElementById(`node-${node.id}`);
+        const targetInput = nodeElement ? nodeElement.querySelector('.df-target-input') : null;
+        const valueInput = nodeElement ? nodeElement.querySelector('.df-value-input') : null;
+        const optionSelect = nodeElement ? nodeElement.querySelector('.df-option-select') : null;
+        const roleSelect = nodeElement ? nodeElement.querySelector('.df-role-select') : null;
+
+        const originalStep = node.data?.originalStep || {};
+        const stepRole = roleSelect ? roleSelect.value : (originalStep.role || 'SETUP');
+        const actionType = node.data?.action || originalStep.action || originalStep.type || 'CLICK';
+        const newTargetVal = targetInput ? targetInput.value.trim() : '';
+
+        let newTarget = originalStep.target;
+        if (typeof originalStep.target === 'object' && originalStep.target !== null) {
+          const candidates = originalStep.target.candidates ? [...originalStep.target.candidates] : [];
+          if (candidates.length > 0) {
+            candidates[0] = { ...candidates[0], value: newTargetVal };
+          } else {
+            candidates.push({ strategy: 'css', value: newTargetVal, priority: 1, uniqueness: 1 });
+          }
+          newTarget = { ...originalStep.target, candidates };
+        } else {
+          newTarget = newTargetVal;
+        }
+
+        const stepData = {
+          ...originalStep,
+          index,
+          action: actionType,
+          type: actionType,
+          target: newTarget,
+          role: stepRole,
+          isLoopCandidate: stepRole === 'LOOP'
+        };
+
+        if (optionSelect && optionSelect.value === '__dynamic_loop__') {
+          stepData.isLoop = true;
+          stepData.loopMode = 'sequential_iteration';
+          stepData.role = 'LOOP';
+          stepData.isLoopCandidate = true;
+        }
+
+        if (valueInput) {
+          stepData.value = valueInput.value;
+          if (actionType === 'KEY_PRESS' || actionType === 'PRESS_KEY' || actionType === 'ENTER') {
+            stepData.key = valueInput.value || 'Enter';
+          }
+        }
+
+        return stepData;
+      };
+
+      const newSteps = [];
+      let currentNodeId = startNodeId;
+      const visited = new Set();
+
+      // 1. Follow the connected chain in order
+      while (currentNodeId && !visited.has(String(currentNodeId))) {
+        visited.add(String(currentNodeId));
+        const node = data[currentNodeId];
+        if (!node) break;
+
+        newSteps.push(extractStep(node, newSteps.length));
+
+        if (node.outputs?.output_1?.connections?.length > 0) {
+          currentNodeId = node.outputs.output_1.connections[0].node;
+        } else {
+          currentNodeId = null;
+        }
+      }
+
+      // 2. Only if there are genuinely disconnected nodes that were NEVER visited in the chain
+      const unvisitedNodes = nodes.filter(n => !visited.has(String(n.id)));
+      if (unvisitedNodes.length > 0) {
+        unvisitedNodes.sort((a, b) => (a.pos_x || 0) - (b.pos_x || 0));
+        for (const node of unvisitedNodes) {
+          visited.add(String(node.id));
+          newSteps.push(extractStep(node, newSteps.length));
+        }
+      }
+
+      // Determine loopStepIndex as index of first step marked LOOP or dynamic loop
+      const firstLoopIdx = newSteps.findIndex(s => s.role === 'LOOP' || s.isLoop === true || s.loopMode === 'sequential_iteration');
+      const loopStepIndex = firstLoopIdx >= 0 ? firstLoopIdx : null;
+
       const targetUrlInput = document.getElementById('wfTargetUrlInput');
       const updatedTargetUrl = targetUrlInput ? targetUrlInput.value.trim() : (this.workflow.targetUrl || '');
 
-      await Api.updateWorkflow(this.workflowId, { steps: newSteps, targetUrl: updatedTargetUrl });
-      if (this.workflow) this.workflow.targetUrl = updatedTargetUrl;
+      await Api.updateWorkflow(this.workflowId, {
+        steps: newSteps,
+        loopStepIndex,
+        targetUrl: updatedTargetUrl
+      });
 
-      Toast.success(`Workflow saved successfully (${newSteps.length} steps updated)!`);
+      if (this.workflow) {
+        this.workflow.steps = newSteps;
+        this.workflow.loopStepIndex = loopStepIndex;
+        this.workflow.targetUrl = updatedTargetUrl;
+      }
+
+      Toast.success(`Workflow saved successfully (${newSteps.length} steps updated, loop index: ${loopStepIndex != null ? loopStepIndex + 1 : 'None'})!`);
       const badge = document.getElementById('wfStepCounter');
       if (badge) badge.textContent = `${newSteps.length} Steps`;
     } catch (err) {
       console.error(err);
       Toast.error('Failed to save workflow: ' + err.message);
     } finally {
+      this.isSaving = false;
       if (btn) {
         btn.innerHTML = origText;
         btn.disabled = false;

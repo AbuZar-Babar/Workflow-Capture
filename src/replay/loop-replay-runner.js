@@ -298,6 +298,141 @@ class LoopReplayRunner {
     return true;
   }
 
+  isDropdownOptionCollection(collection, items = []) {
+    if (!collection) return false;
+    const tag = String(collection.itemTag || '').toLowerCase();
+    if (tag === 'mat-option' || tag === 'option') return true;
+    if (collection.ancestorTag === 'mat-select' || collection.ancestorTag === 'select') return true;
+    if (collection.ancestorSelector && /cdk-overlay|listbox|mat-select/i.test(collection.ancestorSelector)) return true;
+    if (Array.isArray(items) && items.some(it => it.tagName === 'mat-option' || it.tagName === 'option')) return true;
+    return false;
+  }
+
+  async ensureDropdownOpen(page, triggerStep = null) {
+    const isOpen = await page.evaluate(() => {
+      const options = Array.from(document.querySelectorAll('mat-option, [role="option"]'));
+      const visible = el => {
+        if (!el || !el.isConnected) return false;
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      };
+      return options.some(visible);
+    }).catch(() => false);
+
+    if (isOpen) return true;
+
+    logger.info('[Loop Runner] Dropdown overlay closed. Reopening dropdown for next option...');
+
+    if (triggerStep) {
+      try {
+        await this.replayEngine.executeAction(triggerStep);
+        await new Promise(r => setTimeout(r, 500));
+      } catch (err) {
+        logger.warn(`[Loop Runner] Trigger step replay note: ${err.message}`);
+      }
+    }
+
+    const stillClosed = await page.evaluate(() => {
+      const options = Array.from(document.querySelectorAll('mat-option, [role="option"]'));
+      const visible = el => {
+        if (!el || !el.isConnected) return false;
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      };
+      return !options.some(visible);
+    }).catch(() => true);
+
+    if (stillClosed) {
+      const triggerCoords = await page.evaluate(() => {
+        const select = document.querySelector('mat-select .mat-mdc-select-trigger, mat-select .mat-mdc-select-value, mat-select, [role="combobox"]');
+        if (!select) return null;
+        const rect = select.getBoundingClientRect();
+        return {
+          x: rect.x + rect.width / 2,
+          y: rect.y + rect.height / 2
+        };
+      }).catch(() => null);
+
+      if (triggerCoords) {
+        await page.mouse.click(triggerCoords.x, triggerCoords.y);
+        await new Promise(r => setTimeout(r, 600));
+      }
+    }
+
+    const started = Date.now();
+    while (Date.now() - started < 3000) {
+      const ready = await page.evaluate(() => {
+        const options = Array.from(document.querySelectorAll('mat-option, [role="option"]'));
+        return options.some(el => el.getBoundingClientRect().height > 0);
+      }).catch(() => false);
+      if (ready) return true;
+      await new Promise(r => setTimeout(r, 200));
+    }
+    return false;
+  }
+
+  async executeDropdownOptionSingleSelect(page, targetIndex) {
+    return page.evaluate((targetIdx) => {
+      const visible = el => {
+        if (!el || !el.isConnected) return false;
+        const style = window.getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+      };
+
+      const isOptionSelected = opt => {
+        if (!opt) return false;
+        if (opt.getAttribute('aria-selected') === 'true') return true;
+        if (opt.classList.contains('mat-mdc-option-selected') || opt.classList.contains('mat-selected')) return true;
+        const cb = opt.querySelector('.mat-pseudo-checkbox-checked, input[type="checkbox"]:checked');
+        return Boolean(cb);
+      };
+
+      const options = Array.from(document.querySelectorAll('mat-option, [role="option"]')).filter(visible);
+      if (!options.length) {
+        return { success: false, reason: 'No visible dropdown options found' };
+      }
+
+      const actionsDone = [];
+
+      // Phase 1: Uncheck any option currently checked whose index !== targetIdx
+      for (let idx = 0; idx < options.length; idx++) {
+        if (idx !== targetIdx && isOptionSelected(options[idx])) {
+          const opt = options[idx];
+          if (opt.scrollIntoView) opt.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+          opt.click();
+          actionsDone.push({ action: 'UNCHECK', index: idx, text: opt.innerText.trim().slice(0, 40) });
+        }
+      }
+
+      // Phase 2: Check target option if not already checked
+      const targetOpt = options[targetIdx];
+      if (!targetOpt) {
+        return {
+          success: false,
+          reason: `Target option at index ${targetIdx} not found (total options: ${options.length})`,
+          actionsDone
+        };
+      }
+
+      if (!isOptionSelected(targetOpt)) {
+        if (targetOpt.scrollIntoView) targetOpt.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        targetOpt.click();
+        actionsDone.push({ action: 'CHECK', index: targetIdx, text: targetOpt.innerText.trim().slice(0, 40) });
+      }
+
+      const targetIsNowSelected = isOptionSelected(targetOpt);
+
+      return {
+        success: targetIsNowSelected,
+        targetIndex: targetIdx,
+        targetText: targetOpt.innerText.trim().slice(0, 80),
+        totalOptions: options.length,
+        actionsDone
+      };
+    }, targetIndex);
+  }
+
   /**
    * Execute a standard sequential workflow (all steps in order)
    * @param {object} workflow - Stored workflow object with steps array
@@ -318,6 +453,7 @@ class LoopReplayRunner {
       results: [],
       downloadedFiles: []
     };
+    this.manifest = manifest;
 
     logger.info(`[Runner] Starting standard execution run ${this.runId} for workflow "${workflow.name}" (${steps.length} steps)`);
     onProgress({ status: 'STARTING', manifest });
@@ -412,6 +548,10 @@ class LoopReplayRunner {
         }
 
         manifest.results.push(stepResult);
+        this.manifest = manifest;
+        try {
+          fs.writeFileSync(path.join(this.runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+        } catch {}
         onProgress({ status: 'STEP_COMPLETE', stepResult, manifest });
       }
 
@@ -488,6 +628,7 @@ class LoopReplayRunner {
         : 0;
       manifest.activeItem = checkpoint.activeItem || null;
     }
+    this.manifest = manifest;
 
     logger.info(`[Loop Runner] Starting execution run ${this.runId} for workflow "${workflow.name}"`);
     onProgress({ status: checkpoint ? 'RESUMING' : 'STARTING', manifest, checkpoint });
@@ -527,10 +668,35 @@ class LoopReplayRunner {
 
       // 1. Partition steps into Setup vs Loop Steps
       const steps = workflow.steps || (workflow.recordingData && workflow.recordingData.actions) || [];
-      const partition = LoopDetector.partitionWorkflow(steps, loopStepIndex);
+
+      // Determine effective loopStepIndex:
+      let effectiveLoopStepIndex = Number.isInteger(loopStepIndex) ? loopStepIndex : null;
+      if (effectiveLoopStepIndex === null || effectiveLoopStepIndex === 0) {
+        if (Number.isInteger(workflow.loopStepIndex) && workflow.loopStepIndex >= 0) {
+          effectiveLoopStepIndex = workflow.loopStepIndex;
+        } else if (Number.isInteger(workflow.settings?.loopStepIndex) && workflow.settings.loopStepIndex >= 0) {
+          effectiveLoopStepIndex = workflow.settings.loopStepIndex;
+        } else {
+          const autoIdx = LoopDetector.findLoopCandidateIndex(steps);
+          if (autoIdx >= 0) {
+            effectiveLoopStepIndex = autoIdx;
+          } else {
+            effectiveLoopStepIndex = 0;
+          }
+        }
+      }
+
+      const partition = LoopDetector.partitionWorkflow(steps, effectiveLoopStepIndex);
       const targetStep = partition.loopSteps[0];
+      if (!targetStep) {
+        logger.warn(`[Loop Runner] No loop target action found at index ${effectiveLoopStepIndex}. Falling back to standard execution.`);
+        return await this.executeStandard(workflow, onProgress);
+      }
       const analysis = LoopDetector.analyzeStep(targetStep);
 
+      manifest.loopStepIndex = effectiveLoopStepIndex;
+
+      logger.info(`[Loop Runner] Loop starts at step index ${effectiveLoopStepIndex} (Setup: ${partition.setupSteps.length} step(s), Loop: ${partition.loopSteps.length} action(s))`);
       logger.info(`[Loop Runner] Detected pattern: ${analysis.patternType} (Container: ${analysis.containerSelector})`);
 
       // 2. Execute Setup Steps Once (e.g. Login & Navigate)
@@ -553,8 +719,9 @@ class LoopReplayRunner {
         minScore: 0.55
       });
 
-      if (!discovery.success) {
-        throw new Error(`Item discovery failed: ${discovery.reason || 'unknown reason'}`);
+      if (!discovery.success || discovery.itemCount < 2) {
+        logger.warn(`[Loop Runner] Item discovery did not detect multiple items: ${discovery.reason || 'only single item found'}. Falling back to standard execution.`);
+        return await this.executeStandard(workflow, onProgress);
       }
 
       if (!checkpoint) {
@@ -562,17 +729,17 @@ class LoopReplayRunner {
         manifest.pagesProcessed = 1;
       }
 
-      // Convert the concrete recorded target (for example, the first invoice row)
-      // into an item-relative target before replaying it across the collection.
-      const generalizedActions = partition.loopSteps.map(action => {
-        if (!ActionGeneralizer.isItemRelative(action, discovery.collection)) {
-          throw new Error(`Loop action cannot be generalized to the discovered collection: ${action.type || action.action || 'UNKNOWN'}`);
-        }
-        return ActionGeneralizer.generalizeAction(action, discovery.collection);
-      });
+      // Convert recorded actions: items inside collection become item-relative,
+      // subsequent page actions (e.g. backdrop, Run Report, Export to Excel) are page-scoped.
+      const generalizedActions = ActionGeneralizer.generalizeActions(partition.loopSteps, discovery.collection);
 
-      logger.info(`[Loop Runner] Discovered ${discovery.itemCount} repeated item(s) with confidence ${Math.round(discovery.confidence * 100)}%`);
-      logger.info(`[Loop Runner] Generalized ${generalizedActions.length} loop action(s) to item-relative scope.`);
+      const isDropdown = this.isDropdownOptionCollection(discovery.collection, discovery.items);
+      const triggerStep = partition.setupSteps.length > 0
+        ? partition.setupSteps[partition.setupSteps.length - 1]
+        : null;
+
+      logger.info(`[Loop Runner] Discovered ${discovery.itemCount} repeated item(s) with confidence ${Math.round(discovery.confidence * 100)}% (Dropdown Mode: ${isDropdown})`);
+      logger.info(`[Loop Runner] Generalized ${generalizedActions.length} loop action(s) (${generalizedActions.filter(a => a.scope === 'item').length} item-scoped, ${generalizedActions.filter(a => a.scope === 'page').length} page-scoped).`);
       onProgress({ status: 'PROCESSING_ITEMS', manifest, discovery, generalizedActions });
 
       // 4. Process the current page, then optionally advance through pagination.
@@ -707,28 +874,47 @@ class LoopReplayRunner {
               for (let actionOffset = nextActionOffset; actionOffset < generalizedActions.length; actionOffset++) {
                 if (this.isAborted) throw new Error('Execution stopped by user');
 
-                const beforeActionFiles = this.snapshotDownloadedFiles();
-                const itemHandle = await ItemDiscovery.getItemHandle(page, discovery, i);
-                const itemElement = itemHandle.asElement();
-                if (!itemElement) {
-                  await itemHandle.dispose().catch(() => {});
-                  throw new Error(`Item at index ${i} could not be resolved`);
-                }
-
-                try {
-                  await this.replayEngine.executeActionWithinItem(
-                    itemElement,
-                    generalizedActions[actionOffset],
-                    loopStepIndex + actionOffset
-                  );
-                } finally {
-                  await itemElement.dispose().catch(() => {});
-                }
-
                 const action = generalizedActions[actionOffset];
                 const actionType = action.type || action.action || 'CLICK';
+                const beforeActionFiles = this.snapshotDownloadedFiles();
+
+                if (isDropdown && actionOffset === 0 && action.scope === 'item') {
+                  // Sequential single-selection dropdown checkbox logic:
+                  // 1. Ensure dropdown is open
+                  await this.ensureDropdownOpen(page, triggerStep);
+                  // 2. Uncheck previous option(s), check target option i
+                  const selectResult = await this.executeDropdownOptionSingleSelect(page, i);
+                  if (!selectResult.success) {
+                    throw new Error(`Dropdown option selection failed for item #${i + 1}: ${selectResult.reason || 'Could not verify target option was selected'}`);
+                  }
+                  logger.info(`[Loop Runner] Item #${i + 1}/${discovery.itemCount}: Checked "${selectResult.targetText}", previous selections cleared.`);
+                } else if (action.scope === 'item') {
+                  const itemHandle = await ItemDiscovery.getItemHandle(page, discovery, i);
+                  const itemElement = itemHandle.asElement();
+                  if (!itemElement) {
+                    await itemHandle.dispose().catch(() => {});
+                    throw new Error(`Item at index ${i} could not be resolved`);
+                  }
+
+                  try {
+                    await this.replayEngine.executeActionWithinItem(
+                      itemElement,
+                      action,
+                      effectiveLoopStepIndex + actionOffset
+                    );
+                  } finally {
+                    await itemElement.dispose().catch(() => {});
+                  }
+                } else {
+                  // Page-scoped action (e.g. click backdrop, Run Report, Export to Excel)
+                  await this.replayEngine.executeAction(
+                    action,
+                    effectiveLoopStepIndex + actionOffset
+                  );
+                }
+
                 const actionResult = {
-                  index: loopStepIndex + actionOffset + 1,
+                  index: effectiveLoopStepIndex + actionOffset + 1,
                   type: actionType,
                   status: 'SUCCESS'
                 };
@@ -755,12 +941,38 @@ class LoopReplayRunner {
               }
 
               // Allow the complete per-item procedure to settle before restoring state.
-              await new Promise(r => setTimeout(r, 1000));
+              await new Promise(r => setTimeout(r, 800));
 
+              // Close any auxiliary tabs opened by item actions (e.g. target="_blank" download links)
+              try {
+                const browserPages = await page.browser().pages();
+                for (const p of browserPages) {
+                  if (p !== page && !p.isClosed()) {
+                    logger.info('[Loop Runner] Closing auxiliary tab opened during item replay: ' + p.url());
+                    await p.close().catch(() => {});
+                  }
+                }
+                await page.bringToFront().catch(() => {});
+              } catch {}
+
+              // Resilient state restoration back to the item collection page
               if (page.url() !== currentPageUrl) {
                 logger.info('[Loop Runner] Restoring state -> Navigating back to: ' + currentPageUrl);
-                await page.goto(currentPageUrl, { waitUntil: 'domcontentloaded' });
+                await page.goto(currentPageUrl, { waitUntil: 'domcontentloaded' }).catch(() => {});
                 await new Promise(r => setTimeout(r, 1000));
+              } else {
+                // Dismiss any open dropdown, context menu, or overlay modal (e.g. cdk-overlay-backdrop)
+                try {
+                  await page.keyboard.press('Escape');
+                  await new Promise(r => setTimeout(r, 200));
+                } catch {}
+              }
+
+              // Ensure the collection list container is present on the page before next item
+              if (discovery.collection && discovery.collection.ancestorSelector) {
+                try {
+                  await page.waitForSelector(discovery.collection.ancestorSelector, { timeout: 3000 }).catch(() => {});
+                } catch {}
               }
 
               completed = true;
@@ -799,8 +1011,17 @@ class LoopReplayRunner {
 
           // Attempt recovery
           try {
+            const browserPages = await page.browser().pages();
+            for (const p of browserPages) {
+              if (p !== page && !p.isClosed()) {
+                await p.close().catch(() => {});
+              }
+            }
+            await page.bringToFront().catch(() => {});
             if (page.url() !== currentPageUrl) {
-              await page.goto(currentPageUrl, { waitUntil: 'domcontentloaded' });
+              await page.goto(currentPageUrl, { waitUntil: 'domcontentloaded' }).catch(() => {});
+            } else {
+              await page.keyboard.press('Escape').catch(() => {});
             }
           } catch {
             // Ignore recovery error
@@ -808,6 +1029,10 @@ class LoopReplayRunner {
         }
 
         manifest.results.push(itemResult);
+        this.manifest = manifest;
+        try {
+          fs.writeFileSync(path.join(this.runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+        } catch {}
         this.writeLoopCheckpoint(
           manifest,
           itemResult.status === 'SUCCESS' ? null : itemResult.index,

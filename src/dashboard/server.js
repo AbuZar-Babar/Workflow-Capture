@@ -317,7 +317,15 @@ const server = http.createServer(async (req, res) => {
         const steps = workflow.steps || (workflow.recordingData && workflow.recordingData.actions) || [];
         if (!steps.length) return sendJson(res, 400, { error: 'Workflow contains no recorded actions' });
 
-        const loopStepIndex = Number.isInteger(body.loopStepIndex) ? body.loopStepIndex : 0;
+        let loopStepIndex = Number.isInteger(body.loopStepIndex) ? body.loopStepIndex : null;
+        if (loopStepIndex === null) {
+          if (Number.isInteger(workflow.loopStepIndex) && workflow.loopStepIndex >= 0) {
+            loopStepIndex = workflow.loopStepIndex;
+          } else {
+            const candidateIdx = LoopDetector.findLoopCandidateIndex(steps);
+            loopStepIndex = candidateIdx >= 0 ? candidateIdx : 0;
+          }
+        }
         const partition = LoopDetector.partitionWorkflow(steps, loopStepIndex);
         const targetStep = partition.loopSteps[0];
         if (!targetStep) return sendJson(res, 400, { error: 'No loop target action could be identified' });
@@ -325,18 +333,50 @@ const server = http.createServer(async (req, res) => {
         const { browser, page } = await connectToBrowser();
         try {
           await page.bringToFront().catch(() => {});
+          const currentUrl = page.url();
           const targetUrl = workflow.targetUrl || (workflow.recordingData?.metadata?.startUrl) || targetStep.url;
-          if (targetUrl && page.url() !== targetUrl) {
-            await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+          let shouldNavigate = false;
+          if (targetUrl) {
+            try {
+              const currentOrigin = new URL(currentUrl).origin;
+              const targetOrigin = new URL(targetUrl).origin;
+              if (currentUrl === 'about:blank' || currentOrigin !== targetOrigin) {
+                shouldNavigate = true;
+              }
+            } catch {
+              if (currentUrl === 'about:blank') shouldNavigate = true;
+            }
+          }
+
+          if (shouldNavigate && targetUrl) {
+            await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
             await new Promise(resolve => setTimeout(resolve, 600));
           }
+
           const engine = new ReplayEngine({ cdpPort: 9222 });
           engine.page = page;
           await engine._ensureSelectorResolverInFrame(page.mainFrame());
-          const discovery = await ItemDiscovery.discover(page, targetStep.target || targetStep.fingerprint, {
+          let discovery = await ItemDiscovery.discover(page, targetStep.target || targetStep.fingerprint, {
             minItems: 2,
             minScore: 0.55
           });
+
+          if (!discovery.success && discovery.reason?.includes('could not be resolved') && partition.setupSteps.length > 0) {
+            logger.info(`[Discovery] Target not immediately visible in DOM. Running ${partition.setupSteps.length} setup steps to reveal it...`);
+            try {
+              for (let i = 0; i < partition.setupSteps.length; i++) {
+                await engine.executeAction(partition.setupSteps[i], i);
+                await new Promise(resolve => setTimeout(resolve, 500));
+              }
+              discovery = await ItemDiscovery.discover(page, targetStep.target || targetStep.fingerprint, {
+                minItems: 2,
+                minScore: 0.55
+              });
+            } catch (setupErr) {
+              logger.warn(`[Discovery] Setup execution encountered warning: ${setupErr.message}`);
+            }
+          }
+
           return sendJson(res, discovery.success ? 200 : 422, {
             success: discovery.success,
             workflowId,

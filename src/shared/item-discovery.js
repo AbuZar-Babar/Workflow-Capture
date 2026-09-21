@@ -22,6 +22,9 @@ class ItemDiscovery {
   static async discover(page, target, options = {}) {
     if (!page) throw new Error('ItemDiscovery.discover requires a Puppeteer page.');
     if (!target) return { success: false, reason: 'No recorded target supplied.' };
+    if (target.role === 'SETUP' || target.isNavigationOrChrome === true) {
+      return { success: false, reason: 'Target element belongs to site navigation or setup controls.' };
+    }
 
     const minItems = Number.isInteger(options.minItems) ? options.minItems : 2;
     const minScore = typeof options.minScore === 'number' ? options.minScore : 0.55;
@@ -35,6 +38,28 @@ class ItemDiscovery {
           style.visibility !== 'hidden' &&
           rect.width > 0 &&
           rect.height > 0;
+      };
+
+      const isNavOrChrome = (el) => {
+        if (!el || !(el instanceof Element)) return false;
+        const tag = el.tagName.toLowerCase();
+        if (['nav', 'header', 'footer', 'mat-toolbar', 'mat-toolbar-row', 'mat-tab-header', 'mat-tab-group', 'mat-tab-nav-bar', 'mat-tab-link', 'mat-sidenav', 'mat-sidenav-container', 'app-header', 'app-nav'].includes(tag)) {
+          return true;
+        }
+        const role = (el.getAttribute('role') || '').toLowerCase();
+        if (['navigation', 'menubar', 'tablist', 'tab', 'banner', 'contentinfo', 'toolbar', 'breadcrumb', 'pagination'].includes(role)) {
+          return true;
+        }
+        const className = (typeof el.className === 'string' ? el.className : '').toLowerCase();
+        if (/\b(navbar|nav-tabs|nav-item|nav-link|top-bar|app-bar|sidebar-nav|site-header|main-nav|page-header|pager|header-nav|menu-item)\b/i.test(className)) {
+          return true;
+        }
+        try {
+          if (el.closest('nav, header, footer, mat-toolbar, mat-toolbar-row, mat-tab-header, mat-tab-nav-bar, [role="navigation"], [role="tablist"], [role="menubar"], [role="toolbar"], .navbar, .top-bar')) {
+            return true;
+          }
+        } catch {}
+        return false;
       };
 
       const normalize = (value) => String(value || '')
@@ -85,16 +110,46 @@ class ItemDiscovery {
         }
       } catch {}
 
-      // Safe fallback for simple recorded CSS candidates.
+      // Safe fallback for recorded candidates (CSS & XPath)
       if (!recorded) {
         const candidates = target.candidates || target.selectors?.candidates || [];
         for (const candidate of candidates) {
           if (!candidate || !candidate.value) continue;
           try {
-            const el = document.querySelector(candidate.value);
-            if (visible(el)) {
-              recorded = el;
-              break;
+            const val = String(candidate.value).trim();
+            if (val.startsWith('/') || val.startsWith('(') || candidate.strategy === 'xpath') {
+              const xpathResult = document.evaluate(val, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+              if (xpathResult && xpathResult.singleNodeValue && visible(xpathResult.singleNodeValue)) {
+                recorded = xpathResult.singleNodeValue;
+                break;
+              }
+            } else {
+              const el = document.querySelector(val);
+              if (visible(el)) {
+                recorded = el;
+                break;
+              }
+            }
+          } catch {}
+        }
+      }
+
+      // Additional fallback: resolve by ID or tag name + text content
+      if (!recorded && target.fingerprint) {
+        const fp = target.fingerprint;
+        if (fp.id) {
+          try {
+            const el = document.getElementById(fp.id);
+            if (visible(el)) recorded = el;
+          } catch {}
+        }
+        if (!recorded && fp.tagName && fp.text) {
+          try {
+            const normTargetText = normalize(fp.text).slice(0, 40);
+            if (normTargetText) {
+              const tagElements = Array.from(document.querySelectorAll(fp.tagName)).filter(visible);
+              const found = tagElements.find(el => normalize(el.innerText).includes(normTargetText));
+              if (found) recorded = found;
             }
           } catch {}
         }
@@ -104,6 +159,14 @@ class ItemDiscovery {
         return {
           success: false,
           reason: 'Recorded target could not be resolved on the current page.'
+        };
+      }
+
+      // Check if recorded target itself is navigation or toolbar chrome
+      if (isNavOrChrome(recorded)) {
+        return {
+          success: false,
+          reason: 'Recorded element belongs to site navigation or chrome toolbar.'
         };
       }
 
@@ -127,12 +190,15 @@ class ItemDiscovery {
       const candidates = [];
 
       for (const ancestor of ancestors) {
+        if (isNavOrChrome(ancestor)) continue;
+
         const children = Array.from(ancestor.children).filter(visible);
         if (children.length < minItems) continue;
 
         // Identify which direct child of this ancestor contains the recorded element
         const itemForRecorded = children.find(child => child === recorded || child.contains(recorded));
         if (!itemForRecorded) continue;
+        if (isNavOrChrome(itemForRecorded)) continue;
 
         const sameTag = children.filter(child =>
           child.tagName === itemForRecorded.tagName
@@ -299,6 +365,32 @@ class ItemDiscovery {
   }
 
   /**
+   * Check whether a discovered collection candidate belongs to site navigation or toolbar chrome.
+   */
+  static isNavigationCandidate(candidate) {
+    if (!candidate) return false;
+    const combined = [
+      candidate.tagName || '',
+      candidate.parentTag || '',
+      candidate.role || '',
+      candidate.ancestorTag || '',
+      candidate.ancestorSelector || '',
+      Array.isArray(candidate.classes) ? candidate.classes.join(' ') : (candidate.classes || '')
+    ].join(' ').toLowerCase();
+
+    if (/\b(mat-toolbar|mat-toolbar-row|mat-tab-header|mat-tab-group|mat-tab-nav-bar|mat-tab-link|mat-sidenav|mat-sidenav-container|app-header|app-nav|navbar)\b/i.test(combined)) {
+      return true;
+    }
+    if (/\b(navigation|menubar|tablist|tab|banner|contentinfo|toolbar|breadcrumb|pagination)\b/i.test(combined)) {
+      return true;
+    }
+    if (/\b(navbar|nav-tabs|nav-item|nav-link|top-bar|app-bar|sidebar-nav|site-header|main-nav|page-header|pager|header-nav|menu-item)\b/i.test(combined)) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Select the best candidate from already-collected discovery candidates.
    * Kept pure for deterministic unit testing.
    *
@@ -308,7 +400,7 @@ class ItemDiscovery {
   static selectBestCandidate(candidates) {
     if (!Array.isArray(candidates) || candidates.length === 0) return null;
     return candidates
-      .filter(c => c && typeof c.score === 'number')
+      .filter(c => c && typeof c.score === 'number' && !this.isNavigationCandidate(c))
       .sort((a, b) => b.score - a.score)[0] || null;
   }
 }

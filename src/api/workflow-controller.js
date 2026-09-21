@@ -35,22 +35,33 @@ function syncWorkflowsFromDisk(currentUserId) {
             steps: actions,
             recordingData: content,
             stepCount: actions.length,
+            loopStepIndex: content.metadata?.loopStepIndex ?? null,
             createdAt: (content.metadata && content.metadata.startedAt) || stats.birthtime.toISOString(),
             updatedAt: (content.metadata && content.metadata.completedAt) || stats.mtime.toISOString()
           });
         } else {
-          const updates = {
-            steps: actions,
-            recordingData: content,
-            stepCount: actions.length
-          };
-          if (!existing.targetUrl && startUrl) {
-            updates.targetUrl = startUrl;
+          const dbTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
+          const fileTime = stats.mtime.getTime();
+
+          // Only overwrite from disk if the file on disk is genuinely newer than the database record
+          if (fileTime > dbTime + 2000) {
+            const updates = {
+              steps: actions,
+              recordingData: content,
+              stepCount: actions.length,
+              updatedAt: new Date(fileTime).toISOString()
+            };
+            if (!existing.targetUrl && startUrl) {
+              updates.targetUrl = startUrl;
+            }
+            if (!existing.name && wfName) {
+              updates.name = wfName;
+            }
+            if (content.metadata?.loopStepIndex !== undefined) {
+              updates.loopStepIndex = content.metadata.loopStepIndex;
+            }
+            db.update('workflows', existing.id, updates);
           }
-          if (!existing.name && wfName) {
-            updates.name = wfName;
-          }
-          db.update('workflows', existing.id, updates);
         }
       } catch (e) {
         // Skip corrupted JSON files
@@ -205,6 +216,8 @@ function updateWorkflow(req, res, workflowId, body) {
   if (body.name) updates.name = body.name.trim();
   if (body.description !== undefined) updates.description = body.description;
   if (body.targetUrl) updates.targetUrl = body.targetUrl;
+  if (body.loopStepIndex !== undefined) updates.loopStepIndex = body.loopStepIndex;
+  if (body.settings) updates.settings = { ...existing.settings, ...body.settings };
   if (Array.isArray(body.steps)) {
     updates.steps = body.steps;
     updates.stepCount = body.steps.length;
@@ -216,8 +229,32 @@ function updateWorkflow(req, res, workflowId, body) {
     }
   }
   if (body.meta) updates.meta = { ...existing.meta, ...body.meta };
+  updates.updatedAt = new Date().toISOString();
 
   const updated = db.update('workflows', existing.id, updates);
+
+  // CRITICAL: Persist updates back to disk in recordings/ so syncWorkflowsFromDisk won't revert them
+  try {
+    const filePath = path.join(RECORDINGS_DIR, `${existing.id}.json`);
+    let fileContent = {};
+    if (fs.existsSync(filePath)) {
+      try {
+        fileContent = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      } catch {}
+    }
+    if (!fileContent.metadata) fileContent.metadata = {};
+    if (updates.name) fileContent.metadata.name = updates.name;
+    if (updates.description) fileContent.metadata.description = updates.description;
+    if (updates.targetUrl) fileContent.metadata.startUrl = updates.targetUrl;
+    if (updates.loopStepIndex !== undefined) fileContent.metadata.loopStepIndex = updates.loopStepIndex;
+    fileContent.metadata.updatedAt = updates.updatedAt;
+    if (Array.isArray(updates.steps)) {
+      fileContent.actions = updates.steps;
+    }
+    fs.writeFileSync(filePath, JSON.stringify(fileContent, null, 2), 'utf8');
+  } catch (err) {
+    console.error('[WorkflowController] Failed to persist workflow update to disk:', err.message);
+  }
 
   return sendJson(res, 200, {
     success: true,
