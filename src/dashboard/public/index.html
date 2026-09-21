@@ -391,6 +391,23 @@
 </head>
 <body>
 
+  <!-- Global Active Recording Banner (Visible across all tabs when recording) -->
+  <div class="global-recording-banner hidden" id="globalRecordingBanner" role="region" aria-label="Active Recording Session">
+    <div class="global-recording-badge">
+      <span class="recording-pulse-dot"></span>
+      <span class="global-recording-tag">RECORDING ACTIVE</span>
+    </div>
+    <div class="global-recording-info">
+      <strong id="globalRecName" class="global-rec-name">workflow</strong>
+      <span class="global-rec-meta" id="globalRecMeta">00:00 · 0 actions</span>
+    </div>
+    <div class="global-recording-actions">
+      <button class="btn btn-danger btn-sm" id="btnGlobalStopRec" title="Stop recording and save workflow">
+        <span>■</span> <span>Stop &amp; Save</span>
+      </button>
+    </div>
+  </div>
+
   <!-- Main Quixotic Dashboard Shell Container -->
   <main class="dashboard-wrapper">
 
@@ -545,6 +562,6 @@
   <!-- END: Auth Overlay -->
 
   <!-- Main ES Module Initializer -->
-  <script type="module" src="/js/main.js?v=5"></script>
+  <script type="module" src="/js/main.js?v=6"></script>
 </body>
 </html>

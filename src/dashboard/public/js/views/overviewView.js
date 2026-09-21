@@ -187,21 +187,30 @@ export const OverviewView = {
     const btnStopHero = document.getElementById('btnOverviewStopRecHero');
     const inputName = document.getElementById('overviewRecName');
 
-    if (btnStart) {
-      btnStart.onclick = async () => {
-        const name = (inputName && inputName.value.trim()) || `workflow-${Date.now()}`;
-        try {
-          await Api.startRecording(name);
-          Toast.success(`Recording started for "${name}"`);
-          this.setRecordingState(true, { startedAt: new Date() });
-        } catch (err) {
-          Toast.error(err.message);
-        }
-      };
-    }
+    const startRecording = async () => {
+      const name = (inputName && inputName.value.trim()) || `workflow-${Date.now()}`;
+      try {
+        await Api.startRecording(name);
+        Toast.success(`Recording started for "${name}"`);
+        this.setRecordingState(true, { startedAt: new Date(), name });
+      } catch (err) {
+        Toast.error(err.message);
+      }
+    };
 
     const stopRecording = async () => {
       try {
+        if (btnStopHero) {
+          btnStopHero.disabled = true;
+          btnStopHero.innerHTML = '<span>⏳</span> <span>Saving…</span>';
+        }
+        if (btnStop) {
+          btnStop.disabled = true;
+          btnStop.textContent = 'Saving…';
+        }
+        if (btnStart) {
+          btnStart.disabled = true;
+        }
         const res = await Api.stopRecording();
         Toast.success(`Recording saved: ${res.summary.actionCount} steps captured`);
         this.setRecordingState(false);
@@ -211,8 +220,31 @@ export const OverviewView = {
         if (workflowId) await this.openDiscovery(workflowId);
       } catch (err) {
         Toast.error(err.message);
+        this.setRecordingState(false);
+      } finally {
+        if (btnStopHero) {
+          btnStopHero.disabled = false;
+          btnStopHero.innerHTML = '<span>■</span> <span>Stop &amp; Save</span>';
+        }
+        if (btnStop) {
+          btnStop.disabled = false;
+          btnStop.textContent = 'Stop & Save';
+        }
+        if (btnStart) {
+          btnStart.disabled = false;
+        }
       }
     };
+
+    if (btnStart) {
+      btnStart.onclick = async () => {
+        if (this.isRecording) {
+          await stopRecording();
+        } else {
+          await startRecording();
+        }
+      };
+    }
 
     if (btnStop) btnStop.onclick = stopRecording;
     if (btnStopHero) btnStopHero.onclick = stopRecording;
@@ -409,6 +441,7 @@ export const OverviewView = {
   setRecordingState(isRecording, meta = {}) {
     const btnStart = document.getElementById('btnOverviewStartRec');
     const btnStop = document.getElementById('btnOverviewStopRec');
+    const btnStopHero = document.getElementById('btnOverviewStopRecHero');
     const badge = document.getElementById('overviewRecBadge');
     const stats = document.getElementById('overviewRecStats');
     const input = document.getElementById('overviewRecName');
@@ -419,12 +452,12 @@ export const OverviewView = {
       if (btnStart) {
         btnStart.classList.remove('hidden');
         btnStart.classList.add('recording-active');
-        btnStart.setAttribute('aria-label', 'Recording in progress');
-        btnStart.disabled = true;
+        btnStart.setAttribute('aria-label', 'Stop and save recording');
+        btnStart.disabled = false;
       }
       const btnLabel = document.getElementById('overviewRecordButtonLabel');
       const btnMeta = document.getElementById('overviewRecordButtonMeta');
-      if (btnLabel) btnLabel.textContent = 'Recording…';
+      if (btnLabel) btnLabel.textContent = 'Stop Recording';
       if (btnMeta) btnMeta.classList.remove('hidden');
       if (btnStop) btnStop.classList.remove('hidden');
       if (btnStopHero) btnStopHero.classList.remove('hidden');
@@ -433,7 +466,7 @@ export const OverviewView = {
       if (input) input.disabled = true;
 
       Header.setEngineState('RECORDING');
-      this.recordStartTime = meta.startedAt ? new Date(meta.startedAt).getTime() : Date.now();
+      this.recordStartTime = meta.startedAt ? new Date(meta.startedAt).getTime() : (this.recordStartTime || Date.now());
       const updateRecordingUi = async () => {
         const sec = Math.max(0, Math.floor((Date.now() - this.recordStartTime) / 1000));
         const mins = String(Math.floor(sec / 60)).padStart(2, '0');
@@ -485,6 +518,17 @@ export const OverviewView = {
         clearInterval(this.recordStatusTimer);
         this.recordStatusTimer = null;
       }
+    }
+  },
+
+  destroy() {
+    if (this.recordTimer) {
+      clearInterval(this.recordTimer);
+      this.recordTimer = null;
+    }
+    if (this.recordStatusTimer) {
+      clearInterval(this.recordStatusTimer);
+      this.recordStatusTimer = null;
     }
   },
 

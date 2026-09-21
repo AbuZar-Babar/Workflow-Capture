@@ -32,7 +32,33 @@ function bootstrap() {
 
   // 6. Global SSE state synchronizers
   SSE.on('recording_state', (data) => {
-    Header.setEngineState(data.isRecording ? 'RECORDING' : 'IDLE');
+    const isRec = Boolean(data.isRecording);
+    Header.setEngineState(isRec ? 'RECORDING' : 'IDLE');
+    Header.setGlobalRecordingBanner(isRec, data);
+    Sidebar.setExecutionActive(isRec);
+    const curView = Router.views[Router.currentRoute];
+    if (curView && typeof curView.setRecordingState === 'function') {
+      curView.setRecordingState(isRec, data);
+      if (!isRec && typeof curView.loadData === 'function') {
+        curView.loadData();
+      }
+    }
+  });
+
+  SSE.on('action_captured', (data) => {
+    const actionCountEl = document.getElementById('overviewRecActionCount');
+    if (actionCountEl && data.count !== undefined) {
+      actionCountEl.textContent = data.count;
+    }
+    const btnMeta = document.getElementById('overviewRecordButtonMeta');
+    const curView = Router.views[Router.currentRoute];
+    if (btnMeta && curView && curView.recordStartTime) {
+      const sec = Math.max(0, Math.floor((Date.now() - curView.recordStartTime) / 1000));
+      const mins = String(Math.floor(sec / 60)).padStart(2, '0');
+      const secs = String(sec % 60).padStart(2, '0');
+      btnMeta.textContent = `${mins}:${secs} · ${data.count} action${data.count === 1 ? '' : 's'}`;
+    }
+    Header.updateRecordingBannerActionCount(data.count);
   });
 
   SSE.on('replay_state', (data) => {

@@ -379,6 +379,25 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === '/api/runs/stop' && req.method === 'POST') {
+      if (activeRecorder && activeRecorder.isRecording) {
+        try {
+          const savedFilePath = await activeRecorder.stop();
+          const summary = {
+            name: activeRecorder.name,
+            filePath: savedFilePath,
+            actionCount: activeRecorder.actions.length
+          };
+          activeRecorder = null;
+          if (workflowController.syncWorkflowsFromDisk) {
+            workflowController.syncWorkflowsFromDisk();
+          }
+          broadcast('recording_state', { isRecording: false, summary });
+          broadcast('workflows_updated', summary);
+        } catch (err) {
+          logger.error('Error stopping recorder in /api/runs/stop:', err);
+          activeRecorder = null;
+        }
+      }
       if (activeReplay) {
         try {
           if (activeReplay.engine && typeof activeReplay.engine.abort === 'function') {
@@ -723,6 +742,27 @@ const server = http.createServer(async (req, res) => {
     // -------------------------------------------------------------
     if (pathname === '/api/replay/stop' && req.method === 'POST') {
       let stoppedReplay = false;
+      let stoppedRecorder = false;
+      if (activeRecorder && activeRecorder.isRecording) {
+        try {
+          const savedFilePath = await activeRecorder.stop();
+          const summary = {
+            name: activeRecorder.name,
+            filePath: savedFilePath,
+            actionCount: activeRecorder.actions.length
+          };
+          activeRecorder = null;
+          stoppedRecorder = true;
+          if (workflowController.syncWorkflowsFromDisk) {
+            workflowController.syncWorkflowsFromDisk();
+          }
+          broadcast('recording_state', { isRecording: false, summary });
+          broadcast('workflows_updated', summary);
+        } catch (err) {
+          logger.error('Error stopping recorder in /api/replay/stop:', err);
+          activeRecorder = null;
+        }
+      }
       if (activeReplay) {
         stoppedReplay = true;
         try {
@@ -742,7 +782,7 @@ const server = http.createServer(async (req, res) => {
 
       return sendJson(res, 200, {
         success: true,
-        message: stoppedReplay ? 'Replay playback stopped successfully' : 'Execution stopped'
+        message: stoppedRecorder ? 'Recording stopped and saved successfully' : (stoppedReplay ? 'Replay playback stopped successfully' : 'Execution stopped')
       });
     }
 

@@ -293,17 +293,33 @@ export const Api = {
   },
 
   /**
-   * Universal Stop Execution (stops both workflow runs and active replays)
+   * Universal Stop Execution (stops workflow runs, active replays, and active recordings)
    */
   async stopExecution() {
+    let recorderStopped = false;
+    try {
+      const status = await this.getStatus().catch(() => null);
+      if (status && status.recorder && status.recorder.isRecording) {
+        await this.stopRecording().catch(() => {});
+        recorderStopped = true;
+      }
+    } catch {}
+
     try {
       const res = await Auth.authenticatedFetch('/api/runs/stop', {
         method: 'POST'
       });
       const data = await res.json();
+      if (recorderStopped) {
+        data.message = (data.message ? data.message + ' and ' : '') + 'Recording saved successfully';
+      }
       return data;
     } catch {
-      return this.stopReplay();
+      const replayRes = await this.stopReplay();
+      if (recorderStopped) {
+        replayRes.message = 'Recording stopped and saved successfully';
+      }
+      return replayRes;
     }
   },
 
