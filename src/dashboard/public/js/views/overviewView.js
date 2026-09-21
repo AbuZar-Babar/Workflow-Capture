@@ -28,6 +28,7 @@ export const OverviewView = {
               <span id="overviewRecordButtonLabel">Start Recording</span>
               <span class="record-button-meta hidden" id="overviewRecordButtonMeta">00:00 · 0 actions</span>
             </button>
+            <button class="btn btn-danger dashboard-hero-stop hidden" id="btnOverviewStopRecHero" aria-label="Stop and save recording"><span>■</span> <span>Stop &amp; Save</span></button>
             <button class="btn btn-secondary" id="btnOverviewLaunchChrome">
               <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15.5 14.5a6 6 0 1 1-5.8-7.4h1.8a4 4 0 0 0-3.6 2.5m1.3-3.1 4.2-4.2a1 1 0 0 1 1.4 0l1.4 1.4a1 1 0 0 1 0 1.4l-4.2 4.2"/></svg>
               <span>Launch Chrome</span>
@@ -183,6 +184,7 @@ export const OverviewView = {
     // Recorder bindings
     const btnStart = document.getElementById('btnOverviewStartRec');
     const btnStop = document.getElementById('btnOverviewStopRec');
+    const btnStopHero = document.getElementById('btnOverviewStopRecHero');
     const inputName = document.getElementById('overviewRecName');
 
     if (btnStart) {
@@ -198,21 +200,22 @@ export const OverviewView = {
       };
     }
 
-    if (btnStop) {
-      btnStop.onclick = async () => {
-        try {
-          const res = await Api.stopRecording();
-          Toast.success(`Recording saved: ${res.summary.actionCount} steps captured`);
-          this.setRecordingState(false);
-          await this.loadData();
-          const filename = (res.summary.filePath || '').split(/[\\/]/).pop() || '';
-          const workflowId = filename.replace(/\.json$/i, '');
-          if (workflowId) await this.openDiscovery(workflowId);
-        } catch (err) {
-          Toast.error(err.message);
-        }
-      };
-    }
+    const stopRecording = async () => {
+      try {
+        const res = await Api.stopRecording();
+        Toast.success(`Recording saved: ${res.summary.actionCount} steps captured`);
+        this.setRecordingState(false);
+        await this.loadData();
+        const filename = (res.summary.filePath || '').split(/[\\/]/).pop() || '';
+        const workflowId = filename.replace(/\.json$/i, '');
+        if (workflowId) await this.openDiscovery(workflowId);
+      } catch (err) {
+        Toast.error(err.message);
+      }
+    };
+
+    if (btnStop) btnStop.onclick = stopRecording;
+    if (btnStopHero) btnStopHero.onclick = stopRecording;
 
     // Replay bindings
     const speedRange = document.getElementById('overviewSpeedRange');
@@ -424,6 +427,7 @@ export const OverviewView = {
       if (btnLabel) btnLabel.textContent = 'Recording…';
       if (btnMeta) btnMeta.classList.remove('hidden');
       if (btnStop) btnStop.classList.remove('hidden');
+      if (btnStopHero) btnStopHero.classList.remove('hidden');
       if (badge) badge.classList.remove('hidden');
       if (stats) stats.classList.remove('hidden');
       if (input) input.disabled = true;
@@ -467,6 +471,7 @@ export const OverviewView = {
       if (btnLabel) btnLabel.textContent = 'Start Recording';
       if (btnMeta) btnMeta.classList.add('hidden');
       if (btnStop) btnStop.classList.add('hidden');
+      if (btnStopHero) btnStopHero.classList.add('hidden');
       if (badge) badge.classList.add('hidden');
       if (stats) stats.classList.add('hidden');
       if (input) input.disabled = false;
