@@ -36,6 +36,8 @@ function syncWorkflowsFromDisk(currentUserId) {
             recordingData: content,
             stepCount: actions.length,
             loopStepIndex: content.metadata?.loopStepIndex ?? null,
+            isLoop: content.metadata?.isLoop ?? (content.metadata?.loopStepIndex >= 0),
+            mode: content.metadata?.mode ?? (content.metadata?.loopStepIndex >= 0 ? 'LOOP' : 'STANDARD'),
             createdAt: (content.metadata && content.metadata.startedAt) || stats.birthtime.toISOString(),
             updatedAt: (content.metadata && content.metadata.completedAt) || stats.mtime.toISOString()
           });
@@ -217,6 +219,8 @@ function updateWorkflow(req, res, workflowId, body) {
   if (body.description !== undefined) updates.description = body.description;
   if (body.targetUrl) updates.targetUrl = body.targetUrl;
   if (body.loopStepIndex !== undefined) updates.loopStepIndex = body.loopStepIndex;
+  if (body.isLoop !== undefined) updates.isLoop = Boolean(body.isLoop);
+  if (body.mode !== undefined) updates.mode = body.mode;
   if (body.settings) updates.settings = { ...existing.settings, ...body.settings };
   if (Array.isArray(body.steps)) {
     updates.steps = body.steps;
@@ -247,6 +251,8 @@ function updateWorkflow(req, res, workflowId, body) {
     if (updates.description) fileContent.metadata.description = updates.description;
     if (updates.targetUrl) fileContent.metadata.startUrl = updates.targetUrl;
     if (updates.loopStepIndex !== undefined) fileContent.metadata.loopStepIndex = updates.loopStepIndex;
+    if (updates.isLoop !== undefined) fileContent.metadata.isLoop = updates.isLoop;
+    if (updates.mode !== undefined) fileContent.metadata.mode = updates.mode;
     fileContent.metadata.updatedAt = updates.updatedAt;
     if (Array.isArray(updates.steps)) {
       fileContent.actions = updates.steps;

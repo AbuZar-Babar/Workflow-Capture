@@ -1,0 +1,640 @@
+{
+  "metadata": {
+    "recordingId": "rec_1790065574115_g09bq",
+    "version": "1.0.0",
+    "name": "workflow-1790065552047",
+    "startedAt": "2026-09-22T08:25:52.069Z",
+    "completedAt": "2026-09-22T08:26:14.112Z",
+    "startUrl": "https://customerportal.usoil.com/#/home",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    }
+  },
+  "actions": [
+    {
+      "id": "act_1_mucetbw2",
+      "index": 0,
+      "type": "CLICK",
+      "timestamp": 1790065557360,
+      "timeDeltaMs": 0,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-toolbar > span:nth-of-type(2) > span > button > span:nth-of-type(2)",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-toolbar[1]/span[2]/span[1]/button[1]/span[2]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "text",
+            "value": "//span[normalize-space()='Message Center']",
+            "uniqueness": 6,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//span[contains(@class, 'mdc-button__label') and normalize-space()='Message Center']",
+            "uniqueness": 2,
+            "priority": 4
+          }
+        ],
+        "fingerprint": {
+          "tagName": "span",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "Message Center",
+          "classes": [
+            "mdc-button__label"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 120,
+            "height": 32
+          }
+        }
+      }
+    },
+    {
+      "id": "act_2_mucetd7p",
+      "index": 1,
+      "type": "CLICK",
+      "timestamp": 1790065559077,
+      "timeDeltaMs": 1717,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-search-documents > div > div:nth-of-type(1) > div > div:nth-of-type(1) > div:nth-of-type(1) > div > div > mat-select > div > div:nth-of-type(1)",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-search-documents[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/mat-select[1]/div[1]/div[1]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-form-field[.//text()[contains(., 'Customer  Select All')]]//mat-select",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-form-field[.//text()[contains(., 'Customer  Select All')]]//*[contains(@class, 'select-value') or contains(@class, 'select-trigger')]",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//label[contains(., 'Customer  Select All')]/..//mat-select",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//label[contains(., 'Customer  Select All')]/..//div[contains(@class, 'select')]",
+            "uniqueness": 0,
+            "priority": 4
+          }
+        ],
+        "fingerprint": {
+          "tagName": "div",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "mat-mdc-select-value"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 319,
+            "height": 24
+          }
+        }
+      }
+    },
+    {
+      "id": "act_3_mucete4k",
+      "index": 2,
+      "type": "CLICK",
+      "timestamp": 1790065560260,
+      "timeDeltaMs": 1183,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "text",
+            "value": "//mat-option[normalize-space()='105992 - DIXIE HIGHWAY ENERGY, LLC (Charge Up 43) - 21100 S DIXIE HWY MIAMI, FL 33189']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-option[contains(normalize-space(), '105992 - DIXIE HIGHWAY ENERGY, LLC (Charge Up 43) - 21100 S DIXIE HWY MIAMI, FL 33189')]",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//*[@role='option'][contains(normalize-space(), '105992 - DIXIE HIGHWAY ENERGY, LLC (Charge Up 43) - 21100 S DIXIE HWY MIAMI, FL 33189')]",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-option[contains(., '105992')]",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//*[@role='option'][contains(., '105992')]",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "css-path",
+            "value": "body > div:nth-of-type(1) > div:nth-of-type(2) > div > div > mat-option:nth-of-type(1)",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/div[1]/div[2]/div[1]/div[1]/mat-option[1]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "attribute",
+            "value": "mat-option[role=\"option\"]",
+            "uniqueness": 14,
+            "priority": 3
+          }
+        ],
+        "fingerprint": {
+          "tagName": "mat-option",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": "option",
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "105992 - DIXIE HIGHWAY ENERGY, LLC (Charge Up 43) - 21100 S DIXIE HWY MIAMI, FL 33189",
+          "classes": [
+            "mat-mdc-option",
+            "mdc-list-item",
+            "mat-mdc-option-multiple",
+            "mat-mdc-option-active"
+          ],
+          "attributes": {
+            "role": "option"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 363,
+            "height": 72
+          }
+        }
+      }
+    },
+    {
+      "id": "act_4_muceteqs",
+      "index": 3,
+      "type": "CLICK",
+      "timestamp": 1790065561059,
+      "timeDeltaMs": 799,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "attribute",
+            "value": ".cdk-overlay-backdrop",
+            "uniqueness": 1,
+            "priority": 3
+          },
+          {
+            "strategy": "attribute",
+            "value": ".cdk-overlay-container .cdk-overlay-backdrop",
+            "uniqueness": 1,
+            "priority": 3
+          },
+          {
+            "strategy": "css-path",
+            "value": "body > div:nth-of-type(1) > div:nth-of-type(1)",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[contains(@class, \"cdk-overlay-backdrop\")]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/div[1]/div[1]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[contains(@class, \"backdrop\")]",
+            "uniqueness": 2,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "div",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "cdk-overlay-backdrop",
+            "cdk-overlay-transparent-backdrop",
+            "cdk-overlay-backdrop-showing"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 1200,
+            "height": 814
+          }
+        }
+      }
+    },
+    {
+      "id": "act_5_mucetfik",
+      "index": 4,
+      "type": "CLICK",
+      "timestamp": 1790065562059,
+      "timeDeltaMs": 1000,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "text",
+            "value": "//div[contains(@class, 'mat-mdc-select-value') and normalize-space()='CC Credit Invoice']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-search-documents > div > div:nth-of-type(1) > div > div:nth-of-type(1) > div:nth-of-type(2) > div > mat-select > div > div:nth-of-type(1)",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-search-documents[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]/mat-select[1]/div[1]/div[1]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-form-field[.//text()[contains(., 'Document Type  Select All')]]//mat-select",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-form-field[.//text()[contains(., 'Document Type  Select All')]]//*[contains(@class, 'select-value') or contains(@class, 'select-trigger')]",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//label[contains(., 'Document Type  Select All')]/..//mat-select",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//label[contains(., 'Document Type  Select All')]/..//div[contains(@class, 'select')]",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//div[normalize-space()='CC Credit Invoice']",
+            "uniqueness": 2,
+            "priority": 4
+          }
+        ],
+        "fingerprint": {
+          "tagName": "div",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "CC Credit Invoice",
+          "classes": [
+            "mat-mdc-select-value"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 323,
+            "height": 24
+          }
+        }
+      }
+    },
+    {
+      "id": "act_6_mucetim5",
+      "index": 5,
+      "type": "CLICK",
+      "timestamp": 1790065566076,
+      "timeDeltaMs": 4017,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "text",
+            "value": "//mat-option[normalize-space()='EFT']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-option[contains(normalize-space(), 'EFT')]",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//*[@role='option'][contains(normalize-space(), 'EFT')]",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-option[contains(@class, 'mat-mdc-option') and normalize-space()='EFT']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "css-path",
+            "value": "body > div:nth-of-type(1) > div:nth-of-type(2) > div > div > mat-option:nth-of-type(2)",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/div[1]/div[2]/div[1]/div[1]/mat-option[2]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "attribute",
+            "value": "mat-option[role=\"option\"]",
+            "uniqueness": 6,
+            "priority": 3
+          }
+        ],
+        "fingerprint": {
+          "tagName": "mat-option",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": "option",
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "EFT",
+          "classes": [
+            "mat-mdc-option",
+            "mdc-list-item",
+            "mat-mdc-option-multiple"
+          ],
+          "attributes": {
+            "role": "option"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 363,
+            "height": 48
+          }
+        }
+      }
+    },
+    {
+      "id": "act_7_mucetj7w",
+      "index": 6,
+      "type": "CLICK",
+      "timestamp": 1790065566860,
+      "timeDeltaMs": 784,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "text",
+            "value": "//mat-option[normalize-space()='CC Credit Invoice']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-option[contains(normalize-space(), 'CC Credit Invoice')]",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//*[@role='option'][contains(normalize-space(), 'CC Credit Invoice')]",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-option[contains(., 'CC Credit Invoice')]//span",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-option[contains(., 'CC Credit Invoice')]//*[contains(@class, 'checkbox') or contains(@class, 'pseudo-checkbox')]",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//span[normalize-space()='CC Credit Invoice']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//span[contains(@class, 'mdc-list-item__primary-text') and normalize-space()='CC Credit Invoice']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "css-path",
+            "value": "body > div:nth-of-type(1) > div:nth-of-type(2) > div > div > mat-option:nth-of-type(1) > span",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/div[1]/div[2]/div[1]/div[1]/mat-option[1]/span[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "span",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "CC Credit Invoice",
+          "classes": [
+            "mdc-list-item__primary-text"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 130,
+            "height": 24
+          }
+        }
+      }
+    },
+    {
+      "id": "act_8_mucetk1i",
+      "index": 7,
+      "type": "CLICK",
+      "timestamp": 1790065567926,
+      "timeDeltaMs": 1066,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "attribute",
+            "value": ".cdk-overlay-backdrop",
+            "uniqueness": 1,
+            "priority": 3
+          },
+          {
+            "strategy": "attribute",
+            "value": ".cdk-overlay-container .cdk-overlay-backdrop",
+            "uniqueness": 1,
+            "priority": 3
+          },
+          {
+            "strategy": "css-path",
+            "value": "body > div:nth-of-type(1) > div:nth-of-type(1)",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[contains(@class, \"cdk-overlay-backdrop\")]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/div[1]/div[1]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[contains(@class, \"backdrop\")]",
+            "uniqueness": 2,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "div",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "cdk-overlay-backdrop",
+            "cdk-overlay-transparent-backdrop",
+            "cdk-overlay-backdrop-showing"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 1200,
+            "height": 814
+          }
+        }
+      }
+    },
+    {
+      "id": "act_9_mucetkv5",
+      "index": 8,
+      "type": "CLICK",
+      "timestamp": 1790065568992,
+      "timeDeltaMs": 1066,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-search-documents > div > input:nth-of-type(1)",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-search-documents[1]/div[1]/input[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": null,
+          "name": null,
+          "type": "button",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "btn",
+            "btn-primary"
+          ],
+          "attributes": {
+            "type": "button",
+            "value": "Search"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 55,
+            "height": 33
+          }
+        }
+      }
+    }
+  ]
+}

@@ -150,7 +150,7 @@ async function connectToBrowser(options = {}) {
 
   if (!targetPage) {
     // Find first non-empty, non-devtools page or active page
-    targetPage = pages.find(p => !p.url().startsWith('devtools://') && !p.url().startsWith('chrome-extension://'));
+    targetPage = pages.find(p => !p.url().startsWith('devtools://') && !p.url().startsWith('chrome-extension://') && !p.url().startsWith('chrome://'));
   }
 
   if (!targetPage) {

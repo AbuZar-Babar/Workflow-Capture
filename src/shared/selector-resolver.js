@@ -200,7 +200,7 @@
         break;
       }
 
-      const children = Array.from(parent.children);
+      const children = parent.children ? Array.from(parent.children) : [];
       const sameTagChildren = children.filter(c => c.tagName === current.tagName);
 
       if (sameTagChildren.length === 1) {
@@ -230,7 +230,7 @@
     }
 
     let index = 1;
-    const siblings = element.parentElement ? Array.from(element.parentElement.children) : [];
+    const siblings = (element.parentElement && element.parentElement.children) ? Array.from(element.parentElement.children) : [];
     for (const sib of siblings) {
       if (sib === element) break;
       if (sib.tagName === element.tagName) index++;
@@ -326,10 +326,15 @@
       if (element.hasAttribute(attr)) {
         const val = (element.getAttribute(attr) || '').trim();
         const actionKeywords = ['save', 'export', 'pdf', 'print', 'download', 'close', 'submit', 'search', 'filter'];
-        for (const kw of actionKeywords) {
-          if (val.toLowerCase().includes(kw)) {
-            addCandidate(CONSTANTS.SELECTOR_STRATEGIES.ATTRIBUTE, `${tag}[${attr}*="${kw}" i]`);
-            addCandidate(CONSTANTS.SELECTOR_STRATEGIES.ATTRIBUTE, `[${attr}*="${kw}" i]`);
+        const matchesKeyword = actionKeywords.some(kw => val.toLowerCase().includes(kw));
+        if (matchesKeyword && val.length <= 100) {
+          addCandidate(CONSTANTS.SELECTOR_STRATEGIES.ATTRIBUTE, `${tag}[${attr}="${escapeCss(val)}"]`);
+          addCandidate(CONSTANTS.SELECTOR_STRATEGIES.ATTRIBUTE, `[${attr}="${escapeCss(val)}"]`);
+          for (const kw of actionKeywords) {
+            if (val.toLowerCase().includes(kw)) {
+              addCandidate(CONSTANTS.SELECTOR_STRATEGIES.ATTRIBUTE, `${tag}[${attr}*="${kw}" i]`);
+              addCandidate(CONSTANTS.SELECTOR_STRATEGIES.ATTRIBUTE, `[${attr}*="${kw}" i]`);
+            }
           }
         }
       }
@@ -383,7 +388,7 @@
 
     // If element is an icon/image/span inside an interactive parent (button, link, toolbar-item), capture parent candidate
     if (['img', 'i', 'span', 'svg', 'path', 'div', 'td', 'mat-pseudo-checkbox'].includes(tag) && element.parentElement) {
-      const interactiveParent = element.closest('button, a, [role="button"], [role="menuitem"], [role="option"], mat-option, .dxxr-item, .dxxr-btn, .dx-button, .dxrd-toolbar-item, .x-btn, [onclick], input');
+      const interactiveParent = element.closest('button, a, [role="button"], [role="menuitem"], [role="option"], mat-option, .dxxr-item, .dxxr-btn, .dx-button, .dxrd-toolbar-item, .dxm-item, .dxm-content, .dxbButton, [id*="Splitter_Toolbar_Menu"], .x-btn, [onclick], input');
       if (interactiveParent && interactiveParent !== element) {
         const parentTag = interactiveParent.tagName.toLowerCase();
         for (const pAttr of ['title', 'aria-label', 'data-testid', 'data-action', 'name', 'id']) {

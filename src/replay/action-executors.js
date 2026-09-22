@@ -143,22 +143,59 @@ async function executeClick(elementHandle, action, options = {}) {
     await simulateHumanMouseToElement(clickTarget, page, botConfig);
   }
 
-  try {
-    // Primary: Trusted Puppeteer CDP click (single authentic event)
-    await clickTarget.click({ delay: 35 });
-  } catch (err) {
+  const isLikelyDownloadOrExport = Boolean(
+    action.target?.candidates?.some(c => c.value && /save|export|download|print|pdf/i.test(c.value)) ||
+    (action.target?.fingerprint?.attributes?.title && /save|export|download|print|pdf/i.test(action.target.fingerprint.attributes.title))
+  );
+
+  let clicked = false;
+  if (isLikelyDownloadOrExport) {
+    // For download and export icons (e.g. DevExpress Report Viewer save), use async dispatch
+    // to avoid CDP evaluation hanging while waiting for browser download network handshake
     try {
-      // Fallback: Clean DOM click without redundant synthetic event duplication
-      await clickTarget.evaluate((el) => {
-        el.focus();
-        el.click();
-      });
-    } catch (fallbackErr) {
-      throw new ActionExecutionError(`Failed to click element: ${err.message}`, {
-        actionIndex: action.index,
-        actionType: action.type,
-        originalError: fallbackErr
-      });
+      await Promise.race([
+        clickTarget.evaluate((el) => {
+          setTimeout(() => {
+            el.focus?.();
+            el.click?.();
+            const parentItem = el.closest && el.closest('.dxm-item');
+            if (parentItem && parentItem !== el) {
+              parentItem.click?.();
+            }
+          }, 0);
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 800))
+      ]).catch(() => {});
+      clicked = true;
+      logger.info(`[Replay] Dispatched export/download click directly on element.`);
+    } catch {}
+  }
+
+  if (!clicked) {
+    try {
+      // Primary: Trusted Puppeteer CDP click with timeout guard against download hangs
+      await Promise.race([
+        clickTarget.click({ delay: 35 }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Click timeout (likely download trigger)')), 2500))
+      ]);
+    } catch (err) {
+      try {
+        // Fallback: Clean DOM click with DevExpress item support
+        await clickTarget.evaluate((el) => {
+          el.focus?.();
+          el.click?.();
+          const parentItem = el.closest && el.closest('.dxm-item');
+          if (parentItem && parentItem !== el) {
+            parentItem.click?.();
+          }
+        });
+      } catch (fallbackErr) {
+        throw new ActionExecutionError(`Failed to click element: ${err.message}`, {
+          actionIndex: action.index,
+          actionType: action.type,
+          originalError: fallbackErr
+        });
+      }
     }
   }
 

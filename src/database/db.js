@@ -77,6 +77,10 @@ class JsonDB {
     return this.state[collection].filter(filterFn);
   }
 
+  findAll(collection) {
+    return this.find(collection);
+  }
+
   findOne(collection, filterFn) {
     if (!this.state[collection]) return null;
     return this.state[collection].find(filterFn) || null;

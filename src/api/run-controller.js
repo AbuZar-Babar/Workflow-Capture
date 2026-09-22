@@ -76,26 +76,37 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
 
   const steps = workflow.steps || [];
 
-  const { loopStepIndex: requestedLoopIdx, forceRedownload } = body || {};
+  const { loopStepIndex: requestedLoopIdx, forceRedownload, mode, isLoop: requestedIsLoop } = body || {};
 
-  // Auto-detect or validate loop parameters
-  let isLoop = body.isLoop === true || (requestedLoopIdx !== null && requestedLoopIdx !== undefined && requestedLoopIdx !== -1);
+  // Determine execution mode:
+  // Default is STANDARD (macro replay). Loop is only enabled if explicitly requested or configured.
+  let isLoop = false;
   let loopStepIndex = null;
 
-  if (Number.isInteger(requestedLoopIdx) && requestedLoopIdx >= 0) {
+  if (mode === 'single' || mode === 'standard' || requestedIsLoop === false || requestedLoopIdx === -1) {
+    // Explicitly requested single macro execution
+    isLoop = false;
+    loopStepIndex = null;
+  } else if (mode === 'loop' || mode === 'batch' || requestedIsLoop === true || (Number.isInteger(requestedLoopIdx) && requestedLoopIdx >= 0)) {
+    // Explicitly requested loop execution
     isLoop = true;
-    loopStepIndex = requestedLoopIdx;
-  } else if (Number.isInteger(workflow.loopStepIndex) && workflow.loopStepIndex >= 0) {
+    if (Number.isInteger(requestedLoopIdx) && requestedLoopIdx >= 0) {
+      loopStepIndex = requestedLoopIdx;
+    } else if (Number.isInteger(workflow.loopStepIndex) && workflow.loopStepIndex >= 0) {
+      loopStepIndex = workflow.loopStepIndex;
+    } else {
+      const candidateIdx = LoopDetector.findLoopCandidateIndex(steps);
+      loopStepIndex = candidateIdx >= 0 ? candidateIdx : 0;
+    }
+  } else if (workflow.mode === 'LOOP' && Number.isInteger(workflow.loopStepIndex) && workflow.loopStepIndex >= 0) {
+    // Workflow was explicitly saved in workflow editor in LOOP mode
     isLoop = true;
     loopStepIndex = workflow.loopStepIndex;
   } else {
-    // Structural detection
-    const candidateIdx = LoopDetector.findLoopCandidateIndex(steps);
-    if (candidateIdx >= 0) {
-      isLoop = true;
-      loopStepIndex = candidateIdx;
-      logger.info(`[Auto-Discovery] Detected repeating collection pattern at step #${candidateIdx + 1}. Auto-enabling loop execution.`);
-    }
+    // Default for newly recorded workflows or unconfigured workflows:
+    // Run as-is as a macro (STANDARD execution)
+    isLoop = false;
+    loopStepIndex = null;
   }
 
   const totalSteps = steps.length;

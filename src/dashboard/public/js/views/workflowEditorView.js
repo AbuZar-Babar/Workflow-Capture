@@ -1,6 +1,7 @@
 import { Api } from '../api.js';
 import { Toast } from '../components/toast.js';
 import { Router } from '../router.js';
+import { ExecutionModal } from '../components/executionModal.js';
 
 export const WorkflowEditorView = {
   editor: null,
@@ -30,6 +31,10 @@ export const WorkflowEditorView = {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
               <span>Save Workflow</span>
             </button>
+            <button class="btn btn-secondary btn-sm" id="btnExecuteFlowEditor" style="background:#0c5c3f; color:#ffffff; border-color:#0c5c3f; display:inline-flex; align-items:center; gap:0.35rem;">
+              <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              <span>Execute Flow</span>
+            </button>
           </div>
         </div>
         <div class="workflow-editor-canvas" id="drawflow">
@@ -54,6 +59,17 @@ export const WorkflowEditorView = {
 
     document.getElementById('btnSaveFlow').addEventListener('click', () => {
       this.saveWorkflow();
+    });
+
+    document.getElementById('btnExecuteFlowEditor')?.addEventListener('click', () => {
+      const steps = this.workflow?.steps || (this.workflow?.recordingData && this.workflow.recordingData.actions) || [];
+      ExecutionModal.open({
+        workflowId: this.workflowId,
+        workflowName: this.workflow?.name || 'Workflow',
+        stepCount: steps.length,
+        loopStepIndex: this.workflow?.loopStepIndex,
+        isLoop: this.workflow?.isLoop || this.workflow?.mode === 'LOOP'
+      });
     });
 
     try {
@@ -178,15 +194,8 @@ export const WorkflowEditorView = {
       } else if (Number.isInteger(this.workflow.loopStepIndex) && this.workflow.loopStepIndex >= 0) {
         isLoopStep = index >= this.workflow.loopStepIndex;
       } else {
-        // Fallback auto-detection: Navigation/login controls are never loops
-        const isNav = /(mat-toolbar|mat-tab|navbar|nav-item|nav-link|nav|header|footer|login|auth|password)/i.test(targetSelector) ||
-                      /(mat-toolbar|nav|header|footer)/i.test(step.fingerprint?.tagName || '') ||
-                      step.fingerprint?.role === 'tab';
-        const isTableOrList = /(tbody\s*>\s*tr|tr:nth|table.*tr|ul\s*>\s*li|li:nth|:nth-child)/i.test(targetSelector) ||
-                              step.fingerprint?.tagName === 'tr' ||
-                              step.fingerprint?.parentTag === 'tr' ||
-                              step.fingerprint?.parentTag === 'td';
-        isLoopStep = !isNav && isTableOrList;
+        // Steps in freshly recorded workflows default to SETUP (macro run once)
+        isLoopStep = false;
       }
 
       // Step Node HTML setup
@@ -484,6 +493,15 @@ export const WorkflowEditorView = {
           stepData.loopMode = 'sequential_iteration';
           stepData.role = 'LOOP';
           stepData.isLoopCandidate = true;
+        } else if (stepRole === 'SETUP') {
+          stepData.isLoop = false;
+          stepData.loopMode = null;
+          stepData.isLoopCandidate = false;
+          stepData.role = 'SETUP';
+        } else {
+          stepData.role = stepRole;
+          stepData.isLoop = stepRole === 'LOOP';
+          stepData.isLoopCandidate = stepRole === 'LOOP';
         }
 
         if (valueInput) {
@@ -526,8 +544,10 @@ export const WorkflowEditorView = {
       }
 
       // Determine loopStepIndex as index of first step marked LOOP or dynamic loop
-      const firstLoopIdx = newSteps.findIndex(s => s.role === 'LOOP' || s.isLoop === true || s.loopMode === 'sequential_iteration');
-      const loopStepIndex = firstLoopIdx >= 0 ? firstLoopIdx : null;
+      const firstLoopIdx = newSteps.findIndex(s => s.role === 'LOOP' || (s.isLoop === true && s.role !== 'SETUP') || s.loopMode === 'sequential_iteration');
+      const hasLoop = firstLoopIdx >= 0;
+      const loopStepIndex = hasLoop ? firstLoopIdx : null;
+      const wfMode = hasLoop ? 'LOOP' : 'STANDARD';
 
       const targetUrlInput = document.getElementById('wfTargetUrlInput');
       const updatedTargetUrl = targetUrlInput ? targetUrlInput.value.trim() : (this.workflow.targetUrl || '');
@@ -535,12 +555,16 @@ export const WorkflowEditorView = {
       await Api.updateWorkflow(this.workflowId, {
         steps: newSteps,
         loopStepIndex,
+        isLoop: hasLoop,
+        mode: wfMode,
         targetUrl: updatedTargetUrl
       });
 
       if (this.workflow) {
         this.workflow.steps = newSteps;
         this.workflow.loopStepIndex = loopStepIndex;
+        this.workflow.isLoop = hasLoop;
+        this.workflow.mode = wfMode;
         this.workflow.targetUrl = updatedTargetUrl;
       }
 

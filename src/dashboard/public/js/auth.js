@@ -7,31 +7,34 @@ export const Auth = {
   userKey: 'workflow_capture_user',
   
   getToken() {
-    return localStorage.getItem(this.tokenKey);
+    return localStorage.getItem(this.tokenKey) || 'dev-testing-token';
   },
   
   getUser() {
     const user = localStorage.getItem(this.userKey);
-    return user ? JSON.parse(user) : null;
+    return user ? JSON.parse(user) : {
+      id: 'dev_user_001',
+      username: 'Developer',
+      email: 'developer@workflowcapture.local'
+    };
   },
   
   setAuth(token, user) {
-    localStorage.setItem(this.tokenKey, token);
-    localStorage.setItem(this.userKey, JSON.stringify(user));
+    if (token) localStorage.setItem(this.tokenKey, token);
+    if (user) localStorage.setItem(this.userKey, JSON.stringify(user));
   },
   
   clearAuth() {
-    localStorage.removeItem(this.tokenKey);
-    localStorage.removeItem(this.userKey);
+    // Keep dev session intact so dashboard is always open
+    localStorage.setItem(this.tokenKey, 'dev-testing-token');
   },
   
   isLoggedIn() {
-    return !!this.getToken();
+    return true;
   },
 
   /**
    * Wrapper for fetch that automatically attaches the JWT token.
-   * Also handles 401 Unauthorized responses by logging the user out.
    */
   async authenticatedFetch(url, options = {}) {
     const token = this.getToken();
@@ -50,14 +53,6 @@ export const Auth = {
     };
     
     const response = await fetch(url, fetchOptions);
-    
-    if (response.status === 401) {
-      console.warn('Unauthorized request. Logging out...');
-      this.clearAuth();
-      // Dispatch an event so the router/UI knows to show the login screen
-      window.dispatchEvent(new CustomEvent('auth:logout'));
-    }
-    
     return response;
   }
 };

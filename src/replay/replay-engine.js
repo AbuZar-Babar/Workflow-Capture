@@ -140,6 +140,18 @@ class ReplayEngine {
     this.browser = browser;
     this.page = page;
     await this._applyStealthEvasion();
+
+    // Enable automated background file downloads to ./downloads
+    try {
+      const downloadDir = path.resolve(process.cwd(), 'downloads');
+      if (!fs.existsSync(downloadDir)) fs.mkdirSync(downloadDir, { recursive: true });
+      const client = await this.page.target().createCDPSession();
+      await client.send('Page.setDownloadBehavior', {
+        behavior: 'allow',
+        downloadPath: downloadDir
+      });
+    } catch {}
+
     return this.browser;
   }
 
@@ -393,53 +405,71 @@ class ReplayEngine {
         throw new Error('Execution stopped by user');
       }
       try {
-        const frames = [this.page.mainFrame(), ...this.page.frames().filter(f => f !== this.page.mainFrame())];
-
-        for (const frame of frames) {
-          try {
-            await this._ensureSelectorResolverInFrame(frame);
-
-            // 1. Resolve and obtain direct JSHandle to the matched DOM element in this frame
-            const handle = await frame.evaluateHandle((targetData) => {
-              if (!window.SelectorResolver) return null;
-              const res = window.SelectorResolver.resolveElement(targetData);
-              return res.success && res.element ? res.element : null;
-            }, target).catch(() => null);
-
-            // 2. Fetch resolution report
-            const report = await frame.evaluate((targetData) => {
-              if (!window.SelectorResolver) return null;
-              return window.SelectorResolver.resolveElement(targetData);
-            }, target).catch(() => null);
-
-            if (report && report.success) {
-              lastResolutionResult = report;
+        const pagesToCheck = [this.page];
+        if (this.browser) {
+          const allPages = await this.browser.pages().catch(() => []);
+          for (const p of allPages) {
+            if (p !== this.page && !p.isClosed()) {
+              pagesToCheck.push(p);
             }
+          }
+        }
 
-            // 3. Validate element and check interactability
-            if (handle) {
-              const element = handle.asElement();
-              if (element) {
-                const isAttached = await element.evaluate(el => el.isConnected && el.ownerDocument.contains(el)).catch(() => false);
+        for (const candidatePage of pagesToCheck) {
+          const frames = [candidatePage.mainFrame(), ...candidatePage.frames().filter(f => f !== candidatePage.mainFrame())];
 
-                if (isAttached) {
-                  const matchedCandidate = (report && report.candidate) ? report.candidate : (target.candidates && target.candidates[0]) || { strategy: 'css_id', value: target.targetId || 'unknown' };
-                  const confidenceScore = (report && report.confidenceScore) || 1.0;
+          for (const frame of frames) {
+            try {
+              await this._ensureSelectorResolverInFrame(frame);
 
-                  return {
-                    elementHandle: element,
-                    frame,
-                    candidate: matchedCandidate,
-                    confidenceScore
-                  };
-                }
-                await element.dispose().catch(() => {});
-              } else {
-                await handle.dispose().catch(() => {});
+              // 1. Resolve and obtain direct JSHandle to the matched DOM element in this frame
+              const handle = await frame.evaluateHandle((targetData) => {
+                if (!window.SelectorResolver) return null;
+                const res = window.SelectorResolver.resolveElement(targetData);
+                return res.success && res.element ? res.element : null;
+              }, target).catch(() => null);
+
+              // 2. Fetch resolution report
+              const report = await frame.evaluate((targetData) => {
+                if (!window.SelectorResolver) return null;
+                return window.SelectorResolver.resolveElement(targetData);
+              }, target).catch(() => null);
+
+              if (report && report.success) {
+                lastResolutionResult = report;
               }
+
+              // 3. Validate element and check interactability
+              if (handle) {
+                const element = handle.asElement();
+                if (element) {
+                  const isAttached = await element.evaluate(el => el.isConnected && el.ownerDocument.contains(el)).catch(() => false);
+
+                  if (isAttached) {
+                    const matchedCandidate = (report && report.candidate) ? report.candidate : (target.candidates && target.candidates[0]) || { strategy: 'css_id', value: target.targetId || 'unknown' };
+                    const confidenceScore = (report && report.confidenceScore) || 1.0;
+
+                    if (candidatePage !== this.page) {
+                      await candidatePage.bringToFront().catch(() => {});
+                      this.page = candidatePage;
+                      logger.info(`[ReplayEngine] Switched active tab/window to: ${candidatePage.url()}`);
+                    }
+
+                    return {
+                      elementHandle: element,
+                      frame,
+                      candidate: matchedCandidate,
+                      confidenceScore
+                    };
+                  }
+                  await element.dispose().catch(() => {});
+                } else {
+                  await handle.dispose().catch(() => {});
+                }
+              }
+            } catch {
+              // Continue searching remaining frames
             }
-          } catch {
-            // Continue searching remaining frames
           }
         }
       } catch {
@@ -525,7 +555,27 @@ class ReplayEngine {
     // 3. Auto-navigate or reset DOM state
     if (targetStartUrl) {
       const currentUrl = this.page.url();
-      if (currentUrl === 'about:blank' || currentUrl.startsWith('chrome://') || currentUrl !== targetStartUrl) {
+      let needsNavigation = currentUrl === 'about:blank' || currentUrl.startsWith('chrome://');
+      try {
+        if (!needsNavigation) {
+          const currentOrigin = new URL(currentUrl).origin;
+          const targetOrigin = new URL(targetStartUrl).origin;
+          if (currentOrigin !== targetOrigin) {
+            needsNavigation = true;
+          } else {
+            // Same origin: Only navigate if targetStartUrl is an explicit login or separate path
+            const currentPath = currentUrl.split('#')[0].replace(/\/+$/, '');
+            const targetPath = targetStartUrl.split('#')[0].replace(/\/+$/, '');
+            if (targetPath.endsWith('/login') && !currentPath.endsWith('/login')) {
+              needsNavigation = true;
+            }
+          }
+        }
+      } catch {
+        needsNavigation = (currentUrl !== targetStartUrl);
+      }
+
+      if (needsNavigation) {
         logger.info(`Navigating tab to workflow starting URL: ${targetStartUrl}`);
         try {
           await this.page.goto(targetStartUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });

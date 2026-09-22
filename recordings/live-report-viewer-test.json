@@ -1,0 +1,132 @@
+{
+  "metadata": {
+    "recordingId": "rec_1790078882783_swwyt",
+    "version": "1.0.0",
+    "name": "live-report-viewer-test",
+    "startedAt": "2026-09-22T12:07:45.824Z",
+    "completedAt": "2026-09-22T12:08:02.782Z",
+    "startUrl": "https://citymart.i21web.com/iRelyProd/#/AR/ReceivePaymentsDetail?showSearch=true&menuId=835&moduleMenuId=829",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    }
+  },
+  "actions": [
+    {
+      "id": "act_1_mucmqkt8",
+      "index": 0,
+      "type": "CLICK",
+      "timestamp": 1790078865872,
+      "timeDeltaMs": 0,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "text",
+            "value": "//div[normalize-space()='RCV-36990']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//div[contains(@class, 'x-grid-cell-inner') and normalize-space()='RCV-36990']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "css-path",
+            "value": "#frmadvancesearchgrid-1088-body > div:nth-of-type(1) > div:nth-of-type(3) > table:nth-of-type(2) > tbody > tr > td:nth-of-type(2) > div",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[@id='frmadvancesearchgrid-1088-body']/div[1]/div[3]/table[2]/tbody[1]/tr[1]/td[2]/div[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "div",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "RCV-36990",
+          "classes": [
+            "x-grid-cell-inner"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 114,
+            "height": 29
+          }
+        }
+      }
+    },
+    {
+      "id": "act_2_mucmqlzm",
+      "index": 1,
+      "type": "CLICK",
+      "timestamp": 1790078867409,
+      "timeDeltaMs": 1537,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "text",
+            "value": "//span[contains(@class, 'x-btn-inner') and normalize-space()='Open Selected']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "css-path",
+            "value": "#toolbar-1091-targetEl > a:nth-of-type(1) > span > span > span:nth-of-type(2)",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[@id='toolbar-1091-targetEl']/a[1]/span[1]/span[1]/span[2]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "data-attr",
+            "value": "[data-ref=\"btnInnerEl\"]",
+            "uniqueness": 39,
+            "priority": 2
+          },
+          {
+            "strategy": "text",
+            "value": "//span[normalize-space()='Open Selected']",
+            "uniqueness": 3,
+            "priority": 4
+          }
+        ],
+        "fingerprint": {
+          "tagName": "span",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "Open Selected",
+          "classes": [
+            "x-btn-inner",
+            "x-btn-inner-default-toolbar-small"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 78,
+            "height": 16
+          }
+        }
+      }
+    }
+  ]
+}

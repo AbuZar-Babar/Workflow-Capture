@@ -6,6 +6,7 @@ import { Api } from '../api.js';
 import { Toast } from '../components/toast.js';
 import { Modal } from '../components/modal.js';
 import { Router } from '../router.js';
+import { ExecutionModal } from '../components/executionModal.js';
 
 function escapeHtml(str) {
   if (!str) return '';
@@ -186,23 +187,16 @@ export const WorkflowsView = {
 
     // Bind action buttons
     tbody.querySelectorAll('.btn-replay-flow').forEach(btn => {
-      btn.onclick = async () => {
+      btn.onclick = () => {
         const wfId = btn.dataset.id;
-        Toast.info(`Starting execution for workflow...`);
-        btn.disabled = true;
-        try {
-          const res = await Api.executeWorkflow(wfId);
-          Toast.success(`Workflow execution dispatched!`);
-          if (res && res.runId) {
-            sessionStorage.setItem('workflowCaptureActiveRunId', res.runId);
-            Router.navigate(`execution/${encodeURIComponent(res.runId)}`);
-          } else {
-            Router.navigate('execution');
-          }
-        } catch (err) {
-          Toast.error(err.message || 'Execution failed to start');
-          btn.disabled = false;
-        }
+        const wf = this.recordings.find(w => w.id === wfId) || {};
+        ExecutionModal.open({
+          workflowId: wfId,
+          workflowName: wf.name || wfId,
+          stepCount: wf.stepCount || 0,
+          loopStepIndex: wf.loopStepIndex,
+          isLoop: wf.isLoop || wf.mode === 'LOOP'
+        });
       };
     });
 

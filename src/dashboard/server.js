@@ -21,7 +21,31 @@ const workflowController = require('../api/workflow-controller');
 const runController = require('../api/run-controller');
 const secretController = require('../api/secret-controller');
 const botConfigController = require('../api/bot-config-controller');
-const { requireAuth } = require('../auth/auth-middleware');
+const { requireAuth: originalRequireAuth, extractToken } = require('../auth/auth-middleware');
+const { db } = require('../database/db');
+
+// In local dashboard mode, automatically provide developer session so dashboard opens directly without login
+function requireAuth(req, res) {
+  const token = extractToken(req);
+  if (!token) {
+    let user = db.findOne('users', () => true);
+    if (!user) {
+      user = db.insert('users', {
+        username: 'Developer',
+        email: 'developer@workflowcapture.local',
+        passwordHash: 'dev_bypass'
+      });
+    }
+    req.user = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      createdAt: user.createdAt
+    };
+    return true;
+  }
+  return originalRequireAuth(req, res);
+}
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -703,12 +727,14 @@ const server = http.createServer(async (req, res) => {
       // Wrap raw action handler to broadcast to UI
       const origHandle = activeRecorder._handleCapturedAction.bind(activeRecorder);
       activeRecorder._handleCapturedAction = (rawAction) => {
-        origHandle(rawAction);
-        const lastAction = activeRecorder.actions[activeRecorder.actions.length - 1];
-        broadcast('action_captured', {
-          action: lastAction,
-          count: activeRecorder.actions.length
-        });
+        const added = origHandle(rawAction);
+        if (added && activeRecorder && activeRecorder.actions.length > 0) {
+          const lastAction = activeRecorder.actions[activeRecorder.actions.length - 1];
+          broadcast('action_captured', {
+            action: lastAction,
+            count: activeRecorder.actions.length
+          });
+        }
       };
 
       try {

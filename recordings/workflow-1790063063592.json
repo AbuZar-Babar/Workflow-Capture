@@ -1,0 +1,1208 @@
+{
+  "metadata": {
+    "recordingId": "rec_1790063188503_vvh6i",
+    "version": "1.0.0",
+    "name": "workflow-1790063063592",
+    "startedAt": "2026-09-22T07:44:23.610Z",
+    "completedAt": "2026-09-22T07:46:28.501Z",
+    "startUrl": "https://customerportal.usoil.com/#/login",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    }
+  },
+  "actions": [
+    {
+      "id": "act_1_mucdbydp",
+      "index": 0,
+      "type": "CLICK",
+      "timestamp": 1790063067083,
+      "timeDeltaMs": 0,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-login > div > div > div > div > div > form > div:nth-of-type(1) > input",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-login[1]/div[1]/div[1]/div[1]/div[1]/div[1]/form[1]/div[1]/input[1]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-form-field[.//text()[contains(., 'Username')]]//mat-select",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-form-field[.//text()[contains(., 'Username')]]//*[contains(@class, 'select-value') or contains(@class, 'select-trigger')]",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//label[contains(., 'Username')]/..//mat-select",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//label[contains(., 'Username')]/..//div[contains(@class, 'select')]",
+            "uniqueness": 0,
+            "priority": 4
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": null,
+          "name": null,
+          "type": "text",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "form-control",
+            "ng-untouched",
+            "ng-pristine",
+            "ng-invalid"
+          ],
+          "attributes": {
+            "type": "text"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 336,
+            "height": 38
+          }
+        }
+      }
+    },
+    {
+      "id": "act_2_mucdchrr",
+      "index": 1,
+      "type": "CLICK",
+      "timestamp": 1790063092214,
+      "timeDeltaMs": 25131,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-login > div > div > div > div > div > form > div:nth-of-type(1) > input",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-login[1]/div[1]/div[1]/div[1]/div[1]/div[1]/form[1]/div[1]/input[1]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-form-field[.//text()[contains(., 'Username')]]//mat-select",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-form-field[.//text()[contains(., 'Username')]]//*[contains(@class, 'select-value') or contains(@class, 'select-trigger')]",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//label[contains(., 'Username')]/..//mat-select",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//label[contains(., 'Username')]/..//div[contains(@class, 'select')]",
+            "uniqueness": 0,
+            "priority": 4
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": null,
+          "name": null,
+          "type": "text",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "form-control",
+            "ng-untouched",
+            "ng-dirty",
+            "ng-valid"
+          ],
+          "attributes": {
+            "type": "text"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 336,
+            "height": 38
+          }
+        }
+      }
+    },
+    {
+      "id": "act_3_mucdcjj7",
+      "index": 2,
+      "type": "TYPE",
+      "timestamp": 1790063094498,
+      "timeDeltaMs": 2284,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-login > div > div > div > div > div > form > div:nth-of-type(1) > input",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-login[1]/div[1]/div[1]/div[1]/div[1]/div[1]/form[1]/div[1]/input[1]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-form-field[.//text()[contains(., 'Username')]]//mat-select",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-form-field[.//text()[contains(., 'Username')]]//*[contains(@class, 'select-value') or contains(@class, 'select-trigger')]",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//label[contains(., 'Username')]/..//mat-select",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//label[contains(., 'Username')]/..//div[contains(@class, 'select')]",
+            "uniqueness": 0,
+            "priority": 4
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": null,
+          "name": null,
+          "type": "text",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "form-control",
+            "ng-untouched",
+            "ng-dirty",
+            "ng-valid"
+          ],
+          "attributes": {
+            "type": "text"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 336,
+            "height": 38
+          }
+        }
+      },
+      "value": "irfan@ejaniholdings.net",
+      "meta": {
+        "isPassword": false,
+        "charCount": 23
+      }
+    },
+    {
+      "id": "act_4_mucdcjli",
+      "index": 3,
+      "type": "CLICK",
+      "timestamp": 1790063094581,
+      "timeDeltaMs": 83,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-login > div > div > div > div > div > form > div:nth-of-type(2) > div > input",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-login[1]/div[1]/div[1]/div[1]/div[1]/div[1]/form[1]/div[2]/div[1]/input[1]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-form-field[.//text()[contains(., 'Password')]]//mat-select",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-form-field[.//text()[contains(., 'Password')]]//*[contains(@class, 'select-value') or contains(@class, 'select-trigger')]",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//label[contains(., 'Password')]/..//mat-select",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//label[contains(., 'Password')]/..//div[contains(@class, 'select')]",
+            "uniqueness": 0,
+            "priority": 4
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": null,
+          "name": null,
+          "type": "password",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "form-control",
+            "ng-untouched",
+            "ng-pristine",
+            "ng-invalid"
+          ],
+          "attributes": {
+            "type": "password"
+          },
+          "isPassword": true,
+          "dimensions": {
+            "width": 336,
+            "height": 38
+          }
+        }
+      }
+    },
+    {
+      "id": "act_5_mucdd0el",
+      "index": 4,
+      "type": "CLICK",
+      "timestamp": 1790063116364,
+      "timeDeltaMs": 21783,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-login > div > div > div > div > div > form > div:nth-of-type(1) > input",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-login[1]/div[1]/div[1]/div[1]/div[1]/div[1]/form[1]/div[1]/input[1]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-form-field[.//text()[contains(., 'Username')]]//mat-select",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-form-field[.//text()[contains(., 'Username')]]//*[contains(@class, 'select-value') or contains(@class, 'select-trigger')]",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//label[contains(., 'Username')]/..//mat-select",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//label[contains(., 'Username')]/..//div[contains(@class, 'select')]",
+            "uniqueness": 0,
+            "priority": 4
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": null,
+          "name": null,
+          "type": "text",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "form-control",
+            "ng-dirty",
+            "ng-valid",
+            "ng-touched"
+          ],
+          "attributes": {
+            "type": "text"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 336,
+            "height": 38
+          }
+        }
+      }
+    },
+    {
+      "id": "act_6_mucddcme",
+      "index": 5,
+      "type": "TYPE",
+      "timestamp": 1790063132198,
+      "timeDeltaMs": 15834,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-login > div > div > div > div > div > form > div:nth-of-type(1) > input",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-login[1]/div[1]/div[1]/div[1]/div[1]/div[1]/form[1]/div[1]/input[1]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-form-field[.//text()[contains(., 'Username')]]//mat-select",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-form-field[.//text()[contains(., 'Username')]]//*[contains(@class, 'select-value') or contains(@class, 'select-trigger')]",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//label[contains(., 'Username')]/..//mat-select",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//label[contains(., 'Username')]/..//div[contains(@class, 'select')]",
+            "uniqueness": 0,
+            "priority": 4
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": null,
+          "name": null,
+          "type": "text",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "form-control",
+            "ng-dirty",
+            "ng-valid",
+            "ng-touched"
+          ],
+          "attributes": {
+            "type": "text"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 336,
+            "height": 38
+          }
+        }
+      },
+      "value": "irfan@tejaniholdings.net",
+      "meta": {
+        "isPassword": false,
+        "charCount": 24
+      }
+    },
+    {
+      "id": "act_7_mucddcqj",
+      "index": 6,
+      "type": "CLICK",
+      "timestamp": 1790063132347,
+      "timeDeltaMs": 149,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-login > div > div > div > div > div > form > div:nth-of-type(2) > div > input",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-login[1]/div[1]/div[1]/div[1]/div[1]/div[1]/form[1]/div[2]/div[1]/input[1]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-form-field[.//text()[contains(., 'Password')]]//mat-select",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-form-field[.//text()[contains(., 'Password')]]//*[contains(@class, 'select-value') or contains(@class, 'select-trigger')]",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//label[contains(., 'Password')]/..//mat-select",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//label[contains(., 'Password')]/..//div[contains(@class, 'select')]",
+            "uniqueness": 0,
+            "priority": 4
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": null,
+          "name": null,
+          "type": "password",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "form-control",
+            "ng-pristine",
+            "ng-invalid",
+            "ng-touched"
+          ],
+          "attributes": {
+            "type": "password"
+          },
+          "isPassword": true,
+          "dimensions": {
+            "width": 336,
+            "height": 38
+          }
+        }
+      }
+    },
+    {
+      "id": "act_8_mucddnqe",
+      "index": 7,
+      "type": "TYPE",
+      "timestamp": 1790063146597,
+      "timeDeltaMs": 14250,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-login > div > div > div > div > div > form > div:nth-of-type(2) > div > input",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-login[1]/div[1]/div[1]/div[1]/div[1]/div[1]/form[1]/div[2]/div[1]/input[1]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-form-field[.//text()[contains(., 'Password')]]//mat-select",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-form-field[.//text()[contains(., 'Password')]]//*[contains(@class, 'select-value') or contains(@class, 'select-trigger')]",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//label[contains(., 'Password')]/..//mat-select",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//label[contains(., 'Password')]/..//div[contains(@class, 'select')]",
+            "uniqueness": 0,
+            "priority": 4
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": null,
+          "name": null,
+          "type": "password",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "form-control",
+            "ng-touched",
+            "ng-dirty",
+            "ng-valid"
+          ],
+          "attributes": {
+            "type": "password"
+          },
+          "isPassword": true,
+          "dimensions": {
+            "width": 336,
+            "height": 38
+          }
+        }
+      },
+      "value": "[REDACTED]",
+      "meta": {
+        "isPassword": true,
+        "charCount": 8
+      }
+    },
+    {
+      "id": "act_9_mucddnt6",
+      "index": 8,
+      "type": "CLICK",
+      "timestamp": 1790063146697,
+      "timeDeltaMs": 100,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-login > div > div > div > div > div > form > div:nth-of-type(2) > div > i",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-login[1]/div[1]/div[1]/div[1]/div[1]/div[1]/form[1]/div[2]/div[1]/i[1]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-form-field[.//text()[contains(., 'Password')]]//mat-select",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-form-field[.//text()[contains(., 'Password')]]//*[contains(@class, 'select-value') or contains(@class, 'select-trigger')]",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//label[contains(., 'Password')]/..//mat-select",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//label[contains(., 'Password')]/..//div[contains(@class, 'select')]",
+            "uniqueness": 0,
+            "priority": 4
+          }
+        ],
+        "fingerprint": {
+          "tagName": "i",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "oi",
+            "oi-eye"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 34,
+            "height": 34
+          }
+        }
+      }
+    },
+    {
+      "id": "act_10_mucddps0",
+      "index": 9,
+      "type": "CLICK",
+      "timestamp": 1790063149247,
+      "timeDeltaMs": 2550,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "text",
+            "value": "//button[normalize-space()='Login']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//button[contains(@class, 'btn') and normalize-space()='Login']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-login > div > div > div > div > div > form > button",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-login[1]/div[1]/div[1]/div[1]/div[1]/div[1]/form[1]/button[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "button",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "Login",
+          "classes": [
+            "btn",
+            "btn-primary"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 47,
+            "height": 33
+          }
+        }
+      }
+    },
+    {
+      "id": "act_11_mucdduw8",
+      "index": 10,
+      "type": "CLICK",
+      "timestamp": 1790063155880,
+      "timeDeltaMs": 6633,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "attribute",
+            "value": "img[alt=\"USV\\ Headquarters\"]",
+            "uniqueness": 1,
+            "priority": 3
+          },
+          {
+            "strategy": "attribute",
+            "value": "img[src=\"\\/assets\\/updated_portal_img\\.jpg\"]",
+            "uniqueness": 1,
+            "priority": 3
+          },
+          {
+            "strategy": "attribute",
+            "value": "img[src*=\"updated_portal_img\\.jpg\"]",
+            "uniqueness": 1,
+            "priority": 3
+          },
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-app-home > div > div > img",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-app-home[1]/div[1]/div[1]/img[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "img",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 1200,
+            "height": 480
+          }
+        }
+      }
+    },
+    {
+      "id": "act_12_mucddxtc",
+      "index": 11,
+      "type": "CLICK",
+      "timestamp": 1790063159663,
+      "timeDeltaMs": 3783,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "attribute",
+            "value": "img[alt=\"USV\\ Headquarters\"]",
+            "uniqueness": 1,
+            "priority": 3
+          },
+          {
+            "strategy": "attribute",
+            "value": "img[src=\"\\/assets\\/updated_portal_img\\.jpg\"]",
+            "uniqueness": 1,
+            "priority": 3
+          },
+          {
+            "strategy": "attribute",
+            "value": "img[src*=\"updated_portal_img\\.jpg\"]",
+            "uniqueness": 1,
+            "priority": 3
+          },
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-app-home > div > div > img",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-app-home[1]/div[1]/div[1]/img[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "img",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 1200,
+            "height": 480
+          }
+        }
+      }
+    },
+    {
+      "id": "act_13_mucddzn3",
+      "index": 12,
+      "type": "CLICK",
+      "timestamp": 1790063162030,
+      "timeDeltaMs": 2367,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-toolbar > span:nth-of-type(3) > span > button > span:nth-of-type(2)",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-toolbar[1]/span[3]/span[1]/button[1]/span[2]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "text",
+            "value": "//span[normalize-space()='My Reports']",
+            "uniqueness": 6,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//span[contains(@class, 'mdc-button__label') and normalize-space()='My Reports']",
+            "uniqueness": 2,
+            "priority": 4
+          }
+        ],
+        "fingerprint": {
+          "tagName": "span",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "My Reports",
+          "classes": [
+            "mdc-button__label"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 84,
+            "height": 32
+          }
+        }
+      }
+    },
+    {
+      "id": "act_14_mucde22l",
+      "index": 13,
+      "type": "CLICK",
+      "timestamp": 1790063165180,
+      "timeDeltaMs": 3150,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-my-reports > div > div:nth-of-type(1) > div > div:nth-of-type(1) > div:nth-of-type(1) > div > div > div > mat-select > div > div:nth-of-type(1)",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-my-reports[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/mat-select[1]/div[1]/div[1]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-form-field[.//text()[contains(., 'Customer  Select All')]]//mat-select",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-form-field[.//text()[contains(., 'Customer  Select All')]]//*[contains(@class, 'select-value') or contains(@class, 'select-trigger')]",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//label[contains(., 'Customer  Select All')]/..//mat-select",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//label[contains(., 'Customer  Select All')]/..//div[contains(@class, 'select')]",
+            "uniqueness": 0,
+            "priority": 4
+          }
+        ],
+        "fingerprint": {
+          "tagName": "div",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "mat-mdc-select-value"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 319,
+            "height": 24
+          }
+        }
+      }
+    },
+    {
+      "id": "act_15_mucde3dt",
+      "index": 14,
+      "type": "CLICK",
+      "timestamp": 1790063166880,
+      "timeDeltaMs": 1700,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "text",
+            "value": "//mat-option[normalize-space()='105992 - DIXIE HIGHWAY ENERGY, LLC (Charge Up 43) - 21100 S DIXIE HWY MIAMI, FL 33189']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-option[contains(normalize-space(), '105992 - DIXIE HIGHWAY ENERGY, LLC (Charge Up 43) - 21100 S DIXIE HWY MIAMI, FL 33189')]",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//*[@role='option'][contains(normalize-space(), '105992 - DIXIE HIGHWAY ENERGY, LLC (Charge Up 43) - 21100 S DIXIE HWY MIAMI, FL 33189')]",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-option[contains(., '105992')]",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//*[@role='option'][contains(., '105992')]",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-option[contains(., '105992')]//span",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "css-path",
+            "value": "body > div:nth-of-type(3) > div:nth-of-type(2) > div > div > mat-option:nth-of-type(1) > span",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/div[3]/div[2]/div[1]/div[1]/mat-option[1]/span[1]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-option[contains(., '105992 - DIXIE HIGHWAY ENERGY, LLC (Charge Up 43) - 21100 S DIXIE HWY MIAMI, FL 33189')]//span",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//mat-option[contains(., '105992 - DIXIE HIGHWAY ENERGY, LLC (Charge Up 43) - 21100 S DIXIE HWY MIAMI, FL 33189')]//*[contains(@class, 'checkbox') or contains(@class, 'pseudo-checkbox')]",
+            "uniqueness": 0,
+            "priority": 4
+          }
+        ],
+        "fingerprint": {
+          "tagName": "span",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "105992 - DIXIE HIGHWAY ENERGY, LLC (Charge Up 43) - 21100 S DIXIE HWY MIAMI, FL 33189",
+          "classes": [
+            "mdc-list-item__primary-text"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 297,
+            "height": 72
+          }
+        }
+      }
+    },
+    {
+      "id": "act_16_mucde57j",
+      "index": 15,
+      "type": "CLICK",
+      "timestamp": 1790063169246,
+      "timeDeltaMs": 2366,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "attribute",
+            "value": ".cdk-overlay-backdrop",
+            "uniqueness": 1,
+            "priority": 3
+          },
+          {
+            "strategy": "attribute",
+            "value": ".cdk-overlay-container .cdk-overlay-backdrop",
+            "uniqueness": 1,
+            "priority": 3
+          },
+          {
+            "strategy": "css-path",
+            "value": "body > div:nth-of-type(3) > div:nth-of-type(1)",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[contains(@class, \"cdk-overlay-backdrop\")]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/div[3]/div[1]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[contains(@class, \"backdrop\")]",
+            "uniqueness": 2,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "div",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "cdk-overlay-backdrop",
+            "cdk-overlay-transparent-backdrop",
+            "cdk-overlay-backdrop-showing"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 1200,
+            "height": 814
+          }
+        }
+      }
+    },
+    {
+      "id": "act_17_mucde95o",
+      "index": 16,
+      "type": "CLICK",
+      "timestamp": 1790063174363,
+      "timeDeltaMs": 5117,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-my-reports > div > input:nth-of-type(1)",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-my-reports[1]/div[1]/input[1]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": null,
+          "name": null,
+          "type": "button",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "btn",
+            "btn-primary"
+          ],
+          "attributes": {
+            "type": "button",
+            "value": "Run Report"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 81,
+            "height": 33
+          }
+        }
+      }
+    },
+    {
+      "id": "act_18_mucded49",
+      "index": 17,
+      "type": "CLICK",
+      "timestamp": 1790063179496,
+      "timeDeltaMs": 5133,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "body > app-root > div > mat-sidenav-container > mat-sidenav-content > app-my-reports > div > input:nth-of-type(2)",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/app-root[1]/div[1]/mat-sidenav-container[1]/mat-sidenav-content[1]/app-my-reports[1]/div[1]/input[2]",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": null,
+          "name": null,
+          "type": "button",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "btn",
+            "btn-secondary"
+          ],
+          "attributes": {
+            "type": "button",
+            "value": "Export to Excel"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 105,
+            "height": 33
+          }
+        }
+      }
+    }
+  ]
+}

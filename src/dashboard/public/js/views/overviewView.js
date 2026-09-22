@@ -5,6 +5,7 @@
 import { Api } from '../api.js';
 import { Toast } from '../components/toast.js';
 import { Header } from '../components/header.js';
+import { ExecutionModal } from '../components/executionModal.js';
 
 export const OverviewView = {
   recordTimer: null,
@@ -393,10 +394,16 @@ export const OverviewView = {
 
         list.querySelectorAll('.btn-quick-play').forEach(btn => {
           btn.onclick = () => {
-            const wfId = (btn.dataset.file || '').replace('.json', '');
-            Api.executeWorkflow(wfId)
-              .then(res => { if (res.runId) { sessionStorage.setItem('workflowCaptureActiveRunId', res.runId); this.router.navigate('execution/' + encodeURIComponent(res.runId)); } else { Toast.info(`Executing workflow: ${wfId}`); } })
-              .catch(e => Toast.error(e.message));
+            const filename = btn.dataset.file || '';
+            const wfId = filename.replace('.json', '');
+            const wf = this.recordings.find(w => w.filename === filename || w.id === wfId) || {};
+            ExecutionModal.open({
+              workflowId: wfId,
+              workflowName: wf.name || wfId,
+              stepCount: wf.actionCount || wf.stepCount || 0,
+              loopStepIndex: wf.loopStepIndex,
+              isLoop: wf.isLoop || wf.mode === 'LOOP'
+            });
           };
         });
       }

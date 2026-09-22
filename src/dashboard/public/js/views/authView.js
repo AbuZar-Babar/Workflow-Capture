@@ -20,42 +20,30 @@ export const AuthView = {
     this.logoutBtn = document.getElementById('btnLogout');
     this.dummyLoginBtn = document.getElementById('btnDummyLogin');
 
+    // Ensure overlay is strictly hidden
+    if (this.overlay) {
+      this.overlay.style.setProperty('display', 'none', 'important');
+      this.overlay.classList.add('hidden');
+    }
+
     // Global bypass helper
     window.quickEnterDashboard = async () => {
       try {
-        if (this.dummyLoginBtn) {
-          this.dummyLoginBtn.disabled = true;
-          this.dummyLoginBtn.innerText = 'Entering Dashboard...';
-        }
         const res = await Api.dummyLogin();
-        Auth.setAuth(res.token, res.user);
-        Toast.show('Welcome to Dashboard!', 'success');
-        this.checkAuth();
-      } catch (err) {
-        console.warn('Backend dummyLogin error, creating local session:', err);
-        Auth.setAuth('dummy-testing-token', {
-          id: 'use_demo_bypass',
-          username: 'Demo User',
-          email: 'demo@workflowcapture.io'
-        });
-        Toast.show('Entered in Testing Mode', 'success');
-        this.checkAuth();
-      } finally {
-        if (this.dummyLoginBtn) {
-          this.dummyLoginBtn.disabled = false;
-          this.dummyLoginBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg><span>Enter Dashboard (Skip Login)</span>';
+        if (res && res.token) {
+          Auth.setAuth(res.token, res.user);
         }
+      } catch (err) {
+        // Silently use dev fallback token
       }
+      this.checkAuth();
     };
 
     this.bindEvents();
     
-    // Automatically skip login during development
-    if (!Auth.isLoggedIn()) {
-      window.quickEnterDashboard();
-    } else {
-      this.checkAuth();
-    }
+    // Always enter dashboard directly without showing login page
+    this.checkAuth();
+    window.quickEnterDashboard();
   },
   
   bindEvents() {
@@ -150,19 +138,10 @@ export const AuthView = {
   },
   
   checkAuth() {
-    if (Auth.isLoggedIn()) {
-      if (this.overlay) {
-        this.overlay.style.setProperty('display', 'none', 'important');
-        this.overlay.classList.add('hidden');
-      }
-      window.dispatchEvent(new CustomEvent('auth:status', { detail: { loggedIn: true } }));
-    } else {
-      if (this.overlay) {
-        this.overlay.classList.remove('hidden');
-        this.overlay.style.removeProperty('display');
-        this.overlay.style.display = 'flex';
-      }
-      window.dispatchEvent(new CustomEvent('auth:status', { detail: { loggedIn: false } }));
+    if (this.overlay) {
+      this.overlay.style.setProperty('display', 'none', 'important');
+      this.overlay.classList.add('hidden');
     }
+    window.dispatchEvent(new CustomEvent('auth:status', { detail: { loggedIn: true } }));
   }
 };

@@ -1,0 +1,16 @@
+{
+  "metadata": {
+    "recordingId": "rec_1790088915628_s8f41",
+    "version": "1.0.0",
+    "name": "r1",
+    "startedAt": "2026-09-22T14:55:15.406Z",
+    "completedAt": "2026-09-22T14:55:15.626Z",
+    "startUrl": "https://citymart.i21web.com/iRelyProd/#/SR/ReportScreen?filters%5B0%5D%5BselectedReport%5D%5Bdata%5D%5BName%5D=InvoiceMainReport&filters%5B0%5D%5BselectedReport%5D%5Bdata%5D%5BDescription%5D=Invoice&filters%5B0%5D%5BselectedReport%5D%5Bdata%5D%5BintConcurrencyId%5D=0&filters%5B0%5D%5BselectedReport%5D%5Bdata%5D%5BstrDetailChange%5D=&filters%5B0%5D%5BselectedReport%5D%5Bdata%5D%5BstrOriginalRowState%5D=&filters%5B0%5D%5BselectedReport%5D%5Bdata%5D%5BstrRowState%5D=&filters%5B0%5D%5BselectedReport%5D%5Bdata%5D%5BysnDeleted%5D=&filters%5B0%5D%5BselectedReport%5D%5Bdata%5D%5BdtmDateDeleted%5D=&filters%5B0%5D%5BselectedReport%5D%5Bdata%5D%5BintReportId%5D=463&filters%5B0%5D%5BselectedReport%5D%5Bdata%5D%5BstrClientID%5D=463&filters%5B0%5D%5BselectedReport%5D%5BinternalId%5D=463&filters%5B0%5D%5BselectedReport%5D%5Bid%5D=463&filters%5B0%5D%5BselectedReport%5D%5Bphantom%5D=true&filters%5B0%5D%5BselectedReport%5D%5BcrudState%5D=C&filters%5B0%5D%5BselectedReport%5D%5BcrudStateWas%5D=C&filters%5B0%5D%5BselectedGroup%5D=AccountsReceivable&filters%5B0%5D%5BselectedParameters%5D%5B0%5D%5BName%5D=intInvoiceId&filters%5B0%5D%5BselectedParameters%5D%5B0%5D%5BType%5D=int&filters%5B0%5D%5BselectedParameters%5D%5B0%5D%5BCondition%5D=EQUAL%20TO&filters%5B0%5D%5BselectedParameters%5D%5B0%5D%5BFrom%5D=201892&filters%5B0%5D%5BselectedParameters%5D%5B0%5D%5BOperator%5D=AND&filters%5B0%5D%5BselectedParameters%5D%5B1%5D%5BName%5D=strRequestId&filters%5B0%5D%5BselectedParameters%5D%5B1%5D%5BType%5D=string&filters%5B0%5D%5BselectedParameters%5D%5B1%5D%5BCondition%5D=EQUAL%20TO&filters%5B0%5D%5BselectedParameters%5D%5B1%5D%5BFrom%5D=abd6933d-6cfc-4bc2-268f-f5669747c8ac&filters%5B0%5D%5BselectedParameters%5D%5B1%5D%5BOperator%5D=AND&filters%5B0%5D%5BysnLanguage%5D=false&filters%5B0%5D%5BviewConfig%5D%5Bmodal%5D=false&filters%5B0%5D%5BattachmentScreenParam%5D%5BstrScreenName%5D=AccountsReceivable.Invoice&filters%5B0%5D%5BattachmentScreenParam%5D%5BstrRecordNo%5D=201892&filters%5B0%5D%5BattachmentScreenParam%5D%5BstrTransactionNo%5D=DR-1468-26091913502&filters%5B0%5D%5BattachmentScreenParam%5D%5BstrScreenNamespace%5D=AccountsReceivable.view.Invoice&filters%5B0%5D%5BendCallback%5D=function(e%2Ct)%7B%22InvoiceMainReport%22%3D%3D%3DD%26%26d.deleteInvoiceStagingRecords(n)%7D&filters%5B0%5D%5BsearchCommand%5D=&filters%5B0%5D%5BuseFilter%5D=false&moduleMenuId=",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    }
+  },
+  "actions": []
+}

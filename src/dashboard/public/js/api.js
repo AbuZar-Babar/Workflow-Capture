@@ -222,17 +222,35 @@ export const Api = {
   async executeWorkflow(workflowId, loopStepIndexOrOptions = null) {
     const bodyPayload = {};
     if (typeof loopStepIndexOrOptions === 'object' && loopStepIndexOrOptions !== null) {
+      if (loopStepIndexOrOptions.mode) {
+        bodyPayload.mode = loopStepIndexOrOptions.mode;
+      }
+      if (loopStepIndexOrOptions.isLoop !== undefined) {
+        bodyPayload.isLoop = Boolean(loopStepIndexOrOptions.isLoop);
+      }
       if (loopStepIndexOrOptions.loopStepIndex !== null && loopStepIndexOrOptions.loopStepIndex !== undefined) {
-        bodyPayload.isLoop = true;
         bodyPayload.loopStepIndex = loopStepIndexOrOptions.loopStepIndex;
+        if (loopStepIndexOrOptions.isLoop === undefined) {
+          bodyPayload.isLoop = true;
+          bodyPayload.mode = 'loop';
+        }
       }
       if (loopStepIndexOrOptions.forceRedownload) {
         bodyPayload.forceRedownload = true;
       }
-    } else if (loopStepIndexOrOptions !== null && loopStepIndexOrOptions !== undefined) {
+    } else if (typeof loopStepIndexOrOptions === 'string') {
+      bodyPayload.mode = loopStepIndexOrOptions;
+      bodyPayload.isLoop = loopStepIndexOrOptions === 'loop' || loopStepIndexOrOptions === 'batch';
+    } else if (Number.isInteger(loopStepIndexOrOptions) && loopStepIndexOrOptions >= 0) {
+      bodyPayload.mode = 'loop';
       bodyPayload.isLoop = true;
       bodyPayload.loopStepIndex = loopStepIndexOrOptions;
+    } else {
+      // Default: single macro execution
+      bodyPayload.mode = 'single';
+      bodyPayload.isLoop = false;
     }
+
     const res = await Auth.authenticatedFetch(`/api/workflows/${workflowId}/execute`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

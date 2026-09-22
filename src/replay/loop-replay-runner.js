@@ -275,11 +275,12 @@ class LoopReplayRunner {
   async waitForDownload(previousFiles = [], timeoutMs = 10000) {
     const startedAt = Date.now();
     const previous = new Set(previousFiles);
-    while (Date.now() - startedAt < timeoutMs) {
+    let effectiveTimeoutMs = timeoutMs;
+    while (Date.now() - startedAt < effectiveTimeoutMs) {
       const files = fs.existsSync(this.downloadsDir)
         ? fs.readdirSync(this.downloadsDir)
         : [];
-      const candidates = files.filter(file => !previous.has(file) && !file.endsWith('.crdownload'));
+      const candidates = files.filter(file => !previous.has(file) && !file.endsWith('.crdownload') && !file.endsWith('.tmp'));
       if (candidates.length) {
         return candidates.map(filename => ({
           filename,
@@ -287,6 +288,13 @@ class LoopReplayRunner {
           sizeBytes: fs.statSync(path.join(this.downloadsDir, filename)).size
         }));
       }
+
+      // If a .crdownload file is active that was not there before, extend timeout to let it finish
+      const inFlightCr = files.filter(file => !previous.has(file) && file.endsWith('.crdownload'));
+      if (inFlightCr.length && effectiveTimeoutMs < 45000) {
+        effectiveTimeoutMs = 45000;
+      }
+
       await new Promise(resolve => setTimeout(resolve, 250));
     }
     return [];
@@ -370,13 +378,44 @@ class LoopReplayRunner {
 
   async configureDownloadInterception(page) {
     this.initDirectories();
+    const configureTarget = async (target) => {
+      try {
+        const client = await target.createCDPSession();
+        await client.send('Page.setDownloadBehavior', {
+          behavior: 'allow',
+          downloadPath: this.downloadsDir
+        }).catch(() => {});
+        return client;
+      } catch {
+        return null;
+      }
+    };
+
     try {
-      const client = await page.target().createCDPSession();
-      await client.send('Page.setDownloadBehavior', {
-        behavior: 'allow',
-        downloadPath: this.downloadsDir
-      });
+      const client = await configureTarget(page.target());
       logger.info(`[Runner] Configured CDP download path: ${this.downloadsDir}`);
+
+      // Also configure across all other open pages
+      if (page.browser) {
+        const browser = page.browser();
+        const pages = await browser.pages().catch(() => []);
+        for (const p of pages) {
+          if (p !== page && !p.isClosed()) {
+            await configureTarget(p.target());
+          }
+        }
+
+        // Auto-configure on any newly spawned window/tab during replay
+        if (!this._replayTargetCreatedListener) {
+          this._replayTargetCreatedListener = async (target) => {
+            if (target.type() === 'page') {
+              await configureTarget(target);
+            }
+          };
+          browser.on('targetcreated', this._replayTargetCreatedListener);
+        }
+      }
+
       return client;
     } catch (err) {
       logger.warn(`[Runner] Warning configuring CDP download behavior: ${err.message}`);
@@ -757,7 +796,13 @@ class LoopReplayRunner {
           manifest.itemsSucceeded++;
 
           if (stepType === 'CLICK' && this.downloadsDir) {
-            const downloaded = await this.waitForDownload(beforeStepFiles, 1200);
+            const isDownloadAction = Boolean(
+              (step.target?.candidates?.some(c => c.value && /download|export|save|pdf|print/i.test(c.value))) ||
+              (step.target?.fingerprint?.attributes?.title && /download|export|save|pdf|print/i.test(step.target.fingerprint.attributes.title)) ||
+              (step.target?.fingerprint?.text && /download|export|save|pdf|print/i.test(step.target.fingerprint.text))
+            );
+            const downloadWaitMs = isDownloadAction ? 12000 : 1200;
+            const downloaded = await this.waitForDownload(beforeStepFiles, downloadWaitMs);
             if (downloaded.length) {
               stepResult.downloadedFiles = downloaded.map(dl => {
                 return this.processAndStoreDownload(dl.path, step.selector || `step_${i + 1}`, `Step #${i + 1}`) || dl;
@@ -1204,7 +1249,13 @@ class LoopReplayRunner {
                 };
 
                 if (actionType === 'CLICK' && this.downloadsDir) {
-                  const downloaded = await this.waitForDownload(beforeActionFiles, 1200);
+                  const isDownloadAction = Boolean(
+                    (action.target?.candidates?.some(c => c.value && /download|export|save|pdf|print/i.test(c.value))) ||
+                    (action.target?.fingerprint?.attributes?.title && /download|export|save|pdf|print/i.test(action.target.fingerprint.attributes.title)) ||
+                    (action.target?.fingerprint?.text && /download|export|save|pdf|print/i.test(action.target.fingerprint.text))
+                  );
+                  const downloadWaitMs = isDownloadAction ? 12000 : 1200;
+                  const downloaded = await this.waitForDownload(beforeActionFiles, downloadWaitMs);
                   if (downloaded.length) {
                     for (const dl of downloaded) {
                       const organized = this.processAndStoreDownload(dl.path, itemIdentifier.itemKey, itemIdentifier.itemLabel);

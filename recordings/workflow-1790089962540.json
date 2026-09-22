@@ -1,0 +1,441 @@
+{
+  "metadata": {
+    "recordingId": "rec_1790089986867_wvgt9",
+    "version": "1.0.0",
+    "name": "workflow-1790089962540",
+    "startedAt": "2026-09-22T15:12:42.712Z",
+    "completedAt": "2026-09-22T15:13:06.866Z",
+    "startUrl": "https://citymart.i21web.com/iRelyProd/login",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    }
+  },
+  "actions": [
+    {
+      "id": "act_1_muctchhb",
+      "index": 0,
+      "type": "CLICK",
+      "timestamp": 1790089965694,
+      "timeDeltaMs": 0,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "id",
+            "value": "#Login",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "id",
+            "value": "input#Login",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "data-attr",
+            "value": "[data-sitekey=\"\\36 Le5hkwUAAAAAKBDYSNqaAhTStSy2brIxy7aOPqM\"]",
+            "uniqueness": 1,
+            "priority": 2
+          },
+          {
+            "strategy": "data-attr",
+            "value": "[data-callback=\"onSubmit\"]",
+            "uniqueness": 1,
+            "priority": 2
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[@id='Login']",
+            "uniqueness": 1,
+            "priority": 6
+          }
+        ],
+        "fingerprint": {
+          "tagName": "input",
+          "id": "Login",
+          "name": null,
+          "type": "submit",
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "btn",
+            "btn-default",
+            "g-recaptcha"
+          ],
+          "attributes": {
+            "type": "submit",
+            "value": "Login"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 65,
+            "height": 32
+          }
+        }
+      }
+    },
+    {
+      "id": "act_2_muctcklu",
+      "index": 1,
+      "type": "CLICK",
+      "timestamp": 1790089969745,
+      "timeDeltaMs": 4051,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "id",
+            "value": "#menu-833",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "id",
+            "value": "a#menu-833",
+            "uniqueness": 1,
+            "priority": 1
+          },
+          {
+            "strategy": "data-attr",
+            "value": "[data-menu=\"\\{\\\"k\\\"\\:\\[\\]\\,\\\"c\\\"\\:\\\"AccountsReceivable\\.view\\.Invoice\\?showSearch\\=true\\\"\\,\\\"n\\\"\\:\\\"Invoices\\\"\\,\\\"o\\\"\\:null\\,\\\"m\\\"\\:\\\"Accounts\\ Receivable\\\"\\,\\\"t\\\"\\:\\\"Screen\\\"\\,\\\"l\\\"\\:false\\,\\\"mid\\\"\\:833\\,\\\"pid\\\"\\:829\\,\\\"r\\\"\\:null\\,\\\"s\\\"\\:3\\,\\\"spid\\\"\\:829\\}\"]",
+            "uniqueness": 1,
+            "priority": 2
+          },
+          {
+            "strategy": "data-attr",
+            "value": "[data-screen-text=\"Invoices\"]",
+            "uniqueness": 1,
+            "priority": 2
+          },
+          {
+            "strategy": "text",
+            "value": "//li[normalize-space()='Invoices']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//li[contains(normalize-space(), 'Invoices')]",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//li[contains(., 'Invoices')]//a",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//a[normalize-space()='Invoices']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//a[contains(@class, 'i21-menu-link') and normalize-space()='Invoices']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[@id='menu-833']",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "data-attr",
+            "value": "[data-module-id=\"\\38 29\"]",
+            "uniqueness": 9,
+            "priority": 2
+          },
+          {
+            "strategy": "data-attr",
+            "value": "[data-module=\"AccountsReceivable\"]",
+            "uniqueness": 8,
+            "priority": 2
+          },
+          {
+            "strategy": "text",
+            "value": "//*[@role='option'][contains(normalize-space(), 'Invoices')]",
+            "uniqueness": 0,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//li[contains(., 'Invoices')]//*[contains(@class, 'checkbox') or contains(@class, 'pseudo-checkbox')]",
+            "uniqueness": 0,
+            "priority": 4
+          }
+        ],
+        "fingerprint": {
+          "tagName": "a",
+          "id": "menu-833",
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "Invoices",
+          "classes": [
+            "i21-menu-link"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 240,
+            "height": 23
+          }
+        }
+      }
+    },
+    {
+      "id": "act_3_muctcmno",
+      "index": 2,
+      "type": "CLICK",
+      "timestamp": 1790089972396,
+      "timeDeltaMs": 2651,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "#frmadvancesearchgrid-1088-body > div:nth-of-type(1) > div:nth-of-type(3) > table:nth-of-type(5) > tbody > tr > td:nth-of-type(3) > div",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[@id='frmadvancesearchgrid-1088-body']/div[1]/div[3]/table[5]/tbody[1]/tr[1]/td[3]/div[1]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "text",
+            "value": "//div[normalize-space()='Invoice']",
+            "uniqueness": 10,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//div[contains(@class, 'x-grid-cell-inner') and normalize-space()='Invoice']",
+            "uniqueness": 10,
+            "priority": 4
+          }
+        ],
+        "fingerprint": {
+          "tagName": "div",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "Invoice",
+          "classes": [
+            "x-grid-cell-inner"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 100,
+            "height": 29
+          }
+        }
+      }
+    },
+    {
+      "id": "act_4_muctcoij",
+      "index": 3,
+      "type": "CLICK",
+      "timestamp": 1790089974810,
+      "timeDeltaMs": 2414,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "text",
+            "value": "//span[contains(@class, 'x-btn-inner') and normalize-space()='Open Selected']",
+            "uniqueness": 1,
+            "priority": 4
+          },
+          {
+            "strategy": "css-path",
+            "value": "#toolbar-1091-targetEl > a:nth-of-type(1) > span > span > span:nth-of-type(2)",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[@id='toolbar-1091-targetEl']/a[1]/span[1]/span[1]/span[2]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "data-attr",
+            "value": "[data-ref=\"btnInnerEl\"]",
+            "uniqueness": 34,
+            "priority": 2
+          },
+          {
+            "strategy": "text",
+            "value": "//span[normalize-space()='Open Selected']",
+            "uniqueness": 3,
+            "priority": 4
+          }
+        ],
+        "fingerprint": {
+          "tagName": "span",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "Open Selected",
+          "classes": [
+            "x-btn-inner",
+            "x-btn-inner-default-toolbar-small"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 78,
+            "height": 16
+          }
+        }
+      }
+    },
+    {
+      "id": "act_5_muctffq6",
+      "index": 4,
+      "type": "CLICK",
+      "timestamp": 1790090090346,
+      "timeDeltaMs": 0,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "attribute",
+            "value": "img[title=\"Export\\ a\\ report\\ and\\ save\\ it\\ to\\ the\\ disk\"]",
+            "uniqueness": 1,
+            "priority": 3
+          },
+          {
+            "strategy": "attribute",
+            "value": "img[alt=\"Export\\ a\\ report\\ and\\ save\\ it\\ to\\ the\\ disk\"]",
+            "uniqueness": 1,
+            "priority": 3
+          },
+          {
+            "strategy": "attribute",
+            "value": "img[title*=\"save\" i]",
+            "uniqueness": 1,
+            "priority": 3
+          },
+          {
+            "strategy": "attribute",
+            "value": "[alt=\"Export\\ a\\ report\\ and\\ save\\ it\\ to\\ the\\ disk\"]",
+            "uniqueness": 1,
+            "priority": 3
+          },
+          {
+            "strategy": "attribute",
+            "value": "img[alt*=\"save\" i]",
+            "uniqueness": 1,
+            "priority": 3
+          },
+          {
+            "strategy": "attribute",
+            "value": "[alt*=\"save\" i]",
+            "uniqueness": 1,
+            "priority": 3
+          },
+          {
+            "strategy": "css-path",
+            "value": "body > table:nth-of-type(2) > tbody > tr:nth-of-type(1) > td > div > div > div > ul > li:nth-of-type(19) > div > img",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "/html[1]/body[1]/table[2]/tbody[1]/tr[1]/td[1]/div[1]/div[1]/div[1]/ul[1]/li[19]/div[1]/img[1]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "attribute",
+            "value": "img[src=\"\\/iRelyProd\\/DXR\\.axd\\?r\\=1_32-dAAts\"]",
+            "uniqueness": 16,
+            "priority": 3
+          },
+          {
+            "strategy": "attribute",
+            "value": "img[src*=\"r\\=1_32-dAAts\"]",
+            "uniqueness": 16,
+            "priority": 3
+          },
+          {
+            "strategy": "attribute",
+            "value": "[title=\"Export\\ a\\ report\\ and\\ save\\ it\\ to\\ the\\ disk\"]",
+            "uniqueness": 2,
+            "priority": 3
+          },
+          {
+            "strategy": "attribute",
+            "value": "[title*=\"save\" i]",
+            "uniqueness": 2,
+            "priority": 3
+          },
+          {
+            "strategy": "attribute",
+            "value": "img[title*=\"export\" i]",
+            "uniqueness": 2,
+            "priority": 3
+          },
+          {
+            "strategy": "attribute",
+            "value": "[title*=\"export\" i]",
+            "uniqueness": 4,
+            "priority": 3
+          },
+          {
+            "strategy": "attribute",
+            "value": "img[alt*=\"export\" i]",
+            "uniqueness": 2,
+            "priority": 3
+          },
+          {
+            "strategy": "attribute",
+            "value": "[alt*=\"export\" i]",
+            "uniqueness": 2,
+            "priority": 3
+          }
+        ],
+        "fingerprint": {
+          "tagName": "img",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "",
+          "classes": [
+            "dxXtraReports_BtnSave_Mulberry",
+            "dxm-image",
+            "dx-vam"
+          ],
+          "attributes": {
+            "title": "Export a report and save it to the disk"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 16,
+            "height": 16
+          }
+        }
+      }
+    }
+  ]
+}
