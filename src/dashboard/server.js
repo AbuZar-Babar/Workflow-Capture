@@ -146,8 +146,16 @@ const MIME_TYPES = {
   '.json': 'application/json',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
   '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon'
+  '.ico': 'image/x-icon',
+  '.pdf': 'application/pdf',
+  '.csv': 'text/csv',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  '.xls': 'application/vnd.ms-excel',
+  '.txt': 'text/plain',
+  '.zip': 'application/zip'
 };
 
 /**
@@ -461,6 +469,33 @@ const server = http.createServer(async (req, res) => {
       const runId = runStatusMatch[1];
       if (!requireAuth(req, res)) return;
       return runController.getRunStatus(req, res, runId);
+    }
+
+    // -------------------------------------------------------------
+    // Downloaded Files & Deduplication REST APIs
+    // -------------------------------------------------------------
+    if (pathname === '/api/downloads' && req.method === 'GET') {
+      if (!requireAuth(req, res)) return;
+      return runController.listDownloads(req, res);
+    }
+
+    if (pathname === '/api/downloads/export' && req.method === 'GET') {
+      if (!requireAuth(req, res)) return;
+      return runController.exportAllDownloadsZip(req, res);
+    }
+
+    const dlDeleteMatch = pathname.match(/^\/api\/downloads\/([^/]+)$/);
+    if (dlDeleteMatch && req.method === 'DELETE') {
+      const downloadId = dlDeleteMatch[1];
+      if (!requireAuth(req, res)) return;
+      return runController.deleteDownload(req, res, downloadId);
+    }
+
+    const wfDownloadsMatch = pathname.match(/^\/api\/workflows\/([^/]+)\/downloads$/);
+    if (wfDownloadsMatch && req.method === 'GET') {
+      const workflowId = wfDownloadsMatch[1];
+      if (!requireAuth(req, res)) return;
+      return runController.getWorkflowDownloads(req, res, workflowId);
     }
 
     // -------------------------------------------------------------
@@ -876,7 +911,10 @@ const server = http.createServer(async (req, res) => {
     // Static File Serving (HTML, CSS, JS, Assets, Test Portals)
     // -------------------------------------------------------------
     let filePath;
-    if (pathname.startsWith('/portal/')) {
+    if (pathname.startsWith('/downloads/')) {
+      const downloadFile = pathname.replace('/downloads/', '');
+      filePath = path.join(process.cwd(), 'downloads', downloadFile);
+    } else if (pathname.startsWith('/portal/')) {
       const portalFile = pathname.replace('/portal/', '');
       filePath = path.join(process.cwd(), 'test', portalFile);
     } else if (pathname.startsWith('/test/')) {
@@ -891,12 +929,16 @@ const server = http.createServer(async (req, res) => {
     if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
       const contentType = MIME_TYPES[extname] || 'application/octet-stream';
       const fileContent = fs.readFileSync(filePath);
-      res.writeHead(200, { 
+      const headers = { 
         'Content-Type': contentType,
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
         'Expires': '0'
-      });
+      };
+      if (urlObj.searchParams.get('download') === '1') {
+        headers['Content-Disposition'] = `attachment; filename="${path.basename(filePath)}"`;
+      }
+      res.writeHead(200, headers);
       return res.end(fileContent);
     }
 

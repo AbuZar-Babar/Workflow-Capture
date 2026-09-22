@@ -83,7 +83,31 @@ export const OverviewView = {
             <button class="btn btn-secondary btn-sm" id="btnDiscoveryClose">Close</button>
           </div>
           <div id="discoveryLoading" class="discovery-loading"><div class="discovery-spinner"></div><div><strong>Discovering repeated items…</strong><span>Inspecting the current page and validating the recorded target.</span></div></div>
-          <div id="discoveryResult" class="hidden"><div class="discovery-summary-grid"><div class="discovery-metric"><span>Items found</span><strong id="discoveryItemCount">0</strong></div><div class="discovery-metric"><span>Confidence</span><strong id="discoveryConfidence">0%</strong></div><div class="discovery-metric"><span>Actions / item</span><strong id="discoveryActions">0</strong></div><div class="discovery-metric"><span>Collection</span><strong id="discoveryCollection">—</strong></div></div><div class="discovery-preview"><div class="card-header-row"><div class="card-title-wrap"><h3>Preview items</h3><p>These are the records the automation will process.</p></div></div><div id="discoveryItemsList" class="discovery-items-list"></div></div><div class="discovery-confirm-note"><span class="status-dot online"></span><span>The workflow will run once per discovered item. Failed items remain isolated and can be retried.</span></div></div>
+          <div id="discoveryResult" class="hidden">
+            <div class="discovery-summary-grid">
+              <div class="discovery-metric"><span>Items found</span><strong id="discoveryItemCount">0</strong></div>
+              <div class="discovery-metric"><span>Confidence</span><strong id="discoveryConfidence">0%</strong></div>
+              <div class="discovery-metric"><span>Actions / item</span><strong id="discoveryActions">0</strong></div>
+              <div class="discovery-metric"><span>Collection</span><strong id="discoveryCollection">—</strong></div>
+            </div>
+            <div class="discovery-preview">
+              <div class="card-header-row"><div class="card-title-wrap"><h3>Preview items</h3><p>These are the records the automation will process.</p></div></div>
+              <div id="discoveryItemsList" class="discovery-items-list"></div>
+            </div>
+            <div class="discovery-options" style="margin-top:0.75rem; padding:0.6rem 0.8rem; background:#f8fafc; border-radius:6px; border:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between;">
+              <div>
+                <strong style="display:block; font-size:0.75rem; color:var(--text-main);">Smart Deduplication</strong>
+                <span style="font-size:0.68rem; color:var(--text-sub);">Skips items already downloaded in previous runs</span>
+              </div>
+              <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.72rem; color:var(--text-body); cursor:pointer; font-weight:600;">
+                <input type="checkbox" id="chkDiscoveryForceRedownload"> Force Re-download
+              </label>
+            </div>
+            <div class="discovery-confirm-note" style="margin-top:0.65rem;">
+              <span class="status-dot online"></span>
+              <span>The workflow will run once per discovered item. Previously downloaded files are safely preserved.</span>
+            </div>
+          </div>
           <div id="discoveryError" class="hidden discovery-error"></div>
           <div class="discovery-modal-actions"><button class="btn btn-secondary" id="btnDiscoveryCancel">Cancel</button><button class="btn btn-primary" id="btnDiscoveryContinue" disabled>Continue &amp; Run</button></div>
         </div>
@@ -262,8 +286,31 @@ export const OverviewView = {
       document.getElementById('discoverySubtitle').textContent = 'Found ' + (discovery.itemCount || 0) + ' repeated items on the target page. Review before execution.';
       const list = document.getElementById('discoveryItemsList');
       list.innerHTML = (discovery.items || []).slice(0, 8).map((item, index) => '<div class="discovery-item-row"><span class="discovery-item-index">' + (index + 1) + '</span><span class="discovery-item-text">' + this.escapeHtml(item.text || item.id || ('Item ' + (index + 1))) + '</span></div>').join('') || '<div class="dashboard-empty">No preview items available.</div>';
-      loading.classList.add('hidden'); result.classList.remove('hidden'); continueBtn.disabled = !discovery.success || !discovery.itemCount;
-      continueBtn.onclick = async () => { continueBtn.disabled = true; continueBtn.textContent = 'Starting…'; try { const run = await Api.executeWorkflow(workflowId, data.loopStepIndex ?? 0); close(); if (run.runId) { sessionStorage.setItem('workflowCaptureActiveRunId', run.runId); this.router.navigate('execution/' + encodeURIComponent(run.runId)); } else { Toast.success('Automation queued'); } } catch (err) { Toast.error(err.message); continueBtn.disabled = false; continueBtn.textContent = 'Continue & Run'; } };
+      loading.classList.add('hidden');
+      result.classList.remove('hidden');
+      continueBtn.disabled = !discovery.success || !discovery.itemCount;
+      continueBtn.onclick = async () => {
+        continueBtn.disabled = true;
+        continueBtn.textContent = 'Starting…';
+        const forceRedownload = !!document.getElementById('chkDiscoveryForceRedownload')?.checked;
+        try {
+          const run = await Api.executeWorkflow(workflowId, {
+            loopStepIndex: data.loopStepIndex ?? 0,
+            forceRedownload
+          });
+          close();
+          if (run.runId) {
+            sessionStorage.setItem('workflowCaptureActiveRunId', run.runId);
+            this.router.navigate('execution/' + encodeURIComponent(run.runId));
+          } else {
+            Toast.success('Automation queued');
+          }
+        } catch (err) {
+          Toast.error(err.message);
+          continueBtn.disabled = false;
+          continueBtn.textContent = 'Continue & Run';
+        }
+      };
     } catch (err) { loading.classList.add('hidden'); errorBox.textContent = err.message || 'Discovery failed. Make sure Chrome is connected and the target page is open.'; errorBox.classList.remove('hidden'); }
   },
 

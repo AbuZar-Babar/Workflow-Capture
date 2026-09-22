@@ -4,7 +4,7 @@ yarn-debug.log*
 yarn-error.log*
 .DS_Store
 Thumbs.db
-recordings/
+
 .env
 .env.local
 scratch/
@@ -12,3 +12,4 @@ tmp/
 data/
 recordings/runs/
 *.log
+downloads/

@@ -76,21 +76,20 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
 
   const steps = workflow.steps || [];
 
-  // Auto-detect if this workflow operates on a repeating collection/table
-  let isLoop = body.isLoop === true || (body.loopStepIndex !== null && body.loopStepIndex !== undefined && body.loopStepIndex !== -1);
-  let loopStepIndex = Number.isInteger(body.loopStepIndex) ? body.loopStepIndex : null;
+  const { loopStepIndex: requestedLoopIdx, forceRedownload } = body || {};
 
-  if (loopStepIndex === null) {
-    if (Number.isInteger(workflow.loopStepIndex) && workflow.loopStepIndex >= 0) {
-      loopStepIndex = workflow.loopStepIndex;
-      isLoop = true;
-    } else if (Number.isInteger(workflow.settings?.loopStepIndex) && workflow.settings.loopStepIndex >= 0) {
-      loopStepIndex = workflow.settings.loopStepIndex;
-      isLoop = true;
-    }
-  }
+  // Auto-detect or validate loop parameters
+  let isLoop = body.isLoop === true || (requestedLoopIdx !== null && requestedLoopIdx !== undefined && requestedLoopIdx !== -1);
+  let loopStepIndex = null;
 
-  if (body.isLoop !== false && !isLoop) {
+  if (Number.isInteger(requestedLoopIdx) && requestedLoopIdx >= 0) {
+    isLoop = true;
+    loopStepIndex = requestedLoopIdx;
+  } else if (Number.isInteger(workflow.loopStepIndex) && workflow.loopStepIndex >= 0) {
+    isLoop = true;
+    loopStepIndex = workflow.loopStepIndex;
+  } else {
+    // Structural detection
     const candidateIdx = LoopDetector.findLoopCandidateIndex(steps);
     if (candidateIdx >= 0) {
       isLoop = true;
@@ -109,12 +108,20 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
     itemsTotal: totalSteps,
     itemsSucceeded: 0,
     itemsFailed: 0,
+    itemsSkipped: 0,
+    forceRedownload: !!forceRedownload,
     mode: isLoop ? 'LOOP' : 'STANDARD',
     loopStepIndex: isLoop ? loopStepIndex : null,
     startedAt: new Date().toISOString()
   });
 
-  const runner = new LoopReplayRunner({ runId });
+  const runner = new LoopReplayRunner({
+    runId,
+    workflowId: workflow.id,
+    workflowName: workflow.name || workflow.id,
+    userId,
+    forceRedownload: !!forceRedownload
+  });
   activeRunners.set(runId, {
     runner,
     userId,
@@ -140,7 +147,8 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
           db.update('runs', runId, {
             itemsTotal: progress.manifest.itemsTotal,
             itemsSucceeded: progress.manifest.itemsSucceeded,
-            itemsFailed: progress.manifest.itemsFailed
+            itemsFailed: progress.manifest.itemsFailed,
+            itemsSkipped: progress.manifest.itemsSkipped || 0
           });
         }
       };
@@ -157,6 +165,7 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
         itemsTotal: manifest.itemsTotal,
         itemsSucceeded: manifest.itemsSucceeded,
         itemsFailed: manifest.itemsFailed,
+        itemsSkipped: manifest.itemsSkipped || 0,
         downloadedFiles: manifest.downloadedFiles,
         completedAt: manifest.endTime || new Date().toISOString()
       });
@@ -364,6 +373,160 @@ function listRuns(req, res) {
   });
 }
 
+/**
+ * List all downloaded files for the user
+ * GET /api/downloads
+ */
+function listDownloads(req, res) {
+  const userId = req.user ? req.user.id : null;
+  const rawDownloads = db.find('downloads', d => !userId || d.userId === userId || !d.userId);
+
+  // Cross-reference workflow names
+  const workflows = db.find('workflows', () => true);
+  const wfMap = new Map(workflows.map(w => [w.id, w.name]));
+
+  const downloads = rawDownloads.map(d => {
+    const rel = d.relativeFilePath || d.filePath || '';
+    const fullPath = path.resolve(process.cwd(), rel);
+    const exists = fs.existsSync(fullPath);
+    let size = d.fileSizeBytes || 0;
+    if (exists && !size) {
+      try { size = fs.statSync(fullPath).size; } catch {}
+    }
+    return {
+      ...d,
+      relativeFilePath: rel,
+      filePath: rel,
+      workflowName: d.workflowName || wfMap.get(d.workflowId) || d.workflowId || 'Workflow',
+      fileExists: exists,
+      fileSizeBytes: size
+    };
+  });
+
+  // Sort latest first
+  downloads.sort((a, b) => new Date(b.downloadedAt || 0) - new Date(a.downloadedAt || 0));
+
+  return sendJson(res, 200, {
+    success: true,
+    count: downloads.length,
+    downloads
+  });
+}
+
+/**
+ * List downloaded files for a specific workflow
+ * GET /api/workflows/:id/downloads
+ */
+function getWorkflowDownloads(req, res, workflowId) {
+  const userId = req.user ? req.user.id : null;
+  const rawDownloads = db.find('downloads', d => 
+    d.workflowId === workflowId && (!userId || d.userId === userId || !d.userId)
+  );
+
+  const workflow = db.findOne('workflows', w => w.id === workflowId);
+  const wfName = workflow ? workflow.name : workflowId;
+
+  const downloads = rawDownloads.map(d => {
+    const fullPath = path.resolve(process.cwd(), d.relativeFilePath || '');
+    const exists = fs.existsSync(fullPath);
+    return {
+      ...d,
+      workflowName: wfName,
+      fileExists: exists
+    };
+  });
+
+  downloads.sort((a, b) => new Date(b.downloadedAt || 0) - new Date(a.downloadedAt || 0));
+
+  return sendJson(res, 200, {
+    success: true,
+    workflowId,
+    count: downloads.length,
+    downloads
+  });
+}
+
+/**
+ * Delete a downloaded artifact
+ * DELETE /api/downloads/:id
+ */
+function deleteDownload(req, res, downloadId) {
+  const userId = req.user ? req.user.id : null;
+  const isAdmin = req.user ? req.user.role === 'admin' : true;
+  const record = db.findOne('downloads', d => d.id === downloadId && (!userId || d.userId === userId || isAdmin || !d.userId));
+  
+  if (!record) {
+    return sendJson(res, 404, { error: 'Download artifact not found' });
+  }
+
+  // Delete physical file if exists
+  const fileRelPath = record.relativeFilePath || record.filePath;
+  if (fileRelPath) {
+    const fullPath = path.resolve(process.cwd(), fileRelPath);
+    if (fs.existsSync(fullPath)) {
+      try {
+        fs.unlinkSync(fullPath);
+      } catch (err) {
+        console.error(`[Artifacts] Failed to remove physical file ${fullPath}:`, err.message);
+      }
+    }
+  }
+
+  // Remove from database
+  db.delete('downloads', downloadId);
+
+  return sendJson(res, 200, {
+    success: true,
+    message: 'Artifact deleted successfully',
+    id: downloadId
+  });
+}
+
+/**
+ * Export all downloads as a consolidated ZIP archive
+ * GET /api/downloads/export
+ */
+function exportAllDownloadsZip(req, res) {
+  const downloadsDir = path.resolve(process.cwd(), 'downloads');
+  if (!fs.existsSync(downloadsDir)) {
+    return sendJson(res, 404, { error: 'No downloads directory found' });
+  }
+
+  const recordingsDir = path.resolve(process.cwd(), 'recordings');
+  if (!fs.existsSync(recordingsDir)) {
+    fs.mkdirSync(recordingsDir, { recursive: true });
+  }
+
+  const tempZipPath = path.resolve(recordingsDir, `export_artifacts_${Date.now()}.zip`);
+  const { execFile } = require('child_process');
+
+  execFile('tar', ['-a', '-cf', tempZipPath, '-C', downloadsDir, '.'], (err) => {
+    if (err || !fs.existsSync(tempZipPath)) {
+      return sendJson(res, 500, { error: 'Failed to archive downloads: ' + (err ? err.message : 'File not created') });
+    }
+
+    try {
+      const stat = fs.statSync(tempZipPath);
+      res.writeHead(200, {
+        'Content-Type': 'application/zip',
+        'Content-Disposition': 'attachment; filename="workflow-artifacts.zip"',
+        'Content-Length': stat.size
+      });
+
+      const stream = fs.createReadStream(tempZipPath);
+      stream.pipe(res);
+      const cleanUp = () => {
+        try { if (fs.existsSync(tempZipPath)) fs.unlinkSync(tempZipPath); } catch {}
+      };
+      stream.on('close', cleanUp);
+      stream.on('error', cleanUp);
+    } catch (streamErr) {
+      try { if (fs.existsSync(tempZipPath)) fs.unlinkSync(tempZipPath); } catch {}
+      return sendJson(res, 500, { error: streamErr.message });
+    }
+  });
+}
+
 module.exports = {
   executeWorkflow,
   stopRun,
@@ -372,5 +535,9 @@ module.exports = {
   hasActiveRuns,
   getActiveRunCount,
   getRunStatus,
-  listRuns
+  listRuns,
+  listDownloads,
+  getWorkflowDownloads,
+  deleteDownload,
+  exportAllDownloadsZip
 };

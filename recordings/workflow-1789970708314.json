@@ -1,0 +1,139 @@
+{
+  "metadata": {
+    "recordingId": "rec_1789970716628_3e2fc",
+    "version": "1.0.0",
+    "name": "workflow-1789970708314",
+    "startedAt": "2026-09-21T06:05:08.333Z",
+    "completedAt": "2026-09-21T06:05:16.627Z",
+    "startUrl": "file:///C:/Users/AbuZar/Desktop/Fyp/Workflow-Capture/test/invoices-portal.html",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    }
+  },
+  "actions": [
+    {
+      "id": "act_1_muaucg1h",
+      "index": 0,
+      "type": "CLICK",
+      "timestamp": 1789970711092,
+      "timeDeltaMs": 0,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "#invoices-table > tbody > tr:nth-of-type(1) > td:nth-of-type(5) > button",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[@id='invoices-table']/tbody[1]/tr[1]/td[5]/button[1]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "data-attr",
+            "value": "[data-ready=\"true\"]",
+            "uniqueness": 8,
+            "priority": 2
+          },
+          {
+            "strategy": "text",
+            "value": "//button[normalize-space()='Mark']",
+            "uniqueness": 4,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//button[contains(@class, 'btn-mark') and normalize-space()='Mark']",
+            "uniqueness": 4,
+            "priority": 4
+          }
+        ],
+        "fingerprint": {
+          "tagName": "button",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "Mark",
+          "classes": [
+            "btn-mark"
+          ],
+          "attributes": {},
+          "isPassword": false,
+          "dimensions": {
+            "width": 50,
+            "height": 29
+          }
+        }
+      }
+    },
+    {
+      "id": "act_2_muaucgdm",
+      "index": 1,
+      "type": "CLICK",
+      "timestamp": 1789970711530,
+      "timeDeltaMs": 438,
+      "target": {
+        "candidates": [
+          {
+            "strategy": "css-path",
+            "value": "#invoices-table > tbody > tr:nth-of-type(1) > td:nth-of-type(5) > a",
+            "uniqueness": 1,
+            "priority": 5
+          },
+          {
+            "strategy": "xpath",
+            "value": "//*[@id='invoices-table']/tbody[1]/tr[1]/td[5]/a[1]",
+            "uniqueness": 1,
+            "priority": 6
+          },
+          {
+            "strategy": "data-attr",
+            "value": "[data-ready=\"true\"]",
+            "uniqueness": 8,
+            "priority": 2
+          },
+          {
+            "strategy": "text",
+            "value": "//a[normalize-space()='Download']",
+            "uniqueness": 4,
+            "priority": 4
+          },
+          {
+            "strategy": "text",
+            "value": "//a[contains(@class, 'btn-download') and normalize-space()='Download']",
+            "uniqueness": 4,
+            "priority": 4
+          }
+        ],
+        "fingerprint": {
+          "tagName": "a",
+          "id": null,
+          "name": null,
+          "type": null,
+          "role": null,
+          "placeholder": null,
+          "ariaLabel": null,
+          "text": "Download",
+          "classes": [
+            "btn-download"
+          ],
+          "attributes": {
+            "href": "data:text/plain;charset=utf-8,Invoice%20INV-2026-001%20for%20Acme%20Corp%0AAmount:%20$1250.00"
+          },
+          "isPassword": false,
+          "dimensions": {
+            "width": 82,
+            "height": 27
+          }
+        }
+      }
+    }
+  ]
+}

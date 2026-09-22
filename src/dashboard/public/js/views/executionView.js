@@ -114,6 +114,11 @@ export const ExecutionView = {
             <span class="stat-meta">Errors caught</span>
           </article>
           <article class="stat-card">
+            <span class="stat-label">Skipped</span>
+            <strong id="executionSkipped" style="color:#d97706;">0</strong>
+            <span class="stat-meta">Duplicates</span>
+          </article>
+          <article class="stat-card">
             <span class="stat-label">Downloads</span>
             <strong id="executionDownloads">0</strong>
             <span class="stat-meta">Artifact files</span>
@@ -433,6 +438,10 @@ export const ExecutionView = {
     const elFail = document.getElementById('executionFailed');
     if (elFail) elFail.textContent = fail;
 
+    const elSkip = document.getElementById('executionSkipped');
+    const skippedCount = m.itemsSkipped ?? run.itemsSkipped ?? results.filter(r => r.status === 'SKIPPED_DUPLICATE').length;
+    if (elSkip) elSkip.textContent = skippedCount;
+
     const elDown = document.getElementById('executionDownloads');
     if (elDown) elDown.textContent = files;
 
@@ -464,7 +473,7 @@ export const ExecutionView = {
     const elProgDetail = document.getElementById('executionProgressDetail');
     if (elProgDetail) {
       elProgDetail.textContent = totalCount > 0
-        ? `${ok} succeeded · ${fail} failed · ${remaining} ${remaining === 1 ? unitSingular : unitPlural} remaining`
+        ? `${ok} succeeded · ${fail} failed${skippedCount > 0 ? ` · ${skippedCount} skipped` : ''} · ${remaining} ${remaining === 1 ? unitSingular : unitPlural} remaining`
         : 'Running workflow automation…';
     }
 
@@ -499,10 +508,10 @@ export const ExecutionView = {
     // Update Action Buttons
     const btnStop = document.getElementById('btnExecutionStop');
     if (btnStop) {
-      btnStop.disabled = isTerminal;
       if (isTerminal) {
-        btnStop.style.opacity = '0.5';
-        btnStop.style.cursor = 'not-allowed';
+        btnStop.classList.add('hidden');
+      } else {
+        btnStop.classList.remove('hidden');
       }
     }
 
@@ -593,9 +602,11 @@ export const ExecutionView = {
       let targetDetail = '';
 
       if (isLoopMode) {
-        titleLabel = `Item #${i}`;
+        titleLabel = (res && res.label) ? `Item #${i} · ${escapeHtml(res.label)}` : `Item #${i}`;
         badgeLabel = 'LOOP ROW';
-        if (res && Array.isArray(res.downloadedFiles) && res.downloadedFiles.length > 0) {
+        if (res && res.status === 'SKIPPED_DUPLICATE') {
+          targetDetail = res.skippedReason || 'Skipped duplicate: already downloaded';
+        } else if (res && Array.isArray(res.downloadedFiles) && res.downloadedFiles.length > 0) {
           targetDetail = `Downloaded: ${res.downloadedFiles.map(f => typeof f === 'string' ? f : f.filename).join(', ')}`;
         } else if (res && Array.isArray(res.actions)) {
           targetDetail = `Executed ${res.actions.length} action(s) on row #${i}`;
@@ -622,6 +633,10 @@ export const ExecutionView = {
           state = 'success';
           icon = '✓';
           stateLabel = 'Completed';
+        } else if (s === 'SKIPPED_DUPLICATE') {
+          state = 'skipped';
+          icon = '↷';
+          stateLabel = 'Skipped';
         } else if (s === 'FAILED') {
           state = 'failed';
           icon = '✗';
@@ -643,7 +658,7 @@ export const ExecutionView = {
       } else if (isTerminal) {
         state = 'stopped';
         icon = '—';
-        stateLabel = 'Skipped';
+        stateLabel = 'Not Reached';
       }
 
       rows.push(`

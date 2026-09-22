@@ -219,11 +219,19 @@ export const Api = {
     return data;
   },
 
-  async executeWorkflow(workflowId, loopStepIndex = null) {
+  async executeWorkflow(workflowId, loopStepIndexOrOptions = null) {
     const bodyPayload = {};
-    if (loopStepIndex !== null && loopStepIndex !== undefined) {
+    if (typeof loopStepIndexOrOptions === 'object' && loopStepIndexOrOptions !== null) {
+      if (loopStepIndexOrOptions.loopStepIndex !== null && loopStepIndexOrOptions.loopStepIndex !== undefined) {
+        bodyPayload.isLoop = true;
+        bodyPayload.loopStepIndex = loopStepIndexOrOptions.loopStepIndex;
+      }
+      if (loopStepIndexOrOptions.forceRedownload) {
+        bodyPayload.forceRedownload = true;
+      }
+    } else if (loopStepIndexOrOptions !== null && loopStepIndexOrOptions !== undefined) {
       bodyPayload.isLoop = true;
-      bodyPayload.loopStepIndex = loopStepIndex;
+      bodyPayload.loopStepIndex = loopStepIndexOrOptions;
     }
     const res = await Auth.authenticatedFetch(`/api/workflows/${workflowId}/execute`, {
       method: 'POST',
@@ -233,6 +241,45 @@ export const Api = {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to execute workflow');
     return data;
+  },
+
+  async getDownloads() {
+    const res = await Auth.authenticatedFetch('/api/downloads');
+    if (!res.ok) throw new Error('Failed to fetch downloads');
+    return res.json();
+  },
+
+  async getWorkflowDownloads(workflowId) {
+    const res = await Auth.authenticatedFetch(`/api/workflows/${workflowId}/downloads`);
+    if (!res.ok) throw new Error('Failed to fetch workflow downloads');
+    return res.json();
+  },
+
+  async deleteDownload(downloadId) {
+    const res = await Auth.authenticatedFetch(`/api/downloads/${encodeURIComponent(downloadId)}`, {
+      method: 'DELETE'
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to delete download artifact');
+    return data;
+  },
+
+  async exportDownloads() {
+    const res = await Auth.authenticatedFetch('/api/downloads/export');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to export downloads archive');
+    }
+    const blob = await res.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = 'workflow-artifacts.zip';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
+    return { success: true };
   },
 
   async deleteWorkflow(workflowId) {

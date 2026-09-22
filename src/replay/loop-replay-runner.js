@@ -8,6 +8,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const ReplayEngine = require('./replay-engine');
 const LoopDetector = require('../shared/loop-detector');
 const ItemDiscovery = require('../shared/item-discovery');
@@ -21,12 +22,24 @@ class LoopReplayRunner {
   constructor(options = {}) {
     this.cdpPort = options.cdpPort || 9222;
     this.runId = options.runId || `run_${Date.now()}`;
+    this.workflowId = options.workflowId || null;
+    this.workflowName = options.workflowName || 'workflow';
+    this.userId = options.userId || null;
+    this.forceRedownload = options.forceRedownload === true;
+
     this.runsDir = path.resolve(process.cwd(), 'recordings', 'runs', this.runId);
     this.downloadsDir = path.join(this.runsDir, 'downloads');
     this.replayEngine = new ReplayEngine({ cdpPort: this.cdpPort });
     this.maxItemRetries = Number.isInteger(options.maxItemRetries) ? Math.max(0, options.maxItemRetries) : 1;
     this.resumeFromCheckpoint = options.resumeFromCheckpoint === true;
     this.isAborted = false;
+
+    // Structured downloads hierarchy: downloads/<workflow-slug>/<YYYY-MM-DD>/
+    const rawSlug = (this.workflowName || this.workflowId || 'workflow').toLowerCase();
+    this.workflowSlug = rawSlug.replace(/[^a-z0-9_-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'workflow';
+    this.dateStr = new Date().toISOString().split('T')[0];
+    this.workflowDownloadsBaseDir = path.resolve(process.cwd(), 'downloads', this.workflowSlug);
+    this.structuredDownloadsDir = path.resolve(this.workflowDownloadsBaseDir, this.dateStr);
   }
 
   /**
@@ -44,6 +57,216 @@ class LoopReplayRunner {
     if (!fs.existsSync(this.downloadsDir)) {
       fs.mkdirSync(this.downloadsDir, { recursive: true });
     }
+    if (!fs.existsSync(this.structuredDownloadsDir)) {
+      fs.mkdirSync(this.structuredDownloadsDir, { recursive: true });
+    }
+  }
+
+  /**
+   * Post-processes a downloaded file:
+   * 1. Validates existence and completion.
+   * 2. Calculates SHA256 checksum.
+   * 3. Moves/copies file into structured folder: downloads/<workflow-slug>/<YYYY-MM-DD>/<filename>
+   * 4. Persists metadata record in db.json ('downloads' collection)
+   * 5. Appends record to workflow downloads manifest: downloads/<workflow-slug>/manifest.json
+   */
+  processAndStoreDownload(sourcePath, itemKey = null, itemLabel = null) {
+    if (!sourcePath || !fs.existsSync(sourcePath)) return null;
+    const filename = path.basename(sourcePath);
+    if (filename.endsWith('.crdownload') || filename.endsWith('.tmp')) return null;
+
+    try {
+      this.initDirectories();
+      const fileBuffer = fs.readFileSync(sourcePath);
+      const fileHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+      const fileSizeBytes = fileBuffer.length;
+
+      let targetFilename = filename;
+      let destPath = path.join(this.structuredDownloadsDir, targetFilename);
+
+      // Handle duplicate filename with different hash: append timestamp suffix
+      if (fs.existsSync(destPath)) {
+        try {
+          const existingBuffer = fs.readFileSync(destPath);
+          const existingHash = crypto.createHash('sha256').update(existingBuffer).digest('hex');
+          if (existingHash !== fileHash) {
+            const ext = path.extname(filename);
+            const base = path.basename(filename, ext);
+            targetFilename = `${base}_${Date.now()}${ext}`;
+            destPath = path.join(this.structuredDownloadsDir, targetFilename);
+            fs.copyFileSync(sourcePath, destPath);
+          }
+        } catch {
+          fs.copyFileSync(sourcePath, destPath);
+        }
+      } else {
+        fs.copyFileSync(sourcePath, destPath);
+      }
+
+      const relativeFilePath = path.relative(process.cwd(), destPath).replace(/\\/g, '/');
+
+      const downloadRecord = {
+        workflowId: this.workflowId,
+        workflowName: this.workflowName,
+        userId: this.userId,
+        runId: this.runId,
+        itemKey: itemKey || filename,
+        itemLabel: itemLabel || filename,
+        filename: targetFilename,
+        fileHash,
+        filePath: relativeFilePath,
+        relativeFilePath: relativeFilePath,
+        fileSizeBytes,
+        downloadedAt: new Date().toISOString()
+      };
+
+      const existingInDb = db.findOne('downloads', d =>
+        d.workflowId === this.workflowId &&
+        d.fileHash === fileHash &&
+        d.filePath === relativeFilePath
+      );
+
+      let savedRecord = existingInDb;
+      if (!existingInDb) {
+        savedRecord = db.insert('downloads', downloadRecord);
+      }
+
+      this.syncWorkflowDownloadsManifest(savedRecord || downloadRecord);
+
+      logger.info(`[Runner] Download organized: "${targetFilename}" -> ${relativeFilePath} (${fileSizeBytes} bytes)`);
+
+      return {
+        id: (savedRecord || downloadRecord).id,
+        filename: targetFilename,
+        path: destPath,
+        relativePath: relativeFilePath,
+        fileHash,
+        sizeBytes: fileSizeBytes,
+        itemKey: itemKey || filename
+      };
+    } catch (err) {
+      logger.error(`[Runner] Error organizing download "${sourcePath}": ${err.message}`);
+      return {
+        filename,
+        path: sourcePath,
+        sizeBytes: fs.statSync(sourcePath).size
+      };
+    }
+  }
+
+  /**
+   * Syncs download record to workflow-level manifest.json
+   */
+  syncWorkflowDownloadsManifest(downloadRecord) {
+    try {
+      if (!fs.existsSync(this.workflowDownloadsBaseDir)) {
+        fs.mkdirSync(this.workflowDownloadsBaseDir, { recursive: true });
+      }
+      const manifestPath = path.join(this.workflowDownloadsBaseDir, 'manifest.json');
+      let manifestData = {
+        workflowId: this.workflowId,
+        workflowName: this.workflowName,
+        lastUpdated: new Date().toISOString(),
+        totalDownloads: 0,
+        downloads: []
+      };
+
+      if (fs.existsSync(manifestPath)) {
+        try {
+          manifestData = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        } catch {}
+      }
+
+      manifestData.lastUpdated = new Date().toISOString();
+      manifestData.downloads = Array.isArray(manifestData.downloads) ? manifestData.downloads : [];
+
+      const existsIdx = manifestData.downloads.findIndex(d =>
+        d.fileHash === downloadRecord.fileHash || d.filePath === downloadRecord.filePath
+      );
+
+      if (existsIdx >= 0) {
+        manifestData.downloads[existsIdx] = { ...manifestData.downloads[existsIdx], ...downloadRecord };
+      } else {
+        manifestData.downloads.push(downloadRecord);
+      }
+      manifestData.totalDownloads = manifestData.downloads.length;
+
+      fs.writeFileSync(manifestPath, JSON.stringify(manifestData, null, 2), 'utf8');
+    } catch (err) {
+      logger.warn(`[Runner] Could not update workflow download manifest: ${err.message}`);
+    }
+  }
+
+  /**
+   * Checks whether an item has already been downloaded for this workflow.
+   * Verifies both database record and physical presence on disk.
+   */
+  checkIfAlreadyDownloaded(itemKey) {
+    if (!itemKey || !this.workflowId) return { isDuplicate: false };
+
+    const records = db.find('downloads', d =>
+      d.workflowId === this.workflowId && (d.itemKey === itemKey || (d.itemLabel && d.itemLabel === itemKey))
+    );
+
+    if (!records || records.length === 0) return { isDuplicate: false };
+
+    // Verify at least one file actually exists on disk
+    for (const rec of records) {
+      if (rec.filePath) {
+        const fullPath = path.resolve(process.cwd(), rec.filePath);
+        if (fs.existsSync(fullPath)) {
+          return { isDuplicate: true, record: rec };
+        }
+      }
+    }
+
+    return { isDuplicate: false };
+  }
+
+  /**
+   * Extracts a unique identifier and human-readable label from a loop item
+   */
+  async extractItemIdentifier(page, discovery, index, isDropdown = false) {
+    if (isDropdown) {
+      const optText = await page.evaluate((idx) => {
+        const opts = Array.from(document.querySelectorAll('mat-option, [role="option"], select option'));
+        const el = opts[idx];
+        return el ? (el.textContent || '').trim().replace(/\s+/g, ' ') : null;
+      }, index).catch(() => null);
+      const label = optText || `Option #${index + 1}`;
+      return { itemKey: `dropdown:${label}`, itemLabel: label };
+    }
+
+    let itemHandle = null;
+    try {
+      itemHandle = await ItemDiscovery.getItemHandle(page, discovery, index);
+      const itemEl = itemHandle ? itemHandle.asElement() : null;
+      if (itemEl) {
+        const info = await itemEl.evaluate(el => {
+          const text = (el.innerText || el.textContent || '').trim().replace(/\s+/g, ' ');
+          const firstLine = text.split(/[\n\r]/)[0].trim();
+          const link = el.querySelector('a[href]')?.getAttribute('href') || el.getAttribute('href') || '';
+          const dataId = el.getAttribute('data-id') || el.getAttribute('data-testid') || el.getAttribute('id') || '';
+          return {
+            text: firstLine ? firstLine.slice(0, 100) : text.slice(0, 100),
+            link,
+            dataId
+          };
+        });
+
+        const label = info.text || info.dataId || `Item #${index + 1}`;
+        const key = info.dataId
+          ? `id:${info.dataId}`
+          : (info.link ? `link:${info.link}` : `text:${label}`);
+        return { itemKey: key, itemLabel: label };
+      }
+    } catch (err) {
+      logger.warn(`[Runner] Note extracting item identifier for item #${index + 1}: ${err.message}`);
+    } finally {
+      if (itemHandle) await itemHandle.dispose().catch(() => {});
+    }
+
+    return { itemKey: `item_${index + 1}`, itemLabel: `Item #${index + 1}` };
   }
 
   /**
@@ -97,6 +320,7 @@ class LoopReplayRunner {
         .map(result => result.index),
       itemsSucceeded: manifest.itemsSucceeded,
       itemsFailed: manifest.itemsFailed,
+      itemsSkipped: manifest.itemsSkipped || 0,
       pagesProcessed: manifest.pagesProcessed || currentPage,
       itemsTotal: manifest.itemsTotal,
       results: manifest.results,
@@ -450,6 +674,7 @@ class LoopReplayRunner {
       itemsTotal: steps.length,
       itemsSucceeded: 0,
       itemsFailed: 0,
+      itemsSkipped: 0,
       results: [],
       downloadedFiles: []
     };
@@ -518,19 +743,27 @@ class LoopReplayRunner {
         }
 
         logger.info(`[Runner] Executing step ${i + 1}/${steps.length} [${stepType}]...`);
-
+        const beforeStepFiles = this.snapshotDownloadedFiles();
         const stepResult = {
-          index: i + 1,
+          stepIndex: i + 1,
           type: stepType,
           status: 'PENDING',
-          timestamp: new Date().toISOString(),
-          error: null
+          startTime: new Date().toISOString()
         };
 
         try {
           await this.replayEngine.executeAction(step, i);
           stepResult.status = 'SUCCESS';
           manifest.itemsSucceeded++;
+
+          if (stepType === 'CLICK' && this.downloadsDir) {
+            const downloaded = await this.waitForDownload(beforeStepFiles, 1200);
+            if (downloaded.length) {
+              stepResult.downloadedFiles = downloaded.map(dl => {
+                return this.processAndStoreDownload(dl.path, step.selector || `step_${i + 1}`, `Step #${i + 1}`) || dl;
+              });
+            }
+          }
         } catch (stepErr) {
           if (this.isAborted) {
             stepResult.status = 'STOPPED';
@@ -539,14 +772,13 @@ class LoopReplayRunner {
             manifest.results.push(stepResult);
             break;
           }
-          logger.error(`[Runner] Failed step #${i + 1} [${stepType}]: ${stepErr.message}`);
+          logger.error(`[Runner] Step #${i + 1} failed: ${stepErr.message}`);
           stepResult.status = 'FAILED';
           stepResult.error = stepErr.message;
           manifest.itemsFailed++;
-          manifest.results.push(stepResult);
-          throw stepErr;
         }
 
+        stepResult.endTime = new Date().toISOString();
         manifest.results.push(stepResult);
         this.manifest = manifest;
         try {
@@ -555,15 +787,19 @@ class LoopReplayRunner {
         onProgress({ status: 'STEP_COMPLETE', stepResult, manifest });
       }
 
-      // Gather downloaded files into manifest
+      // Gather and organize downloaded files into structured folder
       if (fs.existsSync(this.downloadsDir)) {
-        manifest.downloadedFiles = fs.readdirSync(this.downloadsDir)
-          .filter(file => !file.endsWith('.crdownload') && !file.endsWith('.tmp'))
-          .map(file => ({
+        const files = fs.readdirSync(this.downloadsDir)
+          .filter(file => !file.endsWith('.crdownload') && !file.endsWith('.tmp'));
+        manifest.downloadedFiles = files.map(file => {
+          const rawPath = path.join(this.downloadsDir, file);
+          const stored = this.processAndStoreDownload(rawPath, file, file);
+          return stored || {
             filename: file,
-            path: path.join(this.downloadsDir, file),
-            sizeBytes: fs.statSync(path.join(this.downloadsDir, file)).size
-          }));
+            path: rawPath,
+            sizeBytes: fs.statSync(rawPath).size
+          };
+        });
       }
 
       manifest.status = this.isAborted ? 'STOPPED' : 'COMPLETED';
@@ -604,6 +840,7 @@ class LoopReplayRunner {
       itemsTotal: 0,
       itemsSucceeded: 0,
       itemsFailed: 0,
+      itemsSkipped: 0,
       results: [],
       downloadedFiles: []
     };
@@ -617,6 +854,9 @@ class LoopReplayRunner {
       manifest.itemsFailed = Number.isInteger(checkpoint.itemsFailed)
         ? checkpoint.itemsFailed
         : manifest.results.filter(result => result.status === 'FAILED').length;
+      manifest.itemsSkipped = Number.isInteger(checkpoint.itemsSkipped)
+        ? checkpoint.itemsSkipped
+        : manifest.results.filter(result => result.status === 'SKIPPED_DUPLICATE').length;
       manifest.downloadedFiles = Array.isArray(checkpoint.downloadedFiles)
         ? checkpoint.downloadedFiles
         : [];
@@ -811,6 +1051,48 @@ class LoopReplayRunner {
         }
 
         logger.info(`\n[Loop Runner] --- Processing item [${i + 1}/${discovery.itemCount}] ---`);
+
+        // Extract human-readable item identifier (text, link href, or data attribute)
+        const itemIdentifier = await this.extractItemIdentifier(page, discovery, i, isDropdown);
+
+        // Hybrid Deduplication Check: UI Identifier + DB Metadata + Physical Disk File
+        const dedupe = this.checkIfAlreadyDownloaded(itemIdentifier.itemKey);
+        if (dedupe.isDuplicate && !this.forceRedownload) {
+          logger.info(`[Loop Runner] Skipping item #${i + 1} ("${itemIdentifier.itemLabel}") — already downloaded: "${dedupe.record.filename}" (${dedupe.record.filePath})`);
+          const skippedIndex = resumeItemIndex != null && currentPage === resumePage && i === resumePageItemIndex
+            ? resumeItemIndex
+            : manifest.results.reduce((max, result) => Math.max(max, Number(result.index) || 0), 0) + 1;
+
+          const skippedResult = {
+            index: skippedIndex,
+            itemIndex: i,
+            page: currentPage,
+            label: itemIdentifier.itemLabel,
+            itemKey: itemIdentifier.itemKey,
+            status: 'SKIPPED_DUPLICATE',
+            skippedReason: `Already downloaded: ${dedupe.record.filename}`,
+            existingFile: dedupe.record.filePath,
+            downloadedFiles: [{
+              filename: dedupe.record.filename,
+              path: path.resolve(process.cwd(), dedupe.record.filePath),
+              relativePath: dedupe.record.filePath,
+              sizeBytes: dedupe.record.fileSizeBytes,
+              skipped: true
+            }],
+            timestamp: new Date().toISOString()
+          };
+
+          manifest.results.push(skippedResult);
+          manifest.itemsSkipped = (manifest.itemsSkipped || 0) + 1;
+          this.manifest = manifest;
+          this.writeLoopCheckpoint(manifest, skippedIndex, 0, currentPage, i, skippedResult);
+          try {
+            fs.writeFileSync(path.join(this.runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+          } catch {}
+          onProgress({ status: 'ITEM_SKIPPED', itemResult: skippedResult, manifest });
+          continue;
+        }
+
         const isResumingCurrentItem =
           checkpoint &&
           currentPage === resumePage &&
@@ -824,6 +1106,8 @@ class LoopReplayRunner {
                 ? resumeItemIndex
                 : manifest.results.reduce((max, result) => Math.max(max, Number(result.index) || 0), 0) + 1,
               status: 'PENDING',
+              itemKey: itemIdentifier.itemKey,
+              label: itemIdentifier.itemLabel,
               timestamp: new Date().toISOString(),
               error: null
             };
@@ -922,7 +1206,10 @@ class LoopReplayRunner {
                 if (actionType === 'CLICK' && this.downloadsDir) {
                   const downloaded = await this.waitForDownload(beforeActionFiles, 1200);
                   if (downloaded.length) {
-                    itemResult.downloadedFiles.push(...downloaded);
+                    for (const dl of downloaded) {
+                      const organized = this.processAndStoreDownload(dl.path, itemIdentifier.itemKey, itemIdentifier.itemLabel);
+                      itemResult.downloadedFiles.push(organized || dl);
+                    }
                     actionResult.downloadedFiles = downloaded.map(file => file.filename);
                   }
                 }
@@ -1087,15 +1374,19 @@ class LoopReplayRunner {
         }
       }
 
-      // 5. Gather all downloaded files into manifest
+      // 5. Gather and organize all downloaded files into structured folder
       if (fs.existsSync(this.downloadsDir)) {
-        manifest.downloadedFiles = fs.readdirSync(this.downloadsDir)
-          .filter(file => !file.endsWith('.crdownload') && !file.endsWith('.tmp'))
-          .map(file => ({
+        const files = fs.readdirSync(this.downloadsDir)
+          .filter(file => !file.endsWith('.crdownload') && !file.endsWith('.tmp'));
+        manifest.downloadedFiles = files.map(file => {
+          const rawPath = path.join(this.downloadsDir, file);
+          const stored = this.processAndStoreDownload(rawPath);
+          return stored || {
             filename: file,
-            path: path.join(this.downloadsDir, file),
-            sizeBytes: fs.statSync(path.join(this.downloadsDir, file)).size
-          }));
+            path: rawPath,
+            sizeBytes: fs.statSync(rawPath).size
+          };
+        });
       }
 
       manifest.status = this.isAborted ? 'STOPPED' : (manifest.itemsFailed > 0 ? 'COMPLETED_WITH_ERRORS' : 'COMPLETED');
