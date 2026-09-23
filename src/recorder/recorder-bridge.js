@@ -10,6 +10,32 @@ const path = require('path');
 const { connectToBrowser } = require('../utils/cdp-connector');
 const logger = require('../utils/logger');
 
+/**
+ * Recursively collect all frames within a page or frame hierarchy at any nesting depth
+ */
+function getAllFramesRecursive(pageOrFrame) {
+  const result = [];
+  const visited = new Set();
+  const walk = (item) => {
+    if (!item || visited.has(item)) return;
+    visited.add(item);
+    result.push(item);
+    const children = typeof item.childFrames === 'function' ? item.childFrames() : [];
+    for (const child of children) {
+      walk(child);
+    }
+  };
+  if (!pageOrFrame) return result;
+  if (typeof pageOrFrame.frames === 'function') {
+    for (const f of pageOrFrame.frames()) {
+      walk(f);
+    }
+  } else {
+    walk(pageOrFrame);
+  }
+  return result;
+}
+
 class RecorderBridge {
   constructor(options = {}) {
     this.name = options.name || `recording-${Date.now()}`;
@@ -59,7 +85,10 @@ class RecorderBridge {
     await this._attachToPage(this.page);
 
     // 3. Also attach to any other already-open pages/tabs
-    const existingPages = await this.browser.pages().catch(() => []);
+    const existingPages = await this.browser.pages().catch((err) => {
+      logger.warn(`[Recorder] Failed to list browser pages: ${err?.message || err}`);
+      return [];
+    });
     for (const p of existingPages) {
       if (p !== this.page) {
         await this._attachToPage(p);
@@ -103,33 +132,53 @@ class RecorderBridge {
               if (!this.isRecording || !this._sweepRunning) break;
               if (!p || p.isClosed()) continue;
 
-              const frames = p.frames();
+              const frames = getAllFramesRecursive(p);
               for (const frame of frames) {
                 if (!this.isRecording || !this._sweepRunning) break;
                 if (!frame || frame.isDetached()) continue;
 
+                const fName = frame.name() || frame.url() || 'unnamed';
                 try {
                   const isLoaded = await Promise.race([
                     frame.evaluate((sessId) => (
                       window.__workflowCaptureSessionId === sessId &&
                       window.__workflowCaptureReady === true &&
+                      window.__workflowCaptureDocRef === document &&
+                      typeof document !== 'undefined' &&
+                      document.__workflowCaptureDocReady === true &&
                       typeof window.SelectorResolver !== 'undefined'
                     ), this._sessionId),
                     new Promise((resolve) => setTimeout(() => resolve(false), 800))
-                  ]).catch(() => false);
+                  ]).catch((err) => {
+                    logger.warn(`[Recorder][Sweep] Readiness check evaluate failed on frame "${fName}" (${frame.url()}): ${err?.message || err}`);
+                    return false;
+                  });
 
                   if (!isLoaded && this.isRecording && this._sweepRunning) {
                     await Promise.race([
                       frame.evaluate(this._unifiedScript),
                       new Promise((resolve) => setTimeout(() => resolve(null), 2500))
-                    ]).catch(() => {});
+                    ]).catch((err) => {
+                      logger.warn(`[Recorder][Sweep] Script injection evaluate failed on frame "${fName}" (${frame.url()}): ${err?.message || err}`);
+                    });
 
-                    const nowReady = await frame.evaluate(() => (
-                      window.__workflowCaptureReady === true
-                    )).catch(() => false);
+                    let nowReady = false;
+                    for (const delay of [0, 60, 180]) {
+                      if (delay > 0) await new Promise(r => setTimeout(r, delay));
+                      nowReady = await frame.evaluate(() => (
+                        window.__workflowCaptureReady === true &&
+                        window.__workflowCaptureDocRef === document &&
+                        typeof document !== 'undefined' &&
+                        document.__workflowCaptureDocReady === true
+                      )).catch((err) => {
+                        logger.warn(`[Recorder][Sweep] Verification check evaluate failed on frame "${fName}" (${frame.url()}): ${err?.message || err}`);
+                        return false;
+                      });
+                      if (nowReady) break;
+                    }
 
                     if (nowReady) {
-                      const fname = frame.name() || frame.url().slice(0, 50);
+                      const fname = frame.name() || (frame._id ? `frame-${frame._id.slice(0, 8)}` : null) || frame.url().slice(0, 50);
                       if (fname) {
                         if (!this._reportedFrames) this._reportedFrames = new Set();
                         if (!this._reportedFrames.has(fname)) {
@@ -139,17 +188,23 @@ class RecorderBridge {
                       }
                     }
                   }
-                } catch { }
+                } catch (err) {
+                  logger.warn(`[Recorder][Sweep] Frame loop error on frame "${fName}" (${frame.url()}): ${err?.message || err}`);
+                }
               }
             }
           }
-        } catch { }
+        } catch (err) {
+          logger.warn(`[Recorder][Sweep] Sweep iteration error: ${err?.message || err}`);
+        }
 
         if (!this.isRecording || !this._sweepRunning) break;
         await new Promise(r => setTimeout(r, 200));
       }
     };
-    sweep().catch(() => { });
+    sweep().catch((err) => {
+      logger.warn(`[Recorder] Frame sweep loop crashed: ${err?.message || err}`);
+    });
   }
 
   _stopFrameSweepLoop() {
@@ -203,45 +258,103 @@ class RecorderBridge {
     }
 
     // Register unified script to evaluate on every new document (persists across navigations/reloads)
-    await page.evaluateOnNewDocument(this._unifiedScript).catch(() => { });
+    await page.evaluateOnNewDocument(this._unifiedScript).catch((err) => {
+      logger.warn(`[Recorder][Attach] evaluateOnNewDocument failed on page (${page.url()}): ${err?.message || err}`);
+    });
 
     // Evaluate immediately on current document if already loaded
     await page.evaluate(this._unifiedScript).catch((err) => {
       logger.warn(`[Recorder][Attach] Immediate injection failed on ${page.url()}: ${err.message}`);
     });
+
     // Helper to inject unified recorder script into any child frame (including nested iframes)
     const injectIntoFrame = async (frame) => {
       if (!this.isRecording || !frame || frame.isDetached()) return;
+      const fName = frame.name() || frame.url() || 'unnamed';
       try {
         const isLoaded = await Promise.race([
           frame.evaluate((sessId) => (
             window.__workflowCaptureSessionId === sessId &&
             window.__workflowCaptureReady === true &&
+            window.__workflowCaptureDocRef === document &&
+            typeof document !== 'undefined' &&
+            document.__workflowCaptureDocReady === true &&
             typeof window.SelectorResolver !== 'undefined'
           ), this._sessionId),
           new Promise((resolve) => setTimeout(() => resolve(false), 800))
-        ]).catch(() => false);
+        ]).catch((err) => {
+          logger.warn(`[Recorder][Frame] Readiness check failed on frame "${fName}" (${frame.url()}): ${err?.message || err}`);
+          return false;
+        });
+
         if (!isLoaded) {
           await Promise.race([
             frame.evaluate(this._unifiedScript),
             new Promise((resolve) => setTimeout(() => resolve(null), 2500))
-          ]).catch(() => {});
+          ]).catch((err) => {
+            logger.warn(`[Recorder][Frame] Script injection failed on frame "${fName}" (${frame.url()}): ${err?.message || err}`);
+          });
+
+          // Confirm injection actually succeeded by reading back readiness, retrying with backoff if still false
+          let verified = false;
+          for (const delay of [0, 80, 200, 450]) {
+            if (delay > 0) await new Promise(r => setTimeout(r, delay));
+            verified = await frame.evaluate(() => (
+              window.__workflowCaptureReady === true &&
+              window.__workflowCaptureDocRef === document &&
+              typeof document !== 'undefined' &&
+              document.__workflowCaptureDocReady === true
+            )).catch((err) => {
+              logger.warn(`[Recorder][Frame] Post-injection verify failed on frame "${fName}" (${frame.url()}): ${err?.message || err}`);
+              return false;
+            });
+            if (verified) break;
+            // Retry injection on failure
+            await frame.evaluate(this._unifiedScript).catch((err) => {
+              logger.warn(`[Recorder][Frame] Retry script injection failed on frame "${fName}" (${frame.url()}): ${err?.message || err}`);
+            });
+          }
+
+          if (verified) {
+            const fname = frame.name() || (frame._id ? `frame-${frame._id.slice(0, 8)}` : null) || frame.url().slice(0, 50);
+            if (fname) {
+              if (!this._reportedFrames) this._reportedFrames = new Set();
+              if (!this._reportedFrames.has(fname)) {
+                this._reportedFrames.add(fname);
+                logger.info(`[Recorder] Toolbar / child iframe ready for capture: ${fname}`);
+              }
+            }
+          }
         }
-        for (const child of frame.childFrames()) {
-          injectIntoFrame(child);
+
+        // Recursively ensure all child frames are also walked and injected
+        const children = typeof frame.childFrames === 'function' ? frame.childFrames() : [];
+        for (const child of children) {
+          await injectIntoFrame(child);
         }
-      } catch { }
+      } catch (err) {
+        logger.warn(`[Recorder][Frame] injectIntoFrame threw on frame "${fName}" (${frame?.url?.()}): ${err?.message || err}`);
+      }
     };
 
     // DevExpress and ExtJS dynamically create iframes and populate scripts asynchronously.
-    // Retry injection multiple times after frame attach/navigation to ensure DOM readiness.
-    const scheduleFrameInjection = (frame) => {
-      injectIntoFrame(frame);
-      setTimeout(() => injectIntoFrame(frame), 80);
-      setTimeout(() => injectIntoFrame(frame), 250);
-      setTimeout(() => injectIntoFrame(frame), 600);
-      setTimeout(() => injectIntoFrame(frame), 1200);
-      setTimeout(() => injectIntoFrame(frame), 2500);
+    // Retry injection across 10 seconds after frame attach/navigation and recursively across all nesting levels.
+    const scheduleFrameInjection = (targetFrame) => {
+      const allFrames = getAllFramesRecursive(targetFrame);
+      for (const f of allFrames) {
+        const delays = [0, 80, 200, 500, 1000, 2000, 3500, 5000, 7500, 10000];
+        for (const d of delays) {
+          if (d === 0) {
+            injectIntoFrame(f);
+          } else {
+            setTimeout(() => {
+              if (this.isRecording && !f.isDetached()) {
+                injectIntoFrame(f);
+              }
+            }, d);
+          }
+        }
+      }
     };
 
     const onFrameAttached = (frame) => scheduleFrameInjection(frame);
@@ -256,7 +369,9 @@ class RecorderBridge {
       }
     });
 
-    for (const frame of page.frames()) {
+    const initialFrames = getAllFramesRecursive(page);
+    await Promise.allSettled(initialFrames.map(f => injectIntoFrame(f)));
+    for (const frame of initialFrames) {
       scheduleFrameInjection(frame);
     }
   }
@@ -350,7 +465,9 @@ class RecorderBridge {
 
     if (this._pageCleanups) {
       for (const cleanup of this._pageCleanups) {
-        try { cleanup(); } catch { }
+        try { cleanup(); } catch (err) {
+          logger.warn(`[Recorder] Page cleanup error: ${err?.message || err}`);
+        }
       }
       this._pageCleanups = [];
     }
@@ -359,14 +476,20 @@ class RecorderBridge {
     if (this._attachedPages) {
       for (const p of this._attachedPages) {
         if (!p || p.isClosed()) continue;
-        for (const frame of p.frames()) {
+        const allFrames = getAllFramesRecursive(p);
+        for (const frame of allFrames) {
+          const fName = frame.name() || frame.url() || 'unnamed';
           try {
             await frame.evaluate(() => {
               if (typeof window.__workflowCaptureFlushBuffer === 'function') {
                 window.__workflowCaptureFlushBuffer();
               }
+            }).catch((err) => {
+              logger.warn(`[Recorder] Flush buffer evaluate failed on frame "${fName}" (${frame.url()}): ${err?.message || err}`);
             });
-          } catch { }
+          } catch (err) {
+            logger.warn(`[Recorder] Flush buffer threw on frame "${fName}" (${frame.url()}): ${err?.message || err}`);
+          }
         }
       }
     }
@@ -385,8 +508,13 @@ class RecorderBridge {
     if (this.page && !this.page.isClosed()) {
       try {
         viewport = await this.page.viewport() || viewport;
-        userAgent = await this.page.evaluate(() => navigator.userAgent);
-      } catch { }
+        userAgent = await this.page.evaluate(() => navigator.userAgent).catch((err) => {
+          logger.warn(`[Recorder] Failed to read userAgent: ${err?.message || err}`);
+          return 'unknown';
+        });
+      } catch (err) {
+        logger.warn(`[Recorder] Failed to get page viewport: ${err?.message || err}`);
+      }
     }
 
     const recording = {

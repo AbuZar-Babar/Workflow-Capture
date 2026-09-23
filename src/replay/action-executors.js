@@ -139,6 +139,28 @@ async function executeClick(elementHandle, action, options = {}) {
     } catch {}
   }
 
+  // 4. Canvas Target Support:
+  // If target is a canvas with recorded normalized relative coordinates (0-1),
+  // click at the exact offset within the canvas bounding box
+  if (action.target?.canvasCoords && page) {
+    const { relX, relY } = action.target.canvasCoords;
+    const box = await clickTarget.boundingBox();
+    if (box) {
+      const clickX = box.x + box.width * relX;
+      const clickY = box.y + box.height * relY;
+      logger.info(`[Replay] Clicking canvas at normalized (${relX}, ${relY}) -> viewport (${Math.round(clickX)}, ${Math.round(clickY)})`);
+      if (botConfig?.mouse?.enabled) {
+        try {
+          await moveMouseHumanlike(page, { x: page._lastMouseX ?? 100, y: page._lastMouseY ?? 100 }, { x: clickX, y: clickY }, botConfig.mouse);
+          page._lastMouseX = clickX;
+          page._lastMouseY = clickY;
+        } catch {}
+      }
+      await page.mouse.click(clickX, clickY, { delay: 35 });
+      return;
+    }
+  }
+
   if (botConfig) {
     await simulateHumanMouseToElement(clickTarget, page, botConfig);
   }

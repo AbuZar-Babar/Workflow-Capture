@@ -1,10 +1,10 @@
 {
   "metadata": {
-    "recordingId": "rec_1790089986867_wvgt9",
+    "recordingId": "rec_1790145902104_g8fvw",
     "version": "1.0.0",
-    "name": "workflow-1790089962540",
-    "startedAt": "2026-09-22T15:12:42.712Z",
-    "completedAt": "2026-09-22T15:13:06.866Z",
+    "name": "workflow-1790145872476",
+    "startedAt": "2026-09-23T06:44:32.493Z",
+    "completedAt": "2026-09-23T06:45:02.102Z",
     "startUrl": "https://citymart.i21web.com/iRelyProd/login",
     "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
     "viewport": {
@@ -14,10 +14,10 @@
   },
   "actions": [
     {
-      "id": "act_1_muctchhb",
+      "id": "act_1_mudqmt9s",
       "index": 0,
       "type": "CLICK",
-      "timestamp": 1790089965694,
+      "timestamp": 1790145874863,
       "timeDeltaMs": 0,
       "target": {
         "candidates": [
@@ -79,11 +79,11 @@
       }
     },
     {
-      "id": "act_2_muctcklu",
+      "id": "act_2_mudqmw97",
       "index": 1,
       "type": "CLICK",
-      "timestamp": 1790089969745,
-      "timeDeltaMs": 4051,
+      "timestamp": 1790145878730,
+      "timeDeltaMs": 3867,
       "target": {
         "candidates": [
           {
@@ -193,22 +193,22 @@
       }
     },
     {
-      "id": "act_3_muctcmno",
+      "id": "act_3_mudqn1pm",
       "index": 2,
       "type": "CLICK",
-      "timestamp": 1790089972396,
-      "timeDeltaMs": 2651,
+      "timestamp": 1790145885801,
+      "timeDeltaMs": 7071,
       "target": {
         "candidates": [
           {
             "strategy": "css-path",
-            "value": "#frmadvancesearchgrid-1088-body > div:nth-of-type(1) > div:nth-of-type(3) > table:nth-of-type(5) > tbody > tr > td:nth-of-type(3) > div",
+            "value": "#frmadvancesearchgrid-1088-body > div:nth-of-type(1) > div:nth-of-type(3) > table:nth-of-type(6) > tbody > tr > td:nth-of-type(3) > div",
             "uniqueness": 1,
             "priority": 5
           },
           {
             "strategy": "xpath",
-            "value": "//*[@id='frmadvancesearchgrid-1088-body']/div[1]/div[3]/table[5]/tbody[1]/tr[1]/td[3]/div[1]",
+            "value": "//*[@id='frmadvancesearchgrid-1088-body']/div[1]/div[3]/table[6]/tbody[1]/tr[1]/td[3]/div[1]",
             "uniqueness": 1,
             "priority": 6
           },
@@ -247,11 +247,11 @@
       }
     },
     {
-      "id": "act_4_muctcoij",
+      "id": "act_4_mudqn2nr",
       "index": 3,
       "type": "CLICK",
-      "timestamp": 1790089974810,
-      "timeDeltaMs": 2414,
+      "timestamp": 1790145887030,
+      "timeDeltaMs": 1229,
       "target": {
         "candidates": [
           {
@@ -308,11 +308,11 @@
       }
     },
     {
-      "id": "act_5_muctffq6",
+      "id": "act_5_mudqnadk",
       "index": 4,
       "type": "CLICK",
-      "timestamp": 1790090090346,
-      "timeDeltaMs": 0,
+      "timestamp": 1790145897031,
+      "timeDeltaMs": 10001,
       "target": {
         "candidates": [
           {

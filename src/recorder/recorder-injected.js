@@ -8,7 +8,7 @@
  */
 
 (function () {
-  const CURRENT_RECORDER_VERSION = 5;
+  const CURRENT_RECORDER_VERSION = 6;
 
   // Clean up any listeners from a previous session
   if (typeof window.__workflowCaptureCleanup === 'function') {
@@ -21,30 +21,77 @@
   // Active input buffer to consolidate typing into a single TYPE action
   let activeInputBuffer = null;
 
-  // Diagnostic stamp: records the last pointerdown target/time, regardless
+  // Diagnostic stamp: records the last pointerdown/mousedown target/time/coordinates, regardless
   // of whether a click/action ever gets recorded for it. Lets you check,
-  // after a session, whether the icon received input at all.
+  // after a session, whether the element/icon/canvas received input at all.
   function handlePointerDownDiag(event) {
     const target = event.target;
     if (!target) return;
     if (target.closest && target.closest('#__workflow_capture_badge__')) return;
+    const isInsideIframe = (typeof window !== 'undefined' && window.self !== window.top);
     window.__workflowCaptureLastPointerDown = {
       tag: target.tagName,
+      id: target.id || null,
       title: target.getAttribute?.('title') || null,
       classes: Array.from(target.classList || []),
-      time: Date.now()
+      time: Date.now(),
+      clientX: event.clientX,
+      clientY: event.clientY,
+      isCanvas: target.tagName === 'CANVAS',
+      isIframe: isInsideIframe
     };
   }
+
+  /**
+   * Calculate normalized (0-1) coordinates and dimensions if target is a canvas
+   */
+  function buildCanvasCoordsIfApplicable(targetEl, event) {
+    if (!targetEl || targetEl.tagName !== 'CANVAS') return null;
+    try {
+      const rect = targetEl.getBoundingClientRect();
+      const width = rect.width || targetEl.clientWidth || 1;
+      const height = rect.height || targetEl.clientHeight || 1;
+      const clientX = event && event.clientX !== undefined ? event.clientX : (event && event.pageX ? event.pageX - window.scrollX : rect.left + width / 2);
+      const clientY = event && event.clientY !== undefined ? event.clientY : (event && event.pageY ? event.pageY - window.scrollY : rect.top + height / 2);
+      const offsetX = Math.max(0, Math.min(width, clientX - rect.left));
+      const offsetY = Math.max(0, Math.min(height, clientY - rect.top));
+      const relX = Number((offsetX / width).toFixed(4));
+      const relY = Number((offsetY / height).toFixed(4));
+      return {
+        relX,
+        relY,
+        offsetX: Math.round(offsetX),
+        offsetY: Math.round(offsetY),
+        canvasWidth: Math.round(width),
+        canvasHeight: Math.round(height)
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Target equality and container-aware matching for event deduplication
+   */
+  function isSameTarget(elA, elB) {
+    if (!elA || !elB) return false;
+    if (elA === elB) return true;
+    if (elA.contains && elA.contains(elB)) return true;
+    if (elB.contains && elB.contains(elA)) return true;
+    const parentA = elA.closest && elA.closest('button, a, .dxm-item, .x-btn, [role="button"], [role="menuitem"], canvas');
+    const parentB = elB.closest && elB.closest('button, a, .dxm-item, .x-btn, [role="button"], [role="menuitem"], canvas');
+    if (parentA && parentB && parentA === parentB) return true;
+    return false;
+  }
+
   let pendingClickTimer = null;
   let pendingClickTarget = null;
   let pendingClickExtra = null;
   const DBL_CLICK_THRESHOLD_MS = 280;
 
-  // Deduplication & pointer-fallback tracking
+  // Deduplication & pointer tracking
   let lastHandledEventTime = 0;
   let lastHandledTarget = null;
-  let pendingPointerTarget = null;
-  let pointerTimer = null;
 
   /**
    * Flush any pending single click action immediately
@@ -82,6 +129,19 @@
 
     if (id) {
       candidates.push({ strategy: 'id', value: `#${id}`, uniqueness: 1, priority: 1 });
+    }
+
+    if (tagName === 'canvas') {
+      candidates.push({ strategy: 'tag', value: 'canvas', uniqueness: 1, priority: 5 });
+      if (id) {
+        candidates.push({ strategy: 'id', value: `#${id}`, uniqueness: 1, priority: 1 });
+      }
+      if (el.className && typeof el.className === 'string') {
+        const firstClass = el.className.split(/\s+/).filter(Boolean)[0];
+        if (firstClass) {
+          candidates.push({ strategy: 'class', value: `canvas.${firstClass}`, uniqueness: 1, priority: 3 });
+        }
+      }
     }
 
     const toolbarItem = el.closest && el.closest('.dxm-item, [id*="Toolbar_Menu"], .x-btn');
@@ -147,6 +207,11 @@
         target = buildFallbackTarget(targetElement);
       }
 
+      // Attach canvas coordinates to target payload if present
+      if (extra.canvasCoords) {
+        target.canvasCoords = extra.canvasCoords;
+      }
+
       const isInsideIframe = (typeof window !== 'undefined' && window.self !== window.top);
       let frameInfo = null;
       if (isInsideIframe) {
@@ -158,13 +223,16 @@
       }
 
       const actionUid = 'act_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+      const cleanExtra = { ...extra };
+      delete cleanExtra.canvasCoords;
+
       const payload = {
         uid: actionUid,
         type,
         timestamp: Date.now(),
         target,
         ...(frameInfo ? { frame: frameInfo } : {}),
-        ...extra
+        ...cleanExtra
       };
 
       // 1. PRIMARY ZERO-DEPENDENCY TRANSPORT: Native console transport
@@ -337,81 +405,84 @@
   }
 
   /**
-   * Click event handler
+   * Core interaction event processor for CLICK actions across multiple signals:
+   * pointerdown, mousedown, click, mouseup, pointerup.
+   * Deduplicates rapid signals on the same target within 250ms,
+   * so an action is captured even if frameworks swallow click or use mousedown-only.
    */
-  function handleClick(event) {
-    const target = event.target;
-    if (!target) return;
+  function handleInteractionEvent(event, signalType) {
+    const rawTarget = event.target;
+    if (!rawTarget) return;
 
     // Ignore clicks on recorder UI badge itself
-    if (target.closest && target.closest('#__workflow_capture_badge__')) return;
+    if (rawTarget.closest && rawTarget.closest('#__workflow_capture_badge__')) return;
+
+    // Don't record CLICK on select elements (handled by change)
+    if (rawTarget.tagName === 'SELECT' || rawTarget.tagName === 'OPTION') {
+      return;
+    }
 
     // Flush any pending typing if clicking on a different element
-    if (activeInputBuffer && activeInputBuffer.element !== target) {
+    if (activeInputBuffer && activeInputBuffer.element !== rawTarget) {
       flushInputBuffer();
     }
 
-    // Don't record CLICK on select elements (handled by change)
-    if (target.tagName === 'SELECT' || target.tagName === 'OPTION') {
-      return;
+    // Normalize container clicks (e.g. DevExpress .dxm-content or .dxm-item) to inner icon if present
+    let target = rawTarget;
+    if (target.querySelector && !target.getAttribute?.('title')) {
+      const innerImg = target.querySelector('img[title], [title]');
+      if (innerImg && (target.closest?.('.dxm-item, .x-btn, .toolbar') || target.classList?.contains('dxm-content'))) {
+        target = innerImg;
+      }
     }
 
-    // Cancel any pending pointerup fallback timer since native click arrived
-    if (pointerTimer) {
-      clearTimeout(pointerTimer);
-      pointerTimer = null;
-    }
-    pendingPointerTarget = null;
-
-    // Prevent immediate duplicate firing on the same element within 80ms
     const now = Date.now();
-    if (lastHandledTarget === target && (now - lastHandledEventTime) < 80) {
-      return;
-    }
-    lastHandledEventTime = now;
-    lastHandledTarget = target;
+    const canvasCoords = buildCanvasCoordsIfApplicable(rawTarget, event);
 
     // Double-click detection via W3C event.detail
     if (event.detail === 2) {
-      emitAction('DOUBLE_CLICK', target, { detail: 2 });
+      lastHandledEventTime = now;
+      lastHandledTarget = target;
+      emitAction('DOUBLE_CLICK', target, {
+        detail: 2,
+        triggerSignal: signalType,
+        ...(canvasCoords ? { canvasCoords } : {})
+      });
       return;
     }
 
-    // Emit single click immediately with full DOM fidelity
-    emitAction('CLICK', target, { detail: event.detail || 1 });
+    // Deduplicate rapid signals on same target within 250ms
+    if (lastHandledTarget && isSameTarget(lastHandledTarget, target) && (now - lastHandledEventTime) < 250) {
+      return;
+    }
+
+    lastHandledEventTime = now;
+    lastHandledTarget = target;
+
+    emitAction('CLICK', target, {
+      detail: event.detail || 1,
+      triggerSignal: signalType,
+      ...(canvasCoords ? { canvasCoords } : {})
+    });
   }
 
-  /**
-   * Pointerup / Mouseup fallback handler:
-   * Captures actions on interactive buttons/icons where frameworks stopPropagation on mousedown/click,
-   * or where file downloads terminate event bubbling before click completes.
-   */
-  function handlePointerUp(event) {
-    const target = event.target;
-    if (!target) return;
-    if (target.closest && target.closest('#__workflow_capture_badge__')) return;
-    if (['SELECT', 'OPTION', 'INPUT', 'TEXTAREA'].includes(target.tagName)) return;
-
-    // Check if target is an interactive element
-    const isInteractive = target.closest && target.closest('button, a, img, [role="button"], [role="menuitem"], .dxm-item, .dxm-image, .dxm-content, .x-btn, .x-grid-cell-inner, [onclick], [title]');
-    if (!isInteractive) return;
-
-    pendingPointerTarget = target;
-    if (pointerTimer) clearTimeout(pointerTimer);
-
-    // If native click doesn't arrive within 160ms, emit as CLICK
-    pointerTimer = setTimeout(() => {
-      if (pendingPointerTarget) {
-        const now = Date.now();
-        if (lastHandledTarget !== pendingPointerTarget || (now - lastHandledEventTime) >= 160) {
-          lastHandledEventTime = now;
-          lastHandledTarget = pendingPointerTarget;
-          emitAction('CLICK', pendingPointerTarget, { detail: 1, fallback: true });
-        }
-        pendingPointerTarget = null;
-      }
-    }, 160);
-  }
+  const onPointerDown = (e) => {
+    handlePointerDownDiag(e);
+    handleInteractionEvent(e, 'pointerdown');
+  };
+  const onMouseDown = (e) => {
+    handlePointerDownDiag(e);
+    handleInteractionEvent(e, 'mousedown');
+  };
+  const onClick = (e) => {
+    handleInteractionEvent(e, 'click');
+  };
+  const onPointerUp = (e) => {
+    handleInteractionEvent(e, 'pointerup');
+  };
+  const onMouseUp = (e) => {
+    handleInteractionEvent(e, 'mouseup');
+  };
 
   /**
    * Optional visual badge to let the user know recording is active in Chrome
@@ -449,23 +520,64 @@
   }
 
   // Register capture-phase event listeners on window and document
-  window.addEventListener('pointerdown', handlePointerDownDiag, true);
-  window.addEventListener('click', handleClick, true);
-  window.addEventListener('mouseup', handlePointerUp, true);
+  window.addEventListener('pointerdown', onPointerDown, true);
+  window.addEventListener('mousedown', onMouseDown, true);
+  window.addEventListener('click', onClick, true);
+  window.addEventListener('mouseup', onMouseUp, true);
+  window.addEventListener('pointerup', onPointerUp, true);
   window.addEventListener('input', handleInput, true);
   window.addEventListener('change', handleChange, true);
   window.addEventListener('blur', handleBlur, true);
   window.addEventListener('keydown', handleKeyDown, true);
 
   if (typeof document !== 'undefined') {
-    document.addEventListener('pointerdown', handlePointerDownDiag, true);
-    document.addEventListener('click', handleClick, true);
-    document.addEventListener('mouseup', handlePointerUp, true);
+    document.addEventListener('pointerdown', onPointerDown, true);
+    document.addEventListener('mousedown', onMouseDown, true);
+    document.addEventListener('click', onClick, true);
+    document.addEventListener('mouseup', onMouseUp, true);
+    document.addEventListener('pointerup', onPointerUp, true);
     document.addEventListener('input', handleInput, true);
     document.addEventListener('change', handleChange, true);
     document.addEventListener('blur', handleBlur, true);
     document.addEventListener('keydown', handleKeyDown, true);
   }
+
+  // Direct element listener binding for DevExpress / dynamic ERP toolbars
+  function attachToolbarListeners() {
+    if (typeof document === 'undefined') return;
+    try {
+      const selector = 'img[title*="Export"], img[title*="save" i], img[title*="export" i], .dxm-item, .dxm-content, .dxm-image, [id*="Toolbar_Menu"], canvas, button, [role="button"], [role="menuitem"]';
+      const elements = document.querySelectorAll(selector);
+      for (let i = 0; i < elements.length; i++) {
+        const el = elements[i];
+        if (el.__wfAttached) continue;
+        el.__wfAttached = true;
+        el.addEventListener('pointerdown', onPointerDown, true);
+        el.addEventListener('mousedown', onMouseDown, true);
+        el.addEventListener('click', onClick, true);
+        el.addEventListener('mouseup', onMouseUp, true);
+        el.addEventListener('pointerup', onPointerUp, true);
+      }
+    } catch { }
+  }
+
+  attachToolbarListeners();
+
+  // MutationObserver to immediately bind newly rendered DevExpress toolbar items
+  if (typeof MutationObserver !== 'undefined') {
+    const targetNode = document.body || document.documentElement;
+    if (targetNode) {
+      try {
+        const observer = new MutationObserver(() => attachToolbarListeners());
+        observer.observe(targetNode, { childList: true, subtree: true });
+        window.__workflowCaptureObserver = observer;
+      } catch { }
+    }
+  }
+
+  // Periodic fallback to guarantee toolbar elements receive listeners even if MutationObserver missed them
+  const toolbarPoll = setInterval(attachToolbarListeners, 250);
+  window.__workflowCapturePoll = toolbarPoll;
 
   // Relay actions from child iframes via postMessage
   window.addEventListener('message', (event) => {
@@ -486,15 +598,29 @@
 
   // Expose cleanup function to cleanly unbind on script upgrade
   window.__workflowCaptureCleanup = () => {
-    window.removeEventListener('click', handleClick, true);
-    window.removeEventListener('mouseup', handlePointerUp, true);
+    if (window.__workflowCaptureObserver) {
+      try { window.__workflowCaptureObserver.disconnect(); } catch { }
+      window.__workflowCaptureObserver = null;
+    }
+    if (window.__workflowCapturePoll) {
+      clearInterval(window.__workflowCapturePoll);
+      window.__workflowCapturePoll = null;
+    }
+    window.removeEventListener('pointerdown', onPointerDown, true);
+    window.removeEventListener('mousedown', onMouseDown, true);
+    window.removeEventListener('click', onClick, true);
+    window.removeEventListener('mouseup', onMouseUp, true);
+    window.removeEventListener('pointerup', onPointerUp, true);
     window.removeEventListener('input', handleInput, true);
     window.removeEventListener('change', handleChange, true);
     window.removeEventListener('blur', handleBlur, true);
     window.removeEventListener('keydown', handleKeyDown, true);
     if (typeof document !== 'undefined') {
-      document.removeEventListener('click', handleClick, true);
-      document.removeEventListener('mouseup', handlePointerUp, true);
+      document.removeEventListener('pointerdown', onPointerDown, true);
+      document.removeEventListener('mousedown', onMouseDown, true);
+      document.removeEventListener('click', onClick, true);
+      document.removeEventListener('mouseup', onMouseUp, true);
+      document.removeEventListener('pointerup', onPointerUp, true);
       document.removeEventListener('input', handleInput, true);
       document.removeEventListener('change', handleChange, true);
       document.removeEventListener('blur', handleBlur, true);
@@ -502,6 +628,10 @@
     }
   };
 
+  window.__workflowCaptureDocRef = typeof document !== 'undefined' ? document : null;
+  if (typeof document !== 'undefined') {
+    document.__workflowCaptureDocReady = true;
+  }
   window.__workflowCaptureReady = true;
-  console.log('[Workflow Capture] In-page recorder listeners attached successfully (v4).');
+  console.log('[Workflow Capture] In-page recorder listeners attached successfully (v6).');
 })();
