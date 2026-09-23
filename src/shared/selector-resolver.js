@@ -487,6 +487,31 @@
       dimensions.height = Math.round(rect.height);
     }
 
+    const isInputCb = tag === 'input' && (element.type || '').toLowerCase() === 'checkbox';
+    const isRoleCb = (element.getAttribute('role') || '').toLowerCase() === 'checkbox';
+    const isPseudoCb = tag === 'mat-pseudo-checkbox' || (element.classList && typeof element.classList.contains === 'function' && element.classList.contains('mat-pseudo-checkbox'));
+    const isMatCb = tag === 'mat-checkbox' || (typeof element.closest === 'function' && Boolean(element.closest('mat-checkbox, .mat-mdc-checkbox, dx-check-box')));
+    const isCheckbox = isInputCb || isRoleCb || isPseudoCb || isMatCb;
+
+    let checked = null;
+    if (isCheckbox) {
+      if (tag === 'input' && typeof element.checked === 'boolean') {
+        checked = element.checked;
+      } else {
+        const aria = typeof element.getAttribute === 'function' ? element.getAttribute('aria-checked') : null;
+        if (aria !== null && aria !== undefined) {
+          checked = aria === 'true';
+        } else if (element.classList && typeof element.classList.contains === 'function') {
+          checked = element.classList.contains('mat-mdc-checkbox-checked') ||
+                    element.classList.contains('mat-checkbox-checked') ||
+                    element.classList.contains('dx-checkbox-checked') ||
+                    element.classList.contains('mat-pseudo-checkbox-checked') ||
+                    element.classList.contains('is-checked') ||
+                    element.classList.contains('checked');
+        }
+      }
+    }
+
     return {
       tagName: tag,
       id: isStableId(element.id) ? element.id : null,
@@ -499,6 +524,8 @@
       classes: filterStableClasses(element.classList),
       attributes,
       isPassword,
+      isCheckbox,
+      ...(checked !== null ? { checked } : {}),
       dimensions
     };
   }
@@ -657,7 +684,9 @@
       candidates,
       fingerprint,
       friendlyName,
-      elementName: friendlyName
+      elementName: friendlyName,
+      isCheckbox: Boolean(fingerprint.isCheckbox),
+      ...(fingerprint.checked !== undefined ? { checked: fingerprint.checked } : {})
     };
   }
 

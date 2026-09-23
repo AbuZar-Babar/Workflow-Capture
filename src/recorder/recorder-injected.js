@@ -391,6 +391,71 @@
   }
 
   /**
+   * Helper to detect if an element is or is part of a checkbox control
+   */
+  function detectCheckbox(element) {
+    if (!element || element.nodeType !== 1) return null;
+
+    if (element.tagName === 'INPUT' && (element.type || '').toLowerCase() === 'checkbox') {
+      return { element, input: element };
+    }
+    if (element.getAttribute?.('role') === 'checkbox' || element.hasAttribute?.('aria-checked')) {
+      return { element, input: null };
+    }
+    if (element.tagName === 'MAT-PSEUDO-CHECKBOX' || (element.classList && element.classList.contains('mat-pseudo-checkbox'))) {
+      return { element, input: null };
+    }
+
+    const container = element.closest?.('mat-checkbox, dx-check-box, [role="checkbox"], label, .mat-mdc-checkbox, .dx-checkbox');
+    if (container) {
+      const innerInput = container.querySelector?.('input[type="checkbox"]');
+      return { element: container, input: innerInput };
+    }
+
+    const childInput = element.querySelector?.('input[type="checkbox"]');
+    if (childInput) {
+      return { element, input: childInput };
+    }
+
+    return null;
+  }
+
+  /**
+   * Helper to inspect the current or post-interaction checked state of a checkbox
+   */
+  function readCheckboxChecked(cbInfo) {
+    if (!cbInfo || !cbInfo.element) return false;
+    const { element, input } = cbInfo;
+
+    if (input && typeof input.checked === 'boolean') {
+      return Boolean(input.checked);
+    }
+    if (element.tagName === 'INPUT' && typeof element.checked === 'boolean') {
+      return Boolean(element.checked);
+    }
+
+    const aria = element.getAttribute?.('aria-checked') ?? element.querySelector?.('[aria-checked]')?.getAttribute?.('aria-checked');
+    if (aria !== null && aria !== undefined) {
+      return aria === 'true';
+    }
+
+    if (element.classList) {
+      if (element.classList.contains('mat-mdc-checkbox-checked') ||
+          element.classList.contains('mat-checkbox-checked') ||
+          element.classList.contains('dx-checkbox-checked') ||
+          element.classList.contains('mat-pseudo-checkbox-checked') ||
+          element.classList.contains('checked') ||
+          element.classList.contains('is-checked')) {
+        return true;
+      }
+    }
+    const pseudo = element.querySelector?.('.mat-pseudo-checkbox-checked');
+    if (pseudo) return true;
+
+    return false;
+  }
+
+  /**
    * Change event handler for SELECT dropdowns and checkboxes/radios
    */
   function handleChange(event) {
@@ -407,6 +472,17 @@
         meta: {
           text: selectedText,
           selectedIndex: target.selectedIndex
+        }
+      });
+    } else if (target.tagName === 'INPUT' && (target.type || '').toLowerCase() === 'checkbox') {
+      const isChecked = Boolean(target.checked);
+      emitAction('CLICK', target, {
+        isCheckbox: true,
+        desiredState: isChecked,
+        checked: isChecked,
+        meta: {
+          triggerSignal: 'change',
+          checked: isChecked
         }
       });
     } else if (['INPUT', 'TEXTAREA'].includes(target.tagName)) {
@@ -470,6 +546,25 @@
 
     lastHandledEventTime = now;
     lastHandledTarget = target;
+
+    // Checkbox State Detection:
+    // If the element is a checkbox or checkbox label, delay emit by 35ms so DOM updates
+    // and framework event handlers finish toggling the checked state.
+    const cbInfo = detectCheckbox(target);
+    if (cbInfo) {
+      setTimeout(() => {
+        const finalChecked = readCheckboxChecked(cbInfo);
+        emitAction('CLICK', target, {
+          detail: event.detail || 1,
+          triggerSignal: signalType,
+          isCheckbox: true,
+          desiredState: finalChecked,
+          checked: finalChecked,
+          ...(canvasCoords ? { canvasCoords } : {})
+        });
+      }, 35);
+      return;
+    }
 
     emitAction('CLICK', target, {
       detail: event.detail || 1,

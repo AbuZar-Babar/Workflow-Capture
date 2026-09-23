@@ -294,6 +294,40 @@ export const WorkflowEditorView = {
         `;
       }
 
+      // Checkbox Desired State Selector
+      const isCheckboxStep = Boolean(
+        step.isCheckbox === true ||
+        step.desiredState !== undefined ||
+        step.checked !== undefined ||
+        step.target?.isCheckbox === true ||
+        step.target?.fingerprint?.isCheckbox === true ||
+        step.target?.fingerprint?.type === 'checkbox' ||
+        step.target?.fingerprint?.role === 'checkbox' ||
+        step.target?.fingerprint?.tagName === 'mat-pseudo-checkbox' ||
+        friendlyName.toLowerCase().includes('checkbox') ||
+        (step.name && step.name.toLowerCase().includes('checkbox')) ||
+        (step.elementName && step.elementName.toLowerCase().includes('checkbox'))
+      );
+      const desiredCheckboxState = step.desiredState !== undefined
+        ? step.desiredState
+        : (step.checked !== undefined ? step.checked : (step.target?.fingerprint?.checked ?? true));
+
+      if (isCheckboxStep) {
+        html += `
+          <div class="df-input-group df-checkbox-group" style="background:#eff6ff; padding:0.6rem; border-radius:8px; border:1px solid #bfdbfe;">
+            <label style="color:#1d4ed8; font-weight:700; font-size:0.75rem; display:flex; justify-content:space-between; align-items:center;">
+              <span>☑️ Checkbox Target State</span>
+              <span style="font-size:0.65rem; color:#2563eb; background:#dbeafe; padding:1px 6px; border-radius:4px;">Idempotent</span>
+            </label>
+            <select class="df-checkbox-select" style="font-size:0.75rem; font-weight:600; background:#fff; border-color:#93c5fd; color:#1e3a8a; width:100%; border-radius:6px; padding:0.35rem 0.5rem; margin-top:4px;">
+              <option value="true" ${desiredCheckboxState !== false ? 'selected' : ''}>Ensure CHECKED (Select / ON)</option>
+              <option value="false" ${desiredCheckboxState === false ? 'selected' : ''}>Ensure UNCHECKED (Deselect / OFF)</option>
+            </select>
+            <small style="font-size:0.65rem; color:#3b82f6; display:block; margin-top:3px;">Preserves state on repeat runs; never toggles mistakenly.</small>
+          </div>
+        `;
+      }
+
       // Collapsible Advanced Technical Selector
       html += `
           <details class="df-advanced-details">
@@ -379,6 +413,22 @@ export const WorkflowEditorView = {
                 value: valueInput.value,
                 key: step.key
               }, currentName);
+            };
+          }
+
+          const checkboxSelect = nodeEl.querySelector('.df-checkbox-select');
+          if (checkboxSelect) {
+            checkboxSelect.onchange = (e) => {
+              const shouldBeChecked = e.target.value === 'true';
+              const currentName = nameInput ? nameInput.value.trim() : friendlyName;
+              if (descEl) descEl.textContent = this.describeAction({
+                ...step,
+                action: actionType,
+                isCheckbox: true,
+                desiredState: shouldBeChecked,
+                checked: shouldBeChecked
+              }, currentName);
+              Toast.info(`Step #${index + 1} set to ensure ${shouldBeChecked ? 'CHECKED' : 'UNCHECKED'}`);
             };
           }
 
@@ -519,6 +569,23 @@ export const WorkflowEditorView = {
     const val = step.value || (step.meta && step.meta.value) || '';
     const key = step.key || '';
 
+    const isCb = Boolean(
+      step.isCheckbox === true ||
+      step.desiredState !== undefined ||
+      step.checked !== undefined ||
+      step.target?.isCheckbox === true ||
+      step.target?.fingerprint?.isCheckbox === true ||
+      step.target?.fingerprint?.type === 'checkbox' ||
+      step.target?.fingerprint?.role === 'checkbox' ||
+      step.target?.fingerprint?.tagName === 'mat-pseudo-checkbox' ||
+      friendlyName.toLowerCase().includes('checkbox')
+    );
+
+    if (isCb) {
+      const isCheck = step.desiredState !== false;
+      return `${isCheck ? 'Check' : 'Uncheck'} "${friendlyName}" (ensure state is ${isCheck ? 'ON' : 'OFF'})`;
+    }
+
     if (actionType === 'CLICK') {
       return `Click on "${friendlyName}"`;
     }
@@ -615,6 +682,10 @@ export const WorkflowEditorView = {
           newTarget = newTargetVal;
         }
 
+        const checkboxSelect = nodeElement ? nodeElement.querySelector('.df-checkbox-select') : null;
+        const isCheckboxStep = Boolean(checkboxSelect || originalStep.isCheckbox || (originalStep.target?.fingerprint?.type === 'checkbox'));
+        const desiredState = checkboxSelect ? (checkboxSelect.value === 'true') : (originalStep.desiredState ?? originalStep.checked);
+
         const stepData = {
           ...originalStep,
           index,
@@ -624,7 +695,9 @@ export const WorkflowEditorView = {
           type: actionType,
           target: newTarget,
           role: stepRole,
-          isLoopCandidate: stepRole === 'LOOP'
+          isLoopCandidate: stepRole === 'LOOP',
+          ...(isCheckboxStep ? { isCheckbox: true } : {}),
+          ...(desiredState !== undefined ? { desiredState: Boolean(desiredState), checked: Boolean(desiredState) } : {})
         };
 
         if (optionSelect && optionSelect.value === '__dynamic_loop__') {

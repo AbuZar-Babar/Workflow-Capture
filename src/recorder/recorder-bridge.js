@@ -439,6 +439,18 @@ class RecorderBridge {
       rawAction.target.friendlyName = elementName;
     }
 
+    const isCheckbox = Boolean(
+      rawAction.isCheckbox ||
+      rawAction.target?.isCheckbox ||
+      rawAction.target?.fingerprint?.isCheckbox ||
+      rawAction.target?.fingerprint?.type === 'checkbox' ||
+      rawAction.target?.fingerprint?.role === 'checkbox' ||
+      elementName.toLowerCase().includes('checkbox')
+    );
+    const desiredState = rawAction.desiredState !== undefined
+      ? rawAction.desiredState
+      : (rawAction.checked !== undefined ? rawAction.checked : (rawAction.target?.checked));
+
     const action = {
       id: `act_${actionIndex + 1}_${Date.now().toString(36)}`,
       index: actionIndex,
@@ -448,6 +460,8 @@ class RecorderBridge {
       timestamp: rawAction.timestamp,
       timeDeltaMs,
       target: rawAction.target,
+      ...(isCheckbox ? { isCheckbox: true } : {}),
+      ...(desiredState !== undefined ? { desiredState: Boolean(desiredState), checked: Boolean(desiredState) } : {}),
       ...(rawAction.key ? { key: rawAction.key } : {}),
       ...(rawAction.value !== undefined ? { value: rawAction.value } : {}),
       ...(rawAction.meta ? { meta: rawAction.meta } : {})
@@ -457,7 +471,10 @@ class RecorderBridge {
 
     // Terminal log
     const topCandidate = action.target && action.target.candidates[0] ? action.target.candidates[0].value : 'none';
-    const detail = action.key ? `key="${action.key}"` : (action.value ? `value="${action.value}"` : `target="${elementName}"`);
+    let detail = action.key ? `key="${action.key}"` : (action.value ? `value="${action.value}"` : `target="${elementName}"`);
+    if (isCheckbox && desiredState !== undefined) {
+      detail = `checkbox state=${desiredState ? 'CHECKED' : 'UNCHECKED'}`;
+    }
     logger.action(actionIndex + 1, action.type, `"${elementName}" (${topCandidate})`, detail);
     return true;
   }

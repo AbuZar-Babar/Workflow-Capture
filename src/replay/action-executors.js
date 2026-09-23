@@ -101,7 +101,94 @@ async function executeClick(elementHandle, action, options = {}) {
     return;
   }
 
-  // 2. If target is inside an option (e.g. mat-pseudo-checkbox, span label, or ripple),
+  // 2. Checkbox Idempotency & State-Aware Check:
+  // If target element is a checkbox (native input, ARIA role="checkbox", or Material/DevExpress checkbox),
+  // inspect its current state. If it already matches the desired state, SKIP the click to avoid
+  // accidental toggling/inverting on repeat!
+  const isTargetCheckbox = Boolean(
+    action.isCheckbox === true ||
+    action.desiredState !== undefined ||
+    action.checked !== undefined ||
+    action.target?.isCheckbox === true ||
+    action.target?.fingerprint?.isCheckbox === true ||
+    action.target?.fingerprint?.type === 'checkbox' ||
+    action.target?.fingerprint?.role === 'checkbox' ||
+    action.target?.fingerprint?.tagName === 'mat-pseudo-checkbox' ||
+    (action.name && action.name.toLowerCase().includes('checkbox')) ||
+    (action.elementName && action.elementName.toLowerCase().includes('checkbox'))
+  );
+
+  let checkboxStatus = null;
+  try {
+    checkboxStatus = await elementHandle.evaluate((el) => {
+      const isInputCb = el.tagName === 'INPUT' && (el.type || '').toLowerCase() === 'checkbox';
+      const isRoleCb = el.getAttribute('role') === 'checkbox';
+      const isMatCb = Boolean(el.closest('mat-checkbox, .mat-mdc-checkbox, dx-check-box'));
+      const hasInnerCb = Boolean(el.querySelector('input[type="checkbox"], [role="checkbox"]'));
+      const isPseudoCb = el.classList?.contains('mat-pseudo-checkbox') || Boolean(el.querySelector('.mat-pseudo-checkbox'));
+      const isInsideOption = Boolean(el.closest('mat-option, [role="option"]'));
+
+      if (!isInputCb && !isRoleCb && !isMatCb && !hasInnerCb && !isPseudoCb) {
+        return null;
+      }
+
+      const getChecked = () => {
+        if (isInputCb) return Boolean(el.checked);
+        const input = el.querySelector('input[type="checkbox"]') ||
+                      el.closest('label')?.querySelector('input[type="checkbox"]') ||
+                      el.closest('mat-checkbox')?.querySelector('input[type="checkbox"]');
+        if (input) return Boolean(input.checked);
+
+        const aria = el.getAttribute('aria-checked') ??
+                     el.querySelector('[aria-checked]')?.getAttribute('aria-checked') ??
+                     el.closest('[aria-checked]')?.getAttribute('aria-checked');
+        if (aria !== null && aria !== undefined) return aria === 'true';
+
+        if (el.classList.contains('mat-mdc-checkbox-checked') ||
+            el.classList.contains('mat-checkbox-checked') ||
+            el.classList.contains('dx-checkbox-checked') ||
+            el.classList.contains('checked') ||
+            el.classList.contains('is-checked')) return true;
+
+        if (el.querySelector('.mat-pseudo-checkbox-checked') || el.classList.contains('mat-pseudo-checkbox-checked')) return true;
+
+        const matParent = el.closest('mat-checkbox');
+        if (matParent && (matParent.classList.contains('mat-mdc-checkbox-checked') || matParent.classList.contains('mat-checkbox-checked'))) return true;
+
+        return false;
+      };
+
+      return {
+        isCheckbox: true,
+        isInsideOption,
+        currentChecked: getChecked()
+      };
+    });
+  } catch {}
+
+  let desiredState = undefined;
+  if (action.desiredState !== undefined) {
+    desiredState = Boolean(action.desiredState);
+  } else if (action.checked !== undefined) {
+    desiredState = Boolean(action.checked);
+  } else if (action.isUncheck === true) {
+    desiredState = false;
+  } else if (action.meta?.checked !== undefined) {
+    desiredState = Boolean(action.meta.checked);
+  } else if (isTargetCheckbox && action.target?.fingerprint?.checked !== undefined) {
+    desiredState = Boolean(action.target.fingerprint.checked);
+  }
+
+  // If this is a standalone checkbox and desiredState is known:
+  if (checkboxStatus && checkboxStatus.isCheckbox && !checkboxStatus.isInsideOption && desiredState !== undefined) {
+    if (checkboxStatus.currentChecked === desiredState) {
+      logger.info(`[Replay] Checkbox "${action.elementName || action.name || 'Checkbox'}" is ALREADY ${desiredState ? 'CHECKED' : 'UNCHECKED'}; skipping click to preserve state on repeat.`);
+      return;
+    }
+    logger.info(`[Replay] Checkbox "${action.elementName || action.name || 'Checkbox'}" current=${checkboxStatus.currentChecked}, desired=${desiredState}; executing click to set state.`);
+  }
+
+  // 3. If target is inside an option (e.g. mat-pseudo-checkbox, span label, or ripple),
   // resolve the parent mat-option / [role="option"] host element for reliable framework event dispatching
   let clickTarget = elementHandle;
   try {
@@ -243,6 +330,41 @@ async function executeClick(elementHandle, action, options = {}) {
       }
     }, isUncheck);
   } catch {}
+
+  // 4. Standalone Checkbox State Verification & Enforcement:
+  // If element is a checkbox and desiredState was specified, ensure it actually reached desiredState.
+  // If the framework or custom styling prevented the toggle, attempt a direct toggle on inner input or label.
+  if (checkboxStatus && checkboxStatus.isCheckbox && !checkboxStatus.isInsideOption && desiredState !== undefined) {
+    try {
+      await clickTarget.evaluate((el, desired) => {
+        const isInputCb = el.tagName === 'INPUT' && (el.type || '').toLowerCase() === 'checkbox';
+        const getChecked = () => {
+          if (isInputCb) return Boolean(el.checked);
+          const input = el.querySelector('input[type="checkbox"]') ||
+                        el.closest('label')?.querySelector('input[type="checkbox"]') ||
+                        el.closest('mat-checkbox')?.querySelector('input[type="checkbox"]');
+          if (input) return Boolean(input.checked);
+          const aria = el.getAttribute('aria-checked') ??
+                       el.querySelector('[aria-checked]')?.getAttribute('aria-checked') ??
+                       el.closest('[aria-checked]')?.getAttribute('aria-checked');
+          if (aria !== null && aria !== undefined) return aria === 'true';
+          if (el.classList.contains('mat-mdc-checkbox-checked') ||
+              el.classList.contains('mat-checkbox-checked') ||
+              el.classList.contains('dx-checkbox-checked') ||
+              el.classList.contains('checked') ||
+              el.classList.contains('is-checked')) return true;
+          if (el.querySelector('.mat-pseudo-checkbox-checked') || el.classList.contains('mat-pseudo-checkbox-checked')) return true;
+          return false;
+        };
+
+        const nowChecked = getChecked();
+        if (nowChecked !== desired) {
+          const recoveryEl = el.querySelector('input[type="checkbox"]') || el.closest('label') || el;
+          recoveryEl.click?.();
+        }
+      }, desiredState);
+    } catch {}
+  }
 }
 
 /**
