@@ -54,6 +54,7 @@ export const WorkflowEditorView = {
     `;
 
     document.getElementById('btnBack').addEventListener('click', () => {
+      this.hideConnectionMenu();
       Router.navigate('workflows');
     });
 
@@ -109,17 +110,40 @@ export const WorkflowEditorView = {
 
     // Universal Pan / Drag handler across the entire canvas viewport
     container.addEventListener('mousedown', (e) => {
-      // Ignore clicks on nodes, form inputs, or canvas control buttons
-      if (e.target.closest('.drawflow-node') || e.target.closest('.drawflow-canvas-controls') || e.target.closest('button') || e.target.closest('input') || e.target.closest('select')) {
+      // Ignore clicks on nodes, form inputs, canvas control buttons, connections, or quick menus
+      if (
+        e.target.closest('.drawflow-node') || 
+        e.target.closest('.drawflow-canvas-controls') || 
+        e.target.closest('button') || 
+        e.target.closest('input') || 
+        e.target.closest('select') ||
+        e.target.closest('.connection') ||
+        e.target.closest('.main-path') ||
+        e.target.closest('.point') ||
+        e.target.closest('.df-conn-menu') ||
+        e.target.closest('.drawflow-delete')
+      ) {
         return;
       }
+      this.hideConnectionMenu();
       this.editor.editor_selected = true;
       this.editor.pos_x = e.clientX;
       this.editor.pos_y = e.clientY;
     }, true);
 
     container.addEventListener('touchstart', (e) => {
-      if (e.touches && e.touches.length === 1 && !e.target.closest('.drawflow-node') && !e.target.closest('.drawflow-canvas-controls') && !e.target.closest('button')) {
+      if (
+        e.touches && 
+        e.touches.length === 1 && 
+        !e.target.closest('.drawflow-node') && 
+        !e.target.closest('.drawflow-canvas-controls') && 
+        !e.target.closest('button') &&
+        !e.target.closest('.connection') &&
+        !e.target.closest('.main-path') &&
+        !e.target.closest('.point') &&
+        !e.target.closest('.df-conn-menu')
+      ) {
+        this.hideConnectionMenu();
         this.editor.editor_selected = true;
         this.editor.pos_x = e.touches[0].clientX;
         this.editor.pos_y = e.touches[0].clientY;
@@ -141,6 +165,7 @@ export const WorkflowEditorView = {
     });
 
     this.initDeleteModal();
+    this.initConnectionInteractions(container);
 
     // Hook Drawflow connection/removal events to automatically refresh visual step numbering
     this.editor.on('connectionCreated', () => {
@@ -154,6 +179,185 @@ export const WorkflowEditorView = {
     });
 
     this.renderWorkflowSteps();
+  },
+
+  selectedConnectionInfo: null,
+  keyDeleteHandler: null,
+
+  initConnectionInteractions(container) {
+    this.selectedConnectionInfo = null;
+
+    // Listen for canvas click to select connection or handle delete buttons
+    container.addEventListener('click', (e) => {
+      // 1. If clicked on native Drawflow delete button
+      if (e.target.closest('.drawflow-delete')) {
+        e.stopPropagation();
+        this.hideConnectionMenu();
+        if (this.selectedConnectionInfo) {
+          this.deleteSingleConnection(this.selectedConnectionInfo);
+        } else if (this.editor.connection_selected) {
+          this.editor.removeConnection();
+          this.refreshStepNumbers();
+          Toast.info('Link deleted.');
+        }
+        return;
+      }
+
+      // 2. If clicked on our floating menu delete button
+      if (e.target.closest('.df-btn-del-conn')) {
+        e.stopPropagation();
+        if (this.selectedConnectionInfo) {
+          this.deleteSingleConnection(this.selectedConnectionInfo);
+        }
+        return;
+      }
+
+      // 3. If clicked on a connection line (.main-path or .connection)
+      const connPath = e.target.closest('.main-path');
+      const connSvg = e.target.closest('.connection');
+      if (connPath || connSvg) {
+        e.stopPropagation();
+        const svg = connSvg || (connPath ? connPath.closest('svg.connection') : null);
+        const connInfo = this.parseConnectionSvg(svg);
+        if (connInfo) {
+          this.selectedConnectionInfo = connInfo;
+          this.showConnectionMenu(connInfo, e.clientX, e.clientY);
+        }
+        return;
+      }
+
+      // 4. Clicked elsewhere: hide menu and unselect connection
+      if (!e.target.closest('.df-conn-menu')) {
+        this.hideConnectionMenu();
+        this.selectedConnectionInfo = null;
+      }
+    });
+
+    // Drawflow event hooks
+    this.editor.on('connectionSelected', (info) => {
+      this.selectedConnectionInfo = {
+        id_output: String(info.output_id),
+        id_input: String(info.input_id),
+        output_class: info.output_class,
+        input_class: info.input_class
+      };
+    });
+
+    // Delete or Backspace key deletes selected connection
+    if (this.keyDeleteHandler) {
+      window.removeEventListener('keydown', this.keyDeleteHandler);
+    }
+    this.keyDeleteHandler = (e) => {
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) {
+        return;
+      }
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (this.selectedConnectionInfo) {
+          e.preventDefault();
+          this.deleteSingleConnection(this.selectedConnectionInfo);
+        }
+      }
+    };
+    window.addEventListener('keydown', this.keyDeleteHandler);
+  },
+
+  parseConnectionSvg(svgEl) {
+    if (!svgEl) return null;
+    const classList = Array.from(svgEl.classList || []);
+    let id_output = null;
+    let id_input = null;
+    let output_class = 'output_1';
+    let input_class = 'input_1';
+
+    for (const cls of classList) {
+      const mOut = cls.match(/^node_out_node-(\d+)$/);
+      if (mOut) id_output = mOut[1];
+
+      const mIn = cls.match(/^node_in_node-(\d+)$/);
+      if (mIn) id_input = mIn[1];
+
+      if (/^output_\d+$/.test(cls)) output_class = cls;
+      if (/^input_\d+$/.test(cls)) input_class = cls;
+    }
+
+    if (id_output && id_input) {
+      return { id_output, id_input, output_class, input_class, svgEl };
+    }
+    return null;
+  },
+
+  showConnectionMenu(connInfo, clientX, clientY) {
+    this.hideConnectionMenu();
+    if (!connInfo) return;
+
+    const sourceNodeEl = document.getElementById(`node-${connInfo.id_output}`);
+    const targetNodeEl = document.getElementById(`node-${connInfo.id_input}`);
+    const sourceNum = sourceNodeEl?.querySelector('.df-step-number')?.textContent || `#${connInfo.id_output}`;
+    const targetNum = targetNodeEl?.querySelector('.df-step-number')?.textContent || `#${connInfo.id_input}`;
+
+    const menu = document.createElement('div');
+    menu.className = 'df-conn-menu';
+    menu.id = 'dfActiveConnMenu';
+    menu.style.left = `${clientX}px`;
+    menu.style.top = `${clientY}px`;
+    menu.innerHTML = `
+      <div class="df-conn-info">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+        </svg>
+        <span>Link: <strong>${this.escapeHtml(sourceNum)}</strong> ➔ <strong>${this.escapeHtml(targetNum)}</strong></span>
+      </div>
+      <button type="button" class="df-btn-del-conn" title="Delete this connection">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        </svg>
+        Delete Link
+      </button>
+    `;
+
+    const btn = menu.querySelector('.df-btn-del-conn');
+    if (btn) {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        this.deleteSingleConnection(connInfo);
+      };
+    }
+
+    document.body.appendChild(menu);
+  },
+
+  hideConnectionMenu() {
+    const existing = document.getElementById('dfActiveConnMenu');
+    if (existing) existing.remove();
+  },
+
+  deleteSingleConnection(connInfo) {
+    if (!connInfo || !this.editor) return;
+    try {
+      this.editor.removeSingleConnection(
+        connInfo.id_output,
+        connInfo.id_input,
+        connInfo.output_class,
+        connInfo.input_class
+      );
+      this.selectedConnectionInfo = null;
+      this.hideConnectionMenu();
+      this.refreshStepNumbers();
+      Toast.info('Link deleted. You can manually drag between ports to connect steps.');
+    } catch (err) {
+      console.warn('Could not remove connection via removeSingleConnection:', err);
+      try {
+        this.editor.removeConnection();
+        this.selectedConnectionInfo = null;
+        this.hideConnectionMenu();
+        this.refreshStepNumbers();
+        Toast.info('Link deleted.');
+      } catch (e2) {
+        Toast.error('Failed to remove link');
+      }
+    }
   },
 
   pendingDeleteNodeId: null,
@@ -210,29 +414,19 @@ export const WorkflowEditorView = {
         return;
       }
 
-      // Check incoming and outgoing connections before deletion
-      const inConns = nodeData.inputs?.input_1?.connections || [];
-      const outConns = nodeData.outputs?.output_1?.connections || [];
-
-      const prevNodeId = inConns.length > 0 ? inConns[0].node : null;
-      const nextNodeId = outConns.length > 0 ? outConns[0].node : null;
-
-      // Remove the node from Drawflow canvas
+      // Remove the node from Drawflow canvas (this automatically removes attached connections)
       this.editor.removeNodeId(`node-${nodeId}`);
 
-      // Auto-reconnect surrounding nodes if deleting an in-between node
-      if (prevNodeId && nextNodeId) {
-        try {
-          this.editor.addConnection(prevNodeId, nextNodeId, 'output_1', 'input_1');
-        } catch (connErr) {
-          console.warn('Auto-reconnect warning:', connErr);
-        }
-      }
+      // We intentionally do NOT auto-reconnect surrounding nodes per user preference,
+      // leaving the gap open so the user can manually wire links as desired.
+
+      this.hideConnectionMenu();
+      this.selectedConnectionInfo = null;
 
       // Refresh numbering on remaining step cards
       this.refreshStepNumbers();
 
-      Toast.success('Step deleted. Surrounding steps reconnected! Hit "Save Workflow" to persist.');
+      Toast.success('Step deleted. Connect remaining steps by dragging from an output port to an input port.');
     } catch (err) {
       Toast.error('Failed to delete step: ' + err.message);
     } finally {
@@ -520,7 +714,7 @@ export const WorkflowEditorView = {
 
       const nodeId = this.editor.addNode(
         'step', 
-        previousNodeId ? 1 : 0, 
+        1, 
         1, 
         pos_x, 
         pos_y, 
