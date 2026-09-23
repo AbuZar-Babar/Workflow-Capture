@@ -48,8 +48,8 @@
       color: var(--text-main) !important;
       border: 1px solid rgba(0, 0, 0, 0.09) !important;
       border-radius: 14px !important;
-      min-width: 280px !important;
-      max-width: 320px !important;
+      min-width: 300px !important;
+      max-width: 350px !important;
       width: auto !important;
       min-height: auto !important;
       padding: 0 !important;
@@ -156,15 +156,85 @@
       border: 1px solid #fcd34d;
     }
 
+    /* Human-Friendly Hero Title & Description */
+    .df-node-hero {
+      padding: 12px 14px 10px 14px !important;
+      background: #ffffff !important;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
+    }
+    .df-node-title {
+      font-size: 0.96rem !important;
+      font-weight: 800 !important;
+      color: var(--text-main) !important;
+      line-height: 1.25 !important;
+      word-break: break-word !important;
+      display: block !important;
+    }
+    .df-node-desc {
+      font-size: 0.74rem !important;
+      color: var(--text-sub) !important;
+      line-height: 1.35 !important;
+      margin-top: 3px !important;
+      display: block !important;
+    }
+
     /* Node Body */
     .df-node-body {
       padding: 14px !important;
       display: flex !important;
       flex-direction: column !important;
-      gap: 11px !important;
+      gap: 10px !important;
       background: #ffffff !important;
       border-bottom-left-radius: 13px !important;
       border-bottom-right-radius: 13px !important;
+    }
+
+    /* Friendly Name Input */
+    .df-name-input {
+      font-family: var(--font-sans) !important;
+      font-weight: 600 !important;
+      font-size: 0.8rem !important;
+      color: var(--text-main) !important;
+      background: #ffffff !important;
+    }
+
+    /* Collapsible Advanced Technical Selector */
+    .df-advanced-details {
+      margin-top: 2px;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      border-radius: 8px;
+      background: #f8fafc;
+      overflow: hidden;
+    }
+    .df-advanced-summary {
+      padding: 6px 9px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: var(--text-sub);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+      list-style: none;
+    }
+    .df-advanced-summary::-webkit-details-marker {
+      display: none;
+    }
+    .df-advanced-summary:hover {
+      background: #f1f5f9;
+      color: var(--text-main);
+    }
+    .df-advanced-body {
+      padding: 8px 9px 10px;
+      border-top: 1px solid rgba(0, 0, 0, 0.06);
+      background: #ffffff;
+    }
+    .df-advanced-details[open] .df-chevron {
+      transform: rotate(180deg);
+    }
+    .df-chevron {
+      transition: transform 0.2s ease;
     }
 
     .df-input-group {

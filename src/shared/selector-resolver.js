@@ -460,7 +460,9 @@
 
     // If text is empty (e.g. checkbox or icon inside option/button/label), inherit enclosing text
     if (!text || text.length === 0) {
-      const textParent = element.closest('mat-option, [role="option"], .mat-mdc-option, button, a, [role="button"], label, li, tr');
+      const textParent = (typeof element.closest === 'function')
+        ? element.closest('mat-option, [role="option"], .mat-mdc-option, button, a, [role="button"], label, li, tr')
+        : null;
       if (textParent) {
         text = normalizeText(textParent.textContent || '').slice(0, 120);
       }
@@ -502,14 +504,160 @@
   }
 
   /**
-   * Capture target: generates both candidates and semantic fingerprint
+   * Generate a human-friendly, simple name for an element (e.g. "Invoice Button", "Search Field")
+   * Works both with live DOM elements and pure fingerprint/target objects.
+   */
+  function generateFriendlyName(element, fingerprint) {
+    const fp = fingerprint || (element && element.nodeType === 1 ? createFingerprint(element) : null) || {};
+    const tag = (fp.tagName || (element?.tagName ? element.tagName.toLowerCase() : '') || 'element').toLowerCase();
+
+    // 1. Determine element type suffix
+    const hasClass = (cls) => {
+      if (!element?.classList) return false;
+      if (typeof element.classList.contains === 'function') return element.classList.contains(cls);
+      if (Array.isArray(element.classList)) return element.classList.includes(cls);
+      return false;
+    };
+    const isButton = ['button', 'submit'].includes(fp.type) || tag === 'button' || fp.role === 'button' ||
+      hasClass('btn') || hasClass('x-btn') || hasClass('dxbButton');
+    const isLink = tag === 'a' || fp.role === 'link';
+    const isCheckbox = fp.type === 'checkbox' || fp.role === 'checkbox' || tag === 'mat-pseudo-checkbox';
+    const isRadio = fp.type === 'radio' || fp.role === 'radio';
+    const isOption = tag === 'mat-option' || tag === 'option' || fp.role === 'option';
+    const isSelect = tag === 'select' || tag === 'mat-select' || fp.role === 'combobox' || fp.role === 'listbox';
+    const isTab = fp.role === 'tab';
+    const isRow = tag === 'tr' || fp.role === 'row';
+    const isCell = tag === 'td' || tag === 'th' || fp.role === 'gridcell';
+    const isCanvas = tag === 'canvas';
+    const isInput = tag === 'input' || tag === 'textarea';
+
+    let typeSuffix = 'Element';
+    if (isButton) typeSuffix = 'Button';
+    else if (isCheckbox) typeSuffix = 'Checkbox';
+    else if (isRadio) typeSuffix = 'Radio Option';
+    else if (isOption) typeSuffix = 'Option';
+    else if (isSelect) typeSuffix = 'Dropdown';
+    else if (isLink) typeSuffix = 'Link';
+    else if (isTab) typeSuffix = 'Tab';
+    else if (isRow) typeSuffix = 'Row';
+    else if (isCell) typeSuffix = 'Cell';
+    else if (isCanvas) typeSuffix = 'Canvas Area';
+    else if (isInput) {
+      if (fp.type === 'password') typeSuffix = 'Password Field';
+      else if (fp.type === 'search') typeSuffix = 'Search Field';
+      else if (fp.type === 'email') typeSuffix = 'Email Field';
+      else typeSuffix = 'Input';
+    }
+
+    // 2. Discover best descriptive text
+    let label = '';
+
+    // Check associated <label> or mat-label
+    if (element && element.nodeType === 1) {
+      if (element.labels && element.labels.length > 0 && element.labels[0].textContent) {
+        label = normalizeText(element.labels[0].textContent);
+      } else {
+        const formField = element.closest && element.closest('mat-form-field, .form-group, .form-field, label');
+        if (formField) {
+          const lbl = formField.querySelector('mat-label, label, .mat-form-field-label');
+          if (lbl && lbl !== element) {
+            label = normalizeText(lbl.textContent);
+          }
+        }
+      }
+    }
+
+    // Check ARIA label
+    if (!label && fp.ariaLabel) {
+      label = normalizeText(fp.ariaLabel);
+    }
+
+    // Check title attribute (standard for icons, toolbars, and export buttons)
+    if (!label && fp.attributes && fp.attributes.title) {
+      label = normalizeText(fp.attributes.title);
+    }
+
+    // Check placeholder
+    if (!label && fp.placeholder) {
+      label = normalizeText(fp.placeholder);
+    }
+
+    // Check visible text content
+    if (!label && fp.text) {
+      label = normalizeText(fp.text);
+    }
+
+    // Check parent interactive container text if element is an icon or span
+    if (!label && element && element.closest) {
+      const interactiveParent = element.closest('button, a, [role="button"], mat-option, label, [title]');
+      if (interactiveParent && interactiveParent !== element) {
+        label = normalizeText(interactiveParent.getAttribute('title') || interactiveParent.getAttribute('aria-label') || interactiveParent.textContent || '');
+      }
+    }
+
+    // Check name attribute if descriptive (e.g. customer_name -> Customer Name)
+    if (!label && fp.name) {
+      const cleanName = fp.name.replace(/[_\-.]+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').trim();
+      if (cleanName && cleanName.length >= 2 && !/^\d+$/.test(cleanName)) {
+        label = cleanName;
+      }
+    }
+
+    // Check stable ID or testid if descriptive
+    if (!label) {
+      const testId = (fp.attributes && (fp.attributes['data-testid'] || fp.attributes['data-qa'] || fp.attributes['data-cy'])) || fp.id;
+      if (testId && typeof testId === 'string' && !CONSTANTS.UNSTABLE_ID_PATTERN.test(testId)) {
+        const words = testId.replace(/[_\-.]+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2')
+          .replace(/\b(btn|button|input|txt|lbl|field)\b/gi, '').trim();
+        if (words && words.length >= 2) {
+          label = words;
+        }
+      }
+    }
+
+    // Clean up label
+    if (label) {
+      label = label.replace(/[.*:…\-]+$/g, '').trim();
+      if (label.length > 40) {
+        label = label.slice(0, 37).trim() + '…';
+      }
+      if (label && /^[a-z]/.test(label)) {
+        label = label.charAt(0).toUpperCase() + label.slice(1);
+      }
+    }
+
+    // Combine label + typeSuffix
+    if (!label) {
+      return typeSuffix === 'Element' ? 'Page Element' : typeSuffix;
+    }
+
+    const lowerLabel = label.toLowerCase();
+    let lowerSuffix = typeSuffix.toLowerCase();
+
+    if (lowerSuffix === 'search field' && lowerLabel.includes('search')) {
+      typeSuffix = 'Field';
+      lowerSuffix = 'field';
+    }
+
+    if (lowerLabel.endsWith(lowerSuffix) || (lowerSuffix === 'button' && lowerLabel.endsWith('btn')) || (lowerSuffix === 'field' && lowerLabel.endsWith('input'))) {
+      return label;
+    }
+
+    return `${label} ${typeSuffix}`;
+  }
+
+  /**
+   * Capture target: generates candidates, semantic fingerprint, and human-friendly name
    */
   function captureTarget(element, doc) {
     const candidates = generateCandidates(element, doc);
     const fingerprint = createFingerprint(element);
+    const friendlyName = generateFriendlyName(element, fingerprint);
     return {
       candidates,
-      fingerprint
+      fingerprint,
+      friendlyName,
+      elementName: friendlyName
     };
   }
 
@@ -858,6 +1006,7 @@
     generateXPath,
     generateCandidates,
     createFingerprint,
+    generateFriendlyName,
     captureTarget,
     scoreFingerprint,
     resolveElement

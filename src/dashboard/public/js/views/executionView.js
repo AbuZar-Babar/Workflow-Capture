@@ -563,9 +563,12 @@ export const ExecutionView = {
       for (let s = 0; s < setupCount; s++) {
         const stepDef = this.workflowSteps[s] || {};
         const stepType = stepDef.type || stepDef.action || 'SETUP';
-        const targetDetail = (stepDef.selector || stepDef.target?.selectors?.cssPath || (typeof stepDef.target === 'string' ? stepDef.target : ''))
-          ? `Target: ${stepDef.selector || stepDef.target?.selectors?.cssPath || (typeof stepDef.target === 'string' ? stepDef.target : '')}`
-          : (stepDef.url ? `URL: ${stepDef.url}` : (stepDef.value ? `Input: "${stepDef.value}"` : 'Setup action'));
+        const stepFriendly = stepDef.elementName || stepDef.name || stepDef.target?.elementName || '';
+        const targetDetail = stepFriendly
+          ? (stepDef.value ? `"${stepDef.value}" → ${stepFriendly}` : stepFriendly)
+          : ((stepDef.selector || stepDef.target?.selectors?.cssPath || (typeof stepDef.target === 'string' ? stepDef.target : ''))
+            ? `Target: ${stepDef.selector || stepDef.target?.selectors?.cssPath || (typeof stepDef.target === 'string' ? stepDef.target : '')}`
+            : (stepDef.url ? `URL: ${stepDef.url}` : (stepDef.value ? `Input: "${stepDef.value}"` : 'Setup action')));
 
         const setupDone = results.length > 0 || ['RUNNING', 'COMPLETED', 'COMPLETED_WITH_ERRORS'].includes(overallStatus);
         const setupState = setupDone ? 'success' : (overallStatus === 'FAILED' ? 'failed' : 'pending');
@@ -615,11 +618,12 @@ export const ExecutionView = {
         }
       } else {
         const stepDef = this.workflowSteps[i - 1] || {};
-        titleLabel = `Step #${i}`;
+        const stepFriendly = (res && (res.elementName || res.name)) || stepDef.elementName || stepDef.name || stepDef.target?.elementName || '';
+        titleLabel = stepFriendly ? `Step #${i} · ${escapeHtml(stepFriendly)}` : `Step #${i}`;
         badgeLabel = (res && res.type) || stepDef.type || stepDef.action || 'STEP';
-        targetDetail = (stepDef.selector)
-          ? `Target: ${stepDef.selector}`
-          : (stepDef.url ? `URL: ${stepDef.url}` : (stepDef.value ? `Input: "${stepDef.value}"` : ''));
+        targetDetail = (stepDef.value)
+          ? `Input: "${stepDef.value}"`
+          : (stepDef.url ? `URL: ${stepDef.url}` : (stepFriendly ? `${badgeLabel} on ${stepFriendly}` : (stepDef.selector ? `Target: ${stepDef.selector}` : '')));
       }
 
       let state = 'remaining';

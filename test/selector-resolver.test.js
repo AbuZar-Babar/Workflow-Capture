@@ -176,4 +176,62 @@ assert.strictEqual(optionScore.passed, true, 'Score should pass minimum threshol
 assert.ok(optionScore.score >= 0.85, `Score should be >= 0.85, got ${optionScore.score}`);
 console.log(`  Passed: Composite option scored ${optionScore.score} >= 0.85!`);
 
+// Test 9: Human-friendly element name generation
+console.log('Test 9: Human-friendly element name generation...');
+// Case A: Button with text "Invoice" -> "Invoice Button"
+const invoiceBtn = {
+  tagName: 'button',
+  nodeType: 1,
+  textContent: 'Invoice',
+  classList: ['mat-button'],
+  getAttribute: () => null,
+  hasAttribute: () => false
+};
+assert.strictEqual(SelectorResolver.generateFriendlyName(invoiceBtn), 'Invoice Button');
+
+// Case B: Button with text "Download Invoice"
+const downloadBtn = {
+  tagName: 'button',
+  nodeType: 1,
+  textContent: 'Download Invoice',
+  classList: ['btn', 'btn-primary'],
+  getAttribute: () => null,
+  hasAttribute: () => false
+};
+assert.strictEqual(SelectorResolver.generateFriendlyName(downloadBtn), 'Download Invoice Button');
+
+// Case C: Input field with placeholder "Search invoices..."
+const searchInput = {
+  tagName: 'input',
+  nodeType: 1,
+  type: 'search',
+  textContent: '',
+  classList: ['search-box'],
+  getAttribute: (attr) => attr === 'placeholder' ? 'Search invoices...' : (attr === 'type' ? 'search' : null),
+  hasAttribute: (attr) => ['placeholder', 'type'].includes(attr)
+};
+assert.strictEqual(SelectorResolver.generateFriendlyName(searchInput), 'Search invoices Field');
+
+// Case D: Icon button with title attribute "Export report to PDF"
+const exportIcon = {
+  tagName: 'img',
+  nodeType: 1,
+  textContent: '',
+  classList: [],
+  getAttribute: (attr) => attr === 'title' ? 'Export report to PDF' : null,
+  hasAttribute: (attr) => attr === 'title',
+  closest: () => null
+};
+assert.strictEqual(SelectorResolver.generateFriendlyName(exportIcon), 'Export report to PDF Element');
+
+// Case E: Dropdown select option
+const optionFp = {
+  tagName: 'mat-option',
+  role: 'option',
+  text: 'INV-2024-001 - Paid'
+};
+assert.strictEqual(SelectorResolver.generateFriendlyName(null, optionFp), 'INV-2024-001 - Paid Option');
+
+console.log('  Passed: All friendly name generation rules validated successfully!');
+
 console.log('\nAll Selector Resolver unit tests passed successfully!\n');

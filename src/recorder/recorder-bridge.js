@@ -8,6 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 const { connectToBrowser } = require('../utils/cdp-connector');
+const SelectorResolver = require('../shared/selector-resolver');
 const logger = require('../utils/logger');
 
 /**
@@ -426,9 +427,23 @@ class RecorderBridge {
       }
     }
 
+    const elementName = rawAction.name ||
+      rawAction.elementName ||
+      rawAction.target?.elementName ||
+      rawAction.target?.friendlyName ||
+      (SelectorResolver.generateFriendlyName ? SelectorResolver.generateFriendlyName(null, rawAction.target?.fingerprint) : null) ||
+      'Element';
+
+    if (rawAction.target && typeof rawAction.target === 'object') {
+      rawAction.target.elementName = elementName;
+      rawAction.target.friendlyName = elementName;
+    }
+
     const action = {
       id: `act_${actionIndex + 1}_${Date.now().toString(36)}`,
       index: actionIndex,
+      name: elementName,
+      elementName: elementName,
       type: rawAction.type,
       timestamp: rawAction.timestamp,
       timeDeltaMs,
@@ -442,9 +457,8 @@ class RecorderBridge {
 
     // Terminal log
     const topCandidate = action.target && action.target.candidates[0] ? action.target.candidates[0].value : 'none';
-    const tag = (action.target && action.target.fingerprint && action.target.fingerprint.tagName) || 'elem';
-    const detail = action.key ? `key="${action.key}"` : (action.value ? `value="${action.value}"` : `tag=<${tag}>`);
-    logger.action(actionIndex + 1, action.type, topCandidate, detail);
+    const detail = action.key ? `key="${action.key}"` : (action.value ? `value="${action.value}"` : `target="${elementName}"`);
+    logger.action(actionIndex + 1, action.type, `"${elementName}" (${topCandidate})`, detail);
     return true;
   }
 

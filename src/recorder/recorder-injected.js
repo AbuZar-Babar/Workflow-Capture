@@ -160,8 +160,14 @@
       candidates.push({ strategy: 'text', value: `//${tagName}[normalize-space()='${text}']`, uniqueness: 1, priority: 4 });
     }
 
+    let friendlyName = title || text || (id ? id.replace(/[_\-]+/g, ' ') : '') || tagName;
+    if (tagName === 'button' && !friendlyName.toLowerCase().includes('button')) friendlyName += ' Button';
+    else if (tagName === 'input' && !friendlyName.toLowerCase().includes('field') && !friendlyName.toLowerCase().includes('input')) friendlyName += ' Field';
+
     return {
       candidates,
+      friendlyName,
+      elementName: friendlyName,
       fingerprint: {
         tagName,
         id,
@@ -222,6 +228,10 @@
         };
       }
 
+      const friendlyName = target?.friendlyName || target?.elementName ||
+        (window.SelectorResolver && typeof window.SelectorResolver.generateFriendlyName === 'function' ? window.SelectorResolver.generateFriendlyName(targetElement, target?.fingerprint) : null) ||
+        'Element';
+
       const actionUid = 'act_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
       const cleanExtra = { ...extra };
       delete cleanExtra.canvasCoords;
@@ -229,6 +239,8 @@
       const payload = {
         uid: actionUid,
         type,
+        name: friendlyName,
+        elementName: friendlyName,
         timestamp: Date.now(),
         target,
         ...(frameInfo ? { frame: frameInfo } : {}),
