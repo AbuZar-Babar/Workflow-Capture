@@ -140,7 +140,165 @@ export const WorkflowEditorView = {
       this.editor.zoom_reset();
     });
 
+    this.initDeleteModal();
+
+    // Hook Drawflow connection/removal events to automatically refresh visual step numbering
+    this.editor.on('connectionCreated', () => {
+      this.refreshStepNumbers();
+    });
+    this.editor.on('connectionRemoved', () => {
+      this.refreshStepNumbers();
+    });
+    this.editor.on('nodeRemoved', () => {
+      this.refreshStepNumbers();
+    });
+
     this.renderWorkflowSteps();
+  },
+
+  pendingDeleteNodeId: null,
+
+  initDeleteModal() {
+    const modal = document.getElementById('deleteNodeModal');
+    const btnClose = document.getElementById('btnCloseDeleteModal');
+    const btnCancel = document.getElementById('btnCancelDeleteStep');
+    const btnConfirm = document.getElementById('btnConfirmDeleteStep');
+
+    if (btnClose) btnClose.onclick = () => this.hideDeleteModal();
+    if (btnCancel) btnCancel.onclick = () => this.hideDeleteModal();
+    if (modal) {
+      modal.onclick = (e) => {
+        if (e.target === modal) this.hideDeleteModal();
+      };
+    }
+    if (btnConfirm) {
+      btnConfirm.onclick = () => this.executeDeleteNode();
+    }
+  },
+
+  promptDeleteNode(nodeId, stepName) {
+    this.pendingDeleteNodeId = nodeId;
+    const targetLabel = document.getElementById('deleteStepTargetName');
+    if (targetLabel) {
+      targetLabel.textContent = `"${stepName || 'this step'}"`;
+    }
+    const modal = document.getElementById('deleteNodeModal');
+    if (modal) {
+      modal.classList.remove('hidden');
+    }
+  },
+
+  hideDeleteModal() {
+    this.pendingDeleteNodeId = null;
+    const modal = document.getElementById('deleteNodeModal');
+    if (modal) {
+      modal.classList.add('hidden');
+    }
+  },
+
+  executeDeleteNode() {
+    const nodeId = this.pendingDeleteNodeId;
+    if (!nodeId || !this.editor) {
+      this.hideDeleteModal();
+      return;
+    }
+
+    try {
+      const nodeData = this.editor.drawflow.drawflow.Home.data[nodeId];
+      if (!nodeData) {
+        this.hideDeleteModal();
+        return;
+      }
+
+      // Check incoming and outgoing connections before deletion
+      const inConns = nodeData.inputs?.input_1?.connections || [];
+      const outConns = nodeData.outputs?.output_1?.connections || [];
+
+      const prevNodeId = inConns.length > 0 ? inConns[0].node : null;
+      const nextNodeId = outConns.length > 0 ? outConns[0].node : null;
+
+      // Remove the node from Drawflow canvas
+      this.editor.removeNodeId(`node-${nodeId}`);
+
+      // Auto-reconnect surrounding nodes if deleting an in-between node
+      if (prevNodeId && nextNodeId) {
+        try {
+          this.editor.addConnection(prevNodeId, nextNodeId, 'output_1', 'input_1');
+        } catch (connErr) {
+          console.warn('Auto-reconnect warning:', connErr);
+        }
+      }
+
+      // Refresh numbering on remaining step cards
+      this.refreshStepNumbers();
+
+      Toast.success('Step deleted. Surrounding steps reconnected! Hit "Save Workflow" to persist.');
+    } catch (err) {
+      Toast.error('Failed to delete step: ' + err.message);
+    } finally {
+      this.hideDeleteModal();
+    }
+  },
+
+  refreshStepNumbers() {
+    try {
+      if (!this.editor) return;
+      const exported = this.editor.export();
+      const data = exported?.drawflow?.Home?.data || {};
+      const nodes = Object.values(data);
+      if (nodes.length === 0) return;
+
+      // Find start node (node with no input connections)
+      let startNodeId = null;
+      for (const node of nodes) {
+        const inputConn = node.inputs?.input_1?.connections;
+        if (!inputConn || inputConn.length === 0) {
+          startNodeId = node.id;
+          break;
+        }
+      }
+      if (!startNodeId) {
+        const sorted = [...nodes].sort((a, b) => (a.pos_x || 0) - (b.pos_x || 0));
+        startNodeId = sorted[0].id;
+      }
+
+      let currentId = startNodeId;
+      let stepIndex = 0;
+      const visited = new Set();
+
+      while (currentId && !visited.has(String(currentId))) {
+        visited.add(String(currentId));
+        const nodeEl = document.getElementById(`node-${currentId}`);
+        if (nodeEl) {
+          const stepNumberEl = nodeEl.querySelector('.df-step-number');
+          if (stepNumberEl) {
+            stepNumberEl.textContent = `#${stepIndex + 1}`;
+          }
+        }
+        const nodeData = data[currentId];
+        stepIndex++;
+        if (nodeData?.outputs?.output_1?.connections?.length > 0) {
+          currentId = nodeData.outputs.output_1.connections[0].node;
+        } else {
+          currentId = null;
+        }
+      }
+
+      // Any remaining disconnected nodes
+      const unvisited = nodes.filter(n => !visited.has(String(n.id))).sort((a, b) => (a.pos_x || 0) - (b.pos_x || 0));
+      for (const node of unvisited) {
+        const nodeEl = document.getElementById(`node-${node.id}`);
+        if (nodeEl) {
+          const stepNumberEl = nodeEl.querySelector('.df-step-number');
+          if (stepNumberEl) {
+            stepNumberEl.textContent = `#${stepIndex + 1}`;
+          }
+        }
+        stepIndex++;
+      }
+    } catch (err) {
+      console.warn('refreshStepNumbers warning:', err);
+    }
   },
 
   renderWorkflowSteps() {
@@ -212,6 +370,12 @@ export const WorkflowEditorView = {
             </span>
             ${isListOrSelect ? `<span class="df-badge-pill options" title="Contains selectable options" style="display:inline-flex; align-items:center; gap:0.25rem;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg> Choices</span>` : ''}
             <span class="df-step-number">#${index + 1}</span>
+            <button type="button" class="df-btn-delete-node" title="Delete this step">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -340,6 +504,17 @@ export const WorkflowEditorView = {
               <span style="font-size:0.65rem; color:var(--text-sub); display:block; margin-top:3px;">Browser DOM locator path</span>
             </div>
           </details>
+
+          <!-- Card Footer with Delete Option -->
+          <div class="df-node-footer">
+            <button type="button" class="df-btn-delete-text" title="Delete this step from workflow">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+              <span>Delete Step</span>
+            </button>
+          </div>
         </div>
       `;
 
@@ -470,6 +645,18 @@ export const WorkflowEditorView = {
               }
             };
           }
+
+          // Wire Delete Step buttons
+          const deleteBtnHeader = nodeEl.querySelector('.df-btn-delete-node');
+          const deleteBtnFooter = nodeEl.querySelector('.df-btn-delete-text');
+          const triggerDelete = (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            const currentName = nameInput ? nameInput.value.trim() : friendlyName;
+            this.promptDeleteNode(nodeId, currentName);
+          };
+          if (deleteBtnHeader) deleteBtnHeader.onclick = triggerDelete;
+          if (deleteBtnFooter) deleteBtnFooter.onclick = triggerDelete;
         }
       }, 50);
 

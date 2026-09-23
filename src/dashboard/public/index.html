@@ -295,6 +295,56 @@
       border: 1px solid #bfdbfe;
     }
 
+    /* Node Delete Button in Header */
+    .df-btn-delete-node {
+      background: transparent !important;
+      border: 1px solid transparent !important;
+      color: #94a3b8 !important;
+      width: 22px !important;
+      height: 22px !important;
+      border-radius: 5px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      cursor: pointer !important;
+      padding: 0 !important;
+      transition: all 0.15s ease !important;
+    }
+    .df-btn-delete-node:hover {
+      background: #fee2e2 !important;
+      border-color: #fca5a5 !important;
+      color: #ef4444 !important;
+      transform: scale(1.1) !important;
+    }
+
+    /* Node Footer Delete Action */
+    .df-node-footer {
+      display: flex !important;
+      justify-content: flex-end !important;
+      align-items: center !important;
+      padding-top: 6px !important;
+      border-top: 1px dashed rgba(0, 0, 0, 0.08) !important;
+      margin-top: 2px !important;
+    }
+    .df-btn-delete-text {
+      background: transparent !important;
+      border: none !important;
+      color: #ef4444 !important;
+      font-size: 0.72rem !important;
+      font-weight: 600 !important;
+      cursor: pointer !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 5px !important;
+      padding: 3px 6px !important;
+      border-radius: 5px !important;
+      transition: all 0.15s ease !important;
+    }
+    .df-btn-delete-text:hover {
+      background: #fee2e2 !important;
+      color: #b91c1c !important;
+    }
+
     /* Input & Output Ports (Connectors) */
     .drawflow .drawflow-node .inputs,
     .drawflow .drawflow-node .outputs {
@@ -607,6 +657,40 @@
     </div>
   </div>
   <!-- END: Step Inspector Modal -->
+
+  <!-- BEGIN: Delete Step Confirmation Modal -->
+  <div class="modal-overlay hidden" id="deleteNodeModal" style="z-index: 9999;">
+    <div class="modal-dialog" style="max-width: 440px;">
+      <div class="modal-header" style="border-bottom: 1px solid #fee2e2;">
+        <div style="display:flex; align-items:center; gap:0.5rem; color:#dc2626;">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+          <h3 style="color:#b91c1c; font-size:1.05rem;">Delete Workflow Step</h3>
+        </div>
+        <button class="btn-icon" id="btnCloseDeleteModal" title="Cancel">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body" style="padding: 1.25rem;">
+        <p style="font-size:0.9rem; color:var(--text-main); margin-bottom:0.75rem;">
+          Are you sure you want to remove <strong id="deleteStepTargetName" style="color:#b91c1c;">this step</strong> from the workflow?
+        </p>
+        <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:0.75rem; margin-bottom:1.25rem;">
+          <span style="font-size:0.75rem; color:#991b1b; display:flex; align-items:flex-start; gap:0.4rem; line-height:1.4;">
+            <span style="font-size:0.9rem;">ℹ️</span>
+            <span>Surrounding steps will be automatically reconnected. You can also connect nodes manually on the visual canvas.</span>
+          </span>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:0.75rem;">
+          <button class="btn btn-secondary" id="btnCancelDeleteStep" type="button" style="padding:0.45rem 1rem; font-size:0.82rem;">Cancel</button>
+          <button class="btn" id="btnConfirmDeleteStep" type="button" style="background:#dc2626; color:#ffffff; border-color:#dc2626; padding:0.45rem 1.1rem; font-size:0.82rem; font-weight:700;">Delete Step</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- END: Delete Step Confirmation Modal -->
 
   <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>
