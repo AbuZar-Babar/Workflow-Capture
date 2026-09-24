@@ -109,7 +109,8 @@ async function ensureChromeRunning(port = 9222, defaultUrl = 'about:blank') {
  * @returns {Promise<{ browser: import('puppeteer-core').Browser, page: import('puppeteer-core').Page }>}
  */
 async function connectToBrowser(options = {}) {
-  const browserURL = options.browserURL || process.env.CHROME_DEBUG_URL || 'http://localhost:9222';
+  let browserURL = options.browserURL || process.env.CHROME_DEBUG_URL || 'http://127.0.0.1:9222';
+  browserURL = browserURL.replace('//localhost:', '//127.0.0.1:');
   const urlObj = new URL(browserURL);
   const port = parseInt(urlObj.port || '9222', 10);
 

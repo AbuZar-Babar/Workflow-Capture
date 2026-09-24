@@ -33,6 +33,7 @@ class LoopReplayRunner {
     this.maxItemRetries = Number.isInteger(options.maxItemRetries) ? Math.max(0, options.maxItemRetries) : 1;
     this.resumeFromCheckpoint = options.resumeFromCheckpoint === true;
     this.isAborted = false;
+    this.rowFilter = options.rowFilter || null;
 
     // Structured downloads hierarchy: downloads/<workflow-slug>/<YYYY-MM-DD>/
     const rawSlug = (this.workflowName || this.workflowId || 'workflow').toLowerCase();
@@ -267,6 +268,91 @@ class LoopReplayRunner {
     }
 
     return { itemKey: `item_${index + 1}`, itemLabel: `Item #${index + 1}` };
+  }
+
+  /**
+   * Evaluates if a loop item matches the configured row filter criteria (e.g. Type = "Invoice" vs "Credit Memo")
+   */
+  async evaluateItemFilter(page, discovery, index, rowFilter) {
+    if (!rowFilter || (!rowFilter.value && !rowFilter.text)) {
+      return { matches: true, reason: 'No filter configured' };
+    }
+
+    const rawVal = rowFilter.value || rowFilter.text || '';
+    const targetVal = String(rawVal).trim().toLowerCase();
+    if (!targetVal || targetVal === '__any__' || targetVal === 'all') {
+      return { matches: true, reason: 'All items accepted (no filter)' };
+    }
+
+    const targetCol = rowFilter.column ? String(rowFilter.column).trim().toLowerCase() : null;
+
+    let itemHandle = null;
+    try {
+      itemHandle = await ItemDiscovery.getItemHandle(page, discovery, index);
+      const itemEl = itemHandle ? itemHandle.asElement() : null;
+      if (!itemEl) {
+        return { matches: true, reason: 'Could not resolve element for filter' };
+      }
+
+      const rowData = await itemEl.evaluate((el) => {
+        const fullText = (el.innerText || el.textContent || '').trim().replace(/\s+/g, ' ');
+        const cellEls = Array.from(el.querySelectorAll('td, [role="gridcell"], .dxgv, .cell'));
+        const cells = cellEls.map(c => (c.innerText || c.textContent || '').trim());
+
+        const table = el.closest('table, [role="grid"], .dxgvTable') || document.querySelector('table, [role="grid"], .dxgvTable');
+        let headerMap = {};
+        if (table) {
+          const headerEls = Array.from(table.querySelectorAll('th, [role="columnheader"], .dxgvHeader'));
+          headerEls.forEach((h, idx) => {
+            const hText = (h.innerText || h.textContent || '').trim().toLowerCase();
+            if (hText) headerMap[hText] = idx;
+          });
+        }
+        return { fullText, cells, headerMap };
+      });
+
+      // 1. Column header match
+      if (targetCol && rowData.headerMap) {
+        const matchedKey = Object.keys(rowData.headerMap).find(k => k === targetCol || k.includes(targetCol));
+        if (matchedKey !== undefined) {
+          const colIdx = rowData.headerMap[matchedKey];
+          if (rowData.cells && colIdx < rowData.cells.length) {
+            const cellVal = rowData.cells[colIdx].toLowerCase();
+            const matches = cellVal.includes(targetVal);
+            return {
+              matches,
+              actualValue: rowData.cells[colIdx],
+              column: matchedKey,
+              reason: matches
+                ? `Column "${matchedKey}" matches "${rawVal}"`
+                : `Column "${matchedKey}" is "${rowData.cells[colIdx]}" (skipping: target is "${rawVal}")`
+            };
+          }
+        }
+      }
+
+      // 2. Exact or substring match in any cell
+      const cellMatch = rowData.cells.find(c => c.toLowerCase() === targetVal || c.toLowerCase().includes(targetVal));
+      if (cellMatch) {
+        return { matches: true, actualValue: cellMatch, reason: `Cell matched "${cellMatch}"` };
+      }
+
+      // 3. Fallback to full text match
+      const fullTextLower = rowData.fullText.toLowerCase();
+      const matches = fullTextLower.includes(targetVal);
+      return {
+        matches,
+        actualValue: rowData.fullText.slice(0, 50),
+        reason: matches
+          ? `Row contains "${rawVal}"`
+          : `Row does not match "${rawVal}" (skipping)`
+      };
+    } catch (err) {
+      logger.warn(`[Runner] Filter check note on item #${index + 1}: ${err.message}`);
+      return { matches: true, reason: 'Filter check error fallback' };
+    } finally {
+      if (itemHandle) await itemHandle.dispose().catch(() => {});
+    }
   }
 
   /**
@@ -1100,7 +1186,35 @@ class LoopReplayRunner {
         // Extract human-readable item identifier (text, link href, or data attribute)
         const itemIdentifier = await this.extractItemIdentifier(page, discovery, i, isDropdown);
 
-        // Hybrid Deduplication Check: UI Identifier + DB Metadata + Physical Disk File
+        // 1. Parameterized Row Filter (e.g. Type = "Invoice" vs "Credit Memo")
+        if (this.rowFilter) {
+          const filterCheck = await this.evaluateItemFilter(page, discovery, i, this.rowFilter);
+          if (!filterCheck.matches) {
+            logger.info(`[Loop Runner] ⏭️ Skipping item #${i + 1} ("${itemIdentifier.itemLabel}") — ${filterCheck.reason}`);
+            const skippedIndex = resumeItemIndex != null && currentPage === resumePage && i === resumePageItemIndex
+              ? resumeItemIndex
+              : manifest.results.reduce((max, result) => Math.max(max, Number(result.index) || 0), 0) + 1;
+
+            const skippedResult = {
+              index: skippedIndex,
+              itemIndex: i,
+              page: currentPage,
+              label: itemIdentifier.itemLabel,
+              itemKey: itemIdentifier.itemKey,
+              status: 'SKIPPED_FILTER',
+              skippedReason: filterCheck.reason,
+              timestamp: new Date().toISOString()
+            };
+
+            manifest.results.push(skippedResult);
+            manifest.itemsSkipped = (manifest.itemsSkipped || 0) + 1;
+            this.manifest = manifest;
+            onProgress({ status: 'ITEM_SKIPPED', itemResult: skippedResult, manifest });
+            continue;
+          }
+        }
+
+        // 2. Hybrid Deduplication Check: UI Identifier + DB Metadata + Physical Disk File
         const dedupe = this.checkIfAlreadyDownloaded(itemIdentifier.itemKey);
         if (dedupe.isDuplicate && !this.forceRedownload) {
           logger.info(`[Loop Runner] Skipping item #${i + 1} ("${itemIdentifier.itemLabel}") — already downloaded: "${dedupe.record.filename}" (${dedupe.record.filePath})`);

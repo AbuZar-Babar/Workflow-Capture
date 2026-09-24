@@ -95,7 +95,9 @@ export const Header = {
     }
 
     this.refreshStatus();
-    setInterval(() => this.refreshStatus(), 4000);
+    setInterval(() => {
+      if (!document.hidden) this.refreshStatus();
+    }, 8000);
   },
 
   setGlobalRecordingBanner(isRecording, meta = {}) {

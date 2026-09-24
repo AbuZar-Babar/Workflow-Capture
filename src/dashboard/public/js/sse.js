@@ -14,7 +14,7 @@ class SSEManager {
 
     this.eventSource = new EventSource('/api/events');
 
-    const eventNames = ['log', 'action_captured', 'recording_state', 'replay_progress', 'replay_state', 'run_state', 'test_state'];
+    const eventNames = ['log', 'action_captured', 'recording_state', 'replay_progress', 'replay_state', 'run_state', 'test_state', 'human_intervention'];
 
     eventNames.forEach(evt => {
       this.eventSource.addEventListener(evt, (e) => {
@@ -72,3 +72,6 @@ class SSEManager {
 }
 
 export const SSE = new SSEManager();
+if (typeof window !== 'undefined') {
+  window.SSE = SSE;
+}

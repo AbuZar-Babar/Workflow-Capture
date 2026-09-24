@@ -238,6 +238,9 @@ export const Api = {
       if (loopStepIndexOrOptions.forceRedownload) {
         bodyPayload.forceRedownload = true;
       }
+      if (loopStepIndexOrOptions.rowFilter) {
+        bodyPayload.rowFilter = loopStepIndexOrOptions.rowFilter;
+      }
     } else if (typeof loopStepIndexOrOptions === 'string') {
       bodyPayload.mode = loopStepIndexOrOptions;
       bodyPayload.isLoop = loopStepIndexOrOptions === 'loop' || loopStepIndexOrOptions === 'batch';

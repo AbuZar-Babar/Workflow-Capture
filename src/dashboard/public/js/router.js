@@ -3,7 +3,7 @@
  */
 
 import { OverviewView } from './views/overviewView.js?v=8';
-import { WorkflowsView } from './views/workflowsView.js?v=8';
+import { WorkflowsView } from './views/workflowsView.js?v=9';
 import { ConsoleView } from './views/consoleView.js?v=7';
 import { SecretsView } from './views/secretsView.js?v=7';
 import { ArtifactsView } from './views/artifactsView.js?v=8';
