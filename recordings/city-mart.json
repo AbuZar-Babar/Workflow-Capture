@@ -1,91 +1,30 @@
 {
   "metadata": {
-    "recordingId": "rec_1789805995668_21tkr",
+    "recordingId": "rec_1790156312394_df4qg",
     "version": "1.0.0",
     "name": "city-Mart",
-    "startedAt": "2026-09-19T08:18:19.472Z",
-    "completedAt": "2026-09-19T08:19:55.666Z",
-    "startUrl": "https://citymart.i21web.com/iRelyProd/login",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+    "startedAt": "2026-09-23T09:38:00.510Z",
+    "completedAt": "2026-09-23T09:38:32.393Z",
+    "startUrl": "https://citymart.i21web.com/iRelyProd/#menu/AR",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
     "viewport": {
       "width": 1280,
       "height": 800
     },
-    "loopStepIndex": 2,
-    "updatedAt": "2026-09-21T10:41:38.206Z"
+    "loopStepIndex": null,
+    "isLoop": false,
+    "mode": "STANDARD",
+    "updatedAt": "2026-09-23T09:50:27.395Z"
   },
   "actions": [
     {
-      "id": "act_1_mu8480rd",
+      "id": "act_1_mudwtvvi",
       "index": 0,
+      "name": "Invoices Link",
+      "elementName": "Invoices Link",
       "type": "CLICK",
-      "timestamp": 1789805902297,
+      "timestamp": 1790156282525,
       "timeDeltaMs": 0,
-      "target": {
-        "candidates": [
-          {
-            "strategy": "id",
-            "value": "#Login",
-            "uniqueness": 1,
-            "priority": 1
-          },
-          {
-            "strategy": "id",
-            "value": "input#Login",
-            "uniqueness": 1,
-            "priority": 1
-          },
-          {
-            "strategy": "data-attr",
-            "value": "[data-sitekey=\"\\36 Le5hkwUAAAAAKBDYSNqaAhTStSy2brIxy7aOPqM\"]",
-            "uniqueness": 1,
-            "priority": 2
-          },
-          {
-            "strategy": "data-attr",
-            "value": "[data-callback=\"onSubmit\"]",
-            "uniqueness": 1,
-            "priority": 2
-          },
-          {
-            "strategy": "xpath",
-            "value": "//*[@id='Login']",
-            "uniqueness": 1,
-            "priority": 6
-          }
-        ],
-        "fingerprint": {
-          "tagName": "input",
-          "id": "Login",
-          "name": null,
-          "type": "submit",
-          "role": null,
-          "placeholder": null,
-          "ariaLabel": null,
-          "text": "",
-          "classes": [
-            "btn",
-            "btn-default",
-            "g-recaptcha"
-          ],
-          "attributes": {
-            "type": "submit",
-            "value": "Login"
-          },
-          "isPassword": false,
-          "dimensions": {
-            "width": 64,
-            "height": 31
-          }
-        }
-      }
-    },
-    {
-      "id": "act_2_mu84899s",
-      "index": 1,
-      "type": "CLICK",
-      "timestamp": 1789805913328,
-      "timeDeltaMs": 11031,
       "target": {
         "candidates": [
           {
@@ -187,43 +126,54 @@
           ],
           "attributes": {},
           "isPassword": false,
+          "isCheckbox": false,
           "dimensions": {
             "width": 240,
             "height": 23
           }
-        }
-      }
+        },
+        "friendlyName": "Invoices Link",
+        "elementName": "Invoices Link",
+        "isCheckbox": false
+      },
+      "action": "CLICK",
+      "role": "SETUP",
+      "isLoopCandidate": false,
+      "isLoop": false,
+      "loopMode": null
     },
     {
-      "id": "act_3_mu848cox",
-      "index": 2,
+      "id": "act_2_mudwtx18",
+      "index": 1,
+      "name": "Undefined Element",
+      "elementName": "Undefined Element",
       "type": "CLICK",
-      "timestamp": 1789805917761,
-      "timeDeltaMs": 4433,
+      "timestamp": 1790156284027,
+      "timeDeltaMs": 1502,
       "target": {
         "candidates": [
           {
             "strategy": "css-path",
-            "value": "#frmadvancesearchgrid-1088-body > div:nth-of-type(1) > div:nth-of-type(3) > table:nth-of-type(7) > tbody > tr > td:nth-of-type(1) > div > span",
+            "value": "#frmadvancesearchgrid-1088-body > div:nth-of-type(1) > div:nth-of-type(3) > table:nth-of-type(1) > tbody > tr > td:nth-of-type(1) > div > span",
             "uniqueness": 1,
             "priority": 5
           },
           {
             "strategy": "xpath",
-            "value": "//*[@id='frmadvancesearchgrid-1088-body']/div[1]/div[3]/table[7]/tbody[1]/tr[1]/td[1]/div[1]/span[1]",
+            "value": "//*[@id='frmadvancesearchgrid-1088-body']/div[1]/div[3]/table[1]/tbody[1]/tr[1]/td[1]/div[1]/span[1]",
             "uniqueness": 1,
             "priority": 6
           },
           {
             "strategy": "attribute",
             "value": "span[aria-label=\"undefined\"]",
-            "uniqueness": 42,
+            "uniqueness": 44,
             "priority": 3
           },
           {
             "strategy": "attribute",
             "value": "span[role=\"presentation\"]",
-            "uniqueness": 202,
+            "uniqueness": 622,
             "priority": 3
           }
         ],
@@ -235,7 +185,7 @@
           "role": "presentation",
           "placeholder": null,
           "ariaLabel": "undefined",
-          "text": "SI-176013InvoiceNet 9 DaysACH 8/30/2026209/8/2026358.70358.700.00358.70358.700.00020 CME - Wholesale Fuels",
+          "text": "SI-177697Credit MemoNet 9 DaysACH 9/21/202629/21/2026-1,383.070.00-1,383.07-1,383.070.00-1,383.07Corporate",
           "classes": [
             "x-grid-checkcolumn"
           ],
@@ -244,73 +194,21 @@
             "aria-label": "undefined"
           },
           "isPassword": false,
+          "isCheckbox": false,
           "dimensions": {
             "width": 13,
             "height": 13
           }
-        }
-      }
-    },
-    {
-      "id": "act_4_mu848fep",
-      "index": 3,
-      "type": "CLICK",
-      "timestamp": 1789805921281,
-      "timeDeltaMs": 3520,
-      "target": {
-        "candidates": [
-          {
-            "strategy": "text",
-            "value": "//span[contains(@class, 'x-btn-inner') and normalize-space()='Open Selected']",
-            "uniqueness": 1,
-            "priority": 4
-          },
-          {
-            "strategy": "css-path",
-            "value": "#toolbar-1091-targetEl > a:nth-of-type(1) > span > span > span:nth-of-type(2)",
-            "uniqueness": 1,
-            "priority": 5
-          },
-          {
-            "strategy": "xpath",
-            "value": "//*[@id='toolbar-1091-targetEl']/a[1]/span[1]/span[1]/span[2]",
-            "uniqueness": 1,
-            "priority": 6
-          },
-          {
-            "strategy": "data-attr",
-            "value": "[data-ref=\"btnInnerEl\"]",
-            "uniqueness": 34,
-            "priority": 2
-          },
-          {
-            "strategy": "text",
-            "value": "//span[normalize-space()='Open Selected']",
-            "uniqueness": 3,
-            "priority": 4
-          }
-        ],
-        "fingerprint": {
-          "tagName": "span",
-          "id": null,
-          "name": null,
-          "type": null,
-          "role": null,
-          "placeholder": null,
-          "ariaLabel": null,
-          "text": "Open Selected",
-          "classes": [
-            "x-btn-inner",
-            "x-btn-inner-default-toolbar-small"
-          ],
-          "attributes": {},
-          "isPassword": false,
-          "dimensions": {
-            "width": 78,
-            "height": 16
-          }
-        }
-      }
+        },
+        "friendlyName": "Undefined Element",
+        "elementName": "Undefined Element",
+        "isCheckbox": false
+      },
+      "action": "CLICK",
+      "role": "SETUP",
+      "isLoopCandidate": false,
+      "isLoop": false,
+      "loopMode": null
     }
   ]
 }
