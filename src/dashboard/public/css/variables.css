@@ -1,53 +1,64 @@
 /* ===================================================================
-   Workflow Capture — Quixotic Emerald Design Tokens & Variables
+   FlowMind — Design Tokens & Variables (Soft Blue Light Mode Theme)
    =================================================================== */
 
 :root {
-  /* Quixotic Emerald Brand Palette */
-  --brand-forest: #0c5c3f;
-  --brand-dark: #084831;
-  --brand-emerald: #128258;
-  --brand-accent: #19996b;
-  --brand-light: #d2ede1;
-  --brand-tint: #edf8f2;
-  --brand-sage: #7dbfa3;
-  --brand-stripe: #8fcbae;
-  --brand-stripe-dark: #0c5c3f;
+  /* Soft Blue Palette */
+  --brand-forest: #4F6EF7;          /* Primary Accent: Electric Blue-Indigo */
+  --brand-dark: #3B55D9;            /* Deep Blue-Indigo Hover */
+  --brand-primary: #4F6EF7;
+  --brand-cyan: #6EE7F5;            /* Secondary Accent: Soft Cyan (AI/Learning) */
+  --brand-emerald: #4F6EF7;
+  --brand-accent: #6EE7F5;
+  --brand-light: #EEF2FF;
+  --brand-tint: rgba(79, 110, 247, 0.08);
+  --brand-cyan-tint: rgba(110, 231, 245, 0.12);
+  --brand-sage: #C7D7FE;
+  --brand-stripe: #E1E8FB;
+  --brand-stripe-dark: #4F6EF7;
 
   /* Canvas & Neutrals */
-  --canvas: #edeef1;
-  --panel: #ffffff;
-  --card-bg: #ffffff;
-  --card-border: rgba(0, 0, 0, 0.06);
-  --border-light: #f0f2f5;
-  --text-main: #111827;
-  --text-body: #374151;
-  --text-sub: #8a92a0;
-  --text-muted: #9ca3af;
-  --text-dim: #6b7280;
+  --canvas-from: #F4F7FD;
+  --canvas-to: #FFFFFF;
+  --canvas: #F4F7FD;
+  --panel: rgba(255, 255, 255, 0.85);
+  --card-bg: rgba(255, 255, 255, 0.7);
+  --card-border: #E1E8FB;
+  --border-light: #E1E8FB;
+  --text-main: #0F172A;             /* Headings */
+  --text-body: #64748B;             /* Body text */
+  --text-sub: #64748B;
+  --text-muted: #94A3B8;
+  --text-dim: #94A3B8;
 
   /* State Accents */
-  --color-success: #10b981;
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
-  --color-info: #0284c7;
+  --color-success: #34D399;         /* Mint Green for Active/Success */
+  --color-warning: #F59E0B;
+  --color-danger: #EF4444;
+  --color-info: #4F6EF7;
 
   /* Typography */
   --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 
-  /* Shadows & Elevation */
-  --shadow-dashboard: 0 20px 40px -15px rgba(0, 0, 0, 0.05), 0 0 1px 1px rgba(0, 0, 0, 0.03);
-  --shadow-card: 0 8px 24px -6px rgba(16, 24, 40, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
-  --shadow-sidebar: 0 12px 30px -4px rgba(0, 0, 0, 0.06);
-  --shadow-dropdown: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  /* Glassmorphism & Soft Blue-Tinted Shadows (instead of gray) */
+  --glass-blur: blur(12px);
+  --shadow-dashboard: 0 24px 50px -15px rgba(79, 110, 247, 0.09), 0 0 0 1px #E1E8FB;
+  --shadow-hero: 0 24px 48px -12px rgba(79, 110, 247, 0.16), 0 8px 18px -4px rgba(79, 110, 247, 0.08), 0 1px 3px rgba(15, 23, 42, 0.04), inset 0 1px 1px rgba(255, 255, 255, 0.95);
+  --shadow-card: 0 12px 28px -6px rgba(79, 110, 247, 0.08), 0 4px 10px -2px rgba(79, 110, 247, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  --shadow-card-hover: 0 18px 36px -6px rgba(79, 110, 247, 0.16), 0 6px 14px rgba(79, 110, 247, 0.08), inset 0 1px 0 #ffffff;
+  --shadow-stat-card: 0 12px 28px -6px rgba(79, 110, 247, 0.08), 0 4px 10px -2px rgba(79, 110, 247, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  --shadow-sidebar: 0 16px 36px -6px rgba(79, 110, 247, 0.12), 0 2px 8px rgba(79, 110, 247, 0.04), inset 0 1px 1px rgba(255, 255, 255, 0.95);
+  --shadow-dropdown: 0 12px 28px -5px rgba(79, 110, 247, 0.14), 0 0 0 1px #E1E8FB;
+  --shadow-glow-blue: 0 0 20px rgba(79, 110, 247, 0.25);
+  --shadow-glow-cyan: 0 0 20px rgba(110, 231, 245, 0.35);
 
   /* Radius */
   --radius-sm: 8px;
   --radius-md: 12px;
-  --radius-lg: 18px;
-  --radius-xl: 24px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
   --radius-3xl: 28px;
-  --radius-4xl: 36px;
+  --radius-4xl: 34px;
   --radius-pill: 9999px;
 }

@@ -4,6 +4,7 @@
  * Provides an explicit choice between:
  *  1. Single Macro Replay (exact recorded procedure)
  *  2. Collection Loop / Batch Replay (iterating across table/list items)
+ *  3. Parameterized Row Filter Guard (e.g. Invoices vs Credit Memos)
  */
 
 import { Api } from '../api.js';
@@ -72,7 +73,7 @@ export const ExecutionModal = {
                   <strong style="font-size:0.92rem; color:var(--text-main);">⚡ Run as Macro (Single Execution)</strong>
                   <span class="badge-tag success" style="font-size:0.65rem; padding:0.15rem 0.45rem;">Standard</span>
                 </div>
-                <span style="font-size:0.78rem; color:var(--text-sub);">Replays the exact recorded workflow once from start to finish. Does not iterate or loop through other rows/items.</span>
+                <span style="font-size:0.78rem; color:var(--text-sub);">Replays the exact recorded workflow once from start to finish. Does not iterate through other rows.</span>
               </div>
             </label>
 
@@ -81,15 +82,50 @@ export const ExecutionModal = {
               <input type="radio" name="execModeRadio" value="loop" ${hasLoopConfigured ? 'checked' : ''} style="margin-top:0.25rem; accent-color:var(--brand-forest);">
               <div style="display:flex; flex-direction:column; gap:0.2rem;">
                 <div style="display:flex; align-items:center; gap:0.5rem;">
-                  <strong style="font-size:0.92rem; color:var(--text-main);">🔁 Run as Loop (Batch / All Items)</strong>
+                  <strong style="font-size:0.92rem; color:var(--text-main);">🔁 Run as Loop (Batch / Filtered Items)</strong>
                   ${hasLoopConfigured ? '<span class="badge-tag success" style="font-size:0.65rem; padding:0.15rem 0.45rem;">Configured</span>' : ''}
                 </div>
-                <span style="font-size:0.78rem; color:var(--text-sub);">Discovers repeated records (table rows, cards, or list options) on the target page and iterates the action across all items.</span>
+                <span style="font-size:0.78rem; color:var(--text-sub);">Discovers repeated records (table rows, cards, or list options) on the target page and iterates across matching items.</span>
               </div>
             </label>
           </div>
 
-          <!-- Force Redownload Checkbox -->
+          <!-- Target Record Filter Section (Active for Loop Execution) -->
+          <div id="execLoopFilterSection" style="display: ${hasLoopConfigured ? 'flex' : 'none'}; flex-direction:column; gap:0.65rem; padding:0.9rem 1rem; border-radius:12px; background:rgba(79, 110, 247, 0.05); border:1px solid rgba(79, 110, 247, 0.22);">
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+              <div style="display:flex; align-items:center; gap:0.45rem;">
+                <span style="font-size:0.85rem; font-weight:800; color:var(--text-main);">🎯 Target Record Filter</span>
+                <span class="badge-tag primary" style="font-size:0.65rem; padding:0.1rem 0.4rem;">Generic Grid Guard</span>
+              </div>
+              <span style="font-size:0.72rem; color:var(--text-sub);">Matches column cell values</span>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1.35fr; gap:0.65rem; align-items:flex-end;">
+              <div>
+                <label style="font-size:0.73rem; font-weight:700; color:var(--text-sub); display:block; margin-bottom:4px;">Filter Column</label>
+                <input type="text" id="execFilterColumn" value="Type" placeholder="e.g. Type, Status..." style="width:100%; height:34px; padding:0 0.65rem; border:1px solid var(--border-light); border-radius:8px; font-size:0.78rem; background:#ffffff; color:var(--text-main); outline:none;">
+              </div>
+              <div>
+                <label style="font-size:0.73rem; font-weight:700; color:var(--text-sub); display:block; margin-bottom:4px;">Document Type to Fetch</label>
+                <div style="display:flex; gap:0.35rem;">
+                  <select id="execFilterTypeSelect" style="flex:1; height:34px; padding:0 0.5rem; border:1px solid var(--border-light); border-radius:8px; font-size:0.78rem; background:#ffffff; color:var(--text-main); font-weight:600; outline:none;">
+                    <option value="Invoice">Invoice (Invoices Only)</option>
+                    <option value="Credit Memo">Credit Memo (Credit Memos Only)</option>
+                    <option value="Debit Memo">Debit Memo</option>
+                    <option value="__custom__">Custom / Other...</option>
+                    <option value="__any__">All / Any (No Filter)</option>
+                  </select>
+                  <input type="text" id="execFilterCustomVal" placeholder="Type..." style="display:none; width:90px; height:34px; padding:0 0.5rem; border:1px solid var(--border-light); border-radius:8px; font-size:0.78rem; background:#ffffff; outline:none;">
+                </div>
+              </div>
+            </div>
+
+            <p style="font-size:0.72rem; color:var(--text-sub); margin:0;" id="execFilterExplanation">
+              ⚡ Loop will inspect each row: only rows where <strong style="color:var(--brand-forest);" id="execFilterExpBold">Type contains "Invoice"</strong> will be processed. Other rows are skipped automatically.
+            </p>
+          </div>
+
+          <!-- Deduplication / New Invoices Guard -->
           <div style="display:flex; align-items:center; gap:0.5rem; padding:0.25rem 0.15rem;">
             <input type="checkbox" id="chkExecForceRedownload" style="accent-color:var(--brand-forest); cursor:pointer;">
             <label for="chkExecForceRedownload" style="font-size:0.8rem; color:var(--text-body); cursor:pointer; user-select:none;">Force redownload (re-download existing artifacts without skipping)</label>
@@ -107,10 +143,11 @@ export const ExecutionModal = {
       </div>
     `;
 
-    // Highlight selected card dynamically
+    // Dynamic UI interactions
     const radioInputs = this.container.querySelectorAll('input[name="execModeRadio"]');
     const singleCard = this.container.querySelector('#labelExecSingle');
     const loopCard = this.container.querySelector('#labelExecLoop');
+    const filterSection = this.container.querySelector('#execLoopFilterSection');
 
     radioInputs.forEach(radio => {
       radio.onchange = () => {
@@ -119,14 +156,42 @@ export const ExecutionModal = {
           singleCard.style.background = 'rgba(12, 92, 63, 0.04)';
           loopCard.style.borderColor = 'rgba(0,0,0,0.1)';
           loopCard.style.background = '#ffffff';
+          if (filterSection) filterSection.style.display = 'none';
         } else {
           loopCard.style.borderColor = 'var(--brand-forest)';
           loopCard.style.background = 'rgba(12, 92, 63, 0.04)';
           singleCard.style.borderColor = 'rgba(0,0,0,0.1)';
           singleCard.style.background = '#ffffff';
+          if (filterSection) filterSection.style.display = 'flex';
         }
       };
     });
+
+    const selectType = this.container.querySelector('#execFilterTypeSelect');
+    const customValInput = this.container.querySelector('#execFilterCustomVal');
+    const colInput = this.container.querySelector('#execFilterColumn');
+    const expText = this.container.querySelector('#execFilterExplanation');
+    const expBold = this.container.querySelector('#execFilterExpBold');
+
+    const updateFilterExplanation = () => {
+      const col = colInput?.value.trim() || 'Type';
+      const sel = selectType?.value;
+      if (sel === '__any__') {
+        if (customValInput) customValInput.style.display = 'none';
+        if (expText) expText.innerHTML = `⚡ No filter applied: all rows in the grid will be processed sequentially.`;
+      } else if (sel === '__custom__') {
+        if (customValInput) customValInput.style.display = 'block';
+        const custom = customValInput?.value.trim() || '...';
+        if (expText) expText.innerHTML = `⚡ Loop will inspect each row: only rows where <strong style="color:var(--brand-forest);">${escapeHtml(col)} contains "${escapeHtml(custom)}"</strong> will be processed.`;
+      } else {
+        if (customValInput) customValInput.style.display = 'none';
+        if (expText) expText.innerHTML = `⚡ Loop will inspect each row: only rows where <strong style="color:var(--brand-forest);">${escapeHtml(col)} contains "${escapeHtml(sel)}"</strong> will be processed. Other rows are skipped.`;
+      }
+    };
+
+    if (selectType) selectType.onchange = updateFilterExplanation;
+    if (customValInput) customValInput.oninput = updateFilterExplanation;
+    if (colInput) colInput.oninput = updateFilterExplanation;
 
     const closeBtn = this.container.querySelector('#btnCloseExecModal');
     const cancelBtn = this.container.querySelector('#btnCancelExecModal');
@@ -144,16 +209,31 @@ export const ExecutionModal = {
         const isLoopMode = selectedMode === 'loop';
         const forceRedownload = !!chkRedownload?.checked;
 
+        // Build row filter payload
+        let rowFilter = null;
+        if (isLoopMode) {
+          const col = colInput?.value.trim() || 'Type';
+          const sel = selectType?.value;
+          let val = sel;
+          if (sel === '__custom__') {
+            val = customValInput?.value.trim();
+          }
+          if (val && val !== '__any__') {
+            rowFilter = { column: col, value: val };
+          }
+        }
+
         confirmBtn.disabled = true;
         if (confirmText) confirmText.textContent = 'Launching…';
-        Toast.info(`Starting ${isLoopMode ? 'batch loop' : 'single macro'} execution…`);
+        Toast.info(`Starting ${isLoopMode ? (rowFilter ? `loop (${rowFilter.value}s only)` : 'batch loop') : 'single macro'} execution…`);
 
         try {
           const res = await Api.executeWorkflow(this.currentWorkflowId, {
             mode: selectedMode,
             isLoop: isLoopMode,
             loopStepIndex: isLoopMode ? (Number.isInteger(loopStepIndex) ? loopStepIndex : 0) : null,
-            forceRedownload
+            forceRedownload,
+            rowFilter
           });
 
           this.close();

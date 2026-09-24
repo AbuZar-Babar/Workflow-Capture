@@ -5,18 +5,38 @@ const { sendJson } = require('../auth/auth-controller');
 
 const RECORDINGS_DIR = path.resolve(process.cwd(), 'recordings');
 
+// In-memory cache of file mtimes and sync throttling for maximum speed
+const diskSyncCache = new Map(); // filename -> { mtimeMs: number, size: number }
+let lastDiskSyncTime = 0;
+const DISK_SYNC_THROTTLE_MS = 6000; // Only rescan disk at most once every 6 seconds unless forced
+
 /**
  * Auto-sync recording files on disk to the in-memory/JSON DB
  */
-function syncWorkflowsFromDisk(currentUserId) {
+function syncWorkflowsFromDisk(currentUserId, force = false) {
   if (!fs.existsSync(RECORDINGS_DIR)) return;
+
+  const now = Date.now();
+  if (!force && (now - lastDiskSyncTime < DISK_SYNC_THROTTLE_MS)) {
+    return; // Sub-millisecond return when called frequently
+  }
+  lastDiskSyncTime = now;
+
   try {
     const files = fs.readdirSync(RECORDINGS_DIR).filter(f => f.endsWith('.json'));
     for (const file of files) {
       const filePath = path.join(RECORDINGS_DIR, file);
       try {
         const stats = fs.statSync(filePath);
+        const cached = diskSyncCache.get(file);
+        if (cached && cached.mtimeMs === stats.mtimeMs && cached.size === stats.size) {
+          // File has not changed on disk — skip reading and parsing completely!
+          continue;
+        }
+
         const content = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        diskSyncCache.set(file, { mtimeMs: stats.mtimeMs, size: stats.size });
+
         const wfId = file.replace('.json', '');
         const wfName = (content.metadata && content.metadata.name) || wfId;
         const actions = Array.isArray(content.actions) ? content.actions : [];
@@ -258,6 +278,7 @@ function updateWorkflow(req, res, workflowId, body) {
       fileContent.actions = updates.steps;
     }
     fs.writeFileSync(filePath, JSON.stringify(fileContent, null, 2), 'utf8');
+    diskSyncCache.delete(`${existing.id}.json`);
   } catch (err) {
     console.error('[WorkflowController] Failed to persist workflow update to disk:', err.message);
   }
@@ -288,6 +309,7 @@ function deleteWorkflow(req, res, workflowId) {
   if (fs.existsSync(filePath)) {
     try { fs.unlinkSync(filePath); } catch {}
   }
+  diskSyncCache.delete(`${workflowId}.json`);
 
   return sendJson(res, 200, {
     success: true,

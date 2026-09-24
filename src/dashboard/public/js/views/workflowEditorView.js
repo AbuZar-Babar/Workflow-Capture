@@ -31,7 +31,7 @@ export const WorkflowEditorView = {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
               <span>Save Workflow</span>
             </button>
-            <button class="btn btn-secondary btn-sm" id="btnExecuteFlowEditor" style="background:#0c5c3f; color:#ffffff; border-color:#0c5c3f; display:inline-flex; align-items:center; gap:0.35rem;">
+            <button class="btn btn-secondary btn-sm" id="btnExecuteFlowEditor" style="background:var(--brand-forest); color:#ffffff; border-color:var(--brand-forest); display:inline-flex; align-items:center; gap:0.35rem;">
               <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
               <span>Execute Flow</span>
             </button>
@@ -1183,5 +1183,22 @@ export const WorkflowEditorView = {
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#039;");
+  },
+
+  destroy() {
+    this.hideConnectionMenu();
+    this.hideDeleteModal();
+    if (this.keyDeleteHandler) {
+      window.removeEventListener('keydown', this.keyDeleteHandler);
+      this.keyDeleteHandler = null;
+    }
+    if (this.editor) {
+      try {
+        this.editor.clear();
+      } catch {}
+      this.editor = null;
+    }
+    this.workflow = null;
+    this.selectedConnectionInfo = null;
   }
 };

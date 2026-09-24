@@ -1,0 +1,1313 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlowMind — AI Workflow Automation</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  
+  <!-- Google Fonts: Inter & Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'Inter', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#f5f3ff',
+              100: '#ede9fe',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          },
+          boxShadow: {
+            'soft-card': '0 20px 40px -15px rgba(216, 226, 248, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.9) inset',
+            'glass': '0 16px 36px 0 rgba(135, 145, 180, 0.12), inset 0 0 0 1px rgba(255, 255, 255, 0.85)',
+            'glow': '0 10px 25px -5px rgba(99, 102, 241, 0.4)',
+            'video-modal': '0 30px 90px -20px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1) inset'
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style>
+    body {
+      background-color: #f8f9fe;
+      background-image: 
+        radial-gradient(at 10% 15%, rgba(228, 235, 255, 0.9) 0px, transparent 55%),
+        radial-gradient(at 85% 20%, rgba(236, 233, 254, 0.85) 0px, transparent 50%),
+        radial-gradient(at 50% 60%, rgba(243, 246, 255, 0.8) 0px, transparent 65%);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .robot-ambient-glow {
+      background: radial-gradient(circle, rgba(165, 180, 252, 0.5) 0%, rgba(199, 210, 254, 0.25) 50%, transparent 70%);
+      filter: blur(32px);
+    }
+
+    .text-gradient-purple-blue {
+      background: linear-gradient(135deg, #60a5fa 0%, #818cf8 45%, #c084fc 85%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* ========================================================
+       SaaS Product Demo Animation Suite (5.6s Seamless Loop)
+       Colors: Indigo, Violet, Mint Green, Light Lavender to White
+       ======================================================== */
+
+    /* 1. Cursor smooth motion path across web interface */
+    @keyframes saasCursorLoop {
+      0% {
+        transform: translate(24px, 32px) scale(1);
+        opacity: 0;
+      }
+      4% {
+        transform: translate(24px, 32px) scale(1);
+        opacity: 1;
+      }
+      /* Glide to Filter Button */
+      12% {
+        transform: translate(98px, 48px) scale(1);
+        opacity: 1;
+      }
+      15% {
+        transform: translate(98px, 48px) scale(0.88);
+        opacity: 1;
+      }
+      18% {
+        transform: translate(98px, 48px) scale(1);
+        opacity: 1;
+      }
+      /* Glide to Form Search Input */
+      26% {
+        transform: translate(240px, 48px) scale(1);
+        opacity: 1;
+      }
+      29% {
+        transform: translate(240px, 48px) scale(0.88);
+        opacity: 1;
+      }
+      32% {
+        transform: translate(240px, 48px) scale(1);
+        opacity: 1;
+      }
+      /* Glide to Table Row 2 Action Button */
+      42% {
+        transform: translate(450px, 142px) scale(1);
+        opacity: 1;
+      }
+      46% {
+        transform: translate(450px, 142px) scale(0.88);
+        opacity: 1;
+      }
+      50% {
+        transform: translate(450px, 142px) scale(1);
+        opacity: 1;
+      }
+      /* Fade out before Workflow Saved Checkmark */
+      53% {
+        opacity: 1;
+      }
+      55% {
+        transform: translate(460px, 145px) scale(1);
+        opacity: 0;
+      }
+      /* Hidden during Saved Checkmark & Full Automation Replay */
+      98% {
+        transform: translate(24px, 32px) scale(1);
+        opacity: 0;
+      }
+      100% {
+        transform: translate(24px, 32px) scale(1);
+        opacity: 0;
+      }
+    }
+    .animate-saas-cursor {
+      animation: saasCursorLoop 5.6s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+    }
+
+    /* 2. Subtle glowing purple-blue scan lines sweeping across interface */
+    @keyframes saasScanlineLoop {
+      0% {
+        transform: translateY(-20%);
+        opacity: 0;
+      }
+      10% {
+        opacity: 0.9;
+      }
+      45% {
+        opacity: 0.9;
+      }
+      52% {
+        transform: translateY(290%);
+        opacity: 0;
+      }
+      /* Second subtle sweep during fast automation replay */
+      70% {
+        transform: translateY(-10%);
+        opacity: 0;
+      }
+      78% {
+        opacity: 0.65;
+      }
+      92% {
+        transform: translateY(290%);
+        opacity: 0;
+      }
+      100% {
+        transform: translateY(290%);
+        opacity: 0;
+      }
+    }
+    .animate-saas-scanline {
+      animation: saasScanlineLoop 5.6s ease-in-out infinite;
+    }
+
+    /* 3. Filter button highlight pulses (Manual click at 15%, Auto replay at 72%) */
+    @keyframes saasFilterBtnPulse {
+      0%, 13% {
+        box-shadow: none;
+        border-color: rgba(226, 232, 240, 0.9);
+        background-color: #ffffff;
+      }
+      15%, 20% {
+        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.6), 0 4px 14px rgba(99, 102, 241, 0.25);
+        border-color: #6366f1;
+        background-color: #f5f3ff;
+      }
+      22%, 70% {
+        box-shadow: none;
+        border-color: rgba(226, 232, 240, 0.9);
+        background-color: #ffffff;
+      }
+      /* Fast replay auto pulse */
+      72%, 77% {
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.7), 0 4px 14px rgba(16, 185, 129, 0.3);
+        border-color: #10b981;
+        background-color: #ecfdf5;
+      }
+      80%, 100% {
+        box-shadow: none;
+        border-color: rgba(226, 232, 240, 0.9);
+        background-color: #ffffff;
+      }
+    }
+    .animate-filter-btn {
+      animation: saasFilterBtnPulse 5.6s ease-in-out infinite;
+    }
+
+    /* 4. Form input field typing & focus (Manual focus at 29%, Auto replay at 78%) */
+    @keyframes saasInputPulse {
+      0%, 27% {
+        border-color: rgba(226, 232, 240, 0.9);
+        box-shadow: none;
+      }
+      29%, 40% {
+        border-color: #8b5cf6;
+        box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.4), 0 6px 18px rgba(139, 92, 246, 0.15);
+      }
+      43%, 76% {
+        border-color: rgba(226, 232, 240, 0.9);
+        box-shadow: none;
+      }
+      /* Fast replay auto fill */
+      78%, 84% {
+        border-color: #10b981;
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.6), 0 6px 18px rgba(16, 185, 129, 0.2);
+        background-color: #f0fdf4;
+      }
+      86%, 100% {
+        border-color: rgba(226, 232, 240, 0.9);
+        box-shadow: none;
+      }
+    }
+    .animate-input-field {
+      animation: saasInputPulse 5.6s ease-in-out infinite;
+    }
+
+    /* Typed text reveal */
+    @keyframes saasTypingReveal {
+      0%, 28% {
+        width: 0;
+        opacity: 0;
+      }
+      30% {
+        opacity: 1;
+        width: 4ch;
+      }
+      36%, 53% {
+        opacity: 1;
+        width: 12ch;
+      }
+      54%, 76% {
+        opacity: 0.4;
+        width: 12ch;
+      }
+      78%, 96% {
+        opacity: 1;
+        width: 12ch;
+      }
+      100% {
+        opacity: 0;
+        width: 0;
+      }
+    }
+    .animate-typing-text {
+      display: inline-block;
+      overflow: hidden;
+      white-space: nowrap;
+      vertical-align: bottom;
+      animation: saasTypingReveal 5.6s steps(12, end) infinite;
+    }
+
+    /* 5. Table row & button click highlight (Manual at 46%, Auto at 84%) */
+    @keyframes saasTableActionPulse {
+      0%, 44% {
+        border-color: rgba(241, 245, 249, 0.9);
+        background-color: #ffffff;
+      }
+      46%, 53% {
+        border-color: #6366f1;
+        background-color: #f5f3ff;
+      }
+      55%, 82% {
+        border-color: rgba(241, 245, 249, 0.9);
+        background-color: #ffffff;
+      }
+      /* Fast replay highlight */
+      84%, 93% {
+        border-color: #10b981;
+        background-color: #ecfdf5;
+      }
+      96%, 100% {
+        border-color: rgba(241, 245, 249, 0.9);
+        background-color: #ffffff;
+      }
+    }
+    .animate-table-row-highlight {
+      animation: saasTableActionPulse 5.6s ease-in-out infinite;
+    }
+
+    @keyframes saasExportBtnPulse {
+      0%, 44% {
+        background-color: #4f46e5;
+        box-shadow: none;
+      }
+      46%, 52% {
+        background-color: #4338ca;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.5), 0 4px 12px rgba(99, 102, 241, 0.35);
+      }
+      54%, 82% {
+        background-color: #4f46e5;
+        box-shadow: none;
+      }
+      84%, 92% {
+        background-color: #10b981;
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.5), 0 4px 14px rgba(16, 185, 129, 0.4);
+      }
+      95%, 100% {
+        background-color: #4f46e5;
+        box-shadow: none;
+      }
+    }
+    .animate-export-btn {
+      animation: saasExportBtnPulse 5.6s ease-in-out infinite;
+    }
+
+    /* 6. Saved Checkmark Fade In with Soft Green Glow (at 54% - 68%) */
+    @keyframes saasSavedCheckmarkModal {
+      0%, 52% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.92);
+        pointer-events: none;
+      }
+      55%, 66% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+        pointer-events: auto;
+      }
+      69% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(1.04);
+        pointer-events: none;
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.92);
+        pointer-events: none;
+      }
+    }
+    .animate-saved-checkmark {
+      animation: saasSavedCheckmarkModal 5.6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    }
+
+    /* 7. Live Loop Phase Badge Switcher */
+    @keyframes saasPhaseHuman {
+      0%, 52% { opacity: 1; transform: translateY(0); }
+      54%, 100% { opacity: 0; transform: translateY(-8px); }
+    }
+    @keyframes saasPhaseSaved {
+      0%, 53% { opacity: 0; transform: translateY(8px); }
+      55%, 67% { opacity: 1; transform: translateY(0); }
+      69%, 100% { opacity: 0; transform: translateY(-8px); }
+    }
+    @keyframes saasPhaseAuto {
+      0%, 68% { opacity: 0; transform: translateY(8px); }
+      70%, 97% { opacity: 1; transform: translateY(0); }
+      99%, 100% { opacity: 0; transform: translateY(8px); }
+    }
+    .animate-phase-human { animation: saasPhaseHuman 5.6s ease-in-out infinite; }
+    .animate-phase-saved { animation: saasPhaseSaved 5.6s ease-in-out infinite; }
+    .animate-phase-auto  { animation: saasPhaseAuto 5.6s ease-in-out infinite; }
+
+    /* Synchronized 4-Step Cards Highlights */
+    @keyframes stepCard1Sync {
+      0%, 25% {
+        border-color: rgba(99, 102, 241, 0.85);
+        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25), 0 14px 30px -4px rgba(99, 102, 241, 0.18);
+        transform: translateY(-3px);
+      }
+      28%, 100% {
+        border-color: rgba(226, 232, 240, 0.8);
+        box-shadow: none;
+        transform: translateY(0);
+      }
+    }
+    @keyframes stepCard2Sync {
+      0%, 26% {
+        border-color: rgba(226, 232, 240, 0.8);
+        box-shadow: none;
+        transform: translateY(0);
+      }
+      28%, 53% {
+        border-color: rgba(139, 92, 246, 0.85);
+        box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.25), 0 14px 30px -4px rgba(139, 92, 246, 0.18);
+        transform: translateY(-3px);
+      }
+      56%, 100% {
+        border-color: rgba(226, 232, 240, 0.8);
+        box-shadow: none;
+        transform: translateY(0);
+      }
+    }
+    @keyframes stepCard3Sync {
+      0%, 53% {
+        border-color: rgba(226, 232, 240, 0.8);
+        box-shadow: none;
+        transform: translateY(0);
+      }
+      55%, 68% {
+        border-color: rgba(16, 185, 129, 0.85);
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3), 0 14px 30px -4px rgba(16, 185, 129, 0.2);
+        transform: translateY(-3px);
+      }
+      71%, 100% {
+        border-color: rgba(226, 232, 240, 0.8);
+        box-shadow: none;
+        transform: translateY(0);
+      }
+    }
+    @keyframes stepCard4Sync {
+      0%, 68% {
+        border-color: rgba(226, 232, 240, 0.8);
+        box-shadow: none;
+        transform: translateY(0);
+      }
+      70%, 98% {
+        border-color: rgba(16, 185, 129, 0.95);
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.35), 0 16px 36px -4px rgba(16, 185, 129, 0.25);
+        transform: translateY(-3px);
+      }
+      100% {
+        border-color: rgba(226, 232, 240, 0.8);
+        box-shadow: none;
+        transform: translateY(0);
+      }
+    }
+    .sync-step-1 { animation: stepCard1Sync 5.6s ease-in-out infinite; }
+    .sync-step-2 { animation: stepCard2Sync 5.6s ease-in-out infinite; }
+    .sync-step-3 { animation: stepCard3Sync 5.6s ease-in-out infinite; }
+    .sync-step-4 { animation: stepCard4Sync 5.6s ease-in-out infinite; }
+
+    /* Shimmer, Glow & Micro-interactions */
+    @keyframes countFillShimmer {
+      0% { width: 14%; opacity: 0.8; }
+      50% { width: 94%; opacity: 1; }
+      100% { width: 14%; opacity: 0.8; }
+    }
+    .animate-count-bar-smooth {
+      animation: countFillShimmer 5.6s ease-in-out infinite;
+    }
+
+    @keyframes livePillBreathe {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+      50% { transform: scale(1.03); box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15); }
+    }
+    .animate-live-pill {
+      animation: livePillBreathe 2.8s ease-in-out infinite;
+    }
+
+    /* Wave bar equalizer */
+    @keyframes waveBar1 { 0%, 100% { height: 35%; } 50% { height: 85%; } }
+    @keyframes waveBar2 { 0%, 100% { height: 70%; } 50% { height: 30%; } }
+    @keyframes waveBar3 { 0%, 100% { height: 45%; } 50% { height: 95%; } }
+    @keyframes waveBar4 { 0%, 100% { height: 90%; } 50% { height: 40%; } }
+    @keyframes waveBar5 { 0%, 100% { height: 60%; } 50% { height: 100%; } }
+    .wave-bar-1 { animation: waveBar1 2.2s ease-in-out infinite; }
+    .wave-bar-2 { animation: waveBar2 2.6s ease-in-out infinite 0.2s; }
+    .wave-bar-3 { animation: waveBar3 2.1s ease-in-out infinite 0.4s; }
+    .wave-bar-4 { animation: waveBar4 2.8s ease-in-out infinite 0.1s; }
+    .wave-bar-5 { animation: waveBar5 2.4s ease-in-out infinite 0.3s; }
+
+    /* Bezier trail glide */
+    @keyframes bezierDotGlide {
+      0% { offset-distance: 0%; opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { offset-distance: 100%; opacity: 0; }
+    }
+    .animate-bezier-dot {
+      offset-path: path('M 10 35 C 40 10, 80 50, 140 20');
+      animation: bezierDotGlide 3.2s ease-in-out infinite;
+    }
+
+    /* Energy pulse along node line */
+    @keyframes nodeEnergyPulse {
+      0% { transform: translateX(0); opacity: 0; }
+      20% { opacity: 1; }
+      80% { opacity: 1; }
+      100% { transform: translateX(95px); opacity: 0; }
+    }
+    .animate-node-pulse {
+      animation: nodeEnergyPulse 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    }
+
+    /* Radar scan for iframes */
+    @keyframes radarSweep {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .animate-radar {
+      animation: radarSweep 4s linear infinite;
+    }
+  </style>
+</head>
+<body class="text-slate-800 antialiased font-sans selection:bg-indigo-100 selection:text-indigo-800">
+
+  <!-- Top Notification Bar -->
+  <div class="bg-gradient-to-r from-indigo-950 via-indigo-900 to-purple-950 text-white text-xs py-2 px-4 text-center font-medium flex items-center justify-center gap-2">
+    <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+    <span>Connected to Local Automation Engine &middot; Deterministic Browser Mode</span>
+  </div>
+
+  <!-- Main Header -->
+  <header class="w-full max-w-7xl mx-auto px-6 lg:px-12 pt-4 pb-3 flex items-center justify-between relative z-20">
+    <!-- Brand Logo -->
+    <a aria-label="FlowMind Home" class="flex items-center gap-2.5 group focus:outline-none" href="#">
+      <div class="relative w-9 h-9 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-500 flex items-center justify-center shadow-md shadow-indigo-500/20 transition-transform duration-300 group-hover:scale-105">
+        <div class="w-4 h-4 rounded-full bg-white opacity-90 blur-[0.4px]"></div>
+      </div>
+      <div class="flex flex-col">
+        <span class="text-xl font-extrabold tracking-tight text-slate-900 leading-none">FlowMind</span>
+        <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-500">AI Automation</span>
+      </div>
+    </a>
+
+    <!-- Navigation Links -->
+    <nav aria-label="Main Navigation" class="hidden md:flex items-center gap-8">
+      <a class="text-sm font-semibold text-indigo-600 relative py-1 after:content-[''] after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:w-5 after:h-0.5 after:bg-indigo-600 after:rounded-full" href="#">Home</a>
+      <a class="text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors" href="#how-it-works">How It Works</a>
+      <a class="text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors" href="#analytics">Live Stats</a>
+      <a class="text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors" href="#features">Features</a>
+    </nav>
+
+    <!-- Header Actions -->
+    <div class="flex items-center gap-3">
+      <a href="/app" class="px-5 py-2 text-xs sm:text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-brand-500 hover:from-indigo-700 hover:to-indigo-600 transition-all rounded-full shadow-glow flex items-center gap-1.5 hover:shadow-indigo-500/35">
+        <span>Get Started</span>
+        <svg class="w-3.5 h-3.5 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+      </a>
+    </div>
+  </header>
+
+  <!-- BEGIN: Hero Section with Expanded High-Visibility Video & Robotic Mascot -->
+  <main class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 pt-3 pb-8">
+    <div class="relative w-full rounded-[2.5rem] overflow-hidden min-h-[660px] lg:min-h-[740px] flex items-center shadow-2xl border border-white/60 bg-slate-950">
+      
+      <!-- Expanded High-Visibility Background Video (Optimized preload to prevent browser freeze) -->
+      <video 
+        id="heroLandingVideo"
+        autoplay 
+        muted 
+        loop 
+        playsinline 
+        preload="metadata"
+        class="absolute inset-0 w-full h-full object-cover opacity-90 filter brightness-105 contrast-105 pointer-events-none transition-opacity duration-500">
+        <source src="/videos/landing-demo.mp4" type="video/mp4" />
+        <source src="/video/landing-demo.mp4" type="video/mp4" />
+      </video>
+
+      <!-- Precision Left Scrim Gradient: Keeps text perfectly legible while leaving video bright & visible -->
+      <div class="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-950/65 to-transparent z-10 pointer-events-none"></div>
+      <div class="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-slate-950/85 via-slate-950/30 to-transparent z-10 pointer-events-none"></div>
+
+      <!-- Live Video Floating Controls Pill -->
+      <div class="absolute top-6 right-6 z-30 flex items-center gap-2">
+        <button id="btnToggleSound" onclick="toggleHeroSound()" class="px-3.5 py-1.5 rounded-full bg-slate-900/85 hover:bg-slate-800 text-white text-xs font-semibold border border-white/20 backdrop-blur-md flex items-center gap-1.5 shadow-lg transition-transform hover:scale-105 cursor-pointer">
+          <span id="soundIcon">🔇</span> <span id="soundText">Sound</span>
+        </button>
+      </div>
+
+      <!-- Hero Content On Top of Video -->
+      <div class="relative z-20 w-full p-8 sm:p-12 lg:p-16 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center text-white">
+        
+        <!-- Left Column: Copy & Direct CTAs -->
+        <div class="lg:col-span-6 flex flex-col items-start">
+          <!-- AI Badge Pill -->
+          <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-semibold tracking-wide mb-5 backdrop-blur-md">
+            <svg class="w-3.5 h-3.5 text-indigo-400" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2l2.4 6.9 6.9 2.4-6.9 2.4L12 20.6l-2.4-6.9-6.9-2.4 6.9-2.4z"></path>
+            </svg>
+            <span>Autonomous AI Browser Agent &middot; Live Video Stream</span>
+          </div>
+
+          <!-- Main Headline -->
+          <h1 class="text-4xl sm:text-5xl lg:text-[3.8rem] font-extrabold tracking-tight text-white leading-[1.1] mb-5">
+            Show it once.<br />
+            <span class="text-gradient-purple-blue">It knows next time.</span>
+          </h1>
+
+          <!-- Subheading -->
+          <p class="text-base sm:text-lg text-slate-300 max-w-lg leading-relaxed mb-7 font-normal">
+            Teach your AI how you work. FlowMind observes your clicks, learns your workflows, and repeats them automatically with zero code.
+          </p>
+
+          <!-- CTA Action Group -->
+          <div class="flex flex-wrap items-center gap-3.5 mb-7">
+            <a class="px-7 py-3.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold text-sm transition-all shadow-glow flex items-center gap-2 hover:scale-105" href="/app">
+              <span>Start Teaching</span>
+              <svg class="w-4 h-4 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+            </a>
+          </div>
+
+          <!-- Mini Feature Highlights Pill List -->
+          <div class="flex flex-wrap items-center gap-4 text-xs font-semibold text-slate-300">
+            <div class="flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+              <span>Nested Iframe Support</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+              <span>Zero-Code Setup</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+              <span>Self-Healing Bots</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Stitch 3D Robot Mascot & Glass Floating Stepper Card -->
+        <div class="lg:col-span-6 relative flex items-center justify-center min-h-[420px]">
+          <!-- Ambient Radial Glow Behind Mascot -->
+          <div class="absolute w-[440px] h-[440px] robot-ambient-glow rounded-full -top-4 pointer-events-none"></div>
+          <!-- Thin orbital decorative ring -->
+          <div class="absolute w-[500px] h-[220px] rounded-[100%] border border-indigo-400/25 rotate-[-12deg] pointer-events-none"></div>
+
+          <!-- 3D Friendly Robot Illustration (SVG Graphic) -->
+          <div class="relative z-10 w-72 h-84 sm:w-84 sm:h-96 flex items-center justify-center -translate-x-6 sm:-translate-x-10 drop-shadow-2xl animate-gentle-float">
+            <svg class="w-full h-full" fill="none" viewBox="0 0 320 360" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient gradientUnits="userSpaceOnUse" id="bodyGrad" x1="60" x2="260" y1="40" y2="340">
+                  <stop offset="0%" stop-color="#ffffff"></stop>
+                  <stop offset="65%" stop-color="#edf2fe"></stop>
+                  <stop offset="100%" stop-color="#d9e3f8"></stop>
+                </linearGradient>
+                <linearGradient gradientUnits="userSpaceOnUse" id="visorGrad" x1="100" x2="220" y1="90" y2="180">
+                  <stop offset="0%" stop-color="#0a1226"></stop>
+                  <stop offset="100%" stop-color="#1e293b"></stop>
+                </linearGradient>
+                <linearGradient id="glowEar" x1="0" x2="1" y1="0" y2="1">
+                  <stop offset="0%" stop-color="#60a5fa"></stop>
+                  <stop offset="100%" stop-color="#2563eb"></stop>
+                </linearGradient>
+                <linearGradient id="neonLight" x1="0" x2="1" y1="0" y2="1">
+                  <stop offset="0%" stop-color="#38bdf8"></stop>
+                  <stop offset="100%" stop-color="#6366f1"></stop>
+                </linearGradient>
+                <filter height="140%" id="softGlow" width="140%" x="-20%" y="-20%">
+                  <feGaussianBlur result="blur" stdDeviation="3"></feGaussianBlur>
+                  <feComposite in="SourceGraphic" in2="blur" operator="over"></feComposite>
+                </filter>
+              </defs>
+              <!-- Shadow underneath hovering mascot -->
+              <ellipse cx="160" cy="335" fill="#818cf8" filter="blur(8px)" opacity="0.45" rx="55" ry="10"></ellipse>
+              <!-- Right Ear Pod -->
+              <rect fill="url(#bodyGrad)" height="38" rx="8" stroke="#c7d2fe" stroke-width="1.5" width="20" x="238" y="112"></rect>
+              <circle cx="248" cy="131" fill="url(#glowEar)" r="5"></circle>
+              <!-- Left Ear Pod -->
+              <rect fill="url(#bodyGrad)" height="38" rx="8" stroke="#c7d2fe" stroke-width="1.5" width="20" x="62" y="112"></rect>
+              <circle cx="72" cy="131" fill="url(#glowEar)" r="5"></circle>
+              <!-- Head Capsule -->
+              <rect fill="url(#bodyGrad)" filter="drop-shadow(0 14px 28px rgba(148, 163, 184, 0.25))" height="142" rx="71" stroke="#ffffff" stroke-width="2.5" width="172" x="74" y="60"></rect>
+              <!-- Sleek Glass Visor -->
+              <rect fill="url(#visorGrad)" height="88" rx="44" width="136" x="92" y="86"></rect>
+              <!-- Friendly Curved Glowing Eyes -->
+              <path d="M112 128 C116 118 132 118 136 128" fill="none" filter="url(#softGlow)" stroke="#38bdf8" stroke-linecap="round" stroke-width="5"></path>
+              <path d="M184 128 C188 118 204 118 208 128" fill="none" filter="url(#softGlow)" stroke="#38bdf8" stroke-linecap="round" stroke-width="5"></path>
+              <!-- Robot Body -->
+              <path d="M116 200 C116 200 102 216 102 260 C102 295 125 305 160 305 C195 305 218 295 218 260 C218 216 204 200 204 200 Z" fill="url(#bodyGrad)" stroke="#ffffff" stroke-width="2"></path>
+              <!-- Chest Core Light Indicator -->
+              <circle cx="160" cy="245" fill="#ffffff" r="13" stroke="#c7d2fe" stroke-width="2"></circle>
+              <circle cx="160" cy="245" fill="url(#neonLight)" filter="url(#softGlow)" r="9"></circle>
+              <!-- Left Arm floating -->
+              <path d="M102 225 C92 235 84 250 86 264 C87 272 94 274 98 268 C104 260 108 244 112 234" fill="url(#bodyGrad)" stroke="#ffffff" stroke-width="2"></path>
+              <!-- Right Arm raised/waving -->
+              <path d="M216 220 C228 215 238 205 244 195 C247 189 252 192 250 199 C246 211 234 235 220 238" fill="url(#bodyGrad)" stroke="#ffffff" stroke-width="2"></path>
+            </svg>
+          </div>
+
+          <!-- Floating Vertical Stepper Glass Card -->
+          <div class="absolute right-0 sm:right-2 lg:-right-4 top-1/2 -translate-y-1/2 w-48 sm:w-56 p-5 rounded-2xl bg-slate-900/85 backdrop-blur-xl border border-white/20 shadow-2xl z-20 hover:scale-105 transition-transform duration-300">
+            <div class="relative flex flex-col space-y-4">
+              <!-- Connecting Vertical Guide Line -->
+              <div class="absolute left-4 top-4 bottom-4 w-px bg-indigo-500/30 -z-0"></div>
+              
+              <!-- Step 1: Teach -->
+              <div class="flex items-center gap-3 relative z-10 group">
+                <div class="w-8 h-8 rounded-full bg-indigo-500/20 border border-indigo-400/40 flex items-center justify-center text-indigo-400 shadow-sm shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                  <svg class="w-4 h-4 fill-current rotate-[-45deg] -translate-y-0.5" viewBox="0 0 24 24"><polygon points="3 3 10.5 21 13.5 13.5 21 10.5 3 3"></polygon></svg>
+                </div>
+                <span class="text-xs sm:text-sm font-bold text-white">Teach</span>
+              </div>
+
+              <!-- Step 2: Learn -->
+              <div class="flex items-center gap-3 relative z-10 group">
+                <div class="w-8 h-8 rounded-full bg-purple-500/20 border border-purple-400/40 flex items-center justify-center text-purple-400 shadow-sm shrink-0 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+                  <svg class="w-4 h-4 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4.5v15m7.5-7.5h-15M8 9a4 4 0 018 0M7 15a4 4 0 0010 0" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                </div>
+                <span class="text-xs sm:text-sm font-bold text-white">Learn</span>
+              </div>
+
+              <!-- Step 3: Remember -->
+              <div class="flex items-center gap-3 relative z-10 group">
+                <div class="w-8 h-8 rounded-full bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-blue-400 shadow-sm shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                  <svg class="w-4 h-4 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+                </div>
+                <span class="text-xs sm:text-sm font-bold text-white">Remember</span>
+              </div>
+
+              <!-- Step 4: Run -->
+              <div class="flex items-center gap-3 relative z-10 group">
+                <div class="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 shadow-sm shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                  <svg class="w-4 h-4 translate-x-0.5 fill-current" viewBox="0 0 24 24"><polygon points="6 4 19 12 6 20 6 4"></polygon></svg>
+                </div>
+                <span class="text-xs sm:text-sm font-bold text-white">Run</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+  <!-- END: Hero Section -->
+
+  <!-- BEGIN: Interactive AI Workflow Simulator Showcase ("You show. It learns. It does.") -->
+  <section class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 py-8" id="how-it-works">
+    <div class="w-full rounded-[2.5rem] bg-gradient-to-b from-white/95 via-[#faf9ff] to-white/90 backdrop-blur-xl border border-white/95 p-6 sm:p-10 shadow-soft-card relative overflow-hidden">
+      
+      <!-- Subtle Ambient Shimmer Background (Soft Lavender to White) -->
+      <div class="absolute -right-20 -top-20 w-96 h-96 bg-indigo-100/40 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="absolute -left-20 -bottom-20 w-96 h-96 bg-purple-100/35 rounded-full blur-3xl pointer-events-none"></div>
+
+      <!-- Section Title & Subtitle -->
+      <div class="text-center max-w-2xl mx-auto mb-8 relative z-10">
+        <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-600 text-[11px] font-bold tracking-wider uppercase mb-2.5 shadow-sm">
+          <span class="w-2 h-2 rounded-full bg-indigo-500 animate-ping"></span>
+          HOW IT WORKS
+        </div>
+        <h2 class="text-3xl sm:text-4xl lg:text-[2.6rem] font-extrabold text-slate-900 tracking-tight leading-tight">
+          You show. It learns. It does.
+        </h2>
+        <p class="text-xs sm:text-sm text-slate-500 mt-2.5 max-w-xl mx-auto leading-relaxed">
+          A clean, modern SaaS workflow demo. Watch FlowMind map UI geometry, record manual actions, and instantly switch to 24x autonomous replay.
+        </p>
+      </div>
+
+      <!-- 4-Step Interactive Flow Cards (Synchronized with the 5.6s Animation Loop) -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 relative z-10">
+        
+        <!-- Step 1 Card: Show it -->
+        <div class="sync-step-1 group relative bg-white/95 rounded-2xl p-5 border border-slate-200/80 shadow-sm transition-all duration-300 overflow-hidden" data-step="1">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-[10px] font-extrabold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">STEP 01</span>
+            <span class="text-[10px] text-indigo-500 font-mono font-semibold">0.0s – 1.8s</span>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-indigo-50 to-indigo-100/80 border border-indigo-200/60 flex items-center justify-center text-indigo-600 mb-3 shadow-inner group-hover:scale-110 transition-transform">
+            <svg class="w-5 h-5 rotate-[-45deg] -translate-y-0.5 fill-indigo-600" viewBox="0 0 24 24"><polygon points="3 3 10.5 21 13.5 13.5 21 10.5 3 3"></polygon></svg>
+          </div>
+          <h3 class="text-sm font-bold text-slate-900 mb-1 flex items-center justify-between">
+            <span>Show it</span>
+            <span class="text-indigo-500 text-[11px] font-semibold">● Recording</span>
+          </h3>
+          <p class="text-xs text-slate-500 leading-relaxed">Perform the workflow once in Chrome as you normally do.</p>
+          <div class="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
+            <div class="bg-indigo-500 h-full w-full rounded-full"></div>
+          </div>
+        </div>
+
+        <!-- Step 2 Card: Learn -->
+        <div class="sync-step-2 group relative bg-white/95 rounded-2xl p-5 border border-slate-200/80 shadow-sm transition-all duration-300 overflow-hidden" data-step="2">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-[10px] font-extrabold text-purple-600 bg-purple-50 border border-purple-100 px-2 py-0.5 rounded-full">STEP 02</span>
+            <span class="text-[10px] text-purple-500 font-mono font-semibold">1.8s – 3.0s</span>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-purple-50 to-purple-100/80 border border-purple-200/60 flex items-center justify-center text-purple-600 mb-3 shadow-inner group-hover:scale-110 transition-transform">
+            <svg class="w-5 h-5 stroke-[2] text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" stroke-linecap="round" stroke-linejoin="round"></path><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+          </div>
+          <h3 class="text-sm font-bold text-slate-900 mb-1 flex items-center justify-between">
+            <span>Learn</span>
+            <span class="text-purple-500 text-[11px] font-semibold">● Mapping</span>
+          </h3>
+          <p class="text-xs text-slate-500 leading-relaxed">AI maps selectors, detects iframes, and understands clicks.</p>
+          <div class="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
+            <div class="bg-purple-500 h-full w-full rounded-full"></div>
+          </div>
+        </div>
+
+        <!-- Step 3 Card: Remember -->
+        <div class="sync-step-3 group relative bg-white/95 rounded-2xl p-5 border border-slate-200/80 shadow-sm transition-all duration-300 overflow-hidden" data-step="3">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-[10px] font-extrabold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">STEP 03</span>
+            <span class="text-[10px] text-emerald-600 font-mono font-semibold">3.0s – 3.8s</span>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-emerald-50 to-emerald-100/80 border border-emerald-200/60 flex items-center justify-center text-emerald-600 mb-3 shadow-inner group-hover:scale-110 transition-transform">
+            <svg class="w-5 h-5 stroke-[2] text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+          </div>
+          <h3 class="text-sm font-bold text-slate-900 mb-1 flex items-center justify-between">
+            <span>Remember</span>
+            <span class="text-emerald-500 text-[11px] font-semibold">● Saved ✓</span>
+          </h3>
+          <p class="text-xs text-slate-500 leading-relaxed">Saves as a self-healing bot resilient to web changes.</p>
+          <div class="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
+            <div class="bg-emerald-500 h-full w-full rounded-full"></div>
+          </div>
+        </div>
+
+        <!-- Step 4 Card: Run -->
+        <div class="sync-step-4 group relative bg-white/95 rounded-2xl p-5 border border-slate-200/80 shadow-sm transition-all duration-300 overflow-hidden" data-step="4">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-[10px] font-extrabold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">STEP 04</span>
+            <span class="text-[10px] text-emerald-600 font-mono font-semibold">3.8s – 5.6s</span>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-emerald-50 to-emerald-100/80 border border-emerald-200/60 flex items-center justify-center text-emerald-600 mb-3 shadow-inner group-hover:scale-110 transition-transform">
+            <svg class="w-5 h-5 translate-x-0.5 fill-emerald-600" viewBox="0 0 24 24"><polygon points="6 4 19 12 6 20 6 4"></polygon></svg>
+          </div>
+          <h3 class="text-sm font-bold text-slate-900 mb-1 flex items-center justify-between">
+            <span>Run</span>
+            <span class="text-emerald-500 text-[11px] font-semibold">● 24x Auto</span>
+          </h3>
+          <p class="text-xs text-slate-500 leading-relaxed">Next time, FlowMind executes everything automatically.</p>
+          <div class="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
+            <div class="bg-gradient-to-r from-emerald-500 to-indigo-500 h-full w-full rounded-full"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Centerpiece: Clean Modern SaaS Product Demo Animation Window (Light Lavender to White UI Aesthetic) -->
+      <div class="w-full rounded-3xl bg-white border border-slate-200/90 shadow-2xl overflow-hidden relative">
+        
+        <!-- Browser Window Minimal Header Bar -->
+        <div class="bg-slate-50/90 px-4 sm:px-6 py-3.5 flex items-center justify-between border-b border-slate-200/80 backdrop-blur-md">
+          <!-- Window Controls (macOS Flat Rounded Aesthetic) -->
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-rose-400 inline-block shadow-sm"></span>
+            <span class="w-3 h-3 rounded-full bg-amber-400 inline-block shadow-sm"></span>
+            <span class="w-3 h-3 rounded-full bg-emerald-400 inline-block shadow-sm"></span>
+          </div>
+
+          <!-- Browser Address Bar Pill -->
+          <div class="bg-white text-slate-500 text-xs px-4 py-1.5 rounded-full font-mono flex items-center gap-2 max-w-md w-full justify-center border border-slate-200 shadow-sm">
+            <svg class="w-3 h-3 text-emerald-500 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+            <span class="truncate text-slate-700 font-medium">https://app.flowmind.ai/workspace/invoices</span>
+          </div>
+
+          <!-- Live Dynamic Phase Indicator Switcher -->
+          <div class="relative flex items-center justify-end min-w-[170px] h-6 overflow-hidden">
+            <!-- Phase 1: Human Teaching -->
+            <div class="animate-phase-human absolute right-0 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-600 text-[10px] font-bold">
+              <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping"></span>
+              <span>1. Human Teaching</span>
+            </div>
+            <!-- Phase Saved Confirmation -->
+            <div class="animate-phase-saved absolute right-0 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-700 text-[10px] font-bold shadow-sm">
+              <span class="text-emerald-600">✓</span>
+              <span>Workflow Saved</span>
+            </div>
+            <!-- Phase 2: Full Automation Replay -->
+            <div class="animate-phase-auto absolute right-0 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-50 border border-purple-200 text-purple-700 text-[10px] font-bold shadow-sm">
+              <span class="text-emerald-500">⚡</span>
+              <span>2. 24x Auto Replay</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Simulated SaaS Dashboard Interface Surface (Soft Lavender to White Minimalist UI) -->
+        <div class="relative bg-gradient-to-br from-indigo-50/40 via-[#faf9ff] to-white p-6 sm:p-8 min-h-[340px] sm:min-h-[380px] overflow-hidden select-none">
+          
+          <!-- Subtle Glowing Purple-Blue Scan Lines (Sweeping across screen as AI maps interface) -->
+          <div class="absolute inset-x-0 h-16 bg-gradient-to-b from-indigo-500/0 via-indigo-500/15 to-purple-500/25 pointer-events-none animate-saas-scanline blur-[2px]"></div>
+          <div class="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-indigo-500 to-transparent pointer-events-none animate-saas-scanline shadow-[0_0_16px_rgba(99,102,241,0.9)]"></div>
+
+          <!-- Top Interactive Dashboard Action Bar -->
+          <div class="flex flex-wrap items-center justify-between gap-4 pb-5 mb-5 border-b border-indigo-100/70 relative z-10">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-indigo-500/20">
+                FM
+              </div>
+              <div>
+                <h4 class="text-sm font-extrabold text-slate-900 tracking-tight">Financial Batches &amp; Invoice Export</h4>
+                <p class="text-[11px] text-slate-500 font-medium">Auto-detecting nested table iframes &amp; download modals</p>
+              </div>
+            </div>
+
+            <!-- Action Controls Group -->
+            <div class="flex items-center gap-2.5">
+              <!-- Filter Button (Highlights on manual click & auto replay) -->
+              <button class="animate-filter-btn px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 shadow-sm flex items-center gap-1.5 transition-all">
+                <svg class="w-3.5 h-3.5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+                <span>Filter by Date</span>
+              </button>
+
+              <!-- Form Input Field (Types text in manual phase & auto fills in replay) -->
+              <div class="animate-input-field relative px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-mono text-slate-700 shadow-sm flex items-center gap-1.5 transition-all min-w-[170px]">
+                <span class="text-indigo-400 font-bold">$</span>
+                <span class="text-slate-400">ID:</span>
+                <span class="animate-typing-text text-indigo-600 font-semibold font-mono">INV-2026-Q3</span>
+                <span class="w-1.5 h-3 bg-indigo-500 animate-pulse inline-block -ml-0.5"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Minimalist SaaS Data Table Layout -->
+          <div class="rounded-2xl border border-slate-200/90 bg-white/95 shadow-sm overflow-hidden relative z-10">
+            <!-- Table Header -->
+            <div class="grid grid-cols-12 gap-3 px-5 py-3 bg-slate-50/90 border-b border-slate-200/80 text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+              <div class="col-span-3">INVOICE BATCH</div>
+              <div class="col-span-3">VENDOR / ACCOUNT</div>
+              <div class="col-span-2">AMOUNT</div>
+              <div class="col-span-2">STATUS</div>
+              <div class="col-span-2 text-right">ACTION</div>
+            </div>
+
+            <!-- Table Rows -->
+            <div class="divide-y divide-slate-100 text-xs">
+              
+              <!-- Row 1 -->
+              <div class="grid grid-cols-12 gap-3 px-5 py-3.5 items-center hover:bg-slate-50/60 transition-colors">
+                <div class="col-span-3 font-mono font-semibold text-slate-800">#INV-8491</div>
+                <div class="col-span-3 text-slate-600 font-medium">Stripe Billing Services</div>
+                <div class="col-span-2 font-mono text-slate-700 font-semibold">$1,240.00</div>
+                <div class="col-span-2">
+                  <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold">Processed</span>
+                </div>
+                <div class="col-span-2 text-right">
+                  <button class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold transition-colors">
+                    Export
+                  </button>
+                </div>
+              </div>
+
+              <!-- Row 2: TARGET ELEMENT (Clicks & Lights Up with Soft Outline Pulse) -->
+              <div class="animate-table-row-highlight grid grid-cols-12 gap-3 px-5 py-3.5 items-center transition-all border-l-4 border-transparent">
+                <div class="col-span-3 font-mono font-bold text-indigo-700 flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
+                  <span>#INV-8492</span>
+                </div>
+                <div class="col-span-3 text-slate-800 font-semibold">AWS Enterprise Cloud</div>
+                <div class="col-span-2 font-mono text-indigo-700 font-bold">$4,892.50</div>
+                <div class="col-span-2">
+                  <span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold inline-flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                    <span>Ready</span>
+                  </span>
+                </div>
+                <div class="col-span-2 text-right">
+                  <!-- The Animated Action Button -->
+                  <button class="animate-export-btn px-3 py-1 rounded-lg text-white text-[11px] font-bold transition-all inline-flex items-center gap-1 shadow-sm">
+                    <svg class="w-3 h-3 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    <span>Export PDF</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Row 3 -->
+              <div class="grid grid-cols-12 gap-3 px-5 py-3.5 items-center hover:bg-slate-50/60 transition-colors">
+                <div class="col-span-3 font-mono font-semibold text-slate-800">#INV-8493</div>
+                <div class="col-span-3 text-slate-600 font-medium">Figma Organization</div>
+                <div class="col-span-2 font-mono text-slate-700 font-semibold">$750.00</div>
+                <div class="col-span-2">
+                  <span class="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold">In Queue</span>
+                </div>
+                <div class="col-span-2 text-right">
+                  <button class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold transition-colors">
+                    Export
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- The Checkmark Icon Gently Fading In with a Soft Green Glow (Indicating workflow has been saved) -->
+          <div class="animate-saved-checkmark absolute top-1/2 left-1/2 z-40 px-6 py-5 rounded-2xl bg-white/95 backdrop-blur-xl border border-emerald-300 shadow-[0_20px_50px_rgba(16,185,129,0.3)] flex flex-col items-center justify-center text-center">
+            <!-- Glowing Mint Green Checkmark Badge -->
+            <div class="w-14 h-14 rounded-full bg-gradient-to-tr from-emerald-400 to-teal-400 text-white flex items-center justify-center mb-2.5 shadow-[0_0_24px_rgba(52,211,153,0.7)] animate-bounce">
+              <svg class="w-7 h-7 stroke-[3]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+            </div>
+            <span class="text-sm font-extrabold text-slate-900 tracking-tight">Workflow Mapped &amp; Saved!</span>
+            <span class="text-[11px] font-semibold text-emerald-600 mt-0.5">Self-healing selectors saved in 0.75s</span>
+            <div class="mt-2 text-[10px] font-mono text-slate-400 bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200">
+              bot: invoice_export_v1 &middot; deterministic
+            </div>
+          </div>
+
+          <!-- Animated Simulated Cursor (Smoothly clicks in Phase 1, vanishes in Phase 2 Automation) -->
+          <div class="animate-saas-cursor absolute top-0 left-0 pointer-events-none z-50 transition-transform">
+            <svg class="w-6 h-6 text-slate-900 filter drop-shadow-[0_4px_10px_rgba(0,0,0,0.35)]" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M4 0l16 12.279-6.951 1.17 4.325 8.817-3.596 1.734-4.35-8.879-5.428 5.438z"/>
+            </svg>
+            <!-- Cursor Click Soft Outline Pulse -->
+            <div class="w-5 h-5 -mt-3 -ml-2 rounded-full border-2 border-indigo-500 animate-ping opacity-75"></div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+  <!-- END: Interactive AI Workflow Simulator Showcase -->
+
+  <!-- BEGIN: Live Performance Metrics (Soft Gradient Background & Realtime Animating Counters) -->
+  <section id="analytics" class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 py-6">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+      
+      <!-- Metric Card 1: Execution Speed -->
+      <div class="group relative bg-gradient-to-br from-indigo-50/50 via-white to-purple-50/30 backdrop-blur-md rounded-3xl p-6 sm:p-7 border border-white/90 shadow-soft-card hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs shadow-inner">⚡</div>
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Execution Speed</span>
+          </div>
+          <span class="animate-live-pill text-xs font-extrabold px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-300/80 shadow-sm">24x Faster</span>
+        </div>
+        <div class="flex items-baseline gap-2 mb-1">
+          <h3 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">0.75s</h3>
+          <span class="text-xs font-semibold text-slate-400">per step</span>
+        </div>
+        <p class="text-xs text-slate-500 mb-4 font-normal">Eliminates human delay and lag with seamless browser dispatch.</p>
+        
+        <!-- Live Animated Comparison Bar with Smooth Liquid Shimmer -->
+        <div class="space-y-2 pt-2 border-t border-slate-100">
+          <div>
+            <div class="flex justify-between text-[11px] font-semibold text-slate-500 mb-1">
+              <span>Manual Human Click</span>
+              <span>18.4s</span>
+            </div>
+            <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+              <div class="bg-slate-300 h-2 rounded-full" style="width: 82%;"></div>
+            </div>
+          </div>
+          <div>
+            <div class="flex justify-between text-[11px] font-bold text-indigo-600 mb-1">
+              <span>FlowMind Autonomous Replay</span>
+              <span>0.75s</span>
+            </div>
+            <div class="w-full bg-indigo-50 rounded-full h-2 overflow-hidden border border-indigo-100/80">
+              <div class="bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-400 h-2 rounded-full animate-count-bar-smooth"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Metric Card 2: Reliability Rate -->
+      <div class="group relative bg-gradient-to-br from-indigo-50/50 via-white to-purple-50/30 backdrop-blur-md rounded-3xl p-6 sm:p-7 border border-white/90 shadow-soft-card hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs shadow-inner">🛡️</div>
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Reliability Rate</span>
+          </div>
+          <span class="animate-live-pill text-xs font-extrabold px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-300/80 shadow-sm">Zero Break</span>
+        </div>
+        <div class="flex items-baseline gap-2 mb-1">
+          <h3 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">99.8%</h3>
+          <span class="text-xs font-semibold text-emerald-600">Success</span>
+        </div>
+        <p class="text-xs text-slate-500 mb-4 font-normal">Tested on nested dynamic ERP iframes, late-rendering DOMs &amp; canvases.</p>
+
+        <!-- Dynamic Success Ring Bar -->
+        <div class="pt-2 border-t border-slate-100">
+          <div class="flex items-center justify-between text-[11px] font-semibold text-slate-600 mb-1.5">
+            <span>Selector Self-Healing Resilience</span>
+            <span class="text-emerald-600 font-bold">100% Injected</span>
+          </div>
+          <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+            <div class="bg-gradient-to-r from-indigo-500 to-emerald-400 h-2 rounded-full" style="width: 99.8%;"></div>
+          </div>
+          <div class="flex items-center justify-between text-[10px] text-slate-400 mt-2 font-mono">
+            <span>DevExpress &middot; Canvas &middot; ShadowDOM</span>
+            <span class="text-emerald-600 font-bold">Deterministic</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Metric Card 3: Monthly Task Volume -->
+      <div class="group relative bg-gradient-to-br from-indigo-50/50 via-white to-purple-50/30 backdrop-blur-md rounded-3xl p-6 sm:p-7 border border-white/90 shadow-soft-card hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-xs shadow-inner">📈</div>
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Task Volume</span>
+          </div>
+          <span class="animate-live-pill text-xs font-extrabold px-3 py-1 rounded-full bg-purple-50 text-purple-600 border border-purple-300/80 shadow-sm">1,480 Tasks</span>
+        </div>
+        <div class="flex items-baseline gap-2 mb-1">
+          <h3 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">142.5 hrs</h3>
+          <span class="text-xs font-semibold text-purple-600">Saved/Mo</span>
+        </div>
+        <p class="text-xs text-slate-500 mb-4 font-normal">Invoices, reports &amp; table loops automated with zero maintenance.</p>
+
+        <!-- Live Equalizer Wave Activity Bars -->
+        <div class="pt-2 border-t border-slate-100">
+          <div class="flex items-end justify-between gap-1.5 h-7">
+            <div class="flex-1 bg-indigo-300 rounded-t wave-bar-1 transition-all"></div>
+            <div class="flex-1 bg-indigo-400 rounded-t wave-bar-2 transition-all"></div>
+            <div class="flex-1 bg-indigo-500 rounded-t wave-bar-3 transition-all"></div>
+            <div class="flex-1 bg-purple-500 rounded-t wave-bar-4 transition-all"></div>
+            <div class="flex-1 bg-indigo-600 rounded-t wave-bar-5 transition-all"></div>
+            <div class="flex-1 bg-emerald-400 rounded-t wave-bar-2 transition-all"></div>
+            <div class="flex-1 bg-indigo-400 rounded-t wave-bar-1 transition-all"></div>
+          </div>
+          <div class="flex justify-between text-[9px] text-slate-400 font-mono mt-1">
+            <span>MON</span><span>WED</span><span>FRI</span><span>SUN</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+  <!-- END: Live Performance Metrics -->
+
+  <!-- BEGIN: Core Features Grid ("Everything you need. Nothing broken.") -->
+  <section id="features" class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 py-8">
+    <div class="text-center max-w-2xl mx-auto mb-8">
+      <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-600 text-[11px] font-bold tracking-wider uppercase mb-2.5 shadow-sm">
+        <span>ENGINEERED FOR RELIABILITY</span>
+      </div>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+        Everything you need. Nothing broken.
+      </h2>
+      <p class="text-xs sm:text-sm text-slate-500 mt-2">
+        Engineered specifically to solve the fragile edge-cases that cause standard web macros to fail.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      
+      <!-- Feature 1: Deep Iframe Navigation -->
+      <div class="group relative bg-gradient-to-br from-indigo-50/40 via-white to-purple-50/20 backdrop-blur-md rounded-3xl p-6 border border-slate-100/90 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1.5 overflow-hidden">
+        <div class="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
+          <svg class="w-5 h-5 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h18"/></svg>
+        </div>
+        <h3 class="text-base font-bold text-slate-900 mb-1.5 group-hover:text-indigo-600 transition-colors">Deep Iframe Navigation</h3>
+        <p class="text-xs text-slate-500 leading-relaxed mb-3">Captures and executes clicks inside nested multi-level iframes with zero injection failures.</p>
+        
+        <!-- Live Micro-Graphic: Radar Scan for Iframes -->
+        <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-[10px] font-mono text-slate-600">
+          <div class="flex items-center gap-1.5">
+            <div class="w-3 h-3 rounded-full border border-indigo-400 animate-radar flex items-center justify-center">
+              <div class="w-1 h-1 bg-indigo-600 rounded-full"></div>
+            </div>
+            <span>iframe#nested_0</span>
+          </div>
+          <span class="text-emerald-600 font-bold">100% Injected</span>
+        </div>
+      </div>
+
+      <!-- Feature 2: No Duplicate Downloads -->
+      <div class="group relative bg-gradient-to-br from-indigo-50/40 via-white to-purple-50/20 backdrop-blur-md rounded-3xl p-6 border border-slate-100/90 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1.5 overflow-hidden">
+        <div class="w-11 h-11 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
+          <svg class="w-5 h-5 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        </div>
+        <h3 class="text-base font-bold text-slate-900 mb-1.5 group-hover:text-purple-600 transition-colors">No Duplicate Downloads</h3>
+        <p class="text-xs text-slate-500 leading-relaxed mb-3">Invoices and PDFs are sorted into clean date-stamped folders; duplicate exports are skipped.</p>
+
+        <!-- Live Micro-Graphic: Hash verification -->
+        <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-[10px] font-mono text-slate-600">
+          <span class="truncate max-w-[130px]">invoice_2026.pdf</span>
+          <span class="text-purple-600 font-bold">✓ Hash Matched</span>
+        </div>
+      </div>
+
+      <!-- Feature 3: Self-Healing Selectors -->
+      <div class="group relative bg-gradient-to-br from-indigo-50/40 via-white to-purple-50/20 backdrop-blur-md rounded-3xl p-6 border border-slate-100/90 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1.5 overflow-hidden">
+        <div class="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
+          <svg class="w-5 h-5 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        </div>
+        <h3 class="text-base font-bold text-slate-900 mb-1.5 group-hover:text-blue-600 transition-colors">Self-Healing Selectors</h3>
+        <p class="text-xs text-slate-500 leading-relaxed mb-3">Multi-strategy candidate matching survives web redesigns and dynamic ID changes.</p>
+
+        <!-- Live Micro-Graphic: Fallback recovery -->
+        <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-[10px] font-mono text-slate-600">
+          <span class="text-slate-400 line-through">btn#391</span>
+          <span class="text-emerald-600 font-bold">→ [title="Save"]</span>
+        </div>
+      </div>
+
+      <!-- Feature 4: Stealth Human Curves -->
+      <div class="group relative bg-gradient-to-br from-indigo-50/40 via-white to-purple-50/20 backdrop-blur-md rounded-3xl p-6 border border-slate-100/90 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1.5 overflow-hidden">
+        <div class="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
+          <svg class="w-5 h-5 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"/></svg>
+        </div>
+        <h3 class="text-base font-bold text-slate-900 mb-1.5 group-hover:text-emerald-600 transition-colors">Stealth Human Curves</h3>
+        <p class="text-xs text-slate-500 leading-relaxed mb-3">Smooth Bezier mouse movements and human typing cadence keep your bots undetected.</p>
+
+        <!-- Live Micro-Graphic: Bezier spline visualization -->
+        <div class="relative h-7 rounded-xl bg-slate-50 border border-slate-200/80 overflow-hidden flex items-center px-3">
+          <svg class="w-full h-5" viewBox="0 0 150 40">
+            <path d="M 10 35 C 40 10, 80 50, 140 20" fill="none" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="3 3"/>
+            <circle class="animate-bezier-dot" r="4" fill="#10b981" filter="drop-shadow(0 0 4px #10b981)"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Feature 5: Canvas Click Precision -->
+      <div class="group relative bg-gradient-to-br from-indigo-50/40 via-white to-purple-50/20 backdrop-blur-md rounded-3xl p-6 border border-slate-100/90 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1.5 overflow-hidden">
+        <div class="w-11 h-11 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
+          <svg class="w-5 h-5 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4z"/></svg>
+        </div>
+        <h3 class="text-base font-bold text-slate-900 mb-1.5 group-hover:text-amber-600 transition-colors">Canvas Click Precision</h3>
+        <p class="text-xs text-slate-500 leading-relaxed mb-3">Toolbars on HTML5 Canvas are captured with relative coordinate math (0–1 normalized).</p>
+
+        <!-- Live Micro-Graphic: Normalized relative math coordinates -->
+        <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-[10px] font-mono text-slate-600">
+          <span>reticle: (x: 0.42, y: 0.81)</span>
+          <span class="text-amber-600 font-bold">● Pixel Lock</span>
+        </div>
+      </div>
+
+      <!-- Feature 6: Visual Node Editor -->
+      <div class="group relative bg-gradient-to-br from-indigo-50/40 via-white to-purple-50/20 backdrop-blur-md rounded-3xl p-6 border border-slate-100/90 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1.5 overflow-hidden">
+        <div class="w-11 h-11 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
+          <svg class="w-5 h-5 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/></svg>
+        </div>
+        <h3 class="text-base font-bold text-slate-900 mb-1.5 group-hover:text-teal-600 transition-colors">Visual Node Editor</h3>
+        <p class="text-xs text-slate-500 leading-relaxed mb-3">Inspect, drag, and modify recorded actions in an n8n-style node graph editor.</p>
+
+        <!-- Live Micro-Graphic: Connected flow pulse -->
+        <div class="relative p-2 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-[9px] font-mono text-slate-600 overflow-hidden">
+          <span class="px-1.5 py-0.5 rounded bg-white shadow-xs border border-slate-200">Start</span>
+          <div class="relative flex-1 mx-2 h-0.5 bg-slate-200">
+            <div class="animate-node-pulse absolute top-[-3px] w-2 h-2 rounded-full bg-teal-500 shadow-[0_0_6px_#14b8a6]"></div>
+          </div>
+          <span class="px-1.5 py-0.5 rounded bg-teal-50 text-teal-700 shadow-xs border border-teal-200 font-bold">Export</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+  <!-- END: Core Features Grid -->
+
+  <!-- BEGIN: Bottom CTA Banner (Ready to automate your workflows?) -->
+  <section class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 py-8">
+    <div class="rounded-[2.5rem] bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 text-white p-8 sm:p-12 text-center shadow-2xl relative overflow-hidden">
+      <!-- Ambient Glow Orbs -->
+      <div class="absolute -top-24 -left-24 w-72 h-72 bg-indigo-400/25 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="absolute -bottom-24 -right-24 w-72 h-72 bg-purple-400/25 rounded-full blur-3xl pointer-events-none"></div>
+
+      <div class="relative z-10 max-w-2xl mx-auto">
+        <h2 class="text-2xl sm:text-4xl font-extrabold tracking-tight mb-3">
+          Ready to automate your workflows?
+        </h2>
+        <p class="text-indigo-100 text-xs sm:text-sm mb-7 max-w-lg mx-auto leading-relaxed">
+          Launch the FlowMind dashboard and start teaching your AI bot in seconds.
+        </p>
+        <a href="/app" class="px-8 py-3.5 rounded-full bg-white text-indigo-700 hover:bg-indigo-50 font-bold text-xs sm:text-sm shadow-xl transition-all hover:scale-105 inline-flex items-center gap-2 group">
+          <span>Launch FlowMind Dashboard</span>
+          <svg class="w-4 h-4 stroke-[2.5] transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+        </a>
+
+        <!-- Micro-Trust Badges -->
+        <div class="flex flex-wrap items-center justify-center gap-5 mt-7 text-[11px] font-semibold text-indigo-200">
+          <span class="flex items-center gap-1.5">✓ 100% Local Execution</span>
+          <span class="flex items-center gap-1.5">✓ Zero Browser Extensions Required</span>
+          <span class="flex items-center gap-1.5">✓ Headless Chrome Compatible</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="w-full max-w-7xl mx-auto px-6 lg:px-12 py-6 border-t border-slate-200/70 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-3">
+    <div class="flex items-center gap-2">
+      <div class="w-5 h-5 rounded-full bg-indigo-600 flex items-center justify-center text-white text-[10px] font-bold">F</div>
+      <span class="font-bold text-slate-700">FlowMind AI</span>
+      <span>&copy; 2026. All rights reserved.</span>
+    </div>
+    <div class="flex items-center gap-5">
+      <a href="#how-it-works" class="hover:text-slate-600 transition-colors">How It Works</a>
+      <a href="#analytics" class="hover:text-slate-600 transition-colors">Metrics</a>
+      <a href="#features" class="hover:text-slate-600 transition-colors">Features</a>
+      <a href="/app" class="text-indigo-600 font-semibold hover:underline">Open Dashboard</a>
+    </div>
+  </footer>
+
+  <script>
+    // Ensure ambient hero video autoplays smoothly on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      const heroVideo = document.getElementById('heroLandingVideo');
+      if (heroVideo) {
+        heroVideo.muted = true;
+        const playPromise = heroVideo.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(() => {
+            // Autoplay with muted is allowed by all modern browsers
+            heroVideo.muted = true;
+            heroVideo.play().catch(() => {});
+          });
+        }
+      }
+    });
+
+    function toggleHeroSound() {
+      const v = document.getElementById('heroLandingVideo');
+      const icon = document.getElementById('soundIcon');
+      const text = document.getElementById('soundText');
+      if (v) {
+        v.muted = !v.muted;
+        if (icon && text) {
+          icon.textContent = v.muted ? '🔇' : '🔊';
+          text.textContent = v.muted ? 'Sound' : 'Mute';
+        }
+      }
+    }
+  </script>
+
+</body>
+</html>

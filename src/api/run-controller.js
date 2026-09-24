@@ -109,6 +109,9 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
     loopStepIndex = null;
   }
 
+  const rawFilter = body.rowFilter || (body.filterValue ? { column: body.filterColumn || 'Type', value: body.filterValue } : null);
+  const rowFilter = (rawFilter && (rawFilter.value || rawFilter.text) && rawFilter.value !== '__any__' && rawFilter.value !== 'all') ? rawFilter : null;
+
   const totalSteps = steps.length;
   const runId = `run_${Date.now()}`;
   const runRecord = db.insert('runs', {
@@ -121,6 +124,7 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
     itemsFailed: 0,
     itemsSkipped: 0,
     forceRedownload: !!forceRedownload,
+    rowFilter,
     mode: isLoop ? 'LOOP' : 'STANDARD',
     loopStepIndex: isLoop ? loopStepIndex : null,
     startedAt: new Date().toISOString()
@@ -131,7 +135,8 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
     workflowId: workflow.id,
     workflowName: workflow.name || workflow.id,
     userId,
-    forceRedownload: !!forceRedownload
+    forceRedownload: !!forceRedownload,
+    rowFilter
   });
   activeRunners.set(runId, {
     runner,
@@ -139,6 +144,22 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
     workflowId: workflow.id,
     startedAt: Date.now()
   });
+
+  if (runner.replayEngine && typeof runner.replayEngine.on === 'function') {
+    runner.replayEngine.on('human_intervention', (intervention) => {
+      if (typeof global.__flowmindBroadcast === 'function') {
+        global.__flowmindBroadcast('human_intervention', {
+          workflowId: workflow.id,
+          runId,
+          stepIndex: intervention.stepIndex,
+          action: intervention.action,
+          detail: intervention.detail,
+          timestamp: intervention.timestamp,
+          message: `Human disturbance detected on Step #${intervention.stepIndex}!`
+        });
+      }
+    });
+  }
 
   // Respond immediately with Accepted (202) and run details
   sendJson(res, 202, {

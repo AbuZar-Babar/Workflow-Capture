@@ -69,6 +69,7 @@ function broadcast(type, payload) {
     }
   }
 }
+global.__flowmindBroadcast = broadcast;
 
 // Intercept logger to broadcast to dashboard UI
 const originalInfo = logger.info;
@@ -108,15 +109,28 @@ logger.action = function (index, type, target, detail = '') {
 
 // Global State
 let activeRecorder = null;
+let isStartingRecorder = false;
 let activeReplay = null;
 let isRunningTest = false;
 
 /**
  * Check CDP Status & fetch open tabs
  */
+let cdpStatusCache = { timestamp: 0, data: null };
+
 async function checkCDPStatus(port = 9222) {
+  const now = Date.now();
+  if (cdpStatusCache.data && (now - cdpStatusCache.timestamp) < 3000) {
+    return cdpStatusCache.data;
+  }
+
   return new Promise((resolve) => {
-    const req = http.get(`http://127.0.0.1:${port}/json/version`, { timeout: 1500 }, (res) => {
+    const handleResolve = (val) => {
+      cdpStatusCache = { timestamp: Date.now(), data: val };
+      resolve(val);
+    };
+
+    const req = http.get(`http://127.0.0.1:${port}/json/version`, { timeout: 1200 }, (res) => {
       let data = '';
       res.on('data', chunk => { data += chunk; });
       res.on('end', () => {
@@ -129,7 +143,7 @@ async function checkCDPStatus(port = 9222) {
             resList.on('end', () => {
               try {
                 const tabs = JSON.parse(listData).filter(t => t.type === 'page');
-                resolve({
+                handleResolve({
                   online: true,
                   port,
                   browser: versionInfo.Browser,
@@ -137,25 +151,25 @@ async function checkCDPStatus(port = 9222) {
                   tabs: tabs.map(t => ({ title: t.title, url: t.url, id: t.id }))
                 });
               } catch {
-                resolve({ online: true, port, browser: versionInfo.Browser, tabs: [] });
+                handleResolve({ online: true, port, browser: versionInfo.Browser, tabs: [] });
               }
             });
           }).on('error', () => {
-            resolve({ online: true, port, browser: versionInfo.Browser, tabs: [] });
+            handleResolve({ online: true, port, browser: versionInfo.Browser, tabs: [] });
           });
         } catch {
-          resolve({ online: false, port, error: 'Invalid response from Chrome' });
+          handleResolve({ online: false, port, error: 'Invalid response from Chrome' });
         }
       });
     });
 
     req.on('error', () => {
-      resolve({ online: false, port, error: 'Cannot connect to Chrome on port ' + port });
+      handleResolve({ online: false, port, error: 'Cannot connect to Chrome on port ' + port });
     });
 
     req.on('timeout', () => {
       req.destroy();
-      resolve({ online: false, port, error: 'Connection to Chrome timed out' });
+      handleResolve({ online: false, port, error: 'Connection to Chrome timed out' });
     });
   });
 }
@@ -179,7 +193,11 @@ const MIME_TYPES = {
   '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   '.xls': 'application/vnd.ms-excel',
   '.txt': 'text/plain',
-  '.zip': 'application/zip'
+  '.zip': 'application/zip',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.ogg': 'video/ogg',
+  '.mov': 'video/quicktime'
 };
 
 /**
@@ -554,6 +572,7 @@ const server = http.createServer(async (req, res) => {
         cdp,
         recorder: {
           isRecording: !!(activeRecorder && activeRecorder.isRecording),
+          isStarting: isStartingRecorder,
           name: activeRecorder ? activeRecorder.name : null,
           actionCount: activeRecorder ? activeRecorder.actions.length : 0,
           startedAt: activeRecorder ? activeRecorder.startedAt : null
@@ -714,37 +733,44 @@ const server = http.createServer(async (req, res) => {
     // API: Start Recording
     // -------------------------------------------------------------
     if (pathname === '/api/record/start' && req.method === 'POST') {
-      if (activeRecorder && activeRecorder.isRecording) {
-        return sendJson(res, 400, { error: 'A recording session is already active' });
+      if (isStartingRecorder || (activeRecorder && activeRecorder.isRecording)) {
+        return sendJson(res, 400, { error: 'A recording session is already starting or active' });
       }
 
+      isStartingRecorder = true;
       const body = await parseJsonBody(req);
       const name = body.name || `workflow-${Date.now()}`;
-      const browserURL = body.browserURL || 'http://localhost:9222';
-
-      activeRecorder = new RecorderBridge({ name, browserURL, outputDir: RECORDINGS_DIR });
-
-      // Wrap raw action handler to broadcast to UI
-      const origHandle = activeRecorder._handleCapturedAction.bind(activeRecorder);
-      activeRecorder._handleCapturedAction = (rawAction) => {
-        const added = origHandle(rawAction);
-        if (added && activeRecorder && activeRecorder.actions.length > 0) {
-          const lastAction = activeRecorder.actions[activeRecorder.actions.length - 1];
-          broadcast('action_captured', {
-            action: lastAction,
-            count: activeRecorder.actions.length
-          });
-        }
-      };
+      const rawBrowserURL = body.browserURL || 'http://127.0.0.1:9222';
+      const browserURL = rawBrowserURL.replace('//localhost:', '//127.0.0.1:');
 
       try {
+        activeRecorder = new RecorderBridge({ name, browserURL, outputDir: RECORDINGS_DIR });
+
+        // Wrap raw action handler to broadcast to UI
+        const origHandle = activeRecorder._handleCapturedAction.bind(activeRecorder);
+        activeRecorder._handleCapturedAction = (rawAction) => {
+          const added = origHandle(rawAction);
+          if (added && activeRecorder && activeRecorder.actions.length > 0) {
+            const lastAction = activeRecorder.actions[activeRecorder.actions.length - 1];
+            broadcast('action_captured', {
+              action: lastAction,
+              count: activeRecorder.actions.length
+            });
+          }
+        };
+
         await activeRecorder.start();
         broadcast('recording_state', { isRecording: true, name, startedAt: activeRecorder.startedAt });
         return sendJson(res, 200, { success: true, name, startedAt: activeRecorder.startedAt });
       } catch (err) {
-        activeRecorder = null;
+        if (activeRecorder) {
+          activeRecorder.stop().catch(() => {});
+          activeRecorder = null;
+        }
         logger.error('Failed to start recorder:', err);
         return sendJson(res, 500, { error: err.message });
+      } finally {
+        isStartingRecorder = false;
       }
     }
 
@@ -806,6 +832,18 @@ const server = http.createServer(async (req, res) => {
 
       const replayEngine = new ReplayEngine({ browserURL, speed, timeoutMs, pollIntervalMs, botConfig: activeBotCfg });
       activeReplay = { engine: replayEngine, filename, currentAction: 0, totalActions: recording.actions.length };
+
+      // Disturbance detection: forward human intervention alerts to connected dashboard & floating bot
+      replayEngine.on('human_intervention', (intervention) => {
+        broadcast('human_intervention', {
+          workflowId: filename,
+          stepIndex: intervention.stepIndex,
+          action: intervention.action,
+          detail: intervention.detail,
+          timestamp: intervention.timestamp,
+          message: `Human disturbance detected on Step #${intervention.stepIndex}!`
+        });
+      });
 
       broadcast('replay_state', { isReplaying: true, filename, total: recording.actions.length });
 
@@ -888,6 +926,25 @@ const server = http.createServer(async (req, res) => {
     }
 
     // -------------------------------------------------------------
+    // API: Trigger/Simulate Human Disturbance Event for Floating Bot UI
+    // -------------------------------------------------------------
+    if (pathname === '/api/test/human-disturbance' && req.method === 'POST') {
+      const body = await parseJsonBody(req).catch(() => ({}));
+      const stepIndex = parseInt(body.stepIndex, 10) || (activeReplay ? activeReplay.currentAction || 2 : 2);
+      const payload = {
+        workflowId: activeReplay?.filename || body.workflowId || 'demo-workflow.json',
+        stepIndex,
+        action: { type: body.actionType || 'CLICK', target: { selector: '#submit-btn' } },
+        detail: { type: body.eventType || 'mousedown', key: body.key || null, text: body.text || 'User physical mouse click' },
+        timestamp: Date.now(),
+        message: `Human disturbance detected on Step #${stepIndex}!`
+      };
+      logger.warn(`[Simulation] Human disturbance alert triggered on Step #${stepIndex}`);
+      broadcast('human_intervention', payload);
+      return sendJson(res, 200, { success: true, payload });
+    }
+
+    // -------------------------------------------------------------
     // API: Run Tests (Unit or E2E)
     // -------------------------------------------------------------
     if (pathname === '/api/test/run' && req.method === 'POST') {
@@ -946,18 +1003,45 @@ const server = http.createServer(async (req, res) => {
     } else if (pathname.startsWith('/test/')) {
       const testFile = pathname.replace('/test/', '');
       filePath = path.join(process.cwd(), 'test', testFile);
+    } else if (pathname === '/' || pathname === '/landing' || pathname === '/landing.html') {
+      filePath = path.join(PUBLIC_DIR, 'landing.html');
+    } else if (pathname === '/app' || pathname === '/dashboard') {
+      filePath = path.join(PUBLIC_DIR, 'index.html');
     } else {
-      filePath = path.join(PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname);
+      filePath = path.join(PUBLIC_DIR, pathname);
     }
 
     const extname = String(path.extname(filePath)).toLowerCase();
 
     if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+      const stat = fs.statSync(filePath);
+      const totalSize = stat.size;
       const contentType = MIME_TYPES[extname] || 'application/octet-stream';
-      const fileContent = fs.readFileSync(filePath);
+
+      // Support HTTP 206 Range Requests for video files (essential for Chrome & Safari video streaming)
+      const range = req.headers.range;
+      if (range && (extname === '.mp4' || extname === '.webm' || extname === '.ogg' || extname === '.mov')) {
+        const parts = range.replace(/bytes=/, '').split('-');
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : totalSize - 1;
+        const chunksize = (end - start) + 1;
+        const fileStream = fs.createReadStream(filePath, { start, end });
+        
+        res.writeHead(206, {
+          'Content-Range': `bytes ${start}-${end}/${totalSize}`,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': chunksize,
+          'Content-Type': contentType,
+          'Cache-Control': 'no-cache'
+        });
+        return fileStream.pipe(res);
+      }
+
       const headers = { 
         'Content-Type': contentType,
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Content-Length': totalSize,
+        'Accept-Ranges': 'bytes',
+        'Cache-Control': extname === '.html' ? 'no-cache, no-store, must-revalidate' : 'public, max-age=3600',
         'Pragma': 'no-cache',
         'Expires': '0'
       };
@@ -965,7 +1049,8 @@ const server = http.createServer(async (req, res) => {
         headers['Content-Disposition'] = `attachment; filename="${path.basename(filePath)}"`;
       }
       res.writeHead(200, headers);
-      return res.end(fileContent);
+      const fileStream = fs.createReadStream(filePath);
+      return fileStream.pipe(res);
     }
 
     // Fallback: 404

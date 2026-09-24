@@ -85,16 +85,18 @@ class RecorderBridge {
     // 2. Attach to the primary page
     await this._attachToPage(this.page);
 
-    // 3. Also attach to any other already-open pages/tabs
-    const existingPages = await this.browser.pages().catch((err) => {
-      logger.warn(`[Recorder] Failed to list browser pages: ${err?.message || err}`);
-      return [];
-    });
-    for (const p of existingPages) {
-      if (p !== this.page) {
-        await this._attachToPage(p);
+    // 3. Also attach to any other already-open pages/tabs in the background (non-blocking)
+    this.browser.pages().then((existingPages) => {
+      for (const p of existingPages) {
+        if (p !== this.page && this.isRecording && !p.isClosed()) {
+          this._attachToPage(p).catch((err) => {
+            logger.warn(`[Recorder] Background tab attach warning: ${err?.message || err}`);
+          });
+        }
       }
-    }
+    }).catch((err) => {
+      logger.warn(`[Recorder] Failed to list browser pages: ${err?.message || err}`);
+    });
 
     // 4. Auto-attach to newly opened tabs, popups, or auxiliary windows
     this._onTargetCreated = async (target) => {

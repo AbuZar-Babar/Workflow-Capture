@@ -8,6 +8,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const EventEmitter = require('events');
 const { connectToBrowser } = require('../utils/cdp-connector');
 const { DEFAULT_TIMEOUTS } = require('../shared/constants');
 const {
@@ -21,8 +22,9 @@ const { getActiveBotConfig } = require('../api/bot-config-controller');
 const { resolveTargetUrl } = require('../utils/url-helper');
 const logger = require('../utils/logger');
 
-class ReplayEngine {
+class ReplayEngine extends EventEmitter {
   constructor(options = {}) {
+    super();
     this.browserURL = options.browserURL || 'http://localhost:9222';
     this.speed = options.speed || 1.0; // Speed multiplier (1.0 = real-time, 2.0 = 2x, etc.)
     this.botConfig = options.botConfig || getActiveBotConfig();
@@ -33,6 +35,9 @@ class ReplayEngine {
     this.browser = null;
     this.page = null;
     this.isAborted = false;
+    this.currentActionIndex = 0;
+    this.isAutomatedActionActive = false;
+    this.lastIntervention = null;
   }
 
   /**
@@ -152,13 +157,120 @@ class ReplayEngine {
       });
     } catch {}
 
+    await this._initHumanDisturbanceDetection(this.page);
+
     return this.browser;
+  }
+
+  /**
+   * Inject and initialize real-time human disturbance detection on the target page.
+   * Tracks manual user mouse clicks, keystrokes, and touch events when automated replay is idle.
+   */
+  async _initHumanDisturbanceDetection(page) {
+    if (!page || page.isClosed()) return;
+
+    try {
+      await page.exposeFunction('__flowmindReportIntervention', (eventDetail) => {
+        this._handleHumanIntervention(eventDetail);
+      });
+    } catch (err) {
+      if (!err.message || !err.message.includes('already exists')) {
+        logger.warn(`[ReplayEngine] Intervention binding warning: ${err.message}`);
+      }
+    }
+
+    const injectionScript = `
+      (function() {
+        window.__flowmindAutomatedActionActive = false;
+        window.__flowmindAutomatedSince = 0;
+        if (window.__flowmindInterventionAttached) return;
+        window.__flowmindInterventionAttached = true;
+
+        // Auto-reset guard in case of unexpected exceptions
+        setInterval(function() {
+          if (window.__flowmindAutomatedActionActive && Date.now() - (window.__flowmindAutomatedSince || 0) > 4000) {
+            window.__flowmindAutomatedActionActive = false;
+          }
+        }, 1000);
+
+        var onHumanInput = function(evt) {
+          if (window.__flowmindAutomatedActionActive) return;
+
+          var now = Date.now();
+          if (window.__flowmindLastInterventionTime && (now - window.__flowmindLastInterventionTime < 1500)) {
+            return;
+          }
+          window.__flowmindLastInterventionTime = now;
+
+          if (typeof window.__flowmindReportIntervention === 'function') {
+            try {
+              window.__flowmindReportIntervention({
+                type: evt.type,
+                key: evt.key || null,
+                tagName: evt.target && evt.target.tagName ? evt.target.tagName : null,
+                text: (evt.target && evt.target.textContent) ? evt.target.textContent.trim().slice(0, 30) : null,
+                time: now
+              });
+            } catch (e) {}
+          }
+        };
+
+        ['mousedown', 'keydown', 'wheel', 'touchstart'].forEach(function(eventType) {
+          window.addEventListener(eventType, onHumanInput, { capture: true, passive: true });
+        });
+      })();
+    `;
+
+    try {
+      await page.evaluateOnNewDocument(injectionScript);
+      await page.evaluate(injectionScript).catch(() => {});
+    } catch {}
+  }
+
+  /**
+   * Set flag in browser indicating automated action in progress (prevents bot synthetic actions from triggering disturbance alerts)
+   */
+  async _setAutomatedAction(isActive) {
+    this.isAutomatedActionActive = !!isActive;
+    if (this.page && !this.page.isClosed()) {
+      try {
+        await this.page.evaluate((active) => {
+          window.__flowmindAutomatedActionActive = active;
+          if (active) {
+            window.__flowmindAutomatedSince = Date.now();
+          }
+        }, !!isActive).catch(() => {});
+      } catch {}
+    }
+  }
+
+  /**
+   * Handle human disturbance reported from target page
+   */
+  _handleHumanIntervention(eventDetail) {
+    const stepNumber = this.currentActionIndex + 1;
+    const currentAction = (this.recording && this.recording.actions)
+      ? this.recording.actions[this.currentActionIndex]
+      : null;
+
+    logger.warn(`⚠️ [Human Disturbance Detected] Manual user interaction (${eventDetail.type}${eventDetail.key ? ` '${eventDetail.key}'` : ''}) intercepted on Step #${stepNumber}!`);
+
+    const payload = {
+      stepIndex: stepNumber,
+      action: currentAction,
+      detail: eventDetail,
+      timestamp: Date.now()
+    };
+
+    this.lastIntervention = payload;
+    this.emit('human_intervention', payload);
   }
 
   /**
    * Execute a single recorded action on the active page
    */
   async executeAction(action, index = 0) {
+    this.currentActionIndex = index;
     if (!this.page) throw new Error('ReplayEngine is not connected to a page.');
 
     // 1. Explicit step delay if requested
@@ -220,12 +332,17 @@ class ReplayEngine {
       )
     );
 
-    await dispatchAction(elementHandle, actionToDispatch, {
-      page: this.page,
-      botConfig: this.botConfig,
-      isNextActionOption
-    });
-    await elementHandle.dispose().catch(() => {});
+      await this._setAutomatedAction(true);
+      try {
+        await dispatchAction(elementHandle, actionToDispatch, {
+          page: this.page,
+          botConfig: this.botConfig,
+          isNextActionOption
+        });
+      } finally {
+        await this._setAutomatedAction(false);
+      }
+      await elementHandle.dispose().catch(() => {});
 
     // If this action opened a combobox/dropdown, allow overlay animation to settle
     if (action.type === 'CLICK' && isNextActionOption) {
@@ -452,6 +569,7 @@ class ReplayEngine {
                     if (candidatePage !== this.page) {
                       await candidatePage.bringToFront().catch(() => {});
                       this.page = candidatePage;
+                      await this._initHumanDisturbanceDetection(candidatePage);
                       logger.info(`[ReplayEngine] Switched active tab/window to: ${candidatePage.url()}`);
                     }
 
@@ -538,6 +656,7 @@ class ReplayEngine {
 
     // Apply anti-bot stealth scripts
     await this._applyStealthEvasion();
+    await this._initHumanDisturbanceDetection(this.page);
 
     // 1. Auto-handle browser dialogs
     this.page.on('dialog', async (dialog) => {
@@ -658,10 +777,15 @@ class ReplayEngine {
         }
 
         // 2. Perform action via Puppeteer with humanization config
-        await dispatchAction(elementHandle, actionToDispatch, {
-          page: this.page,
-          botConfig: this.botConfig
-        });
+        await this._setAutomatedAction(true);
+        try {
+          await dispatchAction(elementHandle, actionToDispatch, {
+            page: this.page,
+            botConfig: this.botConfig
+          });
+        } finally {
+          await this._setAutomatedAction(false);
+        }
 
         // Clean up handle
         await elementHandle.dispose().catch(() => {});

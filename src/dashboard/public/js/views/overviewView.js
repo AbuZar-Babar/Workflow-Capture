@@ -13,17 +13,76 @@ export const OverviewView = {
   recordStartTime: 0,
   recordings: [],
   isRecording: false,
+  _hasCountedUp: false,
 
   async render(container, router) {
     container.innerHTML = `
       <div class="dashboard-shell">
-        <section class="dashboard-hero">
-          <div class="dashboard-hero-copy">
-            <span class="eyebrow">Automation control center</span>
-            <h1>Build once. Run repeatedly.</h1>
-            <p>Record a browser workflow, discover the items it should process, then execute it with progress and recovery.</p>
+        <section class="dashboard-hero" style="position:relative; overflow:hidden;">
+          <div style="display:flex; align-items:center; gap:1.25rem; position:relative; z-index:2;">
+            <div class="overview-mascot-avatar ai-node-network" style="width:84px; height:84px; flex-shrink:0;">
+              <svg viewBox="0 0 120 120" width="100%" height="100%" fill="none" class="ai-workflow-net-svg">
+                <defs>
+                  <linearGradient id="netGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#4F6EF7"/>
+                    <stop offset="100%" stop-color="#6EE7F5"/>
+                  </linearGradient>
+                  <linearGradient id="netGrad2" x1="100%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#6EE7F5"/>
+                    <stop offset="100%" stop-color="#4F6EF7"/>
+                  </linearGradient>
+                  <filter id="nodeGlow" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="3" result="blur"/>
+                    <feMerge>
+                      <feMergeNode in="blur"/>
+                      <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                  </filter>
+                </defs>
+                <!-- Background connection lines -->
+                <line x1="22" y1="60" x2="56" y2="26" stroke="url(#netGrad1)" stroke-width="1.8" stroke-dasharray="4 3" opacity="0.6"/>
+                <line x1="22" y1="60" x2="56" y2="94" stroke="url(#netGrad1)" stroke-width="1.8" stroke-dasharray="4 3" opacity="0.6"/>
+                <line x1="56" y1="26" x2="98" y2="60" stroke="url(#netGrad2)" stroke-width="1.8" stroke-dasharray="4 3" opacity="0.6"/>
+                <line x1="56" y1="94" x2="98" y2="60" stroke="url(#netGrad2)" stroke-width="1.8" stroke-dasharray="4 3" opacity="0.6"/>
+                <line x1="56" y1="26" x2="56" y2="94" stroke="#6EE7F5" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.45"/>
+                <line x1="22" y1="60" x2="98" y2="60" stroke="#4F6EF7" stroke-width="1.5" stroke-dasharray="2 3" opacity="0.35"/>
+
+                <!-- Dynamic Flow Pulse Beams -->
+                <path d="M22,60 L56,26 L98,60" fill="none" stroke="#6EE7F5" stroke-width="2" class="flow-pulse-path flow-1"/>
+                <path d="M22,60 L56,94 L98,60" fill="none" stroke="#4F6EF7" stroke-width="2" class="flow-pulse-path flow-2"/>
+
+                <!-- Expanding Pulse rings on key nodes -->
+                <circle cx="22" cy="60" r="12" stroke="#4F6EF7" stroke-width="1.5" fill="none" class="node-ring ring-1" opacity="0.75"/>
+                <circle cx="56" cy="26" r="14" stroke="#6EE7F5" stroke-width="1.5" fill="none" class="node-ring ring-2" opacity="0.75"/>
+                <circle cx="98" cy="60" r="15" stroke="#4F6EF7" stroke-width="1.5" fill="none" class="node-ring ring-3" opacity="0.75"/>
+
+                <!-- Nodes with glow -->
+                <circle cx="22" cy="60" r="6.5" fill="#4F6EF7" filter="url(#nodeGlow)" class="net-node node-a"/>
+                <circle cx="22" cy="60" r="2.5" fill="#FFFFFF"/>
+
+                <circle cx="56" cy="26" r="7.5" fill="#6EE7F5" filter="url(#nodeGlow)" class="net-node node-b"/>
+                <circle cx="56" cy="26" r="3" fill="#FFFFFF"/>
+
+                <circle cx="56" cy="94" r="6.5" fill="#4F6EF7" filter="url(#nodeGlow)" class="net-node node-c"/>
+                <circle cx="56" cy="94" r="2.5" fill="#FFFFFF"/>
+
+                <circle cx="56" cy="60" r="5" fill="#6EE7F5" filter="url(#nodeGlow)" class="net-node node-center"/>
+                <circle cx="56" cy="60" r="2" fill="#FFFFFF"/>
+
+                <circle cx="98" cy="60" r="8.5" fill="#4F6EF7" filter="url(#nodeGlow)" class="net-node node-d"/>
+                <circle cx="98" cy="60" r="3.5" fill="#FFFFFF"/>
+              </svg>
+            </div>
+            <div class="dashboard-hero-copy">
+              <span class="eyebrow" style="color:var(--brand-forest); display:inline-flex; align-items:center; gap:0.4rem;">
+                <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#10b981;"></span>
+                FlowMind AI &middot; Autonomous Workflow Center
+              </span>
+              <h1 style="color:var(--text-main); font-weight:800; letter-spacing:-0.03em;">Show it once. It knows next time.</h1>
+              <p>Teach your AI how you work. FlowMind observes your clicks, learns your workflows, and repeats them automatically with zero code.</p>
+            </div>
           </div>
-          <div class="dashboard-hero-actions">
+          <div class="dashboard-hero-actions" style="position:relative; z-index:2;">
             <input type="text" id="overviewRecName" class="form-control hero-rec-input-standalone" placeholder="Workflow name (e.g. process-invoices)" spellcheck="false" title="Workflow Name">
             <button class="btn btn-primary dashboard-primary-action" id="btnOverviewStartRec" aria-live="polite">
               <svg class="record-button-icon" width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
@@ -39,24 +98,60 @@ export const OverviewView = {
 
         <section class="dashboard-stats">
           <article class="stat-card">
-            <span class="stat-label">Workflows</span>
+            <div class="stat-card-header">
+              <span class="stat-card-icon" title="Workflows">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>
+              </span>
+              <span class="stat-label">Workflows</span>
+            </div>
             <strong id="overviewWorkflowCount">0</strong>
             <span class="stat-meta">Saved recordings</span>
+            <svg class="stat-card-sparkline" viewBox="0 0 100 36" fill="none" preserveAspectRatio="none">
+              <path d="M0 26 Q 20 30, 35 16 T 70 18 T 100 6" stroke="currentColor" stroke-width="3" fill="none"/>
+              <path d="M0 26 Q 20 30, 35 16 T 70 18 T 100 6 L 100 36 L 0 36 Z" fill="currentColor" opacity="0.25"/>
+            </svg>
           </article>
           <article class="stat-card">
-            <span class="stat-label">Recorded steps</span>
+            <div class="stat-card-header">
+              <span class="stat-card-icon" title="Recorded Steps">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+              </span>
+              <span class="stat-label">Recorded steps</span>
+            </div>
             <strong id="overviewTotalSteps">0</strong>
             <span class="stat-meta">Across all workflows</span>
+            <svg class="stat-card-sparkline" viewBox="0 0 100 36" fill="none" preserveAspectRatio="none">
+              <path d="M0 30 L 25 22 L 45 28 L 70 12 L 100 4" stroke="currentColor" stroke-width="3" fill="none"/>
+              <path d="M0 30 L 25 22 L 45 28 L 70 12 L 100 4 L 100 36 L 0 36 Z" fill="currentColor" opacity="0.25"/>
+            </svg>
           </article>
           <article class="stat-card">
-            <span class="stat-label">Browser</span>
+            <div class="stat-card-header">
+              <span class="stat-card-icon" title="Browser Engine">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="4"></circle><line x1="21.17" y1="8" x2="12" y2="8"></line><line x1="3.95" y1="6.06" x2="8.54" y2="14"></line><line x1="10.88" y1="21.94" x2="15.46" y2="14"></line></svg>
+              </span>
+              <span class="stat-label">Browser</span>
+            </div>
             <strong id="overviewCdpMetric">CDP Standby</strong>
             <span class="stat-meta" id="overviewTabsCount">Tabs: 0 Connected</span>
+            <svg class="stat-card-sparkline" viewBox="0 0 100 36" fill="none" preserveAspectRatio="none">
+              <path d="M0 24 Q 25 32, 50 14 T 100 8" stroke="currentColor" stroke-width="3" fill="none"/>
+              <path d="M0 24 Q 25 32, 50 14 T 100 8 L 100 36 L 0 36 Z" fill="currentColor" opacity="0.25"/>
+            </svg>
           </article>
           <article class="stat-card">
-            <span class="stat-label">Engine</span>
+            <div class="stat-card-header">
+              <span class="stat-card-icon" title="Automation Engine">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg>
+              </span>
+              <span class="stat-label">Engine</span>
+            </div>
             <strong>Ready</strong>
             <span class="stat-meta">Deterministic replay</span>
+            <svg class="stat-card-sparkline" viewBox="0 0 100 36" fill="none" preserveAspectRatio="none">
+              <path d="M0 28 Q 30 8, 60 22 T 100 4" stroke="currentColor" stroke-width="3" fill="none"/>
+              <path d="M0 28 Q 30 8, 60 22 T 100 4 L 100 36 L 0 36 Z" fill="currentColor" opacity="0.25"/>
+            </svg>
           </article>
         </section>
 
@@ -118,6 +213,7 @@ export const OverviewView = {
 
 
     this.router = router;
+    this._hasCountedUp = false;
     this.bindEvents(router);
     this.loadData();
   },
@@ -145,23 +241,48 @@ export const OverviewView = {
     const inputName = document.getElementById('overviewRecName');
 
     const startRecording = async () => {
+      if (this.isStarting || this.isRecording) return;
+      this.isStarting = true;
+
       const name = (inputName && inputName.value.trim()) || `workflow-${Date.now()}`;
+      const label = document.getElementById('overviewRecordButtonLabel');
+
+      if (btnStart) {
+        btnStart.disabled = true;
+        btnStart.classList.add('btn-loading');
+      }
+      if (label) label.textContent = 'Connecting…';
+      Toast.info(`Connecting to Chrome to record "${name}"…`);
+
       try {
         await Api.startRecording(name);
         Toast.success(`Recording started for "${name}"`);
         this.setRecordingState(true, { startedAt: new Date(), name });
       } catch (err) {
-        Toast.error(err.message);
+        Toast.error(err.message || 'Failed to start recording');
+        this.setRecordingState(false);
+      } finally {
+        this.isStarting = false;
+        if (btnStart && !this.isRecording) {
+          btnStart.disabled = false;
+          btnStart.classList.remove('btn-loading');
+          if (label) label.textContent = 'Start Recording';
+        }
       }
     };
 
     const stopRecording = async () => {
+      if (this.isStopping || !this.isRecording) return;
+      this.isStopping = true;
+      const label = document.getElementById('overviewRecordButtonLabel');
+
       try {
         if (btnStart) {
           btnStart.disabled = true;
-          const label = document.getElementById('overviewRecordButtonLabel');
-          if (label) label.textContent = 'Saving…';
+          btnStart.classList.add('btn-loading');
         }
+        if (label) label.textContent = 'Saving…';
+
         const res = await Api.stopRecording();
         const count = res.summary?.actionCount || 0;
         Toast.success(`Recording saved: ${count} steps captured. Ready in Workflows.`);
@@ -171,14 +292,17 @@ export const OverviewView = {
         Toast.error(err.message);
         this.setRecordingState(false);
       } finally {
-        if (btnStart) {
+        this.isStopping = false;
+        if (btnStart && !this.isRecording) {
           btnStart.disabled = false;
+          btnStart.classList.remove('btn-loading');
         }
       }
     };
 
     if (btnStart) {
       btnStart.onclick = async () => {
+        if (this.isStarting || this.isStopping) return;
         if (this.isRecording) {
           await stopRecording();
         } else {
@@ -315,6 +439,25 @@ export const OverviewView = {
     } catch (err) { loading.classList.add('hidden'); errorBox.textContent = err.message || 'Discovery failed. Make sure Chrome is connected and the target page is open.'; errorBox.classList.remove('hidden'); }
   },
 
+  animateCountUp(element, endVal, suffix = '', duration = 800) {
+    if (!element) return;
+    const startVal = 0;
+    const startTime = performance.now();
+    const update = (currentTime) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easeOut = 1 - Math.pow(1 - progress, 3);
+      const currentVal = Math.round(startVal + (endVal - startVal) * easeOut);
+      element.textContent = `${currentVal.toLocaleString()}${suffix}`;
+      if (progress < 1) {
+        requestAnimationFrame(update);
+      } else {
+        element.textContent = `${endVal.toLocaleString()}${suffix}`;
+      }
+    };
+    requestAnimationFrame(update);
+  },
+
   escapeHtml(value) { return String(value || '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char])); },
   async loadData() {
     try {
@@ -365,9 +508,15 @@ export const OverviewView = {
       // Total steps metric
       const totalSteps = this.recordings.reduce((sum, wf) => sum + (wf.actionCount || 0), 0);
       const elWorkflowCount = document.getElementById('overviewWorkflowCount');
-      if (elWorkflowCount) elWorkflowCount.textContent = this.recordings.length.toLocaleString();
       const elTotalSteps = document.getElementById('overviewTotalSteps');
-      if (elTotalSteps) elTotalSteps.textContent = `${totalSteps.toLocaleString()} Steps`;
+      if (!this._hasCountedUp) {
+        this._hasCountedUp = true;
+        if (elWorkflowCount) this.animateCountUp(elWorkflowCount, this.recordings.length);
+        if (elTotalSteps) this.animateCountUp(elTotalSteps, totalSteps, ' Steps');
+      } else {
+        if (elWorkflowCount) elWorkflowCount.textContent = this.recordings.length.toLocaleString();
+        if (elTotalSteps) elTotalSteps.textContent = `${totalSteps.toLocaleString()} Steps`;
+      }
 
       // Render Recent List
       const list = document.getElementById('overviewRecentList');
@@ -421,9 +570,12 @@ export const OverviewView = {
 
     if (isRecording) {
       this.isRecording = true;
+      this.isStarting = false;
       if (btnStart) {
         btnStart.classList.remove('hidden');
+        btnStart.classList.remove('btn-loading');
         btnStart.classList.add('recording-active');
+        btnStart.classList.add('is-recording');
         btnStart.setAttribute('aria-label', 'Stop and save recording');
         btnStart.disabled = false;
       }
@@ -455,9 +607,13 @@ export const OverviewView = {
       if (!this.recordTimer) this.recordTimer = setInterval(updateRecordingUi, 1000);
     } else {
       this.isRecording = false;
+      this.isStarting = false;
+      this.isStopping = false;
       if (btnStart) {
         btnStart.classList.remove('hidden');
+        btnStart.classList.remove('btn-loading');
         btnStart.classList.remove('recording-active');
+        btnStart.classList.remove('is-recording');
         btnStart.disabled = false;
         btnStart.setAttribute('aria-label', 'Start recording');
       }

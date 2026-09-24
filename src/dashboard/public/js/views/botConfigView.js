@@ -696,7 +696,7 @@ export const BotConfigView = {
     ctx.arc(startX, startY, 4.5, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = '#0c5c3f';
+    ctx.fillStyle = '#4f46e5';
     ctx.beginPath();
     ctx.arc(endX, endY, 6, 0, Math.PI * 2);
     ctx.fill();
@@ -748,7 +748,7 @@ export const BotConfigView = {
 
     // Draw animated trajectory
     let currentIdx = 0;
-    ctx.strokeStyle = '#0c5c3f';
+    ctx.strokeStyle = '#4f46e5';
     ctx.lineWidth = 2.2;
     ctx.lineCap = 'round';
 
