@@ -1,5 +1,5 @@
 /* ===================================================================
-   Workflow Capture — Reusable UI Components
+   Workflow Capture: Reusable UI Components
    =================================================================== */
 
 /* ---------------- Top Navbar ---------------- */
@@ -23,13 +23,13 @@
 .brand-logo {
   width: 40px;
   height: 40px;
-  border-radius: var(--radius-pill);
+  border-radius: 10px;
   background-color: var(--brand-emerald);
   display: flex;
   align-items: center;
   justify-content: center;
   color: #ffffff;
-  box-shadow: 0 4px 10px rgba(18, 130, 88, 0.25);
+  box-shadow: 0 4px 10px rgba(59, 85, 217, 0.25);
   font-size: 1.25rem;
 }
 
@@ -45,23 +45,23 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 0.15rem 0.5rem;
+  padding: 0.2rem 0.55rem;
   background-color: var(--brand-tint);
   color: var(--brand-forest);
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--brand-light);
+  border-radius: 6px;
+  border: 1px solid rgba(59, 85, 217, 0.2);
   margin-left: 0.35rem;
 }
 
-/* Nav Tab Pills */
+/* Nav Tab Pills (Geometric Rounded Hierarchy) */
 .nav-pills {
   display: none;
   align-items: center;
   gap: 0.35rem;
-  background-color: #f8f9fb;
-  padding: 0.35rem;
-  border-radius: var(--radius-pill);
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  background-color: #f1f5f9;
+  padding: 0.3rem;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 @media (min-width: 1024px) {
@@ -71,8 +71,8 @@
 }
 
 .nav-pill-link {
-  padding: 0.4rem 1.1rem;
-  border-radius: var(--radius-pill);
+  padding: 0.4rem 0.95rem;
+  border-radius: 6px;
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--text-sub);
@@ -87,7 +87,7 @@
 .nav-pill-link:hover {
   color: var(--text-main);
   background-color: #ffffff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
 }
 
 /* Top Right Actions */
@@ -104,7 +104,7 @@
   padding: 0.35rem 0.75rem;
   background: #f8f9fb;
   border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: var(--radius-pill);
+  border-radius: 6px;
   font-size: 0.75rem;
   font-weight: 600;
 }
@@ -122,17 +122,6 @@
 .status-dot.online {
   background-color: var(--color-success);
   position: relative;
-}
-
-.status-dot.online::after {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border-radius: 50%;
-  border: 1.5px solid var(--color-success);
-  box-sizing: border-box;
-  animation: pulseRingExpand 2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
-  pointer-events: none;
 }
 
 .status-dot.offline {
@@ -156,11 +145,11 @@
     opacity: 0.95;
   }
   65% {
-    transform: scale(2.5);
+    transform: scale(2.2);
     opacity: 0;
   }
   100% {
-    transform: scale(2.7);
+    transform: scale(2.4);
     opacity: 0;
   }
 }
@@ -168,18 +157,18 @@
 .profile-avatar {
   width: 36px;
   height: 36px;
-  border-radius: var(--radius-pill);
-  background: linear-gradient(135deg, var(--brand-cyan), var(--brand-forest));
+  border-radius: 10px;
+  background: var(--brand-forest);
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
   font-size: 0.85rem;
-  box-shadow: 0 2px 8px rgba(79, 110, 247, 0.2);
+  box-shadow: 0 2px 8px rgba(59, 85, 217, 0.25);
 }
 
-/* ---------------- Floating Sidebar (Frosted-Glass Capsule) ---------------- */
+/* ---------------- Floating Sidebar (Clean Dock Surface) ---------------- */
 .floating-sidebar {
   display: flex;
   flex-direction: column;
@@ -188,12 +177,10 @@
   width: 58px;
   margin: 0.35rem 0.25rem 0.35rem 0;
   padding: 1.15rem 0.4rem;
-  background: var(--sidebar-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-radius: 9999px;
+  background: var(--panel-solid);
+  border-radius: 16px;
   border: 1px solid var(--border-light);
-  box-shadow: var(--shadow-sidebar);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.08);
   flex-shrink: 0;
   height: calc(100% - 0.7rem);
   align-self: center;
@@ -211,7 +198,7 @@
 .sidebar-active-btn {
   width: 40px;
   height: 40px;
-  border-radius: 14px;
+  border-radius: 10px;
   background-color: var(--brand-forest);
   color: #ffffff;
   display: flex;
@@ -219,7 +206,7 @@
   justify-content: center;
   border: none;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(79, 110, 247, 0.35);
+  box-shadow: 0 4px 14px rgba(59, 85, 217, 0.3);
   transition: all 180ms ease;
   position: relative;
 }
@@ -235,7 +222,7 @@
 .sidebar-icon-btn {
   width: 36px;
   height: 36px;
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -253,12 +240,12 @@
   transform: scale(1.05);
 }
 
-/* Sidebar Active Icon: Gradient Background (blue to cyan), soft outer glow */
+/* Sidebar Active Icon: Confident Solid Brand Accent */
 .sidebar-icon-btn.active {
-  background: linear-gradient(135deg, #4F6EF7 0%, #6EE7F5 100%) !important;
+  background: var(--brand-forest) !important;
   color: #ffffff !important;
-  border-radius: 12px;
-  box-shadow: 0 4px 18px rgba(79, 110, 247, 0.42), 0 0 12px rgba(110, 231, 245, 0.35);
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(59, 85, 217, 0.32);
 }
 
 /* Sidebar Hover Tooltips: Slide-in Animation to the Right */
@@ -311,15 +298,13 @@
   transform: translateY(-50%) translateX(0);
 }
 
-/* ---------------- Card Component (Glassmorphism & Soft Blue Shadows) ---------------- */
+/* ---------------- Card Component (Crisp Structural Surfaces) ---------------- */
 .card {
-  background-color: var(--card-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
+  background-color: var(--card-bg-solid);
   border-radius: var(--radius-xl);
   padding: 1.25rem;
   border: 1px solid var(--card-border);
-  box-shadow: var(--shadow-card);
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.05);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -329,7 +314,7 @@
 
 .card:hover {
   transform: translateY(-2px);
-  box-shadow: var(--shadow-card-hover);
+  box-shadow: 0 10px 24px -4px rgba(0, 0, 0, 0.08);
   border-color: var(--card-hover-border);
 }
 
@@ -353,6 +338,12 @@
   margin-top: 0.15rem;
 }
 
+/* ---------------- Universal Focus Ring (WCAG 2.4.7 / Anti-Slop R-32) ---------------- */
+:focus-visible {
+  outline: 2px solid var(--brand-forest) !important;
+  outline-offset: 2px !important;
+}
+
 /* ---------------- Buttons ---------------- */
 .btn {
   display: inline-flex;
@@ -360,7 +351,7 @@
   justify-content: center;
   gap: 0.5rem;
   padding: 0.55rem 1.15rem;
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   font-size: 0.78rem;
   font-weight: 700;
   font-family: var(--font-sans);
@@ -370,6 +361,11 @@
   text-decoration: none;
 }
 
+.btn:focus-visible {
+  outline: 2px solid var(--brand-forest) !important;
+  outline-offset: 2px !important;
+}
+
 .btn:active {
   transform: scale(0.97) translateY(1px);
 }
@@ -377,19 +373,19 @@
 .btn-primary {
   background-color: var(--brand-forest);
   color: #ffffff;
-  box-shadow: 0 4px 14px rgba(79, 110, 247, 0.28);
+  box-shadow: 0 2px 8px rgba(59, 85, 217, 0.25);
 }
 
 .btn-primary:hover {
   background-color: var(--brand-dark);
-  box-shadow: 0 6px 18px rgba(79, 110, 247, 0.38);
+  box-shadow: 0 4px 14px rgba(59, 85, 217, 0.35);
   transform: translateY(-1.5px);
 }
 
 .btn-dark {
   background-color: #0F172A;
   color: #ffffff;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.18);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
 }
 
 .btn-dark:hover {
@@ -409,28 +405,28 @@
 }
 
 .btn-secondary {
-  background-color: var(--card-bg);
+  background-color: var(--card-bg-solid);
   color: var(--text-body);
   border-color: var(--border-light);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .btn-secondary:hover {
   background-color: var(--card-bg-solid);
   color: var(--text-main);
   border-color: var(--brand-forest);
-  box-shadow: 0 4px 12px rgba(79, 110, 247, 0.12);
+  box-shadow: 0 3px 10px rgba(59, 85, 217, 0.12);
   transform: translateY(-1.5px);
 }
 
 .btn-danger {
   background-color: var(--color-danger);
   color: #ffffff;
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25);
 }
 
 .btn-danger:hover {
-  background-color: #dc2626;
+  background-color: #b91c1c;
   transform: translateY(-1.5px);
 }
 
@@ -447,13 +443,15 @@
 .btn-sm {
   padding: 0.35rem 0.75rem;
   font-size: 0.72rem;
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
 }
 
 .btn-icon {
   width: 36px;
   height: 36px;
-  border-radius: var(--radius-pill);
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -462,6 +460,11 @@
   border: 1px solid transparent;
   cursor: pointer;
   transition: all 0.2s;
+}
+
+.btn-icon:focus-visible {
+  outline: 2px solid var(--brand-forest) !important;
+  outline-offset: 2px !important;
 }
 
 .btn-icon:hover {
@@ -735,10 +738,8 @@ input[type="range"] {
   justify-content: space-between;
   padding: 0.75rem 1.5rem;
   background: var(--topbar-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
   border-bottom: 1px solid var(--border-light);
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
   z-index: 100;
   width: 100%;
   transition: background-color 0.2s ease, border-color 0.2s ease;
@@ -763,7 +764,7 @@ input[type="range"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  filter: drop-shadow(0 4px 12px rgba(79, 110, 247, 0.25));
+  filter: drop-shadow(0 4px 10px rgba(59, 85, 217, 0.2));
   transition: transform 0.2s ease;
 }
 
@@ -804,7 +805,7 @@ input[type="range"] {
   padding: 0.35rem 0.85rem;
   background: var(--brand-tint);
   border: 1px solid var(--border-light);
-  border-radius: var(--radius-pill);
+  border-radius: 6px;
   font-size: 0.72rem;
   font-weight: 600;
   color: var(--brand-forest);
@@ -818,17 +819,6 @@ input[type="range"] {
   background: var(--color-success);
   position: relative;
   display: inline-block;
-}
-
-.live-pulse-dot::after {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border-radius: 50%;
-  border: 1.5px solid var(--color-success);
-  box-sizing: border-box;
-  animation: pulseRingExpand 2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
-  pointer-events: none;
 }
 
 .flowmind-topbar-right {
@@ -845,19 +835,24 @@ input[type="range"] {
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--text-sub);
-  background: var(--card-bg);
+  background: var(--card-bg-solid);
   border: 1px solid var(--border-light);
-  border-radius: var(--radius-pill);
+  border-radius: 6px;
   text-decoration: none;
   cursor: pointer;
   transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-topbar-nav:focus-visible {
+  outline: 2px solid var(--brand-forest) !important;
+  outline-offset: 2px !important;
 }
 
 .btn-topbar-nav:hover {
   color: var(--text-main);
   border-color: var(--brand-forest);
   background: var(--card-bg-solid);
-  box-shadow: 0 3px 10px rgba(79, 110, 247, 0.12);
+  box-shadow: 0 2px 8px rgba(59, 85, 217, 0.12);
   transform: translateY(-1px);
 }
 
@@ -869,18 +864,23 @@ input[type="range"] {
   font-size: 0.75rem;
   font-weight: 700;
   color: #ffffff;
-  background: linear-gradient(135deg, var(--brand-forest) 0%, var(--brand-dark) 100%);
+  background: var(--brand-forest);
   border: none;
-  border-radius: var(--radius-pill);
+  border-radius: 6px;
   cursor: pointer;
-  box-shadow: 0 3px 10px rgba(79, 110, 247, 0.25);
+  box-shadow: 0 2px 8px rgba(59, 85, 217, 0.25);
   transition: all 0.2s ease;
 }
 
+.btn-topbar-chrome:focus-visible {
+  outline: 2px solid var(--brand-forest) !important;
+  outline-offset: 2px !important;
+}
+
 .btn-topbar-chrome:hover {
-  opacity: 0.95;
+  background: var(--brand-dark);
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(79, 110, 247, 0.35);
+  box-shadow: 0 4px 12px rgba(59, 85, 217, 0.35);
 }
 
 /* ===================================================================
@@ -892,9 +892,14 @@ input[type="range"] {
   align-items: center;
   gap: 0.4rem;
   cursor: pointer;
-  border-radius: var(--radius-pill);
+  border-radius: 6px;
   position: relative;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.theme-toggle-btn:focus-visible {
+  outline: 2px solid var(--brand-forest) !important;
+  outline-offset: 2px !important;
 }
 
 .theme-toggle-btn .theme-icon-sun,

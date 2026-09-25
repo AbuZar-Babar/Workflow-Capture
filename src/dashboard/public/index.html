@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Workflow Capture — Visual Automation Dashboard</title>
+  <title>Workflow Capture: Visual Automation Dashboard</title>
   
   <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -666,12 +666,44 @@
       border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
     }
 
+    [data-theme="dark"] .df-node-header .df-step-number,
     [data-theme="dark"] .df-node-header .df-step-num {
+      background: rgba(255, 255, 255, 0.08) !important;
       color: #94a3b8 !important;
+    }
+
+    [data-theme="dark"] .df-node-hero {
+      background: #0f172a !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
     }
 
     [data-theme="dark"] .df-node-body {
       background: #141c2e !important;
+    }
+
+    [data-theme="dark"] .df-name-input {
+      background: #090e1a !important;
+      border-color: rgba(255, 255, 255, 0.12) !important;
+      color: #f8fafc !important;
+    }
+
+    [data-theme="dark"] .df-advanced-details {
+      border-color: rgba(255, 255, 255, 0.08) !important;
+      background: #0d1527 !important;
+    }
+
+    [data-theme="dark"] .df-advanced-summary {
+      color: #94a3b8 !important;
+    }
+
+    [data-theme="dark"] .df-advanced-summary:hover {
+      background: #141c2e !important;
+      color: #f8fafc !important;
+    }
+
+    [data-theme="dark"] .df-advanced-body {
+      background: #090e1a !important;
+      border-top-color: rgba(255, 255, 255, 0.08) !important;
     }
 
     [data-theme="dark"] .df-input-group label {
@@ -767,7 +799,7 @@
           </div>
           <div class="flowmind-brand-text">
             <span class="flowmind-brand-title">FlowMind</span>
-            <span class="flowmind-brand-pill">AI Automation</span>
+            <span class="flowmind-brand-pill">Studio</span>
           </div>
         </a>
       </div>
@@ -1003,7 +1035,7 @@
       
       <div style="text-align:center; margin-top:1.5rem; font-size:0.85rem; color:var(--text-secondary);">
         <span id="authToggleText">Don't have an account? </span>
-        <a href="#" id="authToggleMode" style="color:var(--brand-accent); font-weight:600; text-decoration:none;">Sign up</a>
+        <button type="button" id="authToggleMode" style="background:none; border:none; color:var(--brand-accent); font-weight:600; cursor:pointer; font-family:inherit; font-size:0.85rem; padding:0; text-decoration:underline;">Sign up</button>
       </div>
     </div>
   </div>
