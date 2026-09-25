@@ -41,7 +41,7 @@
 }
 
 .brand-badge {
-  font-size: 0.65rem;
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -537,7 +537,7 @@ input[type="range"] {
   gap: 0.3rem;
   padding: 0.2rem 0.55rem;
   border-radius: var(--radius-pill);
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 700;
   transition: all 0.15s ease;
 }
@@ -785,7 +785,7 @@ input[type="range"] {
 }
 
 .flowmind-brand-pill {
-  font-size: 0.62rem;
+  font-size: 0.72rem;
   font-weight: 700;
   color: var(--brand-forest);
   text-transform: uppercase;

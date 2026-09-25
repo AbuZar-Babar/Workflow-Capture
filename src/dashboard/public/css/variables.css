@@ -44,15 +44,15 @@
   --text-dim: #CBD5E1;
 
   /* State Colors */
+  --color-danger: #DC2626;          /* Crimson / Red 600: WCAG AA 4.82:1 on White */
+  --color-danger-bg: rgba(220, 38, 38, 0.1);
+  --color-danger-border: rgba(220, 38, 38, 0.25);
   --color-success: #10B981;         /* Mint Emerald */
   --color-success-bg: rgba(16, 185, 129, 0.12);
   --color-success-border: rgba(16, 185, 129, 0.25);
-  --color-warning: #F59E0B;         /* Amber */
-  --color-warning-bg: rgba(245, 158, 11, 0.12);
-  --color-warning-border: rgba(245, 158, 11, 0.25);
-  --color-danger: #EF4444;          /* Crimson */
-  --color-danger-bg: rgba(239, 68, 68, 0.12);
-  --color-danger-border: rgba(239, 68, 68, 0.25);
+  --color-warning: #D97706;         /* Amber 600: WCAG AA compliant */
+  --color-warning-bg: rgba(217, 119, 6, 0.12);
+  --color-warning-border: rgba(217, 119, 6, 0.25);
   --color-info: #4F6EF7;
   --color-info-bg: rgba(79, 110, 247, 0.1);
   --color-info-border: rgba(79, 110, 247, 0.25);
@@ -73,9 +73,16 @@
   --tooltip-text: #FFFFFF;
   --tooltip-border: rgba(255, 255, 255, 0.1);
 
-  /* Typography */
+  /* Typography Ramp (Strict Floor: 11px minimum for functional text) */
   --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --text-xs: 0.72rem;       /* 11.5px — micro-labels, badges, metadata (enforced floor) */
+  --text-sm: 0.8125rem;     /* 13px — secondary UI, descriptions, hints */
+  --text-base: 0.9375rem;   /* 15px — primary body, inputs, buttons */
+  --text-md: 1.0625rem;     /* 17px — subheadings, card titles */
+  --text-lg: 1.25rem;       /* 20px — view titles, section headers */
+  --text-xl: 1.5rem;        /* 24px — hero title, primary header */
+  --text-2xl: 1.875rem;     /* 30px — display metrics, hero displays */
 
   /* Glassmorphism & Soft Blue-Tinted Shadows */
   --glass-blur: blur(14px);
@@ -151,9 +158,9 @@
   --color-warning: #F59E0B;
   --color-warning-bg: rgba(245, 158, 11, 0.15);
   --color-warning-border: rgba(245, 158, 11, 0.3);
-  --color-danger: #EF4444;
-  --color-danger-bg: rgba(239, 68, 68, 0.16);
-  --color-danger-border: rgba(239, 68, 68, 0.32);
+  --color-danger: #F87171;
+  --color-danger-bg: rgba(248, 113, 113, 0.16);
+  --color-danger-border: rgba(248, 113, 113, 0.32);
   --color-info: #6366F1;
   --color-info-bg: rgba(99, 102, 241, 0.16);
   --color-info-border: rgba(99, 102, 241, 0.32);
