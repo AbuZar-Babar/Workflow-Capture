@@ -75,6 +75,8 @@ async function main() {
     }
   }
 
+  recorder.onSave = handleStop;
+
   rl.on('line', () => {
     handleStop();
   });

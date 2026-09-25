@@ -37,7 +37,6 @@ function bootstrap() {
     const isRec = Boolean(data.isRecording);
     Header.setEngineState(isRec ? 'RECORDING' : 'IDLE');
     Header.setGlobalRecordingBanner(isRec, data);
-    Sidebar.setExecutionActive(isRec);
     const curView = Router.views[Router.currentRoute];
     if (curView && typeof curView.setRecordingState === 'function') {
       curView.setRecordingState(isRec, data);

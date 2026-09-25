@@ -10,9 +10,6 @@ export const Header = {
   elCdpText: null,
   elSystemStateText: null,
   elBtnRefreshStatus: null,
-  elBtnLaunchChrome: null,
-  elSelectTestPortal: null,
-  elBtnOpenSelectedPortal: null,
   elGlobalRecordingBanner: null,
   elGlobalRecName: null,
   elGlobalRecMeta: null,
@@ -26,9 +23,6 @@ export const Header = {
     this.elCdpText = document.getElementById('cdpText');
     this.elSystemStateText = document.getElementById('systemStateText');
     this.elBtnRefreshStatus = document.getElementById('btnRefreshStatus');
-    this.elBtnLaunchChrome = document.getElementById('btnLaunchChrome');
-    this.elSelectTestPortal = document.getElementById('selectTestPortal');
-    this.elBtnOpenSelectedPortal = document.getElementById('btnOpenSelectedPortal');
     this.elGlobalRecordingBanner = document.getElementById('globalRecordingBanner');
     this.elGlobalRecName = document.getElementById('globalRecName');
     this.elGlobalRecMeta = document.getElementById('globalRecMeta');
@@ -43,10 +37,6 @@ export const Header = {
           const res = await Api.stopRecording();
           Toast.success(`Recording saved: ${res.summary?.actionCount || 0} steps captured`);
           this.setGlobalRecordingBanner(false);
-          const overviewBtnStop = document.getElementById('btnOverviewStopRecHero');
-          if (overviewBtnStop) {
-            overviewBtnStop.click();
-          }
         } catch (err) {
           Toast.error(err.message || 'Failed to stop recording');
         } finally {
@@ -60,38 +50,6 @@ export const Header = {
 
     if (this.elBtnRefreshStatus) {
       this.elBtnRefreshStatus.onclick = () => this.refreshStatus();
-    }
-
-    if (this.elBtnLaunchChrome) {
-      this.elBtnLaunchChrome.onclick = async () => {
-        const portal = this.elSelectTestPortal ? this.elSelectTestPortal.value : 'ecommerce';
-        Toast.info('Launching Google Chrome with CDP enabled...');
-        try {
-          const res = await Api.launchBrowser(portal);
-          if (res.success) {
-            Toast.success('Google Chrome launched with test portal!');
-            this.refreshStatus();
-          }
-        } catch (err) {
-          Toast.error(err.message);
-        }
-      };
-    }
-
-    if (this.elBtnOpenSelectedPortal) {
-      this.elBtnOpenSelectedPortal.onclick = async () => {
-        const portal = this.elSelectTestPortal ? this.elSelectTestPortal.value : 'ecommerce';
-        Toast.info(`Opening ${portal} in Chrome...`);
-        try {
-          const res = await Api.openPortal(portal);
-          if (res.success) {
-            Toast.success(`Loaded portal in Chrome!`);
-            this.refreshStatus();
-          }
-        } catch (err) {
-          Toast.error(err.message);
-        }
-      };
     }
 
     this.refreshStatus();

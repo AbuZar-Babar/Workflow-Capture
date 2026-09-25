@@ -8,7 +8,7 @@
  */
 
 (function () {
-  const CURRENT_RECORDER_VERSION = 6;
+  const CURRENT_RECORDER_VERSION = 7;
 
   // Clean up any listeners from a previous session
   if (typeof window.__workflowCaptureCleanup === 'function') {
@@ -20,14 +20,27 @@
 
   // Active input buffer to consolidate typing into a single TYPE action
   let activeInputBuffer = null;
+  let isPaused = Boolean(window.__workflowCapturePaused);
+
+  function isRecorderUiEvent(event) {
+    const badge = document.getElementById('__workflow_capture_badge__');
+    if (!badge) return false;
+    const target = event?.target;
+    if (target === badge || target?.closest?.('#__workflow_capture_badge__')) return true;
+    try {
+      return Boolean(event?.composedPath?.().includes(badge));
+    } catch {
+      return false;
+    }
+  }
 
   // Diagnostic stamp: records the last pointerdown/mousedown target/time/coordinates, regardless
   // of whether a click/action ever gets recorded for it. Lets you check,
   // after a session, whether the element/icon/canvas received input at all.
   function handlePointerDownDiag(event) {
+    if (isRecorderUiEvent(event)) return;
     const target = event.target;
     if (!target) return;
-    if (target.closest && target.closest('#__workflow_capture_badge__')) return;
     const isInsideIframe = (typeof window !== 'undefined' && window.self !== window.top);
     window.__workflowCaptureLastPointerDown = {
       tag: target.tagName,
@@ -189,7 +202,7 @@
    * Safe helper to emit action to Node.js bridge across main frames and iframes
    */
   function emitAction(type, targetElement, extra = {}) {
-    if (!targetElement) return;
+    if (isPaused || !targetElement) return;
 
     // Normalize container clicks (e.g. DevExpress .dxm-content or .dxm-item) to inner icon if present
     if (targetElement.querySelector && !targetElement.getAttribute?.('title')) {
@@ -235,13 +248,16 @@
       const actionUid = 'act_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
       const cleanExtra = { ...extra };
       delete cleanExtra.canvasCoords;
+      delete cleanExtra.captureTimestamp;
+      const actionTimestamp = Date.now();
 
       const payload = {
         uid: actionUid,
         type,
         name: friendlyName,
         elementName: friendlyName,
-        timestamp: Date.now(),
+        timestamp: actionTimestamp,
+        captureTimestamp: Number(extra.captureTimestamp) || actionTimestamp,
         target,
         ...(frameInfo ? { frame: frameInfo } : {}),
         ...cleanExtra
@@ -302,8 +318,10 @@
    */
   function flushInputBuffer() {
     if (!activeInputBuffer) return;
-    const { element, value, isPassword } = activeInputBuffer;
+    const { element, value, isPassword, startTime } = activeInputBuffer;
     activeInputBuffer = null;
+
+    if (isPaused) return;
 
     if (!element || !document.body || !document.body.contains(element)) return;
 
@@ -312,6 +330,7 @@
 
     emitAction('TYPE', element, {
       value: finalValue,
+      captureTimestamp: startTime,
       meta: {
         isPassword,
         charCount: (value || '').length
@@ -323,6 +342,7 @@
    * Input event handler: Buffers text instead of spamming per-keystroke actions
    */
   function handleInput(event) {
+    if (isPaused || isRecorderUiEvent(event)) return;
     const target = event.target;
     if (!target || !['INPUT', 'TEXTAREA'].includes(target.tagName)) return;
 
@@ -346,6 +366,7 @@
    * Flush on blur or focusout
    */
   function handleBlur(event) {
+    if (isPaused || isRecorderUiEvent(event)) return;
     if (activeInputBuffer && activeInputBuffer.element === event.target) {
       flushInputBuffer();
     }
@@ -355,9 +376,11 @@
    * Keydown listener to detect Enter/Tab/Escape submission & key actions
    */
   function handleKeyDown(event) {
+    if (isPaused || isRecorderUiEvent(event)) return;
     flushPendingClick();
     const key = event.key;
     const target = event.target;
+    const captureTimestamp = Date.now();
 
     if (key === 'Enter') {
       if (activeInputBuffer && activeInputBuffer.element === target) {
@@ -366,6 +389,7 @@
 
       emitAction('KEY_PRESS', target || document.activeElement || document.body, {
         key: 'Enter',
+        captureTimestamp,
         code: event.code || 'Enter',
         keyCode: event.keyCode || 13,
         value: 'Enter',
@@ -380,6 +404,7 @@
       }
       emitAction('KEY_PRESS', target || document.activeElement || document.body, {
         key: key,
+        captureTimestamp,
         code: event.code || key,
         keyCode: event.keyCode,
         value: key,
@@ -459,8 +484,10 @@
    * Change event handler for SELECT dropdowns and checkboxes/radios
    */
   function handleChange(event) {
+    if (isPaused || isRecorderUiEvent(event)) return;
     const target = event.target;
     if (!target) return;
+    const captureTimestamp = Date.now();
 
     if (target.tagName === 'SELECT') {
       const selectedOption = target.options[target.selectedIndex];
@@ -469,6 +496,7 @@
 
       emitAction('SELECT', target, {
         value: selectedValue,
+        captureTimestamp,
         meta: {
           text: selectedText,
           selectedIndex: target.selectedIndex
@@ -478,6 +506,7 @@
       const isChecked = Boolean(target.checked);
       emitAction('CLICK', target, {
         isCheckbox: true,
+        captureTimestamp,
         desiredState: isChecked,
         checked: isChecked,
         meta: {
@@ -499,11 +528,9 @@
    * so an action is captured even if frameworks swallow click or use mousedown-only.
    */
   function handleInteractionEvent(event, signalType) {
+    if (isPaused || isRecorderUiEvent(event)) return;
     const rawTarget = event.target;
     if (!rawTarget) return;
-
-    // Ignore clicks on recorder UI badge itself
-    if (rawTarget.closest && rawTarget.closest('#__workflow_capture_badge__')) return;
 
     // Don't record CLICK on select elements (handled by change)
     if (rawTarget.tagName === 'SELECT' || rawTarget.tagName === 'OPTION') {
@@ -534,6 +561,7 @@
       emitAction('DOUBLE_CLICK', target, {
         detail: 2,
         triggerSignal: signalType,
+        captureTimestamp: now,
         ...(canvasCoords ? { canvasCoords } : {})
       });
       return;
@@ -557,6 +585,7 @@
         emitAction('CLICK', target, {
           detail: event.detail || 1,
           triggerSignal: signalType,
+          captureTimestamp: now,
           isCheckbox: true,
           desiredState: finalChecked,
           checked: finalChecked,
@@ -569,6 +598,7 @@
     emitAction('CLICK', target, {
       detail: event.detail || 1,
       triggerSignal: signalType,
+      captureTimestamp: now,
       ...(canvasCoords ? { canvasCoords } : {})
     });
   }
@@ -606,25 +636,202 @@
 
     const badge = document.createElement('div');
     badge.id = '__workflow_capture_badge__';
-    badge.innerHTML = '&#9679; REC (Workflow)';
+    const shadow = badge.attachShadow({ mode: 'open' });
+    shadow.innerHTML = `
+      <style>
+        :host { all: initial; position: fixed; top: 14px; right: 14px; z-index: 2147483647; pointer-events: auto; font-family: "Plus Jakarta Sans", Inter, "Segoe UI", sans-serif; color-scheme: light; }
+        * { box-sizing: border-box; }
+        [hidden] { display: none !important; }
+        .root { display: flex; align-items: center; gap: 9px; }
+        .panel { width: 208px; padding: 11px; border: 1px solid rgba(255,255,255,.12); border-radius: 15px; background: #111827; color: #f8fafc; box-shadow: 0 12px 32px rgba(15,23,42,.28), 0 2px 6px rgba(15,23,42,.18); transform-origin: top right; animation: panel-in 160ms ease-out; }
+        .is-collapsed .panel { display: none; }
+        @keyframes panel-in { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        .topline, .actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .topline { margin-bottom: 9px; }
+        .status { display: inline-flex; align-items: center; gap: 7px; min-width: 0; color: #cbd5e1; font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,.16); }
+        .paused .dot { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,.16); }
+        .saved .dot { background: #34d399; box-shadow: 0 0 0 3px rgba(52,211,153,.16); }
+        .count { white-space: nowrap; border: 1px solid rgba(148,163,184,.24); border-radius: 7px; padding: 4px 7px; background: rgba(255,255,255,.05); color: #e2e8f0; font: 700 10px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace; }
+        .actions { justify-content: flex-start; }
+        .saved-message { color: #cbd5e1; font-size: 12px; font-weight: 600; }
+        button { min-height: 32px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 9px; border: 1px solid rgba(148,163,184,.22); border-radius: 8px; background: rgba(255,255,255,.07); color: #f8fafc; font: 650 11px/1 "Plus Jakarta Sans", Inter, "Segoe UI", sans-serif; cursor: pointer; transition: background-color 140ms ease, border-color 140ms ease, transform 140ms ease; }
+        button:hover { background: rgba(255,255,255,.13); border-color: rgba(148,163,184,.42); }
+        button:active { transform: translateY(1px); }
+        button:focus-visible { outline: 2px solid #818cf8; outline-offset: 2px; }
+        .save { margin-left: auto; border-color: #4f46e5; background: #4f46e5; }
+        .save:hover { border-color: #4338ca; background: #4338ca; }
+        button:disabled { opacity: .6; cursor: wait; }
+        svg { width: 14px; height: 14px; flex: none; }
+        .mascot { width: 48px; height: 48px; position: relative; display: grid; place-items: center; padding: 4px; border: 1px solid rgba(199,210,254,.85); border-radius: 15px; background: linear-gradient(145deg,#fff,#dbeafe); box-shadow: 0 8px 24px rgba(15,23,42,.28), 0 0 0 4px rgba(99,102,241,.12); cursor: pointer; }
+        .is-paused .mascot { border-color: #fbbf24; box-shadow: 0 8px 24px rgba(15,23,42,.28), 0 0 0 4px rgba(245,158,11,.16); }
+        .mascot:hover { transform: translateY(-1px); border-color: #818cf8; }
+        .mascot svg { width: 38px; height: 38px; }
+        .mini-count { position: absolute; top: -7px; right: -8px; min-width: 20px; height: 20px; display: grid; place-items: center; padding: 0 5px; border: 2px solid #111827; border-radius: 10px; background: #4f46e5; color: #fff; font: 700 9px/1 ui-monospace, monospace; }
+        .close { width: 23px; min-height: 23px; padding: 0; border: 0; background: transparent; color: #94a3b8; font-size: 15px; }
+        .close:hover { background: rgba(255,255,255,.1); color: #fff; }
+        @media (prefers-reduced-motion: reduce) { .panel, button { animation: none; transition: none; } }
+      </style>
+      <div class="root">
+        <section class="panel" aria-label="Workflow recorder controls">
+          <div class="topline">
+            <div class="status"><span class="dot"></span><span id="statusText" role="status" aria-live="polite">CAPTURING</span></div>
+            <span class="count" id="stepCount" aria-live="polite">0 steps</span>
+            <button class="close" id="closeButton" type="button" aria-label="Collapse recorder controls" title="Minimize">−</button>
+          </div>
+          <div class="actions">
+            <button id="pauseButton" type="button" aria-label="Pause workflow capture">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M4 3h3v10H4zm5 0h3v10H9z"/></svg><span>Pause</span>
+            </button>
+            <button id="resumeButton" type="button" aria-label="Resume workflow capture" hidden>
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M4 2.8v10.4c0 .5.5.8.9.5l8-5.2a.6.6 0 0 0 0-1l-8-5.2a.6.6 0 0 0-.9.5Z"/></svg><span>Resume</span>
+            </button>
+            <button class="save" id="saveButton" type="button" aria-label="Stop recording and save workflow">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M3 2h8l2 2v10H3V2Zm2 1v4h6V3H5Zm0 7v3h6v-3H5Z"/></svg><span>Save</span>
+            </button>
+          </div>
+        </section>
+        <button class="mascot" id="mascotButton" type="button" aria-label="Collapse recorder controls" title="Workflow recorder">
+          <svg viewBox="0 0 64 64" aria-hidden="true">
+            <rect x="7" y="18" width="50" height="34" rx="16" fill="#f8fafc" stroke="#a5b4fc" stroke-width="2"/>
+            <rect x="14" y="23" width="36" height="19" rx="9" fill="#172033"/>
+            <circle cx="24" cy="32" r="3" fill="#38bdf8"/><circle cx="40" cy="32" r="3" fill="#38bdf8"/>
+            <path d="M20 47h24l-3 9H23z" fill="#e0e7ff" stroke="#a5b4fc" stroke-width="1.5"/>
+            <circle cx="32" cy="51" r="2.5" fill="#6366f1"/>
+            <path d="M5 30h4M55 30h4M32 11v6" stroke="#818cf8" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="32" cy="9" r="2.5" fill="#38bdf8"/>
+          </svg>
+          <span class="mini-count" id="miniCount" aria-hidden="true">0</span>
+        </button>
+      </div>`;
+    const pauseButton = shadow.getElementById('pauseButton');
+    const resumeButton = shadow.getElementById('resumeButton');
+    const saveButton = shadow.getElementById('saveButton');
+    const closeButton = shadow.getElementById('closeButton');
+    const mascotButton = shadow.getElementById('mascotButton');
+    const root = shadow.querySelector('.root');
+    const toggleControls = () => {
+      const isCollapsed = root.classList.toggle('is-collapsed');
+      mascotButton.setAttribute('aria-label', isCollapsed ? 'Open recorder controls' : 'Collapse recorder controls');
+      if (isCollapsed) mascotButton.focus();
+    };
+    closeButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleControls();
+    });
+    mascotButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleControls();
+    });
+    const ignoreControlEvent = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    pauseButton.addEventListener('click', async (event) => {
+      ignoreControlEvent(event);
+      pauseButton.disabled = true;
+      try {
+        await window.__workflowCapturePause?.();
+      } catch (error) {
+        pauseButton.disabled = false;
+        console.error('[Workflow Capture] Could not pause recording:', error);
+      }
+    });
+    resumeButton.addEventListener('click', async (event) => {
+      ignoreControlEvent(event);
+      resumeButton.disabled = true;
+      try {
+        await window.__workflowCaptureResume?.();
+      } catch (error) {
+        resumeButton.disabled = false;
+        console.error('[Workflow Capture] Could not resume recording:', error);
+      }
+    });
+    saveButton.addEventListener('click', async (event) => {
+      ignoreControlEvent(event);
+      saveButton.disabled = true;
+      saveButton.querySelector('span').textContent = 'Saving…';
+      try {
+        await window.__workflowCaptureSave?.();
+      } catch (error) {
+        saveButton.disabled = false;
+        saveButton.querySelector('span').textContent = 'Save';
+        console.error('[Workflow Capture] Could not save recording:', error);
+      }
+    });
     Object.assign(badge.style, {
       position: 'fixed',
-      top: '12px',
-      right: '12px',
+      top: '14px',
+      right: '14px',
       zIndex: '2147483647',
-      backgroundColor: '#ef4444',
-      color: '#ffffff',
-      fontFamily: 'monospace, sans-serif',
-      fontSize: '12px',
-      fontWeight: 'bold',
-      padding: '4px 10px',
-      borderRadius: '9999px',
-      boxShadow: '0 2px 10px rgba(0,0,0,0.25)',
-      pointerEvents: 'none',
-      letterSpacing: '0.5px'
+      pointerEvents: 'auto'
     });
+    badge.style.setProperty('position', 'fixed', 'important');
+    badge.style.setProperty('top', '14px', 'important');
+    badge.style.setProperty('right', '14px', 'important');
+    badge.style.setProperty('z-index', '2147483647', 'important');
+    badge.style.setProperty('pointer-events', 'auto', 'important');
     container.appendChild(badge);
   }
+
+  function setPaused(paused) {
+    isPaused = Boolean(paused);
+    window.__workflowCapturePaused = isPaused;
+    if (isPaused) {
+      activeInputBuffer = null;
+      if (pendingClickTimer) clearTimeout(pendingClickTimer);
+      pendingClickTimer = null;
+      pendingClickTarget = null;
+      pendingClickExtra = null;
+    }
+    const badge = document.getElementById('__workflow_capture_badge__');
+    const shadow = badge?.shadowRoot;
+    if (!shadow) return;
+    const panel = shadow.querySelector('.panel');
+    const root = shadow.querySelector('.root');
+    const status = shadow.getElementById('statusText');
+    const pauseButton = shadow.getElementById('pauseButton');
+    const resumeButton = shadow.getElementById('resumeButton');
+    if (panel) panel.classList.toggle('paused', isPaused);
+    if (root) root.classList.toggle('is-paused', isPaused);
+    if (status) status.textContent = isPaused ? 'PAUSED' : 'CAPTURING';
+    if (pauseButton) {
+      pauseButton.hidden = isPaused;
+      pauseButton.disabled = false;
+    }
+    if (resumeButton) {
+      resumeButton.hidden = !isPaused;
+      resumeButton.disabled = false;
+    }
+  }
+
+  function updateBadgeCount(count) {
+    const countElement = document.getElementById('__workflow_capture_badge__')?.shadowRoot?.getElementById('stepCount');
+    if (countElement) countElement.textContent = `${count} ${count === 1 ? 'step' : 'steps'}`;
+    const miniCount = document.getElementById('__workflow_capture_badge__')?.shadowRoot?.getElementById('miniCount');
+    if (miniCount) miniCount.textContent = count > 99 ? '99+' : String(count);
+  }
+
+  window.__workflowCaptureSetPaused = setPaused;
+  window.__workflowCaptureUpdateUI = (state = {}) => {
+    if (state.count !== undefined) updateBadgeCount(Number(state.count) || 0);
+    if (state.isPaused !== undefined) setPaused(state.isPaused);
+  };
+  window.__workflowCaptureStopUI = () => {
+    const badge = document.getElementById('__workflow_capture_badge__');
+    if (badge?.shadowRoot) {
+      const shadow = badge.shadowRoot;
+      shadow.querySelector('.panel')?.classList.add('saved');
+      const status = shadow.getElementById('statusText');
+      if (status) status.textContent = 'SAVED';
+      const actions = shadow.querySelector('.actions');
+      if (actions) actions.innerHTML = '<span class="saved-message">Workflow saved successfully</span>';
+      setTimeout(() => badge.remove(), 1400);
+    }
+    if (typeof window.__workflowCaptureCleanup === 'function') window.__workflowCaptureCleanup();
+  };
 
   // Register capture-phase event listeners on window and document
   window.addEventListener('pointerdown', onPointerDown, true);
@@ -689,7 +896,7 @@
   // Relay actions from child iframes via postMessage
   window.addEventListener('message', (event) => {
     if (event.data && event.data.type === '__WORKFLOW_CAPTURE_EMIT_ACTION__' && event.data.payload) {
-      if (typeof window.__workflowCaptureEmitAction === 'function') {
+      if (!isPaused && typeof window.__workflowCaptureEmitAction === 'function') {
         window.__workflowCaptureEmitAction(event.data.payload);
       } else if (window.top && window.top !== window && typeof window.top.__workflowCaptureEmitAction === 'function') {
         window.top.__workflowCaptureEmitAction(event.data.payload);

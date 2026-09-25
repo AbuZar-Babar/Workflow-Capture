@@ -46,6 +46,10 @@ class RecorderBridge {
     this.page = null;
     this.actions = [];
     this.isRecording = false;
+    this.isPaused = false;
+    this._pausedAt = null;
+    this._pausedIntervals = [];
+    this.onSave = typeof options.onSave === 'function' ? options.onSave : null;
     this.startedAt = null;
     this.startUrl = null;
   }
@@ -64,6 +68,9 @@ class RecorderBridge {
     this.startUrl = this.page.url();
     this.startedAt = new Date().toISOString();
     this.isRecording = true;
+    this.isPaused = false;
+    this._pausedAt = null;
+    this._pausedIntervals = [];
     this.actions = [];
 
     // Register this instance with static shared registry for action routing
@@ -214,6 +221,66 @@ class RecorderBridge {
     this._sweepRunning = false;
   }
 
+  async _updateInjectedUi() {
+    if (!this._attachedPages) return;
+    const state = { count: this.actions.length, isPaused: this.isPaused };
+    for (const page of this._attachedPages) {
+      if (!page || page.isClosed()) continue;
+      await page.mainFrame().evaluate((uiState) => {
+        if (typeof window.__workflowCaptureUpdateUI === 'function') {
+          window.__workflowCaptureUpdateUI(uiState);
+        }
+      }, state).catch(() => {});
+    }
+  }
+
+  async _setPaused(paused) {
+    const nextPaused = Boolean(paused);
+    if (!this.isRecording || this.isPaused === nextPaused) return this.isPaused;
+    if (nextPaused) {
+      this.isPaused = true;
+      this._pausedAt = Date.now();
+    }
+    if (this._attachedPages) {
+      await Promise.allSettled([...this._attachedPages].filter((page) => page && !page.isClosed()).map((page) =>
+        page.evaluateOnNewDocument((pausedState) => {
+          window.__workflowCapturePaused = pausedState;
+          if (typeof window.__workflowCaptureSetPaused === 'function') {
+            window.__workflowCaptureSetPaused(pausedState);
+          }
+        }, nextPaused)
+      ));
+    }
+    if (this._attachedPages) {
+      const frames = [];
+      for (const page of this._attachedPages) {
+        if (!page || page.isClosed()) continue;
+        frames.push(...getAllFramesRecursive(page));
+      }
+      await Promise.allSettled(frames.map((frame) => frame.evaluate((nextPaused) => {
+        if (typeof window.__workflowCaptureSetPaused === 'function') {
+          window.__workflowCaptureSetPaused(nextPaused);
+        }
+      }, nextPaused)));
+    }
+    if (!nextPaused && this._pausedAt) {
+      this._pausedIntervals.push([this._pausedAt, Date.now()]);
+      this._pausedAt = null;
+    }
+    this.isPaused = nextPaused;
+    logger.info(this.isPaused ? 'Workflow recording paused.' : 'Workflow recording resumed.');
+    await this._updateInjectedUi();
+    return this.isPaused;
+  }
+
+  pause() {
+    return this._setPaused(true);
+  }
+
+  resume() {
+    return this._setPaused(false);
+  }
+
   /**
    * Attach recorder and selector resolver to a specific Page instance and all its frames
    */
@@ -259,6 +326,22 @@ class RecorderBridge {
         logger.warn(`[Recorder] Bridge expose warning on page: ${err.message}`);
       }
     }
+
+    const exposeControl = async (name, handler) => {
+      try {
+        await page.exposeFunction(name, handler);
+      } catch (err) {
+        if (!err.message.includes('already exists')) {
+          logger.warn(`[Recorder] Could not expose ${name}: ${err.message}`);
+        }
+      }
+    };
+    await exposeControl('__workflowCapturePause', () => this.pause());
+    await exposeControl('__workflowCaptureResume', () => this.resume());
+    await exposeControl('__workflowCaptureSave', async () => {
+      if (!this.isRecording) return null;
+      return this.onSave ? this.onSave() : this.stop();
+    });
 
     // Register unified script to evaluate on every new document (persists across navigations/reloads)
     await page.evaluateOnNewDocument(this._unifiedScript).catch((err) => {
@@ -385,6 +468,11 @@ class RecorderBridge {
    */
   _handleCapturedAction(rawAction) {
     if (!this.isRecording || !rawAction) return false;
+    const capturedAt = Number(rawAction.captureTimestamp) || Number(rawAction.timestamp) || Date.now();
+    if (this.isPaused || (this._pausedAt && capturedAt >= this._pausedAt) ||
+        this._pausedIntervals.some(([startedAt, endedAt]) => capturedAt >= startedAt && capturedAt <= endedAt)) {
+      return false;
+    }
 
     // Deduplicate actions emitted via both console transport and direct binding
     if (rawAction.uid) {
@@ -470,6 +558,7 @@ class RecorderBridge {
     };
 
     this.actions.push(action);
+    this._updateInjectedUi().catch(() => {});
 
     // Terminal log
     const topCandidate = action.target && action.target.candidates[0] ? action.target.candidates[0].value : 'none';
@@ -532,6 +621,8 @@ class RecorderBridge {
 
     // 3. Mark recording as finished
     this.isRecording = false;
+    this.isPaused = false;
+    this._pausedAt = null;
     RecorderBridge._activeInstances.delete(this);
 
     const completedAt = new Date().toISOString();
@@ -573,6 +664,19 @@ class RecorderBridge {
     const filePath = path.join(this.outputDir, `${sanitizedName}.json`);
 
     fs.writeFileSync(filePath, JSON.stringify(recording, null, 2), 'utf8');
+
+    if (this._attachedPages) {
+      const frames = [];
+      for (const page of this._attachedPages) {
+        if (!page || page.isClosed()) continue;
+        frames.push(...getAllFramesRecursive(page));
+      }
+      await Promise.allSettled(frames.map((frame) => frame.evaluate(() => {
+        if (typeof window.__workflowCaptureStopUI === 'function') {
+          window.__workflowCaptureStopUI();
+        }
+      })));
+    }
 
     logger.divider();
     logger.success(`Workflow recording saved: ${filePath}`);

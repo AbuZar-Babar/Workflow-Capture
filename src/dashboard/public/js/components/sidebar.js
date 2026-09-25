@@ -7,8 +7,8 @@ import { Toast } from './toast.js';
 
 export const Sidebar = {
   buttons: [],
-  btnLaunchChrome: null,
   btnStopExecution: null,
+  isExecutionActive: false,
 
   init(onNavigate) {
     this.buttons = document.querySelectorAll('.sidebar-icon-btn[data-route]');
@@ -21,26 +21,11 @@ export const Sidebar = {
       };
     });
 
-    this.btnLaunchChrome = document.getElementById('btnSidebarLaunchChrome');
-    if (this.btnLaunchChrome) {
-      this.btnLaunchChrome.onclick = async () => {
-        Toast.info('Launching Google Chrome with remote debugging (CDP port 9222)...');
-        try {
-          const res = await Api.launchBrowser('ecommerce');
-          if (res.success) {
-            Toast.success('Chrome is running with remote debugging on port 9222!');
-          }
-        } catch (err) {
-          Toast.error(err.message);
-        }
-      };
-    }
-
     this.btnStopExecution = document.getElementById('btnSidebarStopExecution');
     if (this.btnStopExecution) {
       this.btnStopExecution.onclick = async () => {
         this.btnStopExecution.disabled = true;
-        this.btnStopExecution.style.opacity = '0.7';
+        this.btnStopExecution.classList.add('is-pending');
         Toast.info('Stopping active execution...');
         try {
           const res = await Api.stopExecution();
@@ -50,24 +35,29 @@ export const Sidebar = {
         } finally {
           setTimeout(() => {
             if (this.btnStopExecution) {
-              this.btnStopExecution.disabled = false;
-              this.btnStopExecution.style.opacity = '1';
+              this.btnStopExecution.classList.remove('is-pending');
+              this.setExecutionActive(this.isExecutionActive);
             }
           }, 800);
         }
       };
+      this.setExecutionActive(false);
     }
   },
 
   setExecutionActive(isActive) {
+    this.isExecutionActive = Boolean(isActive);
     if (this.btnStopExecution) {
-      if (isActive) {
-        this.btnStopExecution.style.boxShadow = '0 0 12px rgba(220, 38, 38, 0.7)';
+      if (this.isExecutionActive) {
         this.btnStopExecution.title = 'Stop Running Execution (Active)';
       } else {
-        this.btnStopExecution.style.boxShadow = 'none';
+        this.btnStopExecution.disabled = true;
+        this.btnStopExecution.classList.remove('is-active');
         this.btnStopExecution.title = 'Stop Active Execution';
       }
+      this.btnStopExecution.disabled = !this.isExecutionActive;
+      this.btnStopExecution.classList.toggle('is-active', this.isExecutionActive);
+      this.btnStopExecution.setAttribute('aria-label', this.isExecutionActive ? 'Stop running execution' : 'Stop active execution');
     }
   },
 

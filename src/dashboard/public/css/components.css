@@ -248,6 +248,26 @@
   box-shadow: 0 4px 14px rgba(59, 85, 217, 0.32);
 }
 
+.sidebar-stop-execution {
+  color: #fff;
+  background: var(--color-danger);
+  border: 1px solid #b91c1c;
+}
+
+.sidebar-stop-execution:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.sidebar-stop-execution.is-active {
+  opacity: 1;
+  box-shadow: 0 0 0 3px var(--color-danger-bg);
+}
+
+.sidebar-stop-execution.is-pending {
+  opacity: 0.7;
+}
+
 /* Sidebar Hover Tooltips: Slide-in Animation to the Right */
 .sidebar-icon-btn[data-tooltip]::after,
 .sidebar-active-btn[data-tooltip]::after {

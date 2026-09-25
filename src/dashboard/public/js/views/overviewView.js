@@ -271,44 +271,8 @@ export const OverviewView = {
       }
     };
 
-    const stopRecording = async () => {
-      if (this.isStopping || !this.isRecording) return;
-      this.isStopping = true;
-      const label = document.getElementById('overviewRecordButtonLabel');
-
-      try {
-        if (btnStart) {
-          btnStart.disabled = true;
-          btnStart.classList.add('btn-loading');
-        }
-        if (label) label.textContent = 'Saving…';
-
-        const res = await Api.stopRecording();
-        const count = res.summary?.actionCount || 0;
-        Toast.success(`Recording saved: ${count} steps captured. Ready in Workflows.`);
-        this.setRecordingState(false);
-        await this.loadData();
-      } catch (err) {
-        Toast.error(err.message);
-        this.setRecordingState(false);
-      } finally {
-        this.isStopping = false;
-        if (btnStart && !this.isRecording) {
-          btnStart.disabled = false;
-          btnStart.classList.remove('btn-loading');
-        }
-      }
-    };
-
     if (btnStart) {
-      btnStart.onclick = async () => {
-        if (this.isStarting || this.isStopping) return;
-        if (this.isRecording) {
-          await stopRecording();
-        } else {
-          await startRecording();
-        }
-      };
+      btnStart.onclick = startRecording;
     }
 
     if (inputName) {
@@ -344,28 +308,6 @@ export const OverviewView = {
           Toast.info(`Launched playback for ${filename}`);
         } catch (err) {
           Toast.error(err.message);
-        }
-      };
-    }
-
-    const btnStopReplay = document.getElementById('btnOverviewStopReplay');
-    if (btnStopReplay) {
-      btnStopReplay.onclick = async () => {
-        btnStopReplay.disabled = true;
-        btnStopReplay.style.opacity = '0.7';
-        Toast.info('Stopping execution...');
-        try {
-          const res = await Api.stopExecution();
-          Toast.success(res.message || 'Execution stopped successfully');
-        } catch (err) {
-          Toast.error(err.message || 'Failed to stop execution');
-        } finally {
-          setTimeout(() => {
-            if (btnStopReplay) {
-              btnStopReplay.disabled = false;
-              btnStopReplay.style.opacity = '1';
-            }
-          }, 800);
         }
       };
     }
@@ -576,10 +518,10 @@ export const OverviewView = {
         btnStart.classList.remove('btn-loading');
         btnStart.classList.add('recording-active');
         btnStart.classList.add('is-recording');
-        btnStart.setAttribute('aria-label', 'Stop and save recording');
-        btnStart.disabled = false;
+        btnStart.setAttribute('aria-label', 'Recording in progress. Stop and save from the recording banner.');
+        btnStart.disabled = true;
       }
-      if (btnLabel) btnLabel.textContent = 'Stop Recording';
+      if (btnLabel) btnLabel.textContent = 'Recording in Progress';
       if (btnMeta) btnMeta.classList.remove('hidden');
       if (input) input.disabled = true;
 

@@ -38,6 +38,9 @@ class ReplayEngine extends EventEmitter {
     this.currentActionIndex = 0;
     this.isAutomatedActionActive = false;
     this.lastIntervention = null;
+    this.isPaused = false;
+    this._guardPages = new Set();
+    this._guardScriptIds = new Map();
   }
 
   /**
@@ -45,7 +48,28 @@ class ReplayEngine extends EventEmitter {
    */
   async abort() {
     this.isAborted = true;
+    this.isPaused = false;
+    await this._syncReplayGuard();
     logger.warn('[Replay Engine] Abort signal triggered.');
+  }
+
+  async pause(reason = 'manual') {
+    if (this.isAborted || this.isPaused) return;
+    this.isPaused = true;
+    this.emit('paused', { reason });
+    await this._syncReplayGuard();
+  }
+
+  async resume() {
+    if (this.isAborted || !this.isPaused) return;
+    this.isPaused = false;
+    this.emit('resumed');
+    await this._syncReplayGuard();
+  }
+
+  async _waitWhilePaused() {
+    while (this.isPaused && !this.isAborted) await new Promise(resolve => setTimeout(resolve, 100));
+    if (this.isAborted) throw new Error('Execution stopped by user');
   }
 
   /**
@@ -167,7 +191,7 @@ class ReplayEngine extends EventEmitter {
    * Tracks manual user mouse clicks, keystrokes, and touch events when automated replay is idle.
    */
   async _initHumanDisturbanceDetection(page) {
-    if (!page || page.isClosed()) return;
+    if (!page || page.isClosed() || this._guardPages.has(page)) return;
 
     try {
       await page.exposeFunction('__flowmindReportIntervention', (eventDetail) => {
@@ -179,67 +203,105 @@ class ReplayEngine extends EventEmitter {
       }
     }
 
+    for (const [name, handler] of [
+      ['__flowmindResumeReplay', () => this.resume()],
+      ['__flowmindStopReplay', () => this.abort()]
+    ]) {
+      try { await page.exposeFunction(name, handler); } catch {}
+    }
+
     const injectionScript = `
       (function() {
         window.__flowmindAutomatedActionActive = false;
         window.__flowmindAutomatedSince = 0;
-        if (window.__flowmindInterventionAttached) return;
+        window.__flowmindReplayPaused = ${this.isPaused};
+        if (window.__flowmindInterventionAttached) { window.__flowmindUpdateReplayGuard && window.__flowmindUpdateReplayGuard(); return; }
         window.__flowmindInterventionAttached = true;
-
-        // Auto-reset guard in case of unexpected exceptions
-        setInterval(function() {
-          if (window.__flowmindAutomatedActionActive && Date.now() - (window.__flowmindAutomatedSince || 0) > 4000) {
-            window.__flowmindAutomatedActionActive = false;
-          }
-        }, 1000);
-
+        var host = null;
+        if (window === window.top) {
+          host = document.createElement('div');
+          host.id = '__flowmind-replay-guard';
+          host.style.cssText = 'all:initial;position:fixed;top:18px;right:18px;z-index:2147483647;font:13px/1.4 Inter,system-ui,sans-serif;color:#eef2ff;';
+          var shadow = host.attachShadow({mode:'open'});
+          shadow.innerHTML = '<style>*{box-sizing:border-box} .card{width:270px;padding:12px 14px;background:#20283a;border:1px solid #39445b;border-radius:15px;box-shadow:0 12px 34px #10162655;display:flex;gap:10px;align-items:center}.dot{width:9px;height:9px;border-radius:50%;background:#42d392;box-shadow:0 0 12px #42d39288;flex:none}.paused .dot{background:#f5a742;box-shadow:0 0 12px #f5a74288}.copy{flex:1;min-width:0}.title{font-weight:700;font-size:12px}.sub{color:#aab5ca;font-size:11px;margin-top:2px}.actions{display:flex;gap:6px;margin-top:9px}.actions[hidden]{display:none}button{border:1px solid #46536e;border-radius:7px;background:#2b354b;color:#eef2ff;padding:5px 9px;font:600 11px system-ui;cursor:pointer}button:hover{background:#394660}.stop{color:#ffb3b3}</style><div class="card"><i class="dot"></i><div class="copy"><div class="title"></div><div class="sub"></div><div class="actions" hidden><button class="resume">Resume</button><button class="stop">Stop</button></div></div></div>';
+          document.documentElement.appendChild(host);
+          shadow.querySelector('.resume').addEventListener('click', () => window.__flowmindResumeReplay && window.__flowmindResumeReplay());
+          shadow.querySelector('.stop').addEventListener('click', () => window.__flowmindStopReplay && window.__flowmindStopReplay());
+          window.__flowmindReplayGuardHost = host;
+          window.__flowmindUpdateReplayGuard = function() {
+            var card=shadow.querySelector('.card'), actions=shadow.querySelector('.actions');
+            card.classList.toggle('paused', !!window.__flowmindReplayPaused);
+            shadow.querySelector('.title').textContent=window.__flowmindReplayPaused?'Workflow paused':'Automation running';
+            shadow.querySelector('.sub').textContent=window.__flowmindReplayPaused?'Interaction blocked. Resume when ready.':'Please don’t interact with this page';
+            actions.hidden=!window.__flowmindReplayPaused;
+          };
+          window.__flowmindUpdateReplayGuard();
+        }
         var onHumanInput = function(evt) {
-          if (window.__flowmindAutomatedActionActive) return;
-
-          var now = Date.now();
-          if (window.__flowmindLastInterventionTime && (now - window.__flowmindLastInterventionTime < 1500)) {
-            return;
-          }
-          window.__flowmindLastInterventionTime = now;
-
-          if (typeof window.__flowmindReportIntervention === 'function') {
-            try {
-              window.__flowmindReportIntervention({
-                type: evt.type,
-                key: evt.key || null,
-                tagName: evt.target && evt.target.tagName ? evt.target.tagName : null,
-                text: (evt.target && evt.target.textContent) ? evt.target.textContent.trim().slice(0, 30) : null,
-                time: now
-              });
-            } catch (e) {}
-          }
+          if (host && evt.composedPath().includes(host)) return;
+          var expected=window.__flowmindAutomatedTarget;
+          if (window.__flowmindAutomatedActionActive && expected && (expected===evt.target || expected.contains(evt.target))) return;
+          if (evt.cancelable) evt.preventDefault();
+          evt.stopImmediatePropagation(); evt.stopPropagation();
+          if (window.__flowmindReplayPaused) return;
+          window.__flowmindReplayPaused=true;
+          window.__flowmindUpdateReplayGuard && window.__flowmindUpdateReplayGuard();
+          var now=Date.now();
+          if (typeof window.__flowmindReportIntervention==='function') window.__flowmindReportIntervention({type:evt.type,key:evt.key||null,tagName:evt.target&&evt.target.tagName||null,time:now});
         };
-
-        ['mousedown', 'keydown', 'wheel', 'touchstart'].forEach(function(eventType) {
-          window.addEventListener(eventType, onHumanInput, { capture: true, passive: true });
-        });
+        window.__flowmindReplayInputHandler=onHumanInput;
+        ['pointerdown','mousedown','click','pointerup','mouseup','keydown','keypress','keyup','wheel','touchstart','touchmove','contextmenu','dragstart'].forEach(function(type){window.addEventListener(type,onHumanInput,{capture:true,passive:false});});
+        window.__flowmindStopReplayGuard=function(){
+          ['pointerdown','mousedown','click','pointerup','mouseup','keydown','keypress','keyup','wheel','touchstart','touchmove','contextmenu','dragstart'].forEach(function(type){window.removeEventListener(type,onHumanInput,true);});
+          if(host)host.remove(); window.__flowmindInterventionAttached=false;
+        };
       })();
     `;
 
     try {
-      await page.evaluateOnNewDocument(injectionScript);
-      await page.evaluate(injectionScript).catch(() => {});
+      const script = await page.evaluateOnNewDocument(injectionScript);
+      this._guardScriptIds.set(page, script.identifier);
+      this._guardPages.add(page);
+      for (const frame of page.frames()) await frame.evaluate(injectionScript).catch(() => {});
     } catch {}
+  }
+
+  async _syncReplayGuard() {
+    for (const page of this._guardPages) {
+      if (page.isClosed()) continue;
+      for (const frame of page.frames()) await frame.evaluate((paused) => {
+        window.__flowmindReplayPaused=paused;
+        window.__flowmindUpdateReplayGuard && window.__flowmindUpdateReplayGuard();
+      }, this.isPaused).catch(() => {});
+    }
+  }
+
+  async _teardownReplayGuard() {
+    for (const page of this._guardPages) {
+      if (page.isClosed()) continue;
+      for (const frame of page.frames()) await frame.evaluate(() => window.__flowmindStopReplayGuard && window.__flowmindStopReplayGuard()).catch(() => {});
+      const identifier = this._guardScriptIds.get(page);
+      if (identifier) await page.removeScriptToEvaluateOnNewDocument(identifier).catch(() => {});
+    }
+    this._guardPages.clear();
+    this._guardScriptIds.clear();
   }
 
   /**
    * Set flag in browser indicating automated action in progress (prevents bot synthetic actions from triggering disturbance alerts)
    */
-  async _setAutomatedAction(isActive) {
+  async _setAutomatedAction(isActive, elementHandle = null) {
     this.isAutomatedActionActive = !!isActive;
     if (this.page && !this.page.isClosed()) {
       try {
-        await this.page.evaluate((active) => {
+        const target = elementHandle || null;
+        await this.page.evaluate((active, expected) => {
           window.__flowmindAutomatedActionActive = active;
-          if (active) {
-            window.__flowmindAutomatedSince = Date.now();
-          }
-        }, !!isActive).catch(() => {});
+          window.__flowmindAutomatedTarget = active ? expected : null;
+          if (active) window.__flowmindAutomatedSince = Date.now();
+        }, !!isActive, target).catch(async () => {
+          if (target) await target.evaluate((el, active) => { window.__flowmindAutomatedActionActive=active; window.__flowmindAutomatedTarget=active?el:null; }, !!isActive).catch(() => {});
+        });
       } catch {}
     }
   }
@@ -248,6 +310,10 @@ class ReplayEngine extends EventEmitter {
    * Handle human disturbance reported from target page
    */
   _handleHumanIntervention(eventDetail) {
+    if (this.isPaused || this.isAborted) return;
+    this.isPaused = true;
+    this._syncReplayGuard();
+    this.emit('paused', { reason: 'human_input' });
     const stepNumber = this.currentActionIndex + 1;
     const currentAction = (this.recording && this.recording.actions)
       ? this.recording.actions[this.currentActionIndex]
@@ -332,7 +398,8 @@ class ReplayEngine extends EventEmitter {
       )
     );
 
-      await this._setAutomatedAction(true);
+      await this._waitWhilePaused();
+      await this._setAutomatedAction(true, elementHandle);
       try {
         await dispatchAction(elementHandle, actionToDispatch, {
           page: this.page,
@@ -480,11 +547,17 @@ class ReplayEngine extends EventEmitter {
       );
 
       await elementHandle.scrollIntoViewIfNeeded().catch(() => {});
-      await dispatchAction(elementHandle, actionToDispatch, {
-        page: this.page,
-        botConfig: this.botConfig,
-        isNextActionOption
-      });
+      await this._waitWhilePaused();
+      await this._setAutomatedAction(true, elementHandle);
+      try {
+        await dispatchAction(elementHandle, actionToDispatch, {
+          page: this.page,
+          botConfig: this.botConfig,
+          isNextActionOption
+        });
+      } finally {
+        await this._setAutomatedAction(false, elementHandle);
+      }
 
       return { success: true, scoped: true };
     } finally {
@@ -521,6 +594,7 @@ class ReplayEngine extends EventEmitter {
       if (this.isAborted) {
         throw new Error('Execution stopped by user');
       }
+      await this._waitWhilePaused();
       try {
         const pagesToCheck = [this.page];
         if (this.browser) {
@@ -726,6 +800,7 @@ class ReplayEngine extends EventEmitter {
 
     try {
       for (let i = 0; i < recording.actions.length; i++) {
+        await this._waitWhilePaused();
         if (this.isAborted) {
           throw new Error('Execution stopped by user');
         }
@@ -737,6 +812,7 @@ class ReplayEngine extends EventEmitter {
           logger.info(`Explicit step delay: waiting ${this.stepDelayMs}ms before step #${action.index + 1}...`);
           const end = Date.now() + this.stepDelayMs;
           while (Date.now() < end) {
+            await this._waitWhilePaused();
             if (this.isAborted) throw new Error('Execution stopped by user');
             await new Promise(r => setTimeout(r, 100));
           }
@@ -749,6 +825,7 @@ class ReplayEngine extends EventEmitter {
             logger.info(`Pacing step #${action.index + 1}: waiting ${delay}ms for page/data to settle...`);
             const end = Date.now() + delay;
             while (Date.now() < end) {
+              await this._waitWhilePaused();
               if (this.isAborted) throw new Error('Execution stopped by user');
               await new Promise(r => setTimeout(r, 100));
             }
@@ -765,6 +842,7 @@ class ReplayEngine extends EventEmitter {
           action.index,
           action.type
         );
+        await this._waitWhilePaused();
 
         // Deep clone the action to safely inject secrets
         const actionToDispatch = { ...action };
@@ -777,7 +855,7 @@ class ReplayEngine extends EventEmitter {
         }
 
         // 2. Perform action via Puppeteer with humanization config
-        await this._setAutomatedAction(true);
+        await this._setAutomatedAction(true, elementHandle);
         try {
           await dispatchAction(elementHandle, actionToDispatch, {
             page: this.page,
@@ -818,6 +896,7 @@ class ReplayEngine extends EventEmitter {
       logger.error(`Replay halted at action #${replayStats.executedCount + 1}:`, err);
       throw err;
     } finally {
+      await this._teardownReplayGuard();
       if (this.browser) {
         await this.browser.disconnect();
         logger.info('Disconnected from Chrome (session preserved).');

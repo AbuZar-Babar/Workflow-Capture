@@ -110,8 +110,40 @@ logger.action = function (index, type, target, detail = '') {
 // Global State
 let activeRecorder = null;
 let isStartingRecorder = false;
+let isStoppingRecorder = false;
 let activeReplay = null;
 let isRunningTest = false;
+
+async function stopActiveRecording() {
+  if (isStoppingRecorder) throw new Error('The recording is already being saved');
+  if (!activeRecorder || !activeRecorder.isRecording) {
+    throw new Error('No active recording session to stop');
+  }
+
+  isStoppingRecorder = true;
+  const recorder = activeRecorder;
+  try {
+    const filePath = await recorder.stop();
+    const summary = {
+      name: recorder.name,
+      filePath,
+      actionCount: recorder.actions.length
+    };
+    if (activeRecorder === recorder) activeRecorder = null;
+    if (workflowController.syncWorkflowsFromDisk) {
+      workflowController.syncWorkflowsFromDisk();
+    }
+    broadcast('recording_state', { isRecording: false, summary });
+    broadcast('workflows_updated', summary);
+    return summary;
+  } catch (err) {
+    if (activeRecorder === recorder) activeRecorder = null;
+    logger.error('Error stopping recorder:', err);
+    throw err;
+  } finally {
+    isStoppingRecorder = false;
+  }
+}
 
 /**
  * Check CDP Status & fetch open tabs
@@ -470,23 +502,7 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/api/runs/stop' && req.method === 'POST') {
       if (activeRecorder && activeRecorder.isRecording) {
-        try {
-          const savedFilePath = await activeRecorder.stop();
-          const summary = {
-            name: activeRecorder.name,
-            filePath: savedFilePath,
-            actionCount: activeRecorder.actions.length
-          };
-          activeRecorder = null;
-          if (workflowController.syncWorkflowsFromDisk) {
-            workflowController.syncWorkflowsFromDisk();
-          }
-          broadcast('recording_state', { isRecording: false, summary });
-          broadcast('workflows_updated', summary);
-        } catch (err) {
-          logger.error('Error stopping recorder in /api/runs/stop:', err);
-          activeRecorder = null;
-        }
+        await stopActiveRecording().catch(() => {});
       }
       if (activeReplay) {
         try {
@@ -744,7 +760,12 @@ const server = http.createServer(async (req, res) => {
       const browserURL = rawBrowserURL.replace('//localhost:', '//127.0.0.1:');
 
       try {
-        activeRecorder = new RecorderBridge({ name, browserURL, outputDir: RECORDINGS_DIR });
+        activeRecorder = new RecorderBridge({
+          name,
+          browserURL,
+          outputDir: RECORDINGS_DIR,
+          onSave: stopActiveRecording
+        });
 
         // Wrap raw action handler to broadcast to UI
         const origHandle = activeRecorder._handleCapturedAction.bind(activeRecorder);
@@ -778,27 +799,14 @@ const server = http.createServer(async (req, res) => {
     // API: Stop Recording
     // -------------------------------------------------------------
     if (pathname === '/api/record/stop' && req.method === 'POST') {
-      if (!activeRecorder || !activeRecorder.isRecording) {
+      if (!activeRecorder || !activeRecorder.isRecording || isStoppingRecorder) {
         return sendJson(res, 400, { error: 'No active recording session to stop' });
       }
 
       try {
-        const savedFilePath = await activeRecorder.stop();
-        const summary = {
-          name: activeRecorder.name,
-          filePath: savedFilePath,
-          actionCount: activeRecorder.actions.length
-        };
-        activeRecorder = null;
-        if (workflowController.syncWorkflowsFromDisk) {
-          workflowController.syncWorkflowsFromDisk();
-        }
-        broadcast('recording_state', { isRecording: false, summary });
-        broadcast('workflows_updated', summary);
+        const summary = await stopActiveRecording();
         return sendJson(res, 200, { success: true, summary });
       } catch (err) {
-        logger.error('Error stopping recorder:', err);
-        activeRecorder = null;
         return sendJson(res, 500, { error: err.message });
       }
     }
@@ -841,8 +849,14 @@ const server = http.createServer(async (req, res) => {
           action: intervention.action,
           detail: intervention.detail,
           timestamp: intervention.timestamp,
-          message: `Human disturbance detected on Step #${intervention.stepIndex}!`
+          message: `Input was blocked and replay paused on Step #${intervention.stepIndex}.`
         });
+      });
+      replayEngine.on('paused', () => {
+        broadcast('replay_state', { isReplaying: true, isPaused: true, filename });
+      });
+      replayEngine.on('resumed', () => {
+        broadcast('replay_state', { isReplaying: true, isPaused: false, filename });
       });
 
       broadcast('replay_state', { isReplaying: true, filename, total: recording.actions.length });
@@ -884,22 +898,10 @@ const server = http.createServer(async (req, res) => {
       let stoppedRecorder = false;
       if (activeRecorder && activeRecorder.isRecording) {
         try {
-          const savedFilePath = await activeRecorder.stop();
-          const summary = {
-            name: activeRecorder.name,
-            filePath: savedFilePath,
-            actionCount: activeRecorder.actions.length
-          };
-          activeRecorder = null;
+          await stopActiveRecording();
           stoppedRecorder = true;
-          if (workflowController.syncWorkflowsFromDisk) {
-            workflowController.syncWorkflowsFromDisk();
-          }
-          broadcast('recording_state', { isRecording: false, summary });
-          broadcast('workflows_updated', summary);
         } catch (err) {
           logger.error('Error stopping recorder in /api/replay/stop:', err);
-          activeRecorder = null;
         }
       }
       if (activeReplay) {
