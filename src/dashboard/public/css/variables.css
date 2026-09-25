@@ -38,9 +38,12 @@
 
   /* Typography Colors (Enforced WCAG AA >= 4.5:1) */
   --text-main: #0F172A;             /* Primary Headings: 16.9:1 */
+  --text-primary: #0F172A;
   --text-body: #334155;             /* Body text: 9.6:1 */
   --text-sub: #475569;              /* Secondary labels: 7.1:1 */
+  --text-secondary: #475569;
   --text-muted: #596780;            /* Micro-labels / timestamps: 4.95:1 */
+  --text-tertiary: #596780;
   --text-dim: #94A3B8;
 
   /* State Colors (WCAG AA Compliant) */
@@ -146,9 +149,12 @@
 
   /* Typography Colors */
   --text-main: #F8FAFC;             /* Clean Crisp White */
+  --text-primary: #F8FAFC;
   --text-body: #94A3B8;             /* Readable Slate Gray */
   --text-sub: #CBD5E1;              /* Soft Light Slate */
+  --text-secondary: #CBD5E1;
   --text-muted: #64748B;            /* Dim Hint Text */
+  --text-tertiary: #64748B;
   --text-dim: #475569;
 
   /* State Colors */

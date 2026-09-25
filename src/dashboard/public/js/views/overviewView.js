@@ -190,7 +190,7 @@ export const OverviewView = {
               <div class="card-header-row"><div class="card-title-wrap"><h3>Preview items</h3><p>These are the records the automation will process.</p></div></div>
               <div id="discoveryItemsList" class="discovery-items-list"></div>
             </div>
-            <div class="discovery-options" style="margin-top:0.75rem; padding:0.6rem 0.8rem; background:#f8fafc; border-radius:6px; border:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between;">
+            <div class="discovery-options" style="margin-top:0.75rem; padding:0.6rem 0.8rem; background:var(--input-bg); border-radius:6px; border:1px solid var(--border-light); display:flex; align-items:center; justify-content:space-between;">
               <div>
                 <strong style="display:block; font-size:0.75rem; color:var(--text-main);">Smart Deduplication</strong>
                 <span style="font-size:0.68rem; color:var(--text-sub);">Skips items already downloaded in previous runs</span>

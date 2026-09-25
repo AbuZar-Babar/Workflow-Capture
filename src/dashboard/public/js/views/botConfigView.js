@@ -105,7 +105,7 @@ export const BotConfigView = {
         <div class="bot-config-grid">
           
           <!-- Card 1: Click & Action Timing -->
-          <article class="card" style="background:#ffffff; border:1px solid rgba(0,0,0,0.08); padding:1.25rem;">
+          <article class="card" style="padding:1.25rem;">
             <div class="card-header-row" style="margin-bottom:0.75rem;">
               <div class="card-title-wrap">
                 <h3 style="font-size:0.95rem; font-weight:800; color:var(--text-main); display:inline-flex; align-items:center; gap:0.4rem;">
@@ -169,7 +169,7 @@ export const BotConfigView = {
           </article>
 
           <!-- Card 2: Mouse Trajectory Dynamics + Live Canvas Simulator -->
-          <article class="card" style="background:#ffffff; border:1px solid rgba(0,0,0,0.08); padding:1.25rem;">
+          <article class="card" style="padding:1.25rem;">
             <div class="card-header-row" style="margin-bottom:0.85rem;">
               <div class="card-title-wrap">
                 <h3 style="font-size:0.95rem; font-weight:800; color:var(--text-main); display:inline-flex; align-items:center; gap:0.4rem;">
@@ -213,7 +213,7 @@ export const BotConfigView = {
             </div>
 
             <!-- Live Mouse Trajectory Preview Canvas -->
-            <div style="background:#f8fafc; border:1px solid rgba(12,92,63,0.15); border-radius:var(--radius-md); padding:0.65rem; position:relative;">
+            <div style="background:var(--input-bg); border:1px solid var(--border-light); border-radius:var(--radius-md); padding:0.65rem; position:relative;">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
                 <span style="font-size:0.68rem; font-weight:800; color:var(--brand-forest); text-transform:uppercase;">Live Trajectory Simulator</span>
                 <button class="btn btn-xs btn-primary" id="btnTestMousePath" style="display:inline-flex; align-items:center; gap:0.3rem;">
@@ -221,12 +221,12 @@ export const BotConfigView = {
                   <span>Draw Path</span>
                 </button>
               </div>
-              <canvas id="mouseTrajectoryCanvas" width="300" height="100" style="width:100%; height:95px; background:#ffffff; border-radius:6px; border:1px solid #e2e8f0; display:block;"></canvas>
+              <canvas id="mouseTrajectoryCanvas" width="300" height="100" style="width:100%; height:95px; background:var(--card-bg-solid); border-radius:6px; border:1px solid var(--border-light); display:block;"></canvas>
             </div>
           </article>
 
           <!-- Card 3: Keystroke Dynamics & Typing Cadence -->
-          <article class="card" style="background:#ffffff; border:1px solid rgba(0,0,0,0.08); padding:1.25rem;">
+          <article class="card" style="padding:1.25rem;">
             <div class="card-header-row" style="margin-bottom:1rem;">
               <div class="card-title-wrap">
                 <h3 style="font-size:0.95rem; font-weight:800; color:var(--text-main); display:inline-flex; align-items:center; gap:0.4rem;">
@@ -262,17 +262,17 @@ export const BotConfigView = {
             </div>
 
             <!-- Interactive Typing Tester -->
-            <div style="background:#f8fafc; border:1px solid rgba(0,0,0,0.07); border-radius:var(--radius-md); padding:0.65rem;">
+            <div style="background:var(--input-bg); border:1px solid var(--border-light); border-radius:var(--radius-md); padding:0.65rem;">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
                 <span style="font-size:0.68rem; font-weight:800; color:var(--text-sub); text-transform:uppercase;">Typing Rhythm Tester</span>
                 <button class="btn btn-xs btn-dark" id="btnTestTypingCadence">Type Test</button>
               </div>
-              <input type="text" id="typingTestDisplay" class="form-control form-control-sm" placeholder="Simulated bot typing output..." readonly style="font-family:var(--font-mono); font-size:0.75rem; background:#ffffff;">
+              <input type="text" id="typingTestDisplay" class="form-control form-control-sm" placeholder="Simulated bot typing output..." readonly style="font-family:var(--font-mono); font-size:0.75rem;">
             </div>
           </article>
 
           <!-- Card 4: Anti-Detection & Captcha Evasion -->
-          <article class="card" style="background:#ffffff; border:1px solid rgba(0,0,0,0.08); padding:1.25rem;">
+          <article class="card" style="padding:1.25rem;">
             <div class="card-header-row" style="margin-bottom:1rem;">
               <div class="card-title-wrap">
                 <h3 style="font-size:0.95rem; font-weight:800; color:var(--text-main); display:inline-flex; align-items:center; gap:0.4rem;">
@@ -286,7 +286,7 @@ export const BotConfigView = {
 
             <div style="display:flex; flex-direction:column; gap:0.85rem;">
               
-              <div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0.65rem; background:#f9fafb; border-radius:var(--radius-md); border:1px solid rgba(0,0,0,0.05);">
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0.65rem; background:var(--input-bg); border-radius:var(--radius-md); border:1px solid var(--border-light);">
                 <div>
                   <strong style="font-size:0.75rem; color:var(--text-main); display:block;">Mask <code>navigator.webdriver</code></strong>
                   <small style="font-size:0.65rem; color:var(--text-sub);">Deletes automation flag checked by Cloudflare & reCAPTCHA</small>
@@ -297,7 +297,7 @@ export const BotConfigView = {
                 </label>
               </div>
 
-              <div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0.65rem; background:#f9fafb; border-radius:var(--radius-md); border:1px solid rgba(0,0,0,0.05);">
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0.65rem; background:var(--input-bg); border-radius:var(--radius-md); border:1px solid var(--border-light);">
                 <div>
                   <strong style="font-size:0.75rem; color:var(--text-main); display:block;">Emulate Chrome Runtime</strong>
                   <small style="font-size:0.65rem; color:var(--text-sub);">Fakes <code>window.chrome.runtime</code> and standard browser APIs</small>
@@ -308,7 +308,7 @@ export const BotConfigView = {
                 </label>
               </div>
 
-              <div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0.65rem; background:#f9fafb; border-radius:var(--radius-md); border:1px solid rgba(0,0,0,0.05);">
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0.65rem; background:var(--input-bg); border-radius:var(--radius-md); border:1px solid var(--border-light);">
                 <div>
                   <strong style="font-size:0.75rem; color:var(--text-main); display:block;">Emulate Browser Plugins</strong>
                   <small style="font-size:0.65rem; color:var(--text-sub);">Populates mock PDF and Widevine plugins array</small>
@@ -319,7 +319,7 @@ export const BotConfigView = {
                 </label>
               </div>
 
-              <div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0.65rem; background:#f9fafb; border-radius:var(--radius-md); border:1px solid rgba(0,0,0,0.05);">
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0.65rem; background:var(--input-bg); border-radius:var(--radius-md); border:1px solid var(--border-light);">
                 <div>
                   <strong style="font-size:0.75rem; color:var(--text-main); display:block;">Randomized Viewport Pre-Scroll</strong>
                   <small style="font-size:0.65rem; color:var(--text-sub);">Simulates reading gestures before interacting with elements</small>
@@ -334,7 +334,7 @@ export const BotConfigView = {
           </article>
 
           <!-- Card 5: Dynamic Resolution & Condition Polling Engine -->
-          <article class="card" style="background:#ffffff; border:1px solid rgba(0,0,0,0.08); padding:1.25rem;">
+          <article class="card" style="padding:1.25rem;">
             <div class="card-header-row" style="margin-bottom:1rem;">
               <div class="card-title-wrap">
                 <h3 style="font-size:0.95rem; font-weight:800; color:var(--text-main); display:inline-flex; align-items:center; gap:0.4rem;">

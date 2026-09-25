@@ -66,7 +66,7 @@ export const ArtifactsView = {
       <div style="display:flex; flex-direction:column; gap:1.25rem;">
         
         <!-- Header Controls Row -->
-        <div class="workflows-header-controls" style="background:#ffffff; padding:1.25rem 1.5rem; border-radius:var(--radius-xl); border:1px solid rgba(0,0,0,0.06); box-shadow:var(--shadow-card); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+        <div class="workflows-header-controls card" style="padding:1.25rem 1.5rem; border-radius:var(--radius-xl); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
           <div>
             <div style="display:flex; align-items:center; gap:0.65rem;">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--brand-forest);"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
@@ -90,7 +90,7 @@ export const ArtifactsView = {
         <!-- Metrics Overview Cards -->
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:1rem;">
           
-          <div class="card" style="padding:1rem 1.25rem; background:#ffffff; border-radius:var(--radius-lg); border:1px solid rgba(0,0,0,0.06); box-shadow:var(--shadow-card);">
+          <div class="card" style="padding:1rem 1.25rem; border-radius:var(--radius-lg);">
             <div style="display:flex; justify-content:space-between; align-items:center;">
               <span style="font-size:0.72rem; font-weight:700; color:var(--text-sub); text-transform:uppercase;">Total Artifacts</span>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--brand-forest);"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
@@ -99,7 +99,7 @@ export const ArtifactsView = {
             <small style="font-size:0.68rem; color:var(--brand-forest); font-weight:600;">Persisted with SHA-256 integrity</small>
           </div>
 
-          <div class="card" style="padding:1rem 1.25rem; background:#ffffff; border-radius:var(--radius-lg); border:1px solid rgba(0,0,0,0.06); box-shadow:var(--shadow-card);">
+          <div class="card" style="padding:1rem 1.25rem; border-radius:var(--radius-lg);">
             <div style="display:flex; justify-content:space-between; align-items:center;">
               <span style="font-size:0.72rem; font-weight:700; color:var(--text-sub); text-transform:uppercase;">Storage Volume</span>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--brand-forest);"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
@@ -108,7 +108,7 @@ export const ArtifactsView = {
             <small style="font-size:0.68rem; color:var(--text-sub);">Zero-duplication storage</small>
           </div>
 
-          <div class="card" style="padding:1rem 1.25rem; background:#ffffff; border-radius:var(--radius-lg); border:1px solid rgba(0,0,0,0.06); box-shadow:var(--shadow-card);">
+          <div class="card" style="padding:1rem 1.25rem; border-radius:var(--radius-lg);">
             <div style="display:flex; justify-content:space-between; align-items:center;">
               <span style="font-size:0.72rem; font-weight:700; color:var(--text-sub); text-transform:uppercase;">Origin Workflows</span>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--brand-forest);"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
@@ -117,7 +117,7 @@ export const ArtifactsView = {
             <small style="font-size:0.68rem; color:var(--brand-forest); font-weight:600;">Active automated pipelines</small>
           </div>
 
-          <div class="card" style="padding:1rem 1.25rem; background:#ffffff; border-radius:var(--radius-lg); border:1px solid rgba(0,0,0,0.06); box-shadow:var(--shadow-card);">
+          <div class="card" style="padding:1rem 1.25rem; border-radius:var(--radius-lg);">
             <div style="display:flex; justify-content:space-between; align-items:center;">
               <span style="font-size:0.72rem; font-weight:700; color:var(--text-sub); text-transform:uppercase;">Storage Target</span>
               <button id="btnCopyStoragePath" class="btn btn-xs btn-secondary" style="font-size:0.65rem; padding:0.15rem 0.45rem;" title="Copy relative path">Copy</button>
@@ -131,7 +131,7 @@ export const ArtifactsView = {
         <!-- Filter & Search Toolbar -->
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
           
-          <div style="display:flex; gap:0.35rem; background:#ffffff; padding:0.3rem; border-radius:var(--radius-pill); border:1px solid rgba(0,0,0,0.06); flex-wrap:wrap;">
+          <div class="nav-pills" style="display:flex; gap:0.35rem; padding:0.3rem; border-radius:var(--radius-pill); flex-wrap:wrap;">
             <button class="nav-pill-link active filter-btn" data-filter="all">All Formats (<span id="countAll">0</span>)</button>
             <button class="nav-pill-link filter-btn" data-filter="document" style="display:inline-flex; align-items:center; gap:0.35rem;">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
@@ -161,7 +161,7 @@ export const ArtifactsView = {
         </div>
 
         <!-- Artifacts Table Card -->
-        <div class="card" style="background:#ffffff; border-radius:var(--radius-xl); border:1px solid rgba(0,0,0,0.06); padding:1.25rem; box-shadow:var(--shadow-card);">
+        <div class="card" style="border-radius:var(--radius-xl); padding:1.25rem;">
           <div class="table-responsive">
             <table class="quixotic-table">
               <thead>
@@ -624,7 +624,7 @@ export const ArtifactsView = {
         `;
       } else if (['png', 'jpg', 'jpeg', 'webp', 'svg', 'gif'].includes(art.type)) {
         bodyEl.innerHTML = `
-          <div style="text-align:center; padding:1rem; background:#f8fafc; border-radius:8px;">
+          <div style="text-align:center; padding:1rem; background:var(--input-bg); border:1px solid var(--border-light); border-radius:8px;">
             <img src="${fileUrl}" alt="${esc(art.name)}" style="max-width:100%; max-height:550px; border-radius:6px; object-fit:contain; box-shadow:0 4px 14px rgba(0,0,0,0.08);">
           </div>
         `;
@@ -669,7 +669,7 @@ export const ArtifactsView = {
               <table class="quixotic-table" style="font-size:0.75rem;">
                 <thead>
                   <tr>
-                    ${headerRow.map(h => `<th style="background:#f8fafc; font-weight:700;">${esc(h)}</th>`).join('')}
+                    ${headerRow.map(h => `<th style="background:var(--input-bg); color:var(--text-sub); font-weight:700;">${esc(h)}</th>`).join('')}
                   </tr>
                 </thead>
                 <tbody>
