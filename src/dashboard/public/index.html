@@ -606,6 +606,32 @@
       border-color: var(--brand-forest);
     }
 
+    /* Canvas Pan and Accelerator Affordances */
+    .workflow-editor-canvas.is-space-down {
+      cursor: grab !important;
+    }
+    .workflow-editor-canvas.is-space-panning {
+      cursor: grabbing !important;
+      user-select: none !important;
+    }
+    .workflow-editor-canvas.is-space-panning * {
+      cursor: grabbing !important;
+      pointer-events: none !important;
+    }
+
+    /* Coarse Pointer Touch Target Accessibility (44x44px min for mobile/tablet) */
+    @media (pointer: coarse) {
+      .drawflow-canvas-controls button {
+        width: 44px;
+        height: 44px;
+        font-size: 1.15rem;
+      }
+      .sidebar-icon-btn {
+        width: 44px;
+        height: 44px;
+      }
+    }
+
     /* Drawflow Dark Mode Overrides */
     [data-theme="dark"] .workflow-editor-canvas,
     [data-theme="dark"] .parent-drawflow {
@@ -984,7 +1010,7 @@
   <!-- END: Auth Overlay -->
 
   <!-- Main ES Module Initializer -->
-  <script type="module" src="/js/main.js?v=9"></script>
+  <script type="module" src="/js/main.js?v=11"></script>
 
   <!-- FlowMind Floating Bot Assistant -->
   <script src="/js/floating-bot.js"></script>

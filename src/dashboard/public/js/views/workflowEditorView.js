@@ -48,6 +48,9 @@ export const WorkflowEditorView = {
             <button type="button" id="btnZoomReset" title="Reset View">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
             </button>
+            <button type="button" id="btnCanvasShortcutsHelp" title="Keyboard Shortcuts: Space+Drag to Pan · Del/Backspace to Delete · Ctrl+S to Save · Ctrl+Enter to Run · Esc to Deselect">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect><line x1="6" y1="8" x2="6.01" y2="8"></line><line x1="10" y1="8" x2="10.01" y2="8"></line><line x1="14" y1="8" x2="14.01" y2="8"></line><line x1="18" y1="8" x2="18.01" y2="8"></line><line x1="8" y1="12" x2="8.01" y2="12"></line><line x1="12" y1="12" x2="12.01" y2="12"></line><line x1="16" y1="12" x2="16.01" y2="12"></line><line x1="7" y1="16" x2="17" y2="16"></line></svg>
+            </button>
           </div>
         </div>
       </div>
@@ -163,6 +166,10 @@ export const WorkflowEditorView = {
       e.stopPropagation();
       this.editor.zoom_reset();
     });
+    document.getElementById('btnCanvasShortcutsHelp')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      Toast.info('Shortcuts: Space+Drag to Pan · Del/Backspace to Delete · Ctrl+S to Save · Ctrl+Enter to Execute · Esc to Cancel');
+    });
 
     this.initDeleteModal();
     this.initConnectionInteractions(container);
@@ -243,22 +250,151 @@ export const WorkflowEditorView = {
       };
     });
 
-    // Delete or Backspace key deletes selected connection
-    if (this.keyDeleteHandler) {
-      window.removeEventListener('keydown', this.keyDeleteHandler);
+    // Track selected node and connection states
+    this.editor.on('nodeSelected', (nodeId) => {
+      this.selectedNodeId = String(nodeId);
+    });
+    this.editor.on('nodeUnselected', () => {
+      this.selectedNodeId = null;
+    });
+
+    // Space-drag Canvas Panning
+    this.isSpaceDown = false;
+    this.isSpacePanning = false;
+
+    this.onCanvasMouseDown = (e) => {
+      if (this.isSpaceDown && e.button === 0) {
+        this.isSpacePanning = true;
+        this.spaceStartX = e.clientX;
+        this.spaceStartY = e.clientY;
+        container.classList.add('is-space-panning');
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    container.addEventListener('mousedown', this.onCanvasMouseDown, true);
+
+    this.onWindowMouseMove = (e) => {
+      if (this.isSpacePanning && this.editor) {
+        const dx = e.clientX - this.spaceStartX;
+        const dy = e.clientY - this.spaceStartY;
+        this.spaceStartX = e.clientX;
+        this.spaceStartY = e.clientY;
+        this.editor.canvas_x += dx;
+        this.editor.canvas_y += dy;
+        if (this.editor.precanvas) {
+          this.editor.precanvas.style.transform = `translate(${this.editor.canvas_x}px, ${this.editor.canvas_y}px) scale(${this.editor.zoom})`;
+        }
+      }
+    };
+    window.addEventListener('mousemove', this.onWindowMouseMove);
+
+    this.onWindowMouseUp = () => {
+      if (this.isSpacePanning) {
+        this.isSpacePanning = false;
+        container.classList.remove('is-space-panning');
+      }
+    };
+    window.addEventListener('mouseup', this.onWindowMouseUp);
+
+    // Keyboard Accelerators: Delete, Backspace, Space, Ctrl+S, Ctrl+Enter, Esc, Enter
+    if (this.keyHandler) {
+      window.removeEventListener('keydown', this.keyHandler);
     }
-    this.keyDeleteHandler = (e) => {
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) {
+    if (this.keyUpHandler) {
+      window.removeEventListener('keyup', this.keyUpHandler);
+    }
+
+    this.keyHandler = (e) => {
+      const activeTag = document.activeElement?.tagName;
+      const isInputFocused = ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeTag) || document.activeElement?.isContentEditable;
+
+      // Escape handles modals, menus, and selection
+      if (e.key === 'Escape') {
+        const deleteModal = document.getElementById('deleteNodeModal');
+        if (deleteModal && !deleteModal.classList.contains('hidden')) {
+          e.preventDefault();
+          this.hideDeleteModal();
+          return;
+        }
+        if (this.selectedConnectionInfo || document.getElementById('dfActiveConnMenu')) {
+          e.preventDefault();
+          this.hideConnectionMenu();
+          this.selectedConnectionInfo = null;
+          return;
+        }
+        if (this.editor?.node_selected) {
+          this.editor.node_selected.classList.remove('selected');
+          this.editor.node_selected = null;
+          this.selectedNodeId = null;
+          return;
+        }
         return;
       }
+
+      // Enter key confirms delete modal if visible
+      if (e.key === 'Enter') {
+        const deleteModal = document.getElementById('deleteNodeModal');
+        if (deleteModal && !deleteModal.classList.contains('hidden') && this.pendingDeleteNodeId) {
+          e.preventDefault();
+          this.executeDeleteNode();
+          return;
+        }
+      }
+
+      // Ctrl+S / Cmd+S: Save active workflow
+      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        this.saveWorkflow();
+        return;
+      }
+
+      // Ctrl+Enter / Cmd+Enter: Execute active workflow
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('btnExecuteFlowEditor')?.click();
+        return;
+      }
+
+      // Ignore remaining canvas editing shortcuts if typing inside an input field
+      if (isInputFocused) return;
+
+      // Space key down: trigger canvas pan mode (grab cursor)
+      if (e.code === 'Space' && !this.isSpaceDown) {
+        this.isSpaceDown = true;
+        container.classList.add('is-space-down');
+        e.preventDefault();
+        return;
+      }
+
+      // Delete or Backspace key: deletes selected connection or selected node
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (this.selectedConnectionInfo) {
           e.preventDefault();
           this.deleteSingleConnection(this.selectedConnectionInfo);
+        } else if (this.selectedNodeId || this.editor?.node_selected) {
+          e.preventDefault();
+          const targetNode = this.editor?.node_selected;
+          const nid = this.selectedNodeId || targetNode?.id?.replace(/^node-/, '');
+          if (nid) {
+            const nodeData = this.editor?.drawflow?.drawflow?.Home?.data?.[nid];
+            const stepName = nodeData?.data?.action || targetNode?.querySelector('.df-node-title')?.textContent || `Step #${nid}`;
+            this.promptDeleteNode(nid, stepName);
+          }
         }
       }
     };
-    window.addEventListener('keydown', this.keyDeleteHandler);
+
+    this.keyUpHandler = (e) => {
+      if (e.code === 'Space') {
+        this.isSpaceDown = false;
+        this.isSpacePanning = false;
+        container.classList.remove('is-space-down', 'is-space-panning');
+      }
+    };
+
+    window.addEventListener('keydown', this.keyHandler);
+    window.addEventListener('keyup', this.keyUpHandler);
   },
 
   parseConnectionSvg(svgEl) {
@@ -1188,9 +1324,26 @@ export const WorkflowEditorView = {
   destroy() {
     this.hideConnectionMenu();
     this.hideDeleteModal();
-    if (this.keyDeleteHandler) {
-      window.removeEventListener('keydown', this.keyDeleteHandler);
-      this.keyDeleteHandler = null;
+    if (this.keyHandler) {
+      window.removeEventListener('keydown', this.keyHandler);
+      this.keyHandler = null;
+    }
+    if (this.keyUpHandler) {
+      window.removeEventListener('keyup', this.keyUpHandler);
+      this.keyUpHandler = null;
+    }
+    if (this.onCanvasMouseDown) {
+      const container = document.getElementById('drawflow');
+      container?.removeEventListener('mousedown', this.onCanvasMouseDown, true);
+      this.onCanvasMouseDown = null;
+    }
+    if (this.onWindowMouseMove) {
+      window.removeEventListener('mousemove', this.onWindowMouseMove);
+      this.onWindowMouseMove = null;
+    }
+    if (this.onWindowMouseUp) {
+      window.removeEventListener('mouseup', this.onWindowMouseUp);
+      this.onWindowMouseUp = null;
     }
     if (this.editor) {
       try {
@@ -1200,5 +1353,6 @@ export const WorkflowEditorView = {
     }
     this.workflow = null;
     this.selectedConnectionInfo = null;
+    this.selectedNodeId = null;
   }
 };
