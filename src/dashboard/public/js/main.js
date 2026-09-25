@@ -9,9 +9,11 @@ import { Sidebar } from './components/sidebar.js';
 import { Modal } from './components/modal.js';
 import { Toast } from './components/toast.js';
 import { AuthView } from './views/authView.js';
+import { Theme } from './theme.js';
 
 function bootstrap() {
-  // 1. Initialize Global Notifications & Modals
+  // 1. Initialize Global Theme, Notifications & Modals
+  Theme.init();
   Toast.init();
   Modal.init();
   AuthView.init();

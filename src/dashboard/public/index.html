@@ -605,6 +605,87 @@
       color: #ffffff;
       border-color: var(--brand-forest);
     }
+
+    /* Drawflow Dark Mode Overrides */
+    [data-theme="dark"] .workflow-editor-canvas,
+    [data-theme="dark"] .parent-drawflow {
+      background-color: #0b0f1a !important;
+      background-image: radial-gradient(circle, rgba(99, 102, 241, 0.2) 1.2px, transparent 1.2px) !important;
+    }
+
+    [data-theme="dark"] .workflow-editor-header {
+      background: #0f172a !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    }
+
+    [data-theme="dark"] .drawflow .drawflow-node {
+      background: #141c2e !important;
+      border-color: rgba(99, 102, 241, 0.25) !important;
+      color: #f8fafc !important;
+      box-shadow: 0 8px 24px -2px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    [data-theme="dark"] .drawflow .drawflow-node:hover {
+      border-color: var(--brand-forest) !important;
+      box-shadow: 0 12px 32px -4px rgba(99, 102, 241, 0.35) !important;
+    }
+
+    [data-theme="dark"] .drawflow .drawflow-node.selected {
+      border-color: #818cf8 !important;
+      box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.25), 0 16px 36px -8px rgba(0, 0, 0, 0.7) !important;
+    }
+
+    [data-theme="dark"] .df-node-header {
+      background: #0d1527 !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    }
+
+    [data-theme="dark"] .df-node-header .df-step-num {
+      color: #94a3b8 !important;
+    }
+
+    [data-theme="dark"] .df-node-body {
+      background: #141c2e !important;
+    }
+
+    [data-theme="dark"] .df-input-group label {
+      color: #94a3b8 !important;
+    }
+
+    [data-theme="dark"] .df-input-group input,
+    [data-theme="dark"] .df-input-group select {
+      background: #090e1a !important;
+      border-color: rgba(255, 255, 255, 0.12) !important;
+      color: #f8fafc !important;
+    }
+
+    [data-theme="dark"] .df-input-group input:focus,
+    [data-theme="dark"] .df-input-group select:focus {
+      background: #0f172a !important;
+      border-color: var(--brand-forest) !important;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25) !important;
+    }
+
+    [data-theme="dark"] .df-node-footer {
+      border-top: 1px dashed rgba(255, 255, 255, 0.1) !important;
+    }
+
+    [data-theme="dark"] .drawflow-canvas-controls {
+      background: #141c2e !important;
+      border-color: rgba(255, 255, 255, 0.1) !important;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    [data-theme="dark"] .drawflow-canvas-controls button {
+      background: #0d1527 !important;
+      border-color: rgba(255, 255, 255, 0.08) !important;
+      color: #cbd5e1 !important;
+    }
+
+    [data-theme="dark"] .drawflow-canvas-controls button:hover {
+      background: #1e293b !important;
+      color: #ffffff !important;
+    }
   </style>
 </head>
 <body>
@@ -671,6 +752,25 @@
         </div>
       </div>
       <div class="flowmind-topbar-right">
+        <!-- Theme Switcher Button -->
+        <button class="btn-topbar-nav theme-toggle-btn" id="btnThemeToggle" title="Switch to Dark Mode" aria-label="Toggle theme">
+          <svg class="theme-icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+          <svg class="theme-icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+          <span class="theme-toggle-label">Theme</span>
+        </button>
+
         <a href="/" class="btn-topbar-nav" title="Return to Landing Page">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
           <span>Home</span>
@@ -740,6 +840,23 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-1.8a4 4 0 002.5-3.66m-7.07-5.05a6 6 0 017.38-5.84h1.8a4 4 0 00-3.66 2.5m1.34-3.14l4.24-4.24a1 1 0 011.42 0l1.41 1.41a1 1 0 010 1.42l-4.24 4.24m-2.83 2.83l-2.12 2.12a1 1 0 01-1.42 0l-1.41-1.41a1 1 0 010-1.42l2.12-2.12"/>
             </svg>
           </button>
+          <!-- Theme toggle in sidebar -->
+          <button class="sidebar-icon-btn theme-toggle-btn" id="btnSidebarThemeToggle" data-tooltip="Toggle Theme" title="Toggle Light / Dark Mode" aria-label="Toggle theme">
+            <svg class="theme-icon-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="5"></circle>
+              <line x1="12" y1="1" x2="12" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="23"></line>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+              <line x1="1" y1="12" x2="3" y2="12"></line>
+              <line x1="21" y1="12" x2="23" y2="12"></line>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+            <svg class="theme-icon-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+          </button>
           <button class="sidebar-icon-btn" data-tooltip="Reload Dashboard" title="Reload Dashboard" onclick="location.reload()">
             <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
@@ -780,8 +897,8 @@
         </button>
       </div>
       <div class="modal-body">
-        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:0.75rem; background:#f9fafb; padding:0.85rem; border-radius:var(--radius-md); border:1px solid rgba(0,0,0,0.06);" id="modalMetaGrid"></div>
-        <h4 style="font-size:0.85rem; font-weight:800; margin-top:0.5rem;">Recorded Action Fingerprints</h4>
+        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:0.75rem; background:var(--card-bg); padding:0.85rem; border-radius:var(--radius-md); border:1px solid var(--border-light);" id="modalMetaGrid"></div>
+        <h4 style="font-size:0.85rem; font-weight:800; margin-top:0.5rem; color:var(--text-main);">Recorded Action Fingerprints</h4>
         <div style="display:flex; flex-direction:column; gap:0.75rem;" id="modalStepsTimeline"></div>
       </div>
     </div>
@@ -791,13 +908,13 @@
   <!-- BEGIN: Delete Step Confirmation Modal -->
   <div class="modal-overlay hidden" id="deleteNodeModal" style="z-index: 9999;">
     <div class="modal-dialog" style="max-width: 440px;">
-      <div class="modal-header" style="border-bottom: 1px solid #fee2e2;">
-        <div style="display:flex; align-items:center; gap:0.5rem; color:#dc2626;">
+      <div class="modal-header" style="border-bottom: 1px solid var(--border-light);">
+        <div style="display:flex; align-items:center; gap:0.5rem; color:var(--color-danger);">
           <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <polyline points="3 6 5 6 21 6"></polyline>
             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
           </svg>
-          <h3 style="color:#b91c1c; font-size:1.05rem;">Delete Workflow Step</h3>
+          <h3 style="color:var(--color-danger); font-size:1.05rem;">Delete Workflow Step</h3>
         </div>
         <button class="btn-icon" id="btnCloseDeleteModal" title="Cancel">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -805,17 +922,17 @@
       </div>
       <div class="modal-body" style="padding: 1.25rem;">
         <p style="font-size:0.9rem; color:var(--text-main); margin-bottom:0.75rem;">
-          Are you sure you want to remove <strong id="deleteStepTargetName" style="color:#b91c1c;">this step</strong> from the workflow?
+          Are you sure you want to remove <strong id="deleteStepTargetName" style="color:var(--color-danger);">this step</strong> from the workflow?
         </p>
-        <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:0.75rem; margin-bottom:1.25rem;">
-          <span style="font-size:0.75rem; color:#991b1b; display:flex; align-items:flex-start; gap:0.4rem; line-height:1.4;">
+        <div style="background:var(--color-danger-bg); border:1px solid var(--color-danger-border); border-radius:8px; padding:0.75rem; margin-bottom:1.25rem;">
+          <span style="font-size:0.75rem; color:var(--color-danger); display:flex; align-items:flex-start; gap:0.4rem; line-height:1.4;">
             <span style="font-size:0.9rem;">ℹ️</span>
             <span>Surrounding steps will be automatically reconnected. You can also connect nodes manually on the visual canvas.</span>
           </span>
         </div>
         <div style="display:flex; justify-content:flex-end; gap:0.75rem;">
           <button class="btn btn-secondary" id="btnCancelDeleteStep" type="button" style="padding:0.45rem 1rem; font-size:0.82rem;">Cancel</button>
-          <button class="btn" id="btnConfirmDeleteStep" type="button" style="background:#dc2626; color:#ffffff; border-color:#dc2626; padding:0.45rem 1.1rem; font-size:0.82rem; font-weight:700;">Delete Step</button>
+          <button class="btn" id="btnConfirmDeleteStep" type="button" style="background:var(--color-danger); color:#ffffff; border-color:var(--color-danger); padding:0.45rem 1.1rem; font-size:0.82rem; font-weight:700;">Delete Step</button>
         </div>
       </div>
     </div>
@@ -867,7 +984,7 @@
   <!-- END: Auth Overlay -->
 
   <!-- Main ES Module Initializer -->
-  <script type="module" src="/js/main.js?v=7"></script>
+  <script type="module" src="/js/main.js?v=9"></script>
 
   <!-- FlowMind Floating Bot Assistant -->
   <script src="/js/floating-bot.js"></script>

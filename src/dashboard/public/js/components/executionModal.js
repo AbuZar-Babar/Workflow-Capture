@@ -48,7 +48,7 @@ export const ExecutionModal = {
       <div class="modal-dialog" style="max-width: 540px; border-radius: 16px;">
         <div class="modal-header" style="padding: 1.25rem 1.5rem;">
           <div style="display:flex; align-items:center; gap:0.6rem;">
-            <div style="width:34px; height:34px; border-radius:10px; background:rgba(12, 92, 63, 0.1); color:var(--brand-forest); display:flex; align-items:center; justify-content:center;">
+            <div style="width:34px; height:34px; border-radius:10px; background:var(--brand-tint); color:var(--brand-forest); display:flex; align-items:center; justify-content:center;">
               <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
             </div>
             <div>
@@ -66,7 +66,7 @@ export const ExecutionModal = {
 
           <div style="display:flex; flex-direction:column; gap:0.75rem;">
             <!-- Option 1: Macro Execution (Single) -->
-            <label class="exec-option-label" id="labelExecSingle" style="display:flex; gap:0.85rem; padding:0.9rem 1rem; border-radius:12px; border:2px solid ${!hasLoopConfigured ? 'var(--brand-forest)' : 'rgba(0,0,0,0.1)'}; background:${!hasLoopConfigured ? 'rgba(12, 92, 63, 0.04)' : '#ffffff'}; cursor:pointer; transition:all 0.2s;">
+            <label class="exec-option-label" id="labelExecSingle" style="display:flex; gap:0.85rem; padding:0.9rem 1rem; border-radius:12px; border:2px solid ${!hasLoopConfigured ? 'var(--brand-forest)' : 'var(--card-border)'}; background:${!hasLoopConfigured ? 'var(--brand-tint)' : 'var(--card-bg)'}; cursor:pointer; transition:all 0.2s;">
               <input type="radio" name="execModeRadio" value="single" ${!hasLoopConfigured ? 'checked' : ''} style="margin-top:0.25rem; accent-color:var(--brand-forest);">
               <div style="display:flex; flex-direction:column; gap:0.2rem;">
                 <div style="display:flex; align-items:center; gap:0.5rem;">
@@ -78,7 +78,7 @@ export const ExecutionModal = {
             </label>
 
             <!-- Option 2: Loop Execution (Batch) -->
-            <label class="exec-option-label" id="labelExecLoop" style="display:flex; gap:0.85rem; padding:0.9rem 1rem; border-radius:12px; border:2px solid ${hasLoopConfigured ? 'var(--brand-forest)' : 'rgba(0,0,0,0.1)'}; background:${hasLoopConfigured ? 'rgba(12, 92, 63, 0.04)' : '#ffffff'}; cursor:pointer; transition:all 0.2s;">
+            <label class="exec-option-label" id="labelExecLoop" style="display:flex; gap:0.85rem; padding:0.9rem 1rem; border-radius:12px; border:2px solid ${hasLoopConfigured ? 'var(--brand-forest)' : 'var(--card-border)'}; background:${hasLoopConfigured ? 'var(--brand-tint)' : 'var(--card-bg)'}; cursor:pointer; transition:all 0.2s;">
               <input type="radio" name="execModeRadio" value="loop" ${hasLoopConfigured ? 'checked' : ''} style="margin-top:0.25rem; accent-color:var(--brand-forest);">
               <div style="display:flex; flex-direction:column; gap:0.2rem;">
                 <div style="display:flex; align-items:center; gap:0.5rem;">
@@ -91,7 +91,7 @@ export const ExecutionModal = {
           </div>
 
           <!-- Target Record Filter Section (Active for Loop Execution) -->
-          <div id="execLoopFilterSection" style="display: ${hasLoopConfigured ? 'flex' : 'none'}; flex-direction:column; gap:0.65rem; padding:0.9rem 1rem; border-radius:12px; background:rgba(79, 110, 247, 0.05); border:1px solid rgba(79, 110, 247, 0.22);">
+          <div id="execLoopFilterSection" style="display: ${hasLoopConfigured ? 'flex' : 'none'}; flex-direction:column; gap:0.65rem; padding:0.9rem 1rem; border-radius:12px; background:var(--brand-tint); border:1px solid var(--border-light);">
             <div style="display:flex; align-items:center; justify-content:space-between;">
               <div style="display:flex; align-items:center; gap:0.45rem;">
                 <span style="font-size:0.85rem; font-weight:800; color:var(--text-main);">🎯 Target Record Filter</span>
@@ -103,19 +103,19 @@ export const ExecutionModal = {
             <div style="display:grid; grid-template-columns: 1fr 1.35fr; gap:0.65rem; align-items:flex-end;">
               <div>
                 <label style="font-size:0.73rem; font-weight:700; color:var(--text-sub); display:block; margin-bottom:4px;">Filter Column</label>
-                <input type="text" id="execFilterColumn" value="Type" placeholder="e.g. Type, Status..." style="width:100%; height:34px; padding:0 0.65rem; border:1px solid var(--border-light); border-radius:8px; font-size:0.78rem; background:#ffffff; color:var(--text-main); outline:none;">
+                <input type="text" id="execFilterColumn" value="Type" placeholder="e.g. Type, Status..." style="width:100%; height:34px; padding:0 0.65rem; border:1px solid var(--border-light); border-radius:8px; font-size:0.78rem; background:var(--input-bg); color:var(--text-main); outline:none;">
               </div>
               <div>
                 <label style="font-size:0.73rem; font-weight:700; color:var(--text-sub); display:block; margin-bottom:4px;">Document Type to Fetch</label>
                 <div style="display:flex; gap:0.35rem;">
-                  <select id="execFilterTypeSelect" style="flex:1; height:34px; padding:0 0.5rem; border:1px solid var(--border-light); border-radius:8px; font-size:0.78rem; background:#ffffff; color:var(--text-main); font-weight:600; outline:none;">
+                  <select id="execFilterTypeSelect" style="flex:1; height:34px; padding:0 0.5rem; border:1px solid var(--border-light); border-radius:8px; font-size:0.78rem; background:var(--input-bg); color:var(--text-main); font-weight:600; outline:none;">
                     <option value="Invoice">Invoice (Invoices Only)</option>
                     <option value="Credit Memo">Credit Memo (Credit Memos Only)</option>
                     <option value="Debit Memo">Debit Memo</option>
                     <option value="__custom__">Custom / Other...</option>
                     <option value="__any__">All / Any (No Filter)</option>
                   </select>
-                  <input type="text" id="execFilterCustomVal" placeholder="Type..." style="display:none; width:90px; height:34px; padding:0 0.5rem; border:1px solid var(--border-light); border-radius:8px; font-size:0.78rem; background:#ffffff; outline:none;">
+                  <input type="text" id="execFilterCustomVal" placeholder="Type..." style="display:none; width:90px; height:34px; padding:0 0.5rem; border:1px solid var(--border-light); border-radius:8px; font-size:0.78rem; background:var(--input-bg); color:var(--text-main); outline:none;">
                 </div>
               </div>
             </div>
@@ -132,7 +132,7 @@ export const ExecutionModal = {
           </div>
 
           <!-- Action Buttons -->
-          <div style="display:flex; justify-content:flex-end; gap:0.65rem; margin-top:0.25rem; padding-top:1rem; border-top:1px solid rgba(0,0,0,0.06);">
+          <div style="display:flex; justify-content:flex-end; gap:0.65rem; margin-top:0.25rem; padding-top:1rem; border-top:1px solid var(--border-light);">
             <button type="button" class="btn btn-secondary btn-sm" id="btnCancelExecModal">Cancel</button>
             <button type="button" class="btn btn-primary btn-sm" id="btnConfirmExecModal" style="display:inline-flex; align-items:center; gap:0.4rem; padding:0.55rem 1.25rem;">
               <svg width="13" height="13" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
@@ -153,15 +153,15 @@ export const ExecutionModal = {
       radio.onchange = () => {
         if (radio.value === 'single') {
           singleCard.style.borderColor = 'var(--brand-forest)';
-          singleCard.style.background = 'rgba(12, 92, 63, 0.04)';
-          loopCard.style.borderColor = 'rgba(0,0,0,0.1)';
-          loopCard.style.background = '#ffffff';
+          singleCard.style.background = 'var(--brand-tint)';
+          loopCard.style.borderColor = 'var(--border-light)';
+          loopCard.style.background = 'var(--card-bg)';
           if (filterSection) filterSection.style.display = 'none';
         } else {
           loopCard.style.borderColor = 'var(--brand-forest)';
-          loopCard.style.background = 'rgba(12, 92, 63, 0.04)';
-          singleCard.style.borderColor = 'rgba(0,0,0,0.1)';
-          singleCard.style.background = '#ffffff';
+          loopCard.style.background = 'var(--brand-tint)';
+          singleCard.style.borderColor = 'var(--border-light)';
+          singleCard.style.background = 'var(--card-bg)';
           if (filterSection) filterSection.style.display = 'flex';
         }
       };

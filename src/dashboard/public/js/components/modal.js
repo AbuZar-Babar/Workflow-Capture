@@ -53,16 +53,17 @@ export const Modal = {
         stepRow.className = 'card';
         stepRow.style.padding = '0.85rem';
         stepRow.style.gap = '0.5rem';
-        stepRow.style.backgroundColor = '#f9fafb';
+        stepRow.style.backgroundColor = 'var(--card-bg)';
+        stepRow.style.borderColor = 'var(--border-light)';
 
         const fp = (act.target && act.target.fingerprint) ? act.target.fingerprint : {};
 
         let candidatesHtml = '';
         if (act.target && act.target.candidates) {
           candidatesHtml = act.target.candidates.map(c => `
-            <div style="display:flex; align-items:center; gap:0.5rem; background:#ffffff; padding:0.35rem 0.5rem; border-radius:6px; border:1px solid rgba(0,0,0,0.06); font-family:var(--font-mono); font-size:0.72rem; flex-wrap:wrap;">
+            <div style="display:flex; align-items:center; gap:0.5rem; background:var(--input-bg); padding:0.35rem 0.5rem; border-radius:6px; border:1px solid var(--border-light); font-family:var(--font-mono); font-size:0.72rem; flex-wrap:wrap;">
               <span style="color:var(--brand-forest); font-weight:800;">[${c.strategy}]</span>
-              <code>${escapeHtml(c.value)}</code>
+              <code style="color:var(--text-main);">${escapeHtml(c.value)}</code>
               <span style="color:var(--text-sub);">(priority: ${c.priority}, count: ${c.uniqueness})</span>
             </div>
           `).join('');
@@ -80,7 +81,7 @@ export const Modal = {
             <span style="font-size:0.7rem; color:var(--text-sub); font-weight:700;">Candidate Selectors:</span>
             ${candidatesHtml}
           </div>
-          <div style="font-size:0.68rem; color:var(--text-sub); margin-top:0.25rem; font-family:var(--font-mono); background:#ffffff; padding:0.35rem 0.5rem; border-radius:6px; border:1px solid rgba(0,0,0,0.06);">
+          <div style="font-size:0.68rem; color:var(--text-sub); margin-top:0.25rem; font-family:var(--font-mono); background:var(--input-bg); padding:0.35rem 0.5rem; border-radius:6px; border:1px solid var(--border-light);">
             Tag: <code>&lt;${fp.tagName || 'elem'}&gt;</code> | Text: <em>"${escapeHtml(fp.innerText || '')}"</em> | Classes: <code>${(fp.classList || []).join(', ') || 'none'}</code>
           </div>
         `;

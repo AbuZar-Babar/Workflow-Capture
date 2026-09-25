@@ -1,48 +1,84 @@
 /* ===================================================================
-   FlowMind — Design Tokens & Variables (Soft Blue Light Mode Theme)
+   FlowMind — Design Tokens & Theme Variables (Adaptive Light & Dark)
    =================================================================== */
 
 :root {
-  /* Soft Blue Palette */
-  --brand-forest: #4F6EF7;          /* Primary Accent: Electric Blue-Indigo */
+  /* Theme Identity */
+  --theme-mode: 'light';
+
+  /* Soft Blue / Electric Indigo Palette */
+  --brand-forest: #4F6EF7;          /* Primary Accent: Electric Indigo */
   --brand-dark: #3B55D9;            /* Deep Blue-Indigo Hover */
   --brand-primary: #4F6EF7;
-  --brand-cyan: #6EE7F5;            /* Secondary Accent: Soft Cyan (AI/Learning) */
+  --brand-cyan: #06B6D4;            /* Secondary Accent: Vivid Cyan */
+  --brand-cyan-light: #6EE7F5;
   --brand-emerald: #4F6EF7;
-  --brand-accent: #6EE7F5;
+  --brand-accent: #06B6D4;
   --brand-light: #EEF2FF;
   --brand-tint: rgba(79, 110, 247, 0.08);
-  --brand-cyan-tint: rgba(110, 231, 245, 0.12);
+  --brand-cyan-tint: rgba(6, 182, 212, 0.12);
   --brand-sage: #C7D7FE;
   --brand-stripe: #E1E8FB;
   --brand-stripe-dark: #4F6EF7;
 
-  /* Canvas & Neutrals */
+  /* Canvas & Structural Neutrals */
   --canvas-from: #F4F7FD;
   --canvas-to: #FFFFFF;
   --canvas: #F4F7FD;
   --panel: rgba(255, 255, 255, 0.85);
-  --card-bg: rgba(255, 255, 255, 0.7);
+  --panel-solid: #FFFFFF;
+  --panel-border: rgba(225, 232, 251, 0.9);
+  
+  --card-bg: rgba(255, 255, 255, 0.72);
+  --card-bg-solid: #FFFFFF;
   --card-border: #E1E8FB;
+  --card-hover-border: rgba(79, 110, 247, 0.28);
   --border-light: #E1E8FB;
-  --text-main: #0F172A;             /* Headings */
-  --text-body: #64748B;             /* Body text */
-  --text-sub: #64748B;
-  --text-muted: #94A3B8;
-  --text-dim: #94A3B8;
+  --border-subtle: rgba(0, 0, 0, 0.04);
 
-  /* State Accents */
-  --color-success: #34D399;         /* Mint Green for Active/Success */
-  --color-warning: #F59E0B;
-  --color-danger: #EF4444;
+  /* Typography Colors */
+  --text-main: #0F172A;             /* Primary Headings */
+  --text-body: #475569;             /* Body text */
+  --text-sub: #64748B;              /* Secondary labels */
+  --text-muted: #94A3B8;            /* Timestamps / hints */
+  --text-dim: #CBD5E1;
+
+  /* State Colors */
+  --color-success: #10B981;         /* Mint Emerald */
+  --color-success-bg: rgba(16, 185, 129, 0.12);
+  --color-success-border: rgba(16, 185, 129, 0.25);
+  --color-warning: #F59E0B;         /* Amber */
+  --color-warning-bg: rgba(245, 158, 11, 0.12);
+  --color-warning-border: rgba(245, 158, 11, 0.25);
+  --color-danger: #EF4444;          /* Crimson */
+  --color-danger-bg: rgba(239, 68, 68, 0.12);
+  --color-danger-border: rgba(239, 68, 68, 0.25);
   --color-info: #4F6EF7;
+  --color-info-bg: rgba(79, 110, 247, 0.1);
+  --color-info-border: rgba(79, 110, 247, 0.25);
+
+  /* Component Surface Tokens */
+  --surface-overlay: rgba(15, 23, 42, 0.45);
+  --modal-bg: #FFFFFF;
+  --modal-border: rgba(225, 232, 251, 0.95);
+  --toast-bg: rgba(255, 255, 255, 0.92);
+  --toast-border: rgba(79, 110, 247, 0.2);
+  --input-bg: #F8FAFD;
+  --input-border: rgba(0, 0, 0, 0.1);
+  --input-focus-border: #4F6EF7;
+  --input-focus-ring: rgba(79, 110, 247, 0.18);
+  --sidebar-bg: rgba(255, 255, 255, 0.75);
+  --topbar-bg: rgba(255, 255, 255, 0.78);
+  --tooltip-bg: #0F172A;
+  --tooltip-text: #FFFFFF;
+  --tooltip-border: rgba(255, 255, 255, 0.1);
 
   /* Typography */
   --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 
-  /* Glassmorphism & Soft Blue-Tinted Shadows (instead of gray) */
-  --glass-blur: blur(12px);
+  /* Glassmorphism & Soft Blue-Tinted Shadows */
+  --glass-blur: blur(14px);
   --shadow-dashboard: 0 24px 50px -15px rgba(79, 110, 247, 0.09), 0 0 0 1px #E1E8FB;
   --shadow-hero: 0 24px 48px -12px rgba(79, 110, 247, 0.16), 0 8px 18px -4px rgba(79, 110, 247, 0.08), 0 1px 3px rgba(15, 23, 42, 0.04), inset 0 1px 1px rgba(255, 255, 255, 0.95);
   --shadow-card: 0 12px 28px -6px rgba(79, 110, 247, 0.08), 0 4px 10px -2px rgba(79, 110, 247, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.95);
@@ -51,9 +87,10 @@
   --shadow-sidebar: 0 16px 36px -6px rgba(79, 110, 247, 0.12), 0 2px 8px rgba(79, 110, 247, 0.04), inset 0 1px 1px rgba(255, 255, 255, 0.95);
   --shadow-dropdown: 0 12px 28px -5px rgba(79, 110, 247, 0.14), 0 0 0 1px #E1E8FB;
   --shadow-glow-blue: 0 0 20px rgba(79, 110, 247, 0.25);
-  --shadow-glow-cyan: 0 0 20px rgba(110, 231, 245, 0.35);
+  --shadow-glow-cyan: 0 0 20px rgba(6, 182, 212, 0.35);
 
   /* Radius */
+  --radius-xs: 6px;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
@@ -61,4 +98,90 @@
   --radius-3xl: 28px;
   --radius-4xl: 34px;
   --radius-pill: 9999px;
+}
+
+/* ===================================================================
+   Dark Mode Palette & Semantic Overrides
+   =================================================================== */
+
+[data-theme="dark"] {
+  --theme-mode: 'dark';
+
+  /* Brand Accents - Vivid Luminous Glows */
+  --brand-forest: #6366F1;          /* Electric Indigo */
+  --brand-dark: #4F46E5;            /* Saturated Indigo */
+  --brand-primary: #6366F1;
+  --brand-cyan: #38BDF8;            /* Sky Cyan */
+  --brand-cyan-light: #7DD3FC;
+  --brand-emerald: #6366F1;
+  --brand-accent: #38BDF8;
+  --brand-light: rgba(99, 102, 241, 0.2);
+  --brand-tint: rgba(99, 102, 241, 0.15);
+  --brand-cyan-tint: rgba(56, 189, 248, 0.15);
+  --brand-sage: #312E81;
+  --brand-stripe: rgba(99, 102, 241, 0.22);
+  --brand-stripe-dark: #6366F1;
+
+  /* Canvas & Structural Neutrals (Deep Cyber Slate) */
+  --canvas-from: #080C16;
+  --canvas-to: #0F172A;
+  --canvas: #080C16;
+  --panel: rgba(15, 23, 42, 0.82);
+  --panel-solid: #0F172A;
+  --panel-border: rgba(99, 102, 241, 0.22);
+
+  --card-bg: rgba(22, 32, 56, 0.72);
+  --card-bg-solid: #162038;
+  --card-border: rgba(99, 102, 241, 0.18);
+  --card-hover-border: rgba(99, 102, 241, 0.45);
+  --border-light: rgba(255, 255, 255, 0.09);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+
+  /* Typography Colors */
+  --text-main: #F8FAFC;             /* Clean Crisp White */
+  --text-body: #94A3B8;             /* Readable Slate Gray */
+  --text-sub: #CBD5E1;              /* Soft Light Slate */
+  --text-muted: #64748B;            /* Dim Hint Text */
+  --text-dim: #475569;
+
+  /* State Colors */
+  --color-success: #10B981;
+  --color-success-bg: rgba(16, 185, 129, 0.15);
+  --color-success-border: rgba(16, 185, 129, 0.3);
+  --color-warning: #F59E0B;
+  --color-warning-bg: rgba(245, 158, 11, 0.15);
+  --color-warning-border: rgba(245, 158, 11, 0.3);
+  --color-danger: #EF4444;
+  --color-danger-bg: rgba(239, 68, 68, 0.16);
+  --color-danger-border: rgba(239, 68, 68, 0.32);
+  --color-info: #6366F1;
+  --color-info-bg: rgba(99, 102, 241, 0.16);
+  --color-info-border: rgba(99, 102, 241, 0.32);
+
+  /* Component Surface Tokens */
+  --surface-overlay: rgba(8, 12, 22, 0.75);
+  --modal-bg: #111827;
+  --modal-border: rgba(99, 102, 241, 0.28);
+  --toast-bg: rgba(17, 24, 39, 0.94);
+  --toast-border: rgba(99, 102, 241, 0.32);
+  --input-bg: rgba(15, 23, 42, 0.7);
+  --input-border: rgba(255, 255, 255, 0.12);
+  --input-focus-border: #6366F1;
+  --input-focus-ring: rgba(99, 102, 241, 0.3);
+  --sidebar-bg: rgba(15, 23, 42, 0.82);
+  --topbar-bg: rgba(15, 23, 42, 0.85);
+  --tooltip-bg: #1E293B;
+  --tooltip-text: #F8FAFC;
+  --tooltip-border: rgba(99, 102, 241, 0.25);
+
+  /* Glassmorphism & High-Depth Luminous Shadows */
+  --shadow-dashboard: 0 25px 60px -15px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(99, 102, 241, 0.2);
+  --shadow-hero: 0 25px 50px -12px rgba(0, 0, 0, 0.6), 0 0 24px rgba(99, 102, 241, 0.18), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  --shadow-card: 0 12px 28px -6px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --shadow-card-hover: 0 18px 36px -6px rgba(0, 0, 0, 0.65), 0 0 20px rgba(99, 102, 241, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --shadow-stat-card: 0 12px 28px -6px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --shadow-sidebar: 0 16px 36px -6px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  --shadow-dropdown: 0 16px 32px -5px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(99, 102, 241, 0.25);
+  --shadow-glow-blue: 0 0 25px rgba(99, 102, 241, 0.4);
+  --shadow-glow-cyan: 0 0 25px rgba(56, 189, 248, 0.4);
 }
