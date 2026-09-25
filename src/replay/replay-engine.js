@@ -39,6 +39,7 @@ class ReplayEngine extends EventEmitter {
     this.isAutomatedActionActive = false;
     this.lastIntervention = null;
     this.isPaused = false;
+    this.isLocked = false;
     this._guardPages = new Set();
     this._guardScriptIds = new Map();
   }
@@ -64,6 +65,11 @@ class ReplayEngine extends EventEmitter {
     if (this.isAborted || !this.isPaused) return;
     this.isPaused = false;
     this.emit('resumed');
+    await this._syncReplayGuard();
+  }
+
+  async setLocked(locked) {
+    this.isLocked = !!locked;
     await this._syncReplayGuard();
   }
 
@@ -205,7 +211,8 @@ class ReplayEngine extends EventEmitter {
 
     for (const [name, handler] of [
       ['__flowmindResumeReplay', () => this.resume()],
-      ['__flowmindStopReplay', () => this.abort()]
+      ['__flowmindStopReplay', () => this.abort()],
+      ['__flowmindSetReplayLock', (locked) => this.setLocked(locked)]
     ]) {
       try { await page.exposeFunction(name, handler); } catch {}
     }
@@ -215,6 +222,7 @@ class ReplayEngine extends EventEmitter {
         window.__flowmindAutomatedActionActive = false;
         window.__flowmindAutomatedSince = 0;
         window.__flowmindReplayPaused = ${this.isPaused};
+        window.__flowmindReplayLocked = ${this.isLocked};
         if (window.__flowmindInterventionAttached) { window.__flowmindUpdateReplayGuard && window.__flowmindUpdateReplayGuard(); return; }
         window.__flowmindInterventionAttached = true;
         var host = null;
@@ -223,16 +231,23 @@ class ReplayEngine extends EventEmitter {
           host.id = '__flowmind-replay-guard';
           host.style.cssText = 'all:initial;position:fixed;top:18px;right:18px;z-index:2147483647;font:13px/1.4 Inter,system-ui,sans-serif;color:#eef2ff;';
           var shadow = host.attachShadow({mode:'open'});
-          shadow.innerHTML = '<style>*{box-sizing:border-box} .card{width:270px;padding:12px 14px;background:#20283a;border:1px solid #39445b;border-radius:15px;box-shadow:0 12px 34px #10162655;display:flex;gap:10px;align-items:center}.dot{width:9px;height:9px;border-radius:50%;background:#42d392;box-shadow:0 0 12px #42d39288;flex:none}.paused .dot{background:#f5a742;box-shadow:0 0 12px #f5a74288}.copy{flex:1;min-width:0}.title{font-weight:700;font-size:12px}.sub{color:#aab5ca;font-size:11px;margin-top:2px}.actions{display:flex;gap:6px;margin-top:9px}.actions[hidden]{display:none}button{border:1px solid #46536e;border-radius:7px;background:#2b354b;color:#eef2ff;padding:5px 9px;font:600 11px system-ui;cursor:pointer}button:hover{background:#394660}.stop{color:#ffb3b3}</style><div class="card"><i class="dot"></i><div class="copy"><div class="title"></div><div class="sub"></div><div class="actions" hidden><button class="resume">Resume</button><button class="stop">Stop</button></div></div></div>';
-          document.documentElement.appendChild(host);
+          shadow.innerHTML = '<style>*{box-sizing:border-box} .card{width:270px;padding:12px 14px;background:#20283a;border:1px solid #39445b;border-radius:15px;box-shadow:0 12px 34px #10162655;display:flex;gap:10px;align-items:center}.dot{width:9px;height:9px;border-radius:50%;background:#42d392;box-shadow:0 0 12px #42d39288;flex:none}.paused .dot{background:#f5a742;box-shadow:0 0 12px #f5a74288}.copy{flex:1;min-width:0}.title{font-weight:700;font-size:12px}.sub{color:#aab5ca;font-size:11px;margin-top:2px}.actions{display:flex;gap:6px;margin-top:9px}.actions[hidden]{display:none}button{border:1px solid #46536e;border-radius:7px;background:#2b354b;color:#eef2ff;padding:5px 9px;font:600 11px system-ui;cursor:pointer}button:hover{background:#394660}.lock{margin-top:8px}.lock.on{border-color:#ed7777;color:#ffb3b3}.stop{color:#ffb3b3}</style><div class="card"><i class="dot"></i><div class="copy"><div class="title"></div><div class="sub"></div><button class="lock"></button><div class="actions" hidden><button class="resume">Resume</button><button class="stop">Stop</button></div></div></div>';
+          if (document.documentElement) document.documentElement.appendChild(host);
+          else document.addEventListener('DOMContentLoaded', function(){ if(document.documentElement) document.documentElement.appendChild(host); }, {once:true});
           shadow.querySelector('.resume').addEventListener('click', () => window.__flowmindResumeReplay && window.__flowmindResumeReplay());
           shadow.querySelector('.stop').addEventListener('click', () => window.__flowmindStopReplay && window.__flowmindStopReplay());
+          shadow.querySelector('.lock').addEventListener('click', () => window.__flowmindSetReplayLock && window.__flowmindSetReplayLock(!window.__flowmindReplayLocked));
           window.__flowmindReplayGuardHost = host;
           window.__flowmindUpdateReplayGuard = function() {
             var card=shadow.querySelector('.card'), actions=shadow.querySelector('.actions');
             card.classList.toggle('paused', !!window.__flowmindReplayPaused);
             shadow.querySelector('.title').textContent=window.__flowmindReplayPaused?'Workflow paused':'Automation running';
-            shadow.querySelector('.sub').textContent=window.__flowmindReplayPaused?'Interaction blocked. Resume when ready.':'Please don’t interact with this page';
+            shadow.querySelector('.sub').textContent=window.__flowmindReplayPaused
+              ? (window.__flowmindReplayLocked?'Input blocked. Resume when ready.':'Workflow paused. Resume when ready.')
+              : (window.__flowmindReplayLocked?'Input lock is on':'Interact with the site to pause');
+            var lock=shadow.querySelector('.lock');
+            lock.textContent=window.__flowmindReplayLocked?'Input lock: On':'Input lock: Off';
+            lock.classList.toggle('on', !!window.__flowmindReplayLocked);
             actions.hidden=!window.__flowmindReplayPaused;
           };
           window.__flowmindUpdateReplayGuard();
@@ -241,18 +256,20 @@ class ReplayEngine extends EventEmitter {
           if (host && evt.composedPath().includes(host)) return;
           var expected=window.__flowmindAutomatedTarget;
           if (window.__flowmindAutomatedActionActive && expected && (expected===evt.target || expected.contains(evt.target))) return;
-          if (evt.cancelable) evt.preventDefault();
-          evt.stopImmediatePropagation(); evt.stopPropagation();
+          if (window.__flowmindReplayLocked) {
+            if (evt.cancelable) evt.preventDefault();
+            evt.stopImmediatePropagation(); evt.stopPropagation();
+          }
           if (window.__flowmindReplayPaused) return;
           window.__flowmindReplayPaused=true;
           window.__flowmindUpdateReplayGuard && window.__flowmindUpdateReplayGuard();
           var now=Date.now();
-          if (typeof window.__flowmindReportIntervention==='function') window.__flowmindReportIntervention({type:evt.type,key:evt.key||null,tagName:evt.target&&evt.target.tagName||null,time:now});
+          if (typeof window.__flowmindReportIntervention==='function') window.__flowmindReportIntervention({type:evt.type,key:evt.key||null,tagName:evt.target&&evt.target.tagName||null,locked:!!window.__flowmindReplayLocked,time:now});
         };
         window.__flowmindReplayInputHandler=onHumanInput;
-        ['pointerdown','mousedown','click','pointerup','mouseup','keydown','keypress','keyup','wheel','touchstart','touchmove','contextmenu','dragstart'].forEach(function(type){window.addEventListener(type,onHumanInput,{capture:true,passive:false});});
+        ['pointerdown','mousedown','click','pointerup','mouseup','keydown','keypress','keyup','wheel','touchstart','touchmove','contextmenu','dragstart','dragover','drop'].forEach(function(type){window.addEventListener(type,onHumanInput,{capture:true,passive:false});});
         window.__flowmindStopReplayGuard=function(){
-          ['pointerdown','mousedown','click','pointerup','mouseup','keydown','keypress','keyup','wheel','touchstart','touchmove','contextmenu','dragstart'].forEach(function(type){window.removeEventListener(type,onHumanInput,true);});
+          ['pointerdown','mousedown','click','pointerup','mouseup','keydown','keypress','keyup','wheel','touchstart','touchmove','contextmenu','dragstart','dragover','drop'].forEach(function(type){window.removeEventListener(type,onHumanInput,true);});
           if(host)host.remove(); window.__flowmindInterventionAttached=false;
         };
       })();
@@ -269,10 +286,11 @@ class ReplayEngine extends EventEmitter {
   async _syncReplayGuard() {
     for (const page of this._guardPages) {
       if (page.isClosed()) continue;
-      for (const frame of page.frames()) await frame.evaluate((paused) => {
-        window.__flowmindReplayPaused=paused;
+      for (const frame of page.frames()) await frame.evaluate((state) => {
+        window.__flowmindReplayPaused=state.paused;
+        window.__flowmindReplayLocked=state.locked;
         window.__flowmindUpdateReplayGuard && window.__flowmindUpdateReplayGuard();
-      }, this.isPaused).catch(() => {});
+      }, { paused: this.isPaused, locked: this.isLocked }).catch(() => {});
     }
   }
 
@@ -805,6 +823,7 @@ class ReplayEngine extends EventEmitter {
           throw new Error('Execution stopped by user');
         }
 
+        this.currentActionIndex = i;
         const action = recording.actions[i];
 
         // Apply explicit step delay or natural pacing from recording (up to 15s)
