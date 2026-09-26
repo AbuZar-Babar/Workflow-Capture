@@ -116,7 +116,7 @@ export const ExecutionView = {
           <article class="stat-card">
             <span class="stat-label">Skipped</span>
             <strong id="executionSkipped" style="color:#d97706;">0</strong>
-            <span class="stat-meta">Duplicates</span>
+            <span class="stat-meta" id="executionSkippedMeta">Filtered / dupes</span>
           </article>
           <article class="stat-card">
             <span class="stat-label">Downloads</span>
@@ -381,7 +381,8 @@ export const ExecutionView = {
 
     const ok = Number(m.itemsSucceeded ?? run.itemsSucceeded ?? 0);
     const fail = Number(m.itemsFailed ?? run.itemsFailed ?? 0);
-    const processed = results.filter(x => ['SUCCESS', 'FAILED', 'STOPPED'].includes(x.status)).length;
+    const terminalItemStatuses = new Set(['SUCCESS', 'FAILED', 'STOPPED', 'SKIPPED_DUPLICATE', 'SKIPPED_FILTER']);
+    const processed = results.filter(x => terminalItemStatuses.has(x.status)).length;
     const remaining = Math.max(0, totalCount - processed);
     const files = Array.isArray(m.downloadedFiles) ? m.downloadedFiles.length : Number((run.downloadedFiles || []).length);
     const pct = totalCount > 0 ? Math.min(100, Math.round((processed / totalCount) * 100)) : 0;
@@ -438,9 +439,25 @@ export const ExecutionView = {
     const elFail = document.getElementById('executionFailed');
     if (elFail) elFail.textContent = fail;
 
+    const filterSkipped = results.filter(r => r.status === 'SKIPPED_FILTER').length;
+    const dupSkipped = results.filter(r => r.status === 'SKIPPED_DUPLICATE').length;
+    const skippedCount = m.itemsSkipped ?? run.itemsSkipped ?? (filterSkipped + dupSkipped);
+
     const elSkip = document.getElementById('executionSkipped');
-    const skippedCount = m.itemsSkipped ?? run.itemsSkipped ?? results.filter(r => r.status === 'SKIPPED_DUPLICATE').length;
     if (elSkip) elSkip.textContent = skippedCount;
+
+    const elSkipMeta = document.getElementById('executionSkippedMeta');
+    if (elSkipMeta) {
+      if (filterSkipped > 0 && dupSkipped > 0) {
+        elSkipMeta.textContent = `${filterSkipped} filtered · ${dupSkipped} dupes`;
+      } else if (filterSkipped > 0) {
+        elSkipMeta.textContent = `${filterSkipped} filtered out`;
+      } else if (dupSkipped > 0) {
+        elSkipMeta.textContent = `${dupSkipped} duplicates`;
+      } else {
+        elSkipMeta.textContent = 'Filtered / dupes';
+      }
+    }
 
     const elDown = document.getElementById('executionDownloads');
     if (elDown) elDown.textContent = files;
@@ -472,8 +489,18 @@ export const ExecutionView = {
 
     const elProgDetail = document.getElementById('executionProgressDetail');
     if (elProgDetail) {
+      let skipDetail = '';
+      if (skippedCount > 0) {
+        if (filterSkipped > 0 && dupSkipped > 0) {
+          skipDetail = ` · ${filterSkipped} filtered, ${dupSkipped} dupes`;
+        } else if (filterSkipped > 0) {
+          skipDetail = ` · ${filterSkipped} filtered out`;
+        } else {
+          skipDetail = ` · ${skippedCount} skipped`;
+        }
+      }
       elProgDetail.textContent = totalCount > 0
-        ? `${ok} succeeded · ${fail} failed${skippedCount > 0 ? ` · ${skippedCount} skipped` : ''} · ${remaining} ${remaining === 1 ? unitSingular : unitPlural} remaining`
+        ? `${ok} succeeded · ${fail} failed${skipDetail} · ${remaining} ${remaining === 1 ? unitSingular : unitPlural} remaining`
         : 'Running workflow automation…';
     }
 
@@ -607,7 +634,9 @@ export const ExecutionView = {
       if (isLoopMode) {
         titleLabel = (res && res.label) ? `Item #${i} · ${escapeHtml(res.label)}` : `Item #${i}`;
         badgeLabel = 'LOOP ROW';
-        if (res && res.status === 'SKIPPED_DUPLICATE') {
+        if (res && res.status === 'SKIPPED_FILTER') {
+          targetDetail = res.skippedReason ? `Filter skipped: ${res.skippedReason}` : 'Skipped by record filter condition';
+        } else if (res && res.status === 'SKIPPED_DUPLICATE') {
           targetDetail = res.skippedReason || 'Skipped duplicate: already downloaded';
         } else if (res && Array.isArray(res.downloadedFiles) && res.downloadedFiles.length > 0) {
           targetDetail = `Downloaded: ${res.downloadedFiles.map(f => typeof f === 'string' ? f : f.filename).join(', ')}`;
@@ -637,10 +666,14 @@ export const ExecutionView = {
           state = 'success';
           icon = '✓';
           stateLabel = 'Completed';
+        } else if (s === 'SKIPPED_FILTER') {
+          state = 'skipped-filter';
+          icon = '⊘';
+          stateLabel = 'Filtered Out';
         } else if (s === 'SKIPPED_DUPLICATE') {
           state = 'skipped';
           icon = '↷';
-          stateLabel = 'Skipped';
+          stateLabel = 'Skipped (Duplicate)';
         } else if (s === 'FAILED') {
           state = 'failed';
           icon = '✗';
@@ -665,6 +698,13 @@ export const ExecutionView = {
         stateLabel = 'Not Reached';
       }
 
+      let filterBadge = '';
+      if (res && res.status === 'SKIPPED_FILTER') {
+        filterBadge = `<span class="badge-tag warning" style="font-size:0.6rem; padding:1px 5px; background:#fef3c7; color:#b45309; font-weight:700;">SKIPPED FILTER</span>`;
+      } else if (res && res.status === 'SKIPPED_DUPLICATE') {
+        filterBadge = `<span class="badge-tag warning" style="font-size:0.6rem; padding:1px 5px; background:#fef3c7; color:#b45309; font-weight:700;">DUPLICATE</span>`;
+      }
+
       rows.push(`
         <div class="execution-item-row ${state}">
           <span class="execution-item-icon">${icon}</span>
@@ -672,6 +712,7 @@ export const ExecutionView = {
             <div style="display:flex; align-items:center; gap:0.4rem;">
               <strong>${escapeHtml(titleLabel)}</strong>
               <span class="badge-tag info" style="font-size:0.6rem; padding:1px 5px;">${escapeHtml(badgeLabel)}</span>
+              ${filterBadge}
             </div>
             <span>${escapeHtml(targetDetail || titleLabel)}${errorText}</span>
           </div>
