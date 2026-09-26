@@ -10,7 +10,7 @@ Copy this template for each agent assignment.
 - **Branch:** `[task-specific branch]`
 - **Worktree:** `[optional local worktree path]`
 - **Dependencies:** [Task IDs, or `None`]
-- **Allowed paths:** 
+- **Allowed paths:**
   - `[path]`
   - `[path]`
 - **Excluded paths:** [Files/directories this task must not edit.]
