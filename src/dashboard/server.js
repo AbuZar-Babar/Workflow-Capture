@@ -4,6 +4,36 @@
  * Zero-dependency native Node.js HTTP & SSE Server providing a visual control room
  * for recording workflows, replaying actions, inspecting selector candidates,
  * monitoring Chrome CDP connections, and viewing live execution logs.
+ * 
+ * ============================================================================
+ * SECURITY MODES & CONFIGURATION (Task 1: Secure Dashboard Local Mode)
+ * ============================================================================
+ * 
+ * 1. Local Development Mode (Default & Recommended):
+ *    - Bind Address: Strictly binds to loopback interface ('127.0.0.1') by default.
+ *    - Commands:
+ *      * Standard Secure Mode: `node src/dashboard/server.js`
+ *      * With Dev Opt-In:     `ALLOW_DEV_BYPASS=true node src/dashboard/server.js`
+ *    - Authentication:
+ *      * Default: Requires valid JWT Bearer token or HttpOnly cookie for all protected API/SSE endpoints.
+ *      * Dev Opt-In: Requires explicit ALLOW_DEV_BYPASS=true. Only permitted on loopback.
+ *    - CORS:
+ *      * Default: Same-origin strictly enforced. Wildcard CORS (*) is NEVER emitted.
+ *      * Cross-Origin: Explicit allowlist via ALLOWED_ORIGINS=http://localhost:5173,...
+ * 
+ * 2. Network-Access Mode:
+ *    - Bind Address: Set HOST=0.0.0.0 (or ALLOW_NETWORK_ACCESS=true).
+ *    - Command: `HOST=0.0.0.0 node src/dashboard/server.js`
+ *    - Security Invariant: Developer bypass (ALLOW_DEV_BYPASS=true) is STRICTLY PROHIBITED
+ *      in network-access mode and will fail fast at startup to prevent accidental exposure.
+ *    - Authentication & CORS: Requires valid tokens and rejects unlisted cross-origins.
+ * 
+ * Environment Variables:
+ *    - PORT: Listen port (default: 3000)
+ *    - HOST: Bind IP address (default: 127.0.0.1)
+ *    - ALLOW_NETWORK_ACCESS: Set to 'true' to bind to 0.0.0.0
+ *    - ALLOW_DEV_BYPASS: Set to 'true' to enable tokenless developer bypass (loopback only)
+ *    - ALLOWED_ORIGINS: Comma-separated list of allowed cross-origin origins
  */
 
 const http = require('http');
@@ -21,33 +51,32 @@ const workflowController = require('../api/workflow-controller');
 const runController = require('../api/run-controller');
 const secretController = require('../api/secret-controller');
 const botConfigController = require('../api/bot-config-controller');
-const { requireAuth: originalRequireAuth, extractToken } = require('../auth/auth-middleware');
+const {
+  requireAuth,
+  extractToken,
+  handleCors,
+  validateOrigin,
+  isLoopbackAddress,
+  isDevBypassEnabled,
+  getAllowedOrigins
+} = require('../auth/auth-middleware');
 const { db } = require('../database/db');
 
-// In local dashboard mode, automatically provide developer session so dashboard opens directly without login
-function requireAuth(req, res) {
-  const token = extractToken(req);
-  if (!token) {
-    let user = db.findOne('users', () => true);
-    if (!user) {
-      user = db.insert('users', {
-        username: 'Developer',
-        email: 'developer@workflowcapture.local',
-        passwordHash: 'dev_bypass'
-      });
-    }
-    req.user = {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      createdAt: user.createdAt
-    };
-    return true;
-  }
-  return originalRequireAuth(req, res);
+const PORT = parseInt(process.env.PORT, 10) || 3000;
+const HOST = (process.env.HOST || (process.env.ALLOW_NETWORK_ACCESS === 'true' ? '0.0.0.0' : '127.0.0.1')).trim();
+
+const isLoopback = isLoopbackAddress(HOST);
+const isDevBypassRequested = process.env.ALLOW_DEV_BYPASS === 'true' ||
+                             process.env.ENABLE_DEV_BYPASS === 'true' ||
+                             process.env.DEV_BYPASS === 'true';
+
+// Safety Invariant: Developer bypass cannot silently become the network-access mode
+if (isDevBypassRequested && !isLoopback) {
+  const errMsg = `FATAL SECURITY CONFIGURATION ERROR: Developer bypass (ALLOW_DEV_BYPASS=true) cannot be enabled when server is bound to external/network interface ('${HOST}'). Developer bypass is strictly restricted to local loopback (127.0.0.1 / localhost).`;
+  logger.error(errMsg);
+  throw new Error(errMsg);
 }
 
-const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const RECORDINGS_DIR = path.resolve(process.cwd(), 'recordings');
 
@@ -252,11 +281,12 @@ function parseJsonBody(req) {
 /**
  * Send JSON Response
  */
-function sendJson(res, statusCode, data) {
-  res.writeHead(statusCode, {
+function sendJson(res, statusCode, data, extraHeaders = {}) {
+  const headers = {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*'
-  });
+    ...extraHeaders
+  };
+  res.writeHead(statusCode, headers);
   res.end(JSON.stringify(data));
 }
 
@@ -264,14 +294,10 @@ function sendJson(res, statusCode, data) {
  * HTTP Request Handler
  */
 const server = http.createServer(async (req, res) => {
-  // CORS Preflight
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type'
-    });
-    return res.end();
+  // Enforce CORS origin policy (same-origin by default, explicit allowlist, reject unlisted)
+  // Also handles preflight OPTIONS (204)
+  if (!handleCors(req, res)) {
+    return;
   }
 
   const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
@@ -282,12 +308,14 @@ const server = http.createServer(async (req, res) => {
     // SSE Stream
     // -------------------------------------------------------------
     if (pathname === '/api/events') {
-      res.writeHead(200, {
+      if (!requireAuth(req, res)) return;
+
+      const sseHeaders = {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*'
-      });
+        'Connection': 'keep-alive'
+      };
+      res.writeHead(200, sseHeaders);
       res.write('\n');
       sseClients.add(res);
 
@@ -501,6 +529,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === '/api/runs/stop' && req.method === 'POST') {
+      if (!requireAuth(req, res)) return;
       if (activeRecorder && activeRecorder.isRecording) {
         await stopActiveRecording().catch(() => {});
       }
@@ -518,6 +547,7 @@ const server = http.createServer(async (req, res) => {
 
     const runStopMatch = pathname.match(/^\/api\/runs\/([^/]+)\/stop$/);
     if (runStopMatch && req.method === 'POST') {
+      if (!requireAuth(req, res)) return;
       const runId = runStopMatch[1];
       return runController.stopRun(req, res, runId);
     }
@@ -560,6 +590,7 @@ const server = http.createServer(async (req, res) => {
     // Bot Profile & Stealth Evasion REST APIs
     // -------------------------------------------------------------
     if (pathname === '/api/bot-config') {
+      if (!requireAuth(req, res)) return;
       if (req.method === 'GET') {
         return botConfigController.getBotConfig(req, res);
       }
@@ -570,10 +601,12 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === '/api/bot-config/presets' && req.method === 'GET') {
+      if (!requireAuth(req, res)) return;
       return botConfigController.getPresets(req, res);
     }
 
     if (pathname === '/api/bot-config/reset' && req.method === 'POST') {
+      if (!requireAuth(req, res)) return;
       const body = await parseJsonBody(req).catch(() => ({}));
       return botConfigController.resetBotConfig(req, res, body);
     }
@@ -582,6 +615,7 @@ const server = http.createServer(async (req, res) => {
     // API: System & CDP Status
     // -------------------------------------------------------------
     if (pathname === '/api/status' && req.method === 'GET') {
+      if (!requireAuth(req, res)) return;
       const port = parseInt(urlObj.searchParams.get('port') || '9222', 10);
       const cdp = await checkCDPStatus(port);
       return sendJson(res, 200, {
@@ -610,6 +644,7 @@ const server = http.createServer(async (req, res) => {
     // API: Launch Chrome with CDP
     // -------------------------------------------------------------
     if (pathname === '/api/browser/launch' && req.method === 'POST') {
+      if (!requireAuth(req, res)) return;
       const { ensureChromeRunning, connectToBrowser } = require('../utils/cdp-connector');
       const body = await parseJsonBody(req).catch(() => ({}));
       const portal = body.portal || 'ecommerce';
@@ -647,6 +682,7 @@ const server = http.createServer(async (req, res) => {
     // API: Open URL in Chrome Browser
     // -------------------------------------------------------------
     if (pathname === '/api/browser/open' && req.method === 'POST') {
+      if (!requireAuth(req, res)) return;
       const body = await parseJsonBody(req);
       let targetUrl = body.url;
 
@@ -685,6 +721,7 @@ const server = http.createServer(async (req, res) => {
     // API: List Recordings
     // -------------------------------------------------------------
     if (pathname === '/api/recordings' && req.method === 'GET') {
+      if (!requireAuth(req, res)) return;
       const files = fs.readdirSync(RECORDINGS_DIR).filter(f => f.endsWith('.json'));
       const list = [];
 
@@ -718,6 +755,7 @@ const server = http.createServer(async (req, res) => {
     // API: Get Single Recording Details
     // -------------------------------------------------------------
     if (pathname.startsWith('/api/recordings/') && req.method === 'GET') {
+      if (!requireAuth(req, res)) return;
       const filename = path.basename(pathname.replace('/api/recordings/', ''));
       const filePath = path.join(RECORDINGS_DIR, filename);
 
@@ -733,6 +771,7 @@ const server = http.createServer(async (req, res) => {
     // API: Delete Recording
     // -------------------------------------------------------------
     if (pathname.startsWith('/api/recordings/') && req.method === 'DELETE') {
+      if (!requireAuth(req, res)) return;
       const filename = path.basename(pathname.replace('/api/recordings/', ''));
       const filePath = path.join(RECORDINGS_DIR, filename);
 
@@ -749,6 +788,7 @@ const server = http.createServer(async (req, res) => {
     // API: Start Recording
     // -------------------------------------------------------------
     if (pathname === '/api/record/start' && req.method === 'POST') {
+      if (!requireAuth(req, res)) return;
       if (isStartingRecorder || (activeRecorder && activeRecorder.isRecording)) {
         return sendJson(res, 400, { error: 'A recording session is already starting or active' });
       }
@@ -799,6 +839,7 @@ const server = http.createServer(async (req, res) => {
     // API: Stop Recording
     // -------------------------------------------------------------
     if (pathname === '/api/record/stop' && req.method === 'POST') {
+      if (!requireAuth(req, res)) return;
       if (!activeRecorder || !activeRecorder.isRecording || isStoppingRecorder) {
         return sendJson(res, 400, { error: 'No active recording session to stop' });
       }
@@ -815,6 +856,7 @@ const server = http.createServer(async (req, res) => {
     // API: Start Replay
     // -------------------------------------------------------------
     if (pathname === '/api/replay/start' && req.method === 'POST') {
+      if (!requireAuth(req, res)) return;
       if (activeReplay) {
         return sendJson(res, 400, { error: 'A replay execution is already in progress' });
       }
@@ -894,6 +936,7 @@ const server = http.createServer(async (req, res) => {
     // API: Stop Replay
     // -------------------------------------------------------------
     if (pathname === '/api/replay/stop' && req.method === 'POST') {
+      if (!requireAuth(req, res)) return;
       let stoppedReplay = false;
       let stoppedRecorder = false;
       if (activeRecorder && activeRecorder.isRecording) {
@@ -931,6 +974,7 @@ const server = http.createServer(async (req, res) => {
     // API: Trigger/Simulate Human Disturbance Event for Floating Bot UI
     // -------------------------------------------------------------
     if (pathname === '/api/test/human-disturbance' && req.method === 'POST') {
+      if (!requireAuth(req, res)) return;
       const body = await parseJsonBody(req).catch(() => ({}));
       const stepIndex = parseInt(body.stepIndex, 10) || (activeReplay ? activeReplay.currentAction || 2 : 2);
       const payload = {
@@ -950,6 +994,7 @@ const server = http.createServer(async (req, res) => {
     // API: Run Tests (Unit or E2E)
     // -------------------------------------------------------------
     if (pathname === '/api/test/run' && req.method === 'POST') {
+      if (!requireAuth(req, res)) return;
       if (isRunningTest) {
         return sendJson(res, 400, { error: 'A test is already running' });
       }
@@ -1071,21 +1116,48 @@ let currentPort = PORT;
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
     currentPort = Number(currentPort) + 1;
-    logger.warn(`Port in use. Attempting to start on fallback port: http://localhost:${currentPort}...`);
+    logger.warn(`Port in use. Attempting to start on fallback port: http://${HOST}:${currentPort}...`);
     setTimeout(() => {
-      server.listen(currentPort);
+      server.listen(currentPort, HOST);
     }, 200);
   } else {
     logger.error('Dashboard server error:', err);
   }
 });
 
-server.listen(currentPort, () => {
+function logStartupBanner(port, host) {
   logger.divider();
-  logger.success(`🚀 Workflow Capture Dashboard is live at: http://localhost:${currentPort}`);
+  logger.success(`🚀 Workflow Capture Dashboard is live at: http://${host}:${port}`);
+  logger.info(`Bind Address: ${host} (${isLoopback ? 'Local Loopback Only' : 'Network Accessible'})`);
+  logger.info(`Authentication: ${isDevBypassEnabled() ? 'DEVELOPER BYPASS OPT-IN ACTIVE (UNRESTRICTED)' : 'Strict Authentication Required (Default)'}`);
+  logger.info(`CORS Policy: ${getAllowedOrigins().length ? `Allowlist (${getAllowedOrigins().join(', ')})` : 'Strict Same-Origin (No Wildcard)'}`);
   logger.info(`Connected to Chrome CDP at: http://localhost:9222`);
-  logger.info(`Open http://localhost:${currentPort} in your browser to manage workflows visually.`);
+  logger.info(`Open http://${host}:${port} in your browser to manage workflows.`);
   logger.divider();
-});
+}
+
+function startServer(port = currentPort, host = HOST) {
+  return new Promise((resolve, reject) => {
+    server.listen(port, host, () => {
+      currentPort = server.address() ? server.address().port : port;
+      logStartupBanner(currentPort, host);
+      resolve(server);
+    });
+    server.once('error', reject);
+  });
+}
+
+// Automatically start listening when executed directly from CLI/npm
+if (require.main === module) {
+  startServer().catch(err => {
+    logger.error('Failed to start server:', err);
+    process.exit(1);
+  });
+}
+
+server.startServer = startServer;
+server.HOST = HOST;
+server.PORT = PORT;
+server.isLoopback = isLoopback;
 
 module.exports = server;
