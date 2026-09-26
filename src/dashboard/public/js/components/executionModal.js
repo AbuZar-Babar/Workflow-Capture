@@ -178,7 +178,7 @@ export const ExecutionModal = {
 
           <!-- Loop Discovery & Preflight Section -->
           <div id="execLoopSection" style="display: ${isLoopSelected ? 'flex' : 'none'}; flex-direction:column; gap:0.85rem;">
-            
+
             <!-- Preflight Container (Mount point for Loading / Error / Preflight Review) -->
             <div id="execPreflightContainer" class="exec-preflight-container">
               ${this.renderPreflightContent()}
@@ -297,7 +297,7 @@ export const ExecutionModal = {
           <!-- Filter Condition Controls (visible when filter is enabled) -->
           <div id="execFilterControlsWrapper" style="display:${this.filterEnabled ? 'flex' : 'none'}; flex-direction:column; gap:0.65rem;">
             <div class="exec-filter-inputs-grid">
-              
+
               <!-- Field Selector -->
               <div class="exec-field-group">
                 <label for="execFilterFieldSelect">Target Field</label>
@@ -525,6 +525,9 @@ export const ExecutionModal = {
     if (fieldSelect) {
       fieldSelect.onchange = () => {
         this.filterField = fieldSelect.value;
+        if (this.discoveryData) {
+          this.discoveryData.filterPreview = null;
+        }
         if (this.filterField === '__custom__') {
           if (customFieldWrapper) customFieldWrapper.style.display = 'flex';
           this.customFieldName = customFieldInput?.value.trim() || '';
@@ -538,6 +541,7 @@ export const ExecutionModal = {
     if (customFieldInput) {
       customFieldInput.oninput = () => {
         this.customFieldName = customFieldInput.value;
+        if (this.discoveryData) this.discoveryData.filterPreview = null;
         this.evaluateFilterPreview();
       };
     }
@@ -545,6 +549,7 @@ export const ExecutionModal = {
     if (standaloneCustomField) {
       standaloneCustomField.oninput = () => {
         this.filterField = standaloneCustomField.value;
+        if (this.discoveryData) this.discoveryData.filterPreview = null;
         this.evaluateFilterPreview();
       };
     }
@@ -554,6 +559,7 @@ export const ExecutionModal = {
     if (operatorSelect) {
       operatorSelect.onchange = () => {
         this.filterOperator = operatorSelect.value;
+        if (this.discoveryData) this.discoveryData.filterPreview = null;
         this.evaluateFilterPreview();
       };
     }
@@ -563,6 +569,7 @@ export const ExecutionModal = {
     if (valInput) {
       valInput.oninput = () => {
         this.filterValue = valInput.value;
+        if (this.discoveryData) this.discoveryData.filterPreview = null;
         this.evaluateFilterPreview();
       };
     }
@@ -584,6 +591,9 @@ export const ExecutionModal = {
         operator: this.filterOperator,
         value: this.filterValue.trim()
       } : null;
+
+      const requestedField = itemFilterPayload ? itemFilterPayload.field : null;
+      const fieldBeforeDiscovery = (this.filterField === '__custom__' ? this.customFieldName : this.filterField).trim();
 
       let data;
       try {
@@ -616,17 +626,36 @@ export const ExecutionModal = {
         this.filterField = hasType ? 'Type' : this.availableFields[0];
       }
 
-      // If backend returned filterPreview, accept it; otherwise evaluate client-side
-      if (data.filterPreview && typeof data.filterPreview.selectedCount === 'number') {
+      const activeField = (this.filterField === '__custom__' ? this.customFieldName : this.filterField).trim();
+
+      // Check if server returned a filterPreview that matches the currently selected field and filter
+      const serverPreview = data.filterPreview;
+      const serverField = (serverPreview?.field || serverPreview?.itemFilter?.field || '').trim();
+      const isFieldUnchanged = fieldBeforeDiscovery && activeField.toLowerCase() === fieldBeforeDiscovery.toLowerCase();
+      const isServerFieldMatching = !serverField || serverField.toLowerCase() === activeField.toLowerCase();
+      const isRequestedFieldMatching = !requestedField || requestedField.toLowerCase() === activeField.toLowerCase();
+
+      const canUseServerPreview = serverPreview &&
+        typeof serverPreview.selectedCount === 'number' &&
+        this.filterEnabled &&
+        isFieldUnchanged &&
+        isServerFieldMatching &&
+        isRequestedFieldMatching;
+
+      if (canUseServerPreview) {
         this.filterPreview = {
-          totalCount: Number(data.filterPreview.totalCount ?? data.discovery?.itemCount ?? 0),
-          selectedCount: Number(data.filterPreview.selectedCount ?? 0),
-          skippedCount: Number(data.filterPreview.skippedCount ?? 0),
-          selectedPreview: Array.isArray(data.filterPreview.selectedPreview) ? data.filterPreview.selectedPreview : [],
-          skippedPreview: Array.isArray(data.filterPreview.skippedPreview) ? data.filterPreview.skippedPreview : [],
-          errors: Array.isArray(data.filterPreview.errors) ? data.filterPreview.errors : []
+          totalCount: Number(serverPreview.totalCount ?? data.discovery?.itemCount ?? 0),
+          selectedCount: Number(serverPreview.selectedCount ?? 0),
+          skippedCount: Number(serverPreview.skippedCount ?? 0),
+          selectedPreview: Array.isArray(serverPreview.selectedPreview) ? serverPreview.selectedPreview : [],
+          skippedPreview: Array.isArray(serverPreview.skippedPreview) ? serverPreview.skippedPreview : [],
+          errors: Array.isArray(serverPreview.errors) ? serverPreview.errors : []
         };
       } else {
+        // Discard stale or mismatched server preview; evaluate client-side for the current field and filter
+        if (data.filterPreview) {
+          data.filterPreview = null;
+        }
         this.evaluateFilterPreview();
       }
 
@@ -676,7 +705,7 @@ export const ExecutionModal = {
   evaluateFilterPreview() {
     const discovery = this.discoveryData?.discovery || {};
     const items = Array.isArray(discovery.items) ? discovery.items : [];
-    const totalCount = Number(this.discoveryData?.filterPreview?.totalCount ?? discovery.itemCount ?? items.length);
+    const totalCount = Number(discovery.itemCount ?? items.length);
 
     if (!this.filterEnabled) {
       this.filterPreview = {
@@ -738,9 +767,15 @@ export const ExecutionModal = {
 
       if (!extracted.found) {
         // Shared contract rule: configured field that cannot be read is a validation error, never a match
+        const errorMsg = `Item #${itemIndex} (${label}) cannot provide configured field "${field}"`;
+        if (!errors.includes(errorMsg)) {
+          errors.push(errorMsg);
+        }
         skippedList.push({
           index: itemIndex,
           label,
+          field,
+          fieldValue: undefined,
           reason: `Field "${field}" not found on item`,
           raw: item
         });
@@ -780,12 +815,12 @@ export const ExecutionModal = {
     });
 
     this.filterPreview = {
-      totalCount: items.length,
-      selectedCount: selectedList.length,
+      totalCount: items.length || totalCount,
+      selectedCount: errors.length > 0 ? 0 : selectedList.length,
       skippedCount: skippedList.length,
-      selectedPreview: selectedList.slice(0, 5),
+      selectedPreview: errors.length > 0 ? [] : selectedList.slice(0, 5),
       skippedPreview: skippedList.slice(0, 5),
-      errors: []
+      errors
     };
 
     this.updateFilterPreviewUI();
@@ -909,7 +944,7 @@ export const ExecutionModal = {
 
       if (hasErrors) {
         confirmBtn.disabled = true;
-        confirmBtn.title = 'Fix filter configuration error';
+        confirmBtn.title = 'Fix filter configuration error: ' + (this.filterPreview.errors[0] || '');
         if (confirmText) confirmText.textContent = 'Invalid Filter';
         return;
       }
@@ -953,8 +988,8 @@ export const ExecutionModal = {
       const value = this.filterValue.trim();
 
       // Guard against zero-match or invalid filter execution
-      if (!field || (!value && value !== '0') || this.filterPreview.selectedCount === 0) {
-        Toast.error('Cannot execute: filter has zero matches or invalid field.');
+      if (!field || (!value && value !== '0') || this.filterPreview.selectedCount === 0 || (Array.isArray(this.filterPreview.errors) && this.filterPreview.errors.length > 0)) {
+        Toast.error('Cannot execute: filter has errors, zero matches, or invalid field.');
         return;
       }
 
