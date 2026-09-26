@@ -166,11 +166,12 @@ async function runTests() {
   assert.strictEqual(cookieOk, true, 'Valid JWT in Cookie header must succeed');
   assert.strictEqual(cookieMock.req.user.id, testUser.id);
 
-  // 4e. Valid JWT token via query param must succeed
+  // 4e. Query param JWT token (?token=...) is strictly disallowed to prevent credential exposure in logs
   const queryMock = mockHttp('GET', {}, `/api/events?token=${validJwt}`);
   const queryOk = requireAuth(queryMock.req, queryMock.res);
-  assert.strictEqual(queryOk, true, 'Valid JWT in query param must succeed');
-  assert.strictEqual(queryMock.req.user.id, testUser.id);
+  assert.strictEqual(queryOk, false, 'JWT in query param must be rejected');
+  assert.strictEqual(queryMock.getStatus(), 401, 'Status must be 401');
+  assert(queryMock.getData().error.includes('Missing authentication token'), 'Query tokens should not be extracted');
   console.log('  ✅ Secure mode requireAuth validation passed\n');
 
   // --- 5. Developer Bypass Opt-In Policy ---
@@ -238,6 +239,18 @@ async function runTests() {
   assert.strictEqual(handleCors(allowedOriginMock.req, allowedOriginMock.res), true);
   assert.strictEqual(allowedOriginMock.getHeader('Access-Control-Allow-Origin'), 'http://localhost:5173');
   delete process.env.ALLOWED_ORIGINS;
+
+  // 7f. Regression check: Host matches but protocol differs (https origin against http server)
+  const protoMismatchMock = mockHttp('GET', { host: '127.0.0.1:3000', origin: 'https://127.0.0.1:3000' });
+  const protoMismatchOk = handleCors(protoMismatchMock.req, protoMismatchMock.res);
+  assert.strictEqual(protoMismatchOk, false, 'Origin with mismatched protocol must be rejected');
+  assert.strictEqual(protoMismatchMock.getStatus(), 403, 'Must return 403 Forbidden when protocol differs');
+
+  // Direct isSameOrigin protocol discrimination checks
+  assert.strictEqual(isSameOrigin('https://127.0.0.1:3000', '127.0.0.1:3000', 'http'), false, 'isSameOrigin must return false when protocol differs');
+  assert.strictEqual(isSameOrigin('http://127.0.0.1:3000', '127.0.0.1:3000', 'http'), true, 'isSameOrigin must return true when protocol and host match');
+  assert.strictEqual(isSameOrigin('http://127.0.0.1:3000', '127.0.0.1:3000', 'https'), false, 'isSameOrigin must return false when server is https and origin is http');
+  assert.strictEqual(isSameOrigin('https://127.0.0.1:3000', '127.0.0.1:3000', 'https'), true, 'isSameOrigin must return true when both are https');
   console.log('  ✅ CORS origin validation passed\n');
 
   console.log('🎉 ALL AUTHENTICATION TESTS PASSED SUCCESSFULLY!\n');

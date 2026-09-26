@@ -1,6 +1,6 @@
 /**
  * Workflow Capture — Authentication Controller
- * 
+ *
  * Handles registration, login, profile queries, and token management.
  */
 

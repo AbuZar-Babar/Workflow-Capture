@@ -1,6 +1,6 @@
 /**
  * Test Suite: Dashboard Security & Local Mode Verification
- * 
+ *
  * Verifies all subtasks and acceptance criteria for Task 1:
  * 1. Default startup binds explicitly to loopback (127.0.0.1)
  * 2. Tokenless requests to protected API & SSE endpoints receive 401 Unauthorized
@@ -252,13 +252,17 @@ async function runDashboardSecurityTests() {
     });
     assert.strictEqual(cookieWfRes.statusCode, 200, 'GET /api/workflows with cookie must succeed');
 
-    // 5. Access SSE stream with query parameter ?token=
-    const querySseRes = await testSseConnect(testPort, `/api/events?token=${userToken}`);
-    assert.strictEqual(querySseRes.statusCode, 200, 'GET /api/events?token=<valid> must succeed (200)');
-    assert.strictEqual(querySseRes.headers['content-type'], 'text/event-stream');
-    assert.notStrictEqual(querySseRes.headers['access-control-allow-origin'], '*', 'SSE must not emit wildcard CORS');
+    // 5. Access SSE stream with HttpOnly cookie succeeds
+    const cookieSseRes = await testSseConnect(testPort, '/api/events', { cookie: `token=${userToken}` });
+    assert.strictEqual(cookieSseRes.statusCode, 200, 'GET /api/events with auth cookie must succeed (200)');
+    assert.strictEqual(cookieSseRes.headers['content-type'], 'text/event-stream');
+    assert.notStrictEqual(cookieSseRes.headers['access-control-allow-origin'], '*', 'SSE must not emit wildcard CORS');
 
-    // 6. Logout clears cookie
+    // 6. Access SSE stream with query parameter ?token= without cookie/header must be rejected (401)
+    const querySseRes = await testSseConnect(testPort, `/api/events?token=${userToken}`);
+    assert.strictEqual(querySseRes.statusCode, 401, 'GET /api/events with query token must be rejected (401)');
+
+    // 7. Logout clears cookie
     const logoutRes = await makeRequest(testPort, {
       path: '/api/auth/logout',
       method: 'POST'
@@ -266,7 +270,7 @@ async function runDashboardSecurityTests() {
     assert.strictEqual(logoutRes.statusCode, 200, 'Logout should succeed');
     assert(logoutRes.headers['set-cookie'].some(c => c.includes('Expires=')), 'Logout must expire cookie');
 
-    console.log('  ✅ Standard registration, login, cookie, and query-token flows verified\n');
+    console.log('  ✅ Standard registration, login, cookie, and SSE-cookie flows verified (query tokens rejected)\n');
 
     // --- Test Group 5: Explicit Developer Bypass Mode ---
     console.log('🔹 Group 5: Explicit Developer Bypass Mode (ALLOW_DEV_BYPASS=true)');
@@ -380,12 +384,45 @@ async function runDashboardSecurityTests() {
     });
     assert.strictEqual(stillUnlistedRes.statusCode, 403);
 
+    // 5. Regression check: Host matches but protocol differs (https origin against http server)
+    const protoMismatchRes = await makeRequest(testPort, {
+      path: '/api/workflows',
+      method: 'GET',
+      headers: {
+        authorization: `Bearer ${userToken}`,
+        origin: `https://127.0.0.1:${testPort}`
+      }
+    });
+    assert.strictEqual(protoMismatchRes.statusCode, 403, 'Cross-protocol origin (https vs http) must be rejected with 403 Forbidden even if host matches');
+    assert(protoMismatchRes.data.error.includes('Cross-origin request from unlisted origin'));
+
     delete process.env.ALLOWED_ORIGINS;
     console.log('  ✅ Strict CORS and allowlist enforcement verified\n');
 
   } finally {
     await new Promise((resolve) => server.close(resolve));
     console.log('  🛑 Test server closed successfully\n');
+  }
+
+  // --- Test Group 7: EADDRINUSE Fallback Port Retry in startServer ---
+  console.log('🔹 Group 7: EADDRINUSE Fallback Port Retry in startServer');
+  const dummyServer = http.createServer((_, res) => res.end('dummy'));
+  const busyPort = await new Promise((resolve) => {
+    dummyServer.listen(0, '127.0.0.1', () => {
+      resolve(dummyServer.address().port);
+    });
+  });
+
+  try {
+    const startedServer = await server.startServer(busyPort, '127.0.0.1');
+    const assignedPort = startedServer.address().port;
+    assert.strictEqual(typeof assignedPort, 'number');
+    assert.notStrictEqual(assignedPort, busyPort, 'Server must not bind to busy port');
+    assert(assignedPort >= busyPort + 1, 'Server must retry and bind to fallback port >= busyPort + 1');
+    await new Promise((resolve) => startedServer.close(resolve));
+    console.log('  ✅ Fallback port retry on EADDRINUSE completed successfully without rejecting\n');
+  } finally {
+    await new Promise((resolve) => dummyServer.close(resolve));
   }
 
   console.log('🎉 ALL DASHBOARD SECURITY VERIFICATION TESTS PASSED!\n');

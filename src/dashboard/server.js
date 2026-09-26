@@ -1,14 +1,14 @@
 /**
  * Workflow Capture — Interactive Web Dashboard Server
- * 
+ *
  * Zero-dependency native Node.js HTTP & SSE Server providing a visual control room
  * for recording workflows, replaying actions, inspecting selector candidates,
  * monitoring Chrome CDP connections, and viewing live execution logs.
- * 
+ *
  * ============================================================================
  * SECURITY MODES & CONFIGURATION (Task 1: Secure Dashboard Local Mode)
  * ============================================================================
- * 
+ *
  * 1. Local Development Mode (Default & Recommended):
  *    - Bind Address: Strictly binds to loopback interface ('127.0.0.1') by default.
  *    - Commands:
@@ -20,14 +20,14 @@
  *    - CORS:
  *      * Default: Same-origin strictly enforced. Wildcard CORS (*) is NEVER emitted.
  *      * Cross-Origin: Explicit allowlist via ALLOWED_ORIGINS=http://localhost:5173,...
- * 
+ *
  * 2. Network-Access Mode:
  *    - Bind Address: Set HOST=0.0.0.0 (or ALLOW_NETWORK_ACCESS=true).
  *    - Command: `HOST=0.0.0.0 node src/dashboard/server.js`
  *    - Security Invariant: Developer bypass (ALLOW_DEV_BYPASS=true) is STRICTLY PROHIBITED
  *      in network-access mode and will fail fast at startup to prevent accidental exposure.
  *    - Authentication & CORS: Requires valid tokens and rejects unlisted cross-origins.
- * 
+ *
  * Environment Variables:
  *    - PORT: Listen port (default: 3000)
  *    - HOST: Bind IP address (default: 127.0.0.1)
@@ -1073,7 +1073,7 @@ const server = http.createServer(async (req, res) => {
         const end = parts[1] ? parseInt(parts[1], 10) : totalSize - 1;
         const chunksize = (end - start) + 1;
         const fileStream = fs.createReadStream(filePath, { start, end });
-        
+
         res.writeHead(206, {
           'Content-Range': `bytes ${start}-${end}/${totalSize}`,
           'Accept-Ranges': 'bytes',
@@ -1084,7 +1084,7 @@ const server = http.createServer(async (req, res) => {
         return fileStream.pipe(res);
       }
 
-      const headers = { 
+      const headers = {
         'Content-Type': contentType,
         'Content-Length': totalSize,
         'Accept-Ranges': 'bytes',
@@ -1113,18 +1113,6 @@ const server = http.createServer(async (req, res) => {
 
 let currentPort = PORT;
 
-server.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    currentPort = Number(currentPort) + 1;
-    logger.warn(`Port in use. Attempting to start on fallback port: http://${HOST}:${currentPort}...`);
-    setTimeout(() => {
-      server.listen(currentPort, HOST);
-    }, 200);
-  } else {
-    logger.error('Dashboard server error:', err);
-  }
-});
-
 function logStartupBanner(port, host) {
   logger.divider();
   logger.success(`🚀 Workflow Capture Dashboard is live at: http://${host}:${port}`);
@@ -1136,16 +1124,58 @@ function logStartupBanner(port, host) {
   logger.divider();
 }
 
-function startServer(port = currentPort, host = HOST) {
+/**
+ * Start the dashboard server on the configured or fallback port.
+ *
+ * If EADDRINUSE occurs, it automatically retries on the next sequential port
+ * (up to maxRetries times) so the fallback retry can complete cleanly instead
+ * of rejecting and triggering process exit.
+ */
+function startServer(port = currentPort, host = HOST, maxRetries = 10) {
   return new Promise((resolve, reject) => {
-    server.listen(port, host, () => {
-      currentPort = server.address() ? server.address().port : port;
-      logStartupBanner(currentPort, host);
-      resolve(server);
-    });
-    server.once('error', reject);
+    let attemptPort = Number(port);
+    let retriesLeft = maxRetries;
+
+    function tryListen() {
+      function onListening() {
+        cleanup();
+        currentPort = server.address() ? server.address().port : attemptPort;
+        logStartupBanner(currentPort, host);
+        resolve(server);
+      }
+
+      function onError(err) {
+        cleanup();
+        if (err.code === 'EADDRINUSE' && retriesLeft > 0) {
+          retriesLeft--;
+          attemptPort = Number(attemptPort) + 1;
+          logger.warn(`Port in use. Attempting to start on fallback port: http://${host}:${attemptPort}...`);
+          setTimeout(tryListen, 100);
+        } else {
+          reject(err);
+        }
+      }
+
+      function cleanup() {
+        server.removeListener('listening', onListening);
+        server.removeListener('error', onError);
+      }
+
+      server.once('listening', onListening);
+      server.once('error', onError);
+      server.listen(attemptPort, host);
+    }
+
+    tryListen();
   });
 }
+
+// Fallback runtime error logger for post-startup errors
+server.on('error', (err) => {
+  if (err.code !== 'EADDRINUSE') {
+    logger.error('Dashboard server runtime error:', err);
+  }
+});
 
 // Automatically start listening when executed directly from CLI/npm
 if (require.main === module) {

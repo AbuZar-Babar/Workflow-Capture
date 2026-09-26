@@ -1,13 +1,19 @@
 /**
  * Workflow Capture — Authentication & Security Middleware
- * 
- * Extracts Bearer tokens from the Authorization header, cookies, or query parameters,
+ *
+ * Extracts Bearer tokens from the Authorization header or HttpOnly cookies,
  * verifies tokens against the JWT service and database, and attaches req.user.
- * 
- * Also provides centralized CORS origin validation and developer-bypass policies:
+ *
+ * NOTE: Query-string JWT authentication (?token=...) is strictly disallowed
+ * to prevent token leakage in server logs, proxy logs, browser history,
+ * and HTTP Referer headers. SSE connections authenticate seamlessly via
+ * the issued HttpOnly session cookie.
+ *
+ * Centralized CORS origin validation and developer-bypass policies:
  * - Local loopback detection (127.0.0.1, localhost, ::1)
  * - Explicit development bypass gating (ALLOW_DEV_BYPASS=true on loopback only)
- * - Strict same-origin CORS by default with configurable allowlist (ALLOWED_ORIGINS)
+ * - Strict same-origin CORS by default (matching protocol, host, and port)
+ * - Configurable allowlist for cross-origin development (ALLOWED_ORIGINS)
  */
 
 const { verifyToken } = require('./token-service');
@@ -33,7 +39,7 @@ function isLoopbackAddress(host) {
 
 /**
  * Check if developer authentication bypass is explicitly permitted.
- * 
+ *
  * Safety invariants:
  * 1. Must be explicitly requested via ALLOW_DEV_BYPASS=true (or ENABLE_DEV_BYPASS / DEV_BYPASS).
  * 2. Cannot silently become network-access mode: strictly disallowed if HOST is not a loopback interface.
@@ -62,15 +68,67 @@ function getAllowedOrigins() {
 }
 
 /**
- * Check if origin matches the host header (same-origin).
+ * Determine the effective request protocol (http vs https).
+ * Accounts for reverse-proxy X-Forwarded-Proto header and TLS socket encryption.
  */
-function isSameOrigin(origin, hostHeader) {
-  if (!origin || !hostHeader) return false;
+function getEffectiveProtocol(reqOrProto) {
+  if (!reqOrProto) return 'http';
+  if (typeof reqOrProto === 'string') {
+    return reqOrProto.toLowerCase().replace(/:$/, '');
+  }
+  const req = reqOrProto;
+  const forwardedProto = req.headers && (req.headers['x-forwarded-proto'] || req.headers['X-Forwarded-Proto']);
+  if (forwardedProto && typeof forwardedProto === 'string') {
+    return forwardedProto.split(',')[0].trim().toLowerCase();
+  }
+  if (req.socket && req.socket.encrypted) {
+    return 'https';
+  }
+  return 'http';
+}
+
+/**
+ * Check if origin matches the host header and effective protocol (same-origin).
+ * MDN / RFC 6454: Protocol, host, and port must match.
+ *
+ * Supports signatures:
+ * - isSameOrigin(origin, hostHeader, effectiveProtocol)
+ * - isSameOrigin(origin, req)
+ */
+function isSameOrigin(origin, hostHeaderOrReq, reqOrProto = 'http') {
+  if (!origin) return false;
+
+  let hostHeader;
+  let proto = 'http';
+
+  if (hostHeaderOrReq && typeof hostHeaderOrReq === 'object' && hostHeaderOrReq.headers) {
+    hostHeader = hostHeaderOrReq.headers['host'] || hostHeaderOrReq.headers['Host'];
+    proto = getEffectiveProtocol(hostHeaderOrReq);
+  } else if (typeof hostHeaderOrReq === 'string') {
+    hostHeader = hostHeaderOrReq;
+    proto = getEffectiveProtocol(reqOrProto);
+  } else {
+    return false;
+  }
+
+  if (!hostHeader) return false;
+
   try {
     const originUrl = new URL(origin);
-    const originHost = originUrl.host.toLowerCase();
+    const originProto = originUrl.protocol.toLowerCase().replace(/:$/, '');
+    const expectedProto = proto.toLowerCase().replace(/:$/, '');
+
+    // 1. Protocol must match
+    if (originProto !== expectedProto) {
+      return false;
+    }
+
+    // 2. Host (hostname + port) must match
+    // Constructing a URL for the request host normalizes default ports (e.g. :80 on http)
     const requestHost = hostHeader.trim().toLowerCase();
-    return originHost === requestHost;
+    const requestUrl = new URL(`${expectedProto}://${requestHost}`);
+
+    return originUrl.host.toLowerCase() === requestUrl.host.toLowerCase();
   } catch {
     return false;
   }
@@ -90,9 +148,10 @@ function validateOrigin(req) {
 
   const normalizedOrigin = origin.trim().replace(/\/+$/, '');
   const host = req.headers['host'] || req.headers['Host'];
+  const effectiveProto = getEffectiveProtocol(req);
 
-  // Check 1: Same origin
-  if (isSameOrigin(normalizedOrigin, host)) {
+  // Check 1: Same origin (accounting for protocol, host, and port)
+  if (isSameOrigin(normalizedOrigin, host, effectiveProto)) {
     return { allowed: true, isCrossOrigin: false, origin: normalizedOrigin };
   }
 
@@ -143,6 +202,13 @@ function handleCors(req, res) {
   return true;
 }
 
+/**
+ * Extract authentication token from request.
+ * Only accepts Authorization: Bearer <token> or HttpOnly Cookie: token=<token>.
+ *
+ * Query-string tokens (?token=...) are intentionally unsupported to eliminate
+ * credential exposure in access logs, proxies, and browser histories.
+ */
 function extractToken(req) {
   // 1. Check Authorization header: Bearer <token>
   const authHeader = req.headers['authorization'] || req.headers['Authorization'];
@@ -155,15 +221,6 @@ function extractToken(req) {
   if (cookieHeader) {
     const match = cookieHeader.match(/(?:^|;\s*)token=([^;]+)/);
     if (match) return decodeURIComponent(match[1].trim());
-  }
-
-  // 3. Check query param: ?token=<token>
-  if (req.url) {
-    try {
-      const parsedUrl = new URL(req.url, 'http://localhost');
-      const queryToken = parsedUrl.searchParams.get('token');
-      if (queryToken) return queryToken.trim();
-    } catch {}
   }
 
   return null;
@@ -259,6 +316,7 @@ module.exports = {
   isDevBypassEnabled,
   isLoopbackAddress,
   getAllowedOrigins,
+  getEffectiveProtocol,
   isSameOrigin,
   validateOrigin,
   handleCors
