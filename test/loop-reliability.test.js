@@ -4,13 +4,17 @@
  * Verifies:
  * 1. Narrowed automated-input suppression: targetless actions (Escape overlay dismissal)
  *    only suppress expected keys, while real user clicks/keys trigger intervention pause.
- * 2. Sequential items execute across item boundaries without stalling or inheriting state.
- * 3. Item-level failure and retry: a failing item exhausts retries, marks FAILED,
+ * 2. Real in-page human-interaction guard installed by ReplayEngine ignores automated actions,
+ *    leaves mouse movement unguarded, pauses on human clicks/keys, and tears down cleanly.
+ * 3. Process exit verification and startup-failure profile cleanup: confirmed exit before deletion,
+ *    and profile preservation + PID reporting if process remains alive.
+ * 4. Sequential items execute across item boundaries without stalling or inheriting state.
+ * 5. Item-level failure and retry: a failing item exhausts retries, marks FAILED,
  *    and cleanly allows the next item to proceed without inheriting stale handles.
- * 4. Loop-specific abort and resume: stops preserve item/action cursor and resumes without duplicate items.
- * 5. Checkpoint and manifest counter consistency across completed, failed, and skipped items.
- * 6. Terminal resource release: browser listeners detached and replay engine disconnected.
- * 7. Four-item invoice portal scenario executes end-to-end to completion on a dynamic available port.
+ * 6. Loop-specific abort and resume: stops preserve item/action cursor and resumes without duplicate items.
+ * 7. Checkpoint and manifest counter consistency across completed, failed, and skipped items.
+ * 8. Terminal resource release: browser listeners detached and replay engine disconnected.
+ * 9. Four-item invoice portal scenario executes end-to-end to completion on a dynamic available port.
  */
 
 const fs = require('fs');
@@ -52,37 +56,136 @@ function getAvailablePort() {
   });
 }
 
-function waitForProcessExit(proc, timeoutMs = 7000) {
-  if (!proc || proc.killed || proc.exitCode !== null) return Promise.resolve();
-  return new Promise(resolve => {
-    let done = false;
-    const finish = () => {
-      if (!done) {
-        done = true;
-        resolve();
+function isProcessAlive(pid) {
+  if (!pid) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function waitForProcessExit(proc, timeoutMs = 7000) {
+  if (!proc || typeof proc.pid !== 'number') return;
+  const pid = proc.pid;
+
+  // Do not treat ChildProcess.killed as proof that the process exited:
+  // it only indicates a kill request was sent. Verify actual process exit.
+  if ((proc.exitCode !== null || proc.signalCode !== null) && !isProcessAlive(pid)) {
+    return;
+  }
+
+  if (isProcessAlive(pid)) {
+    try {
+      proc.kill('SIGTERM');
+    } catch {}
+  }
+
+  const startTime = Date.now();
+  const halfTimeout = Math.floor(timeoutMs / 2);
+
+  while (Date.now() - startTime < timeoutMs) {
+    if (!isProcessAlive(pid) || proc.exitCode !== null || proc.signalCode !== null) {
+      if (!isProcessAlive(pid)) return;
+      await sleep(20);
+      if (!isProcessAlive(pid) || proc.exitCode !== null || proc.signalCode !== null) return;
+    }
+
+    if (Date.now() - startTime >= halfTimeout && isProcessAlive(pid)) {
+      try {
+        proc.kill('SIGKILL');
+      } catch {}
+    }
+
+    await sleep(50);
+  }
+
+  if (!isProcessAlive(pid)) return;
+
+  // Fail clearly with the PID rather than reporting cleanup as successful
+  throw new Error(`Child process PID ${pid} failed to exit within ${timeoutMs}ms`);
+}
+
+async function withTestChrome(options, fn) {
+  if (typeof options === 'function') {
+    fn = options;
+    options = {};
+  }
+
+  const chromePath = getChromeExecutablePath();
+  if (!chromePath || !fs.existsSync(chromePath)) {
+    console.log('  ⚠️ Google Chrome executable not found; skipping live browser test.\n');
+    return null;
+  }
+
+  const port = options.port || await getAvailablePort();
+  const tempProfile = path.resolve(__dirname, `../tmp/chrome-test-profile-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  fs.mkdirSync(tempProfile, { recursive: true });
+
+  let chromeProc = null;
+  let exitConfirmed = false;
+
+  try {
+    const chromeArgs = [
+      `--remote-debugging-port=${port}`,
+      `--user-data-dir=${tempProfile}`,
+      '--headless=new',
+      '--no-first-run',
+      '--no-default-browser-check',
+      '--disable-background-networking',
+      '--disable-component-update',
+      '--disable-default-apps',
+      '--disable-extensions',
+      ...(options.args || [PORTAL_URL])
+    ];
+
+    chromeProc = spawn(chromePath, chromeArgs, { detached: false });
+
+    const maxRetries = options.maxConnectRetries !== undefined ? options.maxConnectRetries : 25;
+    const retryDelay = options.connectRetryDelayMs || 200;
+    let connected = false;
+
+    for (let i = 0; i < maxRetries; i++) {
+      await sleep(retryDelay);
+      try {
+        const b = await puppeteer.connect({ browserURL: `http://127.0.0.1:${port}` });
+        await b.disconnect();
+        connected = true;
+        break;
+      } catch {}
+    }
+
+    if (!connected) {
+      throw new Error(`Chrome failed to connect on port ${port} during startup`);
+    }
+
+    return await fn({ port, chromeProc, tempProfile });
+  } finally {
+    if (chromeProc) {
+      try {
+        await waitForProcessExit(chromeProc, options.killTimeoutMs || 7000);
+        exitConfirmed = true;
+      } catch (exitErr) {
+        console.error(`⚠️ Child process PID ${chromeProc.pid} failed to exit: ${exitErr.message}. Preserving temporary profile at: ${tempProfile}`);
+        throw exitErr;
       }
-    };
+    } else {
+      exitConfirmed = true;
+    }
 
-    proc.once('exit', finish);
-    proc.kill('SIGTERM');
-
-    const forceTimer = setTimeout(() => {
-      if (!done) {
+    // Clean temporary profiles only in finally-style flow and only after confirmed process exit
+    if (exitConfirmed && fs.existsSync(tempProfile)) {
+      for (let attempt = 0; attempt < 5; attempt++) {
         try {
-          proc.kill('SIGKILL');
-        } catch {}
+          fs.rmSync(tempProfile, { recursive: true, force: true });
+          break;
+        } catch {
+          await sleep(200);
+        }
       }
-    }, Math.floor(timeoutMs / 2));
-
-    const maxTimer = setTimeout(() => {
-      finish();
-    }, timeoutMs);
-
-    proc.once('exit', () => {
-      clearTimeout(forceTimer);
-      clearTimeout(maxTimer);
-    });
-  });
+    }
+  }
 }
 
 async function runTests() {
@@ -105,106 +208,212 @@ async function runTests() {
   }
 
   // --------------------------------------------------------------------------
-  // Test 2: In-page disturbance guard narrows automated-input suppression
+  // Test 2: Real in-page disturbance guard installed by ReplayEngine
   // --------------------------------------------------------------------------
-  console.log('🔹 Test 2: Narrowed automated-input suppression protects against real user inputs');
+  console.log('🔹 Test 2: Real in-page disturbance guard installed by ReplayEngine');
   {
-    // Simulate the narrowed in-page guard logic
-    const simulateGuard = (automatedActive, expectedTarget, expectedKey, evt, automatedUntil = 0, recentTarget = null, recentKey = null) => {
-      const now = Date.now();
-      let isAutomated = false;
+    const chromePath = getChromeExecutablePath();
+    if (!chromePath || !fs.existsSync(chromePath)) {
+      console.log('  ⚠️ Google Chrome executable not found; skipping live guard tests.\n');
+    } else {
+      await withTestChrome({ args: [PORTAL_URL] }, async ({ port }) => {
+        const engine = new ReplayEngine({ browserURL: `http://127.0.0.1:${port}` });
+        await engine.connect();
+        const page = engine.page;
+        assert(page, 'Engine must connect to page');
 
-      if (automatedActive) {
-        if (expectedTarget && (expectedTarget === evt.target || (expectedTarget.contains && expectedTarget.contains(evt.target)))) {
-          isAutomated = true;
-        } else if (!expectedTarget && expectedKey && (evt.key === expectedKey || evt.code === expectedKey)) {
-          isAutomated = true;
+        // 1. Verify guard is installed on the page
+        const attached = await page.evaluate(() => window.__flowmindInterventionAttached);
+        assert.strictEqual(attached, true, 'Replay guard should be attached to target page');
+        const hostExists = await page.evaluate(() => !!document.getElementById('__flowmind-replay-guard'));
+        assert.strictEqual(hostExists, true, 'Replay guard host element should be in DOM');
+
+        // 2. Mouse movement remains unguarded
+        assert.strictEqual(engine.isPaused, false);
+        await page.mouse.move(50, 50);
+        await page.mouse.move(100, 100);
+        await page.mouse.move(150, 150);
+        await sleep(60);
+        assert.strictEqual(engine.isPaused, false, 'Mouse movement must remain unguarded');
+
+        // 3. Automated targetless action (Escape key) is ignored
+        await engine._setAutomatedAction(true, 'Escape');
+        await page.keyboard.press('Escape');
+        await sleep(60);
+        assert.strictEqual(engine.isPaused, false, 'Automated Escape keypress must NOT pause replay');
+
+        // Unrelated human click during targetless action triggers pause
+        await page.mouse.click(20, 20);
+        await sleep(100);
+        assert.strictEqual(engine.isPaused, true, 'Human click during targetless action must trigger pause');
+        engine.resume();
+        assert.strictEqual(engine.isPaused, false);
+
+        // Unrelated human non-Escape keypress during targetless action triggers pause
+        await engine._setAutomatedAction(true, 'Escape');
+        await page.keyboard.press('KeyZ');
+        await sleep(100);
+        assert.strictEqual(engine.isPaused, true, 'Human non-Escape key during targetless action must trigger pause');
+        engine.resume();
+        assert.strictEqual(engine.isPaused, false);
+
+        // Ending automated action: trailing Escape in grace window is ignored
+        await engine._setAutomatedAction(false);
+        await page.keyboard.press('Escape');
+        await sleep(60);
+        assert.strictEqual(engine.isPaused, false, 'Trailing Escape in grace window must NOT pause replay');
+        await sleep(160); // Wait for grace window to expire
+
+        // 4. Automated targeted action is ignored
+        const markBtn = await page.$('table#invoices-table tbody tr:first-child button.btn-mark');
+        assert(markBtn, 'Mark button must exist');
+        await engine._setAutomatedAction(true, markBtn);
+        await markBtn.click();
+        await sleep(60);
+        assert.strictEqual(engine.isPaused, false, 'Automated click on target element must NOT pause replay');
+        await engine._setAutomatedAction(false);
+        await sleep(160); // Wait for grace window to expire
+
+        // 5. Unrelated human click triggers pause
+        assert.strictEqual(engine.isPaused, false);
+        await page.mouse.click(20, 20);
+        await sleep(100);
+        assert.strictEqual(engine.isPaused, true, 'Unrelated human click must trigger intervention pause');
+        engine.resume();
+        assert.strictEqual(engine.isPaused, false);
+
+        // 6. Unrelated human keyboard input triggers pause
+        await page.keyboard.press('KeyA');
+        await sleep(100);
+        assert.strictEqual(engine.isPaused, true, 'Unrelated human keyboard input must trigger intervention pause');
+        engine.resume();
+        assert.strictEqual(engine.isPaused, false);
+
+        // 7. Guard teardown occurs on terminal paths
+        await engine.disconnect();
+        assert.strictEqual(engine.browser, null, 'Engine browser should be null after disconnect');
+        assert.strictEqual(engine.page, null, 'Engine page should be null after disconnect');
+
+        // Verify guard removed in page DOM and listeners detached
+        const verifyBrowser = await puppeteer.connect({ browserURL: `http://127.0.0.1:${port}` });
+        try {
+          const verifyPage = (await verifyBrowser.pages())[0];
+          const attachedAfter = await verifyPage.evaluate(() => window.__flowmindInterventionAttached);
+          const hostAfter = await verifyPage.evaluate(() => !!document.getElementById('__flowmind-replay-guard'));
+          assert.strictEqual(attachedAfter, false, 'Guard attached flag must be false after disconnect');
+          assert.strictEqual(hostAfter, false, 'Guard host element must be removed after disconnect');
+        } finally {
+          await verifyBrowser.disconnect();
         }
-      }
 
-      if (!isAutomated && automatedUntil && now < automatedUntil) {
-        if (recentTarget && (recentTarget === evt.target || (recentTarget.contains && recentTarget.contains(evt.target)))) {
-          isAutomated = true;
-        } else if (!recentTarget && recentKey && (evt.key === recentKey || evt.code === recentKey)) {
-          isAutomated = true;
-        }
-      }
-
-      if (isAutomated) return 'IGNORED_AUTOMATED';
-      return 'TRIGGERED_HUMAN';
-    };
-
-    const mockBody = { tagName: 'BODY' };
-    const mockButton = { tagName: 'BUTTON' };
-    const mockInput = { tagName: 'INPUT' };
-
-    // 1. Targetless automated Escape dismissal (Escape key on body)
-    assert.strictEqual(
-      simulateGuard(true, null, 'Escape', { type: 'keydown', key: 'Escape', target: mockBody }),
-      'IGNORED_AUTOMATED',
-      'Synthetic Escape key during dismissOverlays must be recognized as automated'
-    );
-
-    // Real user click on body or button during targetless action MUST trigger pause
-    assert.strictEqual(
-      simulateGuard(true, null, 'Escape', { type: 'click', target: mockBody }),
-      'TRIGGERED_HUMAN',
-      'Real user click during targetless action must trigger human intervention pause'
-    );
-    assert.strictEqual(
-      simulateGuard(true, null, 'Escape', { type: 'mousedown', target: mockButton }),
-      'TRIGGERED_HUMAN',
-      'Real user mousedown during targetless action must trigger human intervention pause'
-    );
-
-    // Real user pressing a non-Escape key during targetless action MUST trigger pause
-    assert.strictEqual(
-      simulateGuard(true, null, 'Escape', { type: 'keydown', key: 'Enter', target: mockBody }),
-      'TRIGGERED_HUMAN',
-      'Real user Enter keypress during targetless action must trigger human intervention pause'
-    );
-    assert.strictEqual(
-      simulateGuard(true, null, 'Escape', { type: 'keydown', key: 'a', target: mockInput }),
-      'TRIGGERED_HUMAN',
-      'Real user typing during targetless action must trigger human intervention pause'
-    );
-
-    // 2. Targeted automated action
-    assert.strictEqual(
-      simulateGuard(true, mockButton, null, { type: 'click', target: mockButton }),
-      'IGNORED_AUTOMATED',
-      'Automated click on target element must be ignored'
-    );
-    assert.strictEqual(
-      simulateGuard(true, mockButton, null, { type: 'click', target: mockBody }),
-      'TRIGGERED_HUMAN',
-      'Click on non-target element must trigger intervention pause'
-    );
-
-    // 3. Trailing grace window: only trailing events matching recent target or recent key are ignored
-    assert.strictEqual(
-      simulateGuard(false, null, null, { type: 'keyup', key: 'Escape', target: mockBody }, Date.now() + 150, null, 'Escape'),
-      'IGNORED_AUTOMATED',
-      'Trailing Escape keyup within grace window must be ignored'
-    );
-    assert.strictEqual(
-      simulateGuard(false, null, null, { type: 'click', target: mockButton }, Date.now() + 150, null, 'Escape'),
-      'TRIGGERED_HUMAN',
-      'Real user click during grace window must trigger intervention pause'
-    );
-    assert.strictEqual(
-      simulateGuard(false, null, null, { type: 'keydown', key: 'Enter', target: mockBody }, Date.now() + 150, null, 'Escape'),
-      'TRIGGERED_HUMAN',
-      'Real user keypress during grace window must trigger intervention pause'
-    );
-
-    console.log('  ✅ Disturbance detection guard correctly isolates automated actions without broad suppression\n');
+        console.log('  ✅ Real ReplayEngine disturbance detection guard verified under live browser events\n');
+      });
+    }
   }
 
   // --------------------------------------------------------------------------
-  // Test 3: Checkpoint and manifest counter consistency on failure and filter
+  // Test 3: Process exit verification & startup-failure profile cleanup
   // --------------------------------------------------------------------------
-  console.log('🔹 Test 3: Checkpoint & manifest consistency on terminal/skipped transitions');
+  console.log('🔹 Test 3: Process exit verification & startup-failure profile cleanup');
+  {
+    // 1. waitForProcessExit does not treat ChildProcess.killed as exit; fails clearly with PID if still alive
+    const mockHangingProc = {
+      pid: process.pid,
+      exitCode: null,
+      signalCode: null,
+      kill: function() { this.killed = true; } // sets killed = true, but process is still alive!
+    };
+    let threwWithPid = false;
+    try {
+      await waitForProcessExit(mockHangingProc, 200);
+    } catch (err) {
+      threwWithPid = true;
+      assert(
+        err.message.includes(`Child process PID ${process.pid} failed to exit`),
+        `Error message must report PID, got: ${err.message}`
+      );
+    }
+    assert.strictEqual(threwWithPid, true, 'waitForProcessExit must throw with PID when process remains alive');
+
+    // 2. Normal process termination confirms exit
+    const normalProc = spawn(process.execPath, ['-e', 'setInterval(()=>{}, 1000)']);
+    const normalPid = normalProc.pid;
+    assert.strictEqual(isProcessAlive(normalPid), true);
+    await waitForProcessExit(normalProc, 3000);
+    assert.strictEqual(isProcessAlive(normalPid), false, 'Process must be confirmed exited');
+
+    // 3. Startup-failure path cleans temporary profile in a finally-style flow only after confirmed exit
+    const failProfileDir = path.resolve(__dirname, `../tmp/test-startup-fail-${Date.now()}`);
+    fs.mkdirSync(failProfileDir, { recursive: true });
+    const failProc = spawn(process.execPath, ['-e', 'setInterval(()=>{}, 1000)']);
+    const failPid = failProc.pid;
+    let exitConfirmedOnFail = false;
+    let startupErrThrown = false;
+
+    try {
+      try {
+        throw new Error('Simulated startup failure: CDP port unreachable');
+      } finally {
+        if (failProc) {
+          try {
+            await waitForProcessExit(failProc, 3000);
+            exitConfirmedOnFail = true;
+          } catch (exitErr) {
+            console.error(`⚠️ Process PID ${failPid} remained alive: ${exitErr.message}. Preserving profile at ${failProfileDir}`);
+          }
+        }
+        if (exitConfirmedOnFail && fs.existsSync(failProfileDir)) {
+          fs.rmSync(failProfileDir, { recursive: true, force: true });
+        }
+      }
+    } catch (err) {
+      startupErrThrown = true;
+      assert.strictEqual(err.message, 'Simulated startup failure: CDP port unreachable');
+    }
+
+    assert.strictEqual(startupErrThrown, true, 'Startup failure error must bubble up');
+    assert.strictEqual(exitConfirmedOnFail, true, 'Process exit must be confirmed before profile cleanup');
+    assert.strictEqual(fs.existsSync(failProfileDir), false, 'Temporary profile must be cleaned after confirmed exit');
+
+    // 4. If child process remains alive on failure, profile is preserved and PID + path reported
+    const aliveProfileDir = path.resolve(__dirname, `../tmp/test-alive-fail-${Date.now()}`);
+    fs.mkdirSync(aliveProfileDir, { recursive: true });
+    let reportedPid = null;
+    let reportedPath = null;
+    let exitConfirmedWhenAlive = false;
+
+    try {
+      try {
+        throw new Error('Simulated startup failure with unkillable process');
+      } finally {
+        if (mockHangingProc) {
+          try {
+            await waitForProcessExit(mockHangingProc, 150);
+            exitConfirmedWhenAlive = true;
+          } catch (exitErr) {
+            reportedPid = mockHangingProc.pid;
+            reportedPath = aliveProfileDir;
+          }
+        }
+        if (exitConfirmedWhenAlive && fs.existsSync(aliveProfileDir)) {
+          fs.rmSync(aliveProfileDir, { recursive: true, force: true });
+        }
+      }
+    } catch {}
+
+    assert.strictEqual(exitConfirmedWhenAlive, false, 'Exit must NOT be confirmed if process remains alive');
+    assert.strictEqual(fs.existsSync(aliveProfileDir), true, 'Profile must be preserved when process remains alive');
+    assert.strictEqual(reportedPid, process.pid, 'Must report the PID of un-exited process');
+    assert.strictEqual(reportedPath, aliveProfileDir, 'Must report the preserved profile path');
+    fs.rmSync(aliveProfileDir, { recursive: true, force: true });
+
+    console.log('  ✅ Process exit verification and startup-failure profile cleanup verified\n');
+  }
+
+  // --------------------------------------------------------------------------
+  // Test 4: Checkpoint and manifest counter consistency on failure and filter
+  // --------------------------------------------------------------------------
+  console.log('🔹 Test 4: Checkpoint & manifest consistency on terminal/skipped transitions');
   {
     const runId = `test_consist_${Date.now()}`;
     const runner = new LoopReplayRunner({ runId, workflowId: 'wf_consist', resumeFromCheckpoint: true });
@@ -248,9 +457,9 @@ async function runTests() {
   }
 
   // --------------------------------------------------------------------------
-  // Test 4: Item failure isolation and retry handling
+  // Test 5: Item failure isolation and retry handling
   // --------------------------------------------------------------------------
-  console.log('🔹 Test 4: Item failure does not contaminate next item execution');
+  console.log('🔹 Test 5: Item failure does not contaminate next item execution');
   {
     const runId = `test_fail_iso_${Date.now()}`;
     const runner = new LoopReplayRunner({ runId, workflowId: 'wf_fail_iso', maxItemRetries: 1 });
@@ -348,9 +557,9 @@ async function runTests() {
   }
 
   // --------------------------------------------------------------------------
-  // Test 5: Loop-specific abort & resume preserves item/action cursor
+  // Test 6: Loop-specific abort & resume preserves item/action cursor
   // --------------------------------------------------------------------------
-  console.log('🔹 Test 5: Loop-specific abort & resume preserves item/action cursor');
+  console.log('🔹 Test 6: Loop-specific abort & resume preserves item/action cursor');
   {
     const runId = `test_loop_abort_resume_${Date.now()}`;
     const runner = new LoopReplayRunner({ runId, workflowId: 'wf_abort_resume', resumeFromCheckpoint: true });
@@ -501,9 +710,9 @@ async function runTests() {
   }
 
   // --------------------------------------------------------------------------
-  // Test 6: Terminal cleanup on stop/abort
+  // Test 7: Terminal cleanup on stop/abort
   // --------------------------------------------------------------------------
-  console.log('🔹 Test 6: Terminal resource release and manifest consistency on abort');
+  console.log('🔹 Test 7: Terminal resource release and manifest consistency on abort');
   {
     const runId = `test_abort_${Date.now()}`;
     const runner = new LoopReplayRunner({ runId, workflowId: 'wf_abort' });
@@ -550,47 +759,10 @@ async function runTests() {
   }
 
   // --------------------------------------------------------------------------
-  // Test 7: Browser E2E validation against invoice portal fixture (if Chrome installed)
+  // Test 8: Browser E2E validation against invoice portal fixture (if Chrome installed)
   // --------------------------------------------------------------------------
-  console.log('🔹 Test 7: Four-item invoice portal E2E replay without stalling');
-  const chromePath = getChromeExecutablePath();
-  if (!chromePath || !fs.existsSync(chromePath)) {
-    console.log('  ⚠️ Google Chrome executable not found for live browser E2E test; skipping browser run.\n');
-  } else {
-    const e2ePort = await getAvailablePort();
-    const tempProfile = path.resolve(__dirname, `../tmp/chrome-loop-profile-test-${Date.now()}`);
-    if (!fs.existsSync(tempProfile)) fs.mkdirSync(tempProfile, { recursive: true });
-
-    console.log(`  Spawning test Chrome instance on dynamic port ${e2ePort}...`);
-    const chromeProc = spawn(chromePath, [
-      `--remote-debugging-port=${e2ePort}`,
-      `--user-data-dir=${tempProfile}`,
-      '--headless=new',
-      '--no-first-run',
-      '--no-default-browser-check',
-      '--disable-background-networking',
-      '--disable-component-update',
-      '--disable-default-apps',
-      '--disable-extensions',
-      PORTAL_URL
-    ], { detached: false });
-
-    let connected = false;
-    for (let i = 0; i < 20; i++) {
-      await sleep(400);
-      try {
-        const browser = await puppeteer.connect({ browserURL: `http://127.0.0.1:${e2ePort}` });
-        await browser.disconnect();
-        connected = true;
-        break;
-      } catch {}
-    }
-
-    if (!connected) {
-      await waitForProcessExit(chromeProc);
-      throw new Error(`Chrome failed to connect on port ${e2ePort}`);
-    }
-
+  console.log('🔹 Test 8: Four-item invoice portal E2E replay without stalling');
+  await withTestChrome({ args: [PORTAL_URL] }, async ({ port }) => {
     const runId = `loop_e2e_rel_${Date.now()}`;
     try {
       const mockWorkflow = {
@@ -640,7 +812,7 @@ async function runTests() {
         ]
       };
 
-      const runner = new LoopReplayRunner({ cdpPort: e2ePort, runId });
+      const runner = new LoopReplayRunner({ cdpPort: port, runId });
       const manifest = await runner.executeLoop(mockWorkflow, 1);
 
       // Verify all acceptance criteria
@@ -667,19 +839,8 @@ async function runTests() {
       console.log('  ✅ Four-item invoice portal scenario completed with 100% success without stalling\n');
     } finally {
       cleanRunDir(runId);
-      await waitForProcessExit(chromeProc);
-      if (fs.existsSync(tempProfile)) {
-        for (let attempt = 0; attempt < 5; attempt++) {
-          try {
-            fs.rmSync(tempProfile, { recursive: true, force: true });
-            break;
-          } catch {
-            await sleep(200);
-          }
-        }
-      }
     }
-  }
+  });
 
   console.log('🎉 ALL LOOP RELIABILITY TESTS PASSED SUCCESSFULLY!\n');
 }
