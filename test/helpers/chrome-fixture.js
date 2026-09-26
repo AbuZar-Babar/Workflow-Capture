@@ -1,6 +1,6 @@
 /**
  * Workflow Capture — Isolated Chrome Test Fixture
- * 
+ *
  * Provides reliable, isolated headless Chrome instances for browser-backed tests:
  * 1. Automatic Chrome detection via configuration (CHROME_PATH, CHROME_BIN, etc.)
  *    and documented platform lookup (Windows, macOS, Linux).
@@ -23,7 +23,7 @@ const logger = require('../../src/utils/logger');
 /**
  * Locate Chrome / Chromium executable path for current environment.
  * Checks configuration environment variables first, then documented platform paths.
- * 
+ *
  * @param {string} [preferredPath] - Explicit path override
  * @returns {string} Absolute path to executable
  * @throws {Error} Actionable error if executable cannot be found
@@ -132,7 +132,7 @@ function getChromeExecutablePath(preferredPath = null) {
 
 /**
  * Find an open, unallocated TCP port on the loopback interface
- * 
+ *
  * @param {number} [preferredPort=0] - If > 0, attempts to bind preferredPort
  * @returns {Promise<number>} Available port
  */
@@ -162,7 +162,7 @@ async function getAvailablePort(preferredPort = 0) {
 
 /**
  * Verify whether a process with the given PID is currently active.
- * 
+ *
  * @param {number} pid - Process ID
  * @returns {boolean} true if alive, false otherwise
  */
@@ -178,7 +178,7 @@ function isProcessAlive(pid) {
 
 /**
  * Check if the Chrome CDP endpoint is responding
- * 
+ *
  * @param {number} port - CDP port
  * @param {number} [timeoutMs=500] - Request timeout
  * @returns {Promise<boolean>}
@@ -198,7 +198,7 @@ async function isCDPResponding(port, timeoutMs = 500) {
 
 /**
  * Await process exit up to timeoutMs.
- * 
+ *
  * @param {import('child_process').ChildProcess} proc - Process handle
  * @param {number} [timeoutMs=5000] - Max wait time in ms
  * @returns {Promise<boolean>} true if process exited, false if timed out
@@ -239,7 +239,7 @@ async function waitForProcessExit(proc, timeoutMs = 5000) {
  * Reliably terminate Chrome process and all child/sub-processes in its process tree.
  * On Windows, utilizes taskkill /F /T /PID to prevent orphaned renderers or GPU processes.
  * On Unix/macOS, sends SIGTERM followed by SIGKILL.
- * 
+ *
  * @param {import('child_process').ChildProcess} proc - Child process handle
  * @param {number} [timeoutMs=8000] - Shutdown timeout
  * @returns {Promise<{ exited: boolean, diagnostics: string|null }>}
@@ -296,7 +296,7 @@ async function terminateChromeProcess(proc, timeoutMs = 8000) {
 /**
  * Remove a temporary profile directory with retries.
  * Ensures all file handles and locks are released before completion.
- * 
+ *
  * @param {string} profileDir - Path to profile directory
  * @param {number} [maxRetries=15] - Maximum retry attempts
  * @param {number} [retryDelayMs=200] - Delay between retries in ms
@@ -328,7 +328,7 @@ async function removeProfileDirectory(profileDir, maxRetries = 15, retryDelayMs 
 
 /**
  * Creates an isolated Chrome fixture for test execution.
- * 
+ *
  * @param {Object} [options]
  * @param {string} [options.chromePath] - Explicit path to Chrome binary
  * @param {number} [options.port] - Preferred port (defaults to available port)
@@ -368,16 +368,31 @@ async function createChromeFixture(options = {}) {
     headless ? '--headless=new' : '--no-headless',
     '--no-first-run',
     '--no-default-browser-check',
+    '--enable-automation',
+    '--password-store=basic',
+    '--use-mock-keychain',
     '--disable-background-networking',
+    '--disable-background-timer-throttling',
+    '--disable-backgrounding-occluded-windows',
+    '--disable-breakpad',
+    '--disable-client-side-phishing-detection',
+    '--disable-component-extensions-with-background-pages',
     '--disable-component-update',
     '--disable-default-apps',
+    '--disable-dev-shm-usage',
     '--disable-extensions',
+    '--disable-hang-monitor',
+    '--disable-ipc-flooding-protection',
+    '--disable-popup-blocking',
+    '--disable-prompt-on-repost',
+    '--disable-renderer-backgrounding',
+    '--disable-search-engine-choice-screen',
     '--disable-sync',
     '--disable-translate',
     '--metrics-recording-only',
     '--no-sandbox',
-    '--disable-dev-shm-usage',
     '--disable-gpu',
+    '--disable-features=Translate,AcceptCHFrame,MediaRouter,OptimizationHints,ProcessPerSiteUpToMainFrameThreshold,IsolateSandboxedIframes',
     ...(options.additionalArgs || []),
     initialUrl
   ];
@@ -388,6 +403,7 @@ async function createChromeFixture(options = {}) {
   let processExitedEarly = false;
   let earlyExitCode = null;
   let earlyExitSignal = null;
+  let spawnError = null;
 
   try {
     chromeProc = spawn(chromePath, chromeArgs, {
@@ -395,13 +411,19 @@ async function createChromeFixture(options = {}) {
       stdio: ['ignore', 'pipe', 'pipe']
     });
   } catch (spawnErr) {
-    // Clean up profile immediately on spawn failure
+    // Clean up profile immediately on synchronous spawn failure
     try { await removeProfileDirectory(profileDir); } catch {}
     throw new Error(
-      `Failed to spawn Chrome process at "${chromePath}": ${spawnErr.message}\n` +
+      `Failed to spawn Chrome process at "${chromePath}" (Profile: "${profileDir}"): ${spawnErr.message}\n` +
       `Check file permissions and ensure the path is executable.`
     );
   }
+
+  // Handle asynchronous spawn errors emitted by ChildProcess
+  const onSpawnError = (err) => {
+    spawnError = err;
+  };
+  chromeProc.once('error', onSpawnError);
 
   if (chromeProc.stdout) {
     chromeProc.stdout.on('data', chunk => {
@@ -427,7 +449,7 @@ async function createChromeFixture(options = {}) {
   let isReady = false;
 
   while (Date.now() - startWait < startupTimeoutMs) {
-    if (processExitedEarly) {
+    if (spawnError || processExitedEarly) {
       break;
     }
     if (await isCDPResponding(port, 200)) {
@@ -442,11 +464,27 @@ async function createChromeFixture(options = {}) {
   if (!isReady) {
     // Chrome failed to start: terminate process if any, await exit, clean profile, throw actionable error
     const pid = chromeProc.pid;
-    await terminateChromeProcess(chromeProc, shutdownTimeoutMs);
-    try {
-      await removeProfileDirectory(profileDir);
-    } catch (cleanupErr) {
-      logger.warn(`[ChromeFixture] Profile cleanup on startup failure failed: ${cleanupErr.message}`);
+    const { exited: startupExited, diagnostics: startupDiag } = await terminateChromeProcess(chromeProc, shutdownTimeoutMs);
+    if (startupExited) {
+      try {
+        await removeProfileDirectory(profileDir);
+      } catch (cleanupErr) {
+        logger.warn(`[ChromeFixture] Profile cleanup on startup failure failed: ${cleanupErr.message}`);
+      }
+    } else {
+      logger.error(
+        `[ChromeFixture] Chrome process (PID: ${pid}) did not exit after startup failure.\n` +
+        `Profile directory preserved at: "${profileDir}" to avoid racing a running process.\n` +
+        `Diagnostics: ${startupDiag}`
+      );
+    }
+
+    if (spawnError) {
+      throw new Error(
+        `Chrome process failed to spawn on port ${port} (Profile: "${profileDir}").\n` +
+        `Executable: "${chromePath}"\n` +
+        `Spawn error: ${spawnError.message} (code: ${spawnError.code || 'unknown'})`
+      );
     }
 
     const diagReason = processExitedEarly
@@ -461,6 +499,12 @@ async function createChromeFixture(options = {}) {
       (stderrBuffer.trim() ? `Stderr output:\n${stderrBuffer.trim()}` : `Stdout output:\n${stdoutBuffer.trim() || '(none)'}`)
     );
   }
+
+  // Once started, replace the one-time spawn error handler with a general logger
+  chromeProc.removeListener('error', onSpawnError);
+  chromeProc.on('error', (err) => {
+    logger.warn(`[ChromeFixture] Chrome process (PID: ${chromeProc.pid}) emitted error: ${err.message}`);
+  });
 
   logger.success(`[ChromeFixture] Chrome running on port ${port} (PID: ${chromeProc.pid})`);
 
@@ -477,20 +521,33 @@ async function createChromeFixture(options = {}) {
     /**
      * Terminate Chrome, await process exit, and clean temporary profile.
      * Idempotent and safe to invoke on success, assertion failure, or error.
+     *
+     * Note: Does NOT remove the profile unless process termination is verified,
+     * preventing cleanup races against live Chrome processes.
      */
     async cleanup() {
       if (isCleanedUp) return;
       isCleanedUp = true;
 
-      logger.info(`[ChromeFixture] Cleaning up fixture (PID: ${chromeProc.pid}, Port: ${port}, Profile: ${profileDir})...`);
+      // Deregister signal handlers once cleanup runs
+      process.removeListener('SIGINT', sigHandler);
+      process.removeListener('SIGTERM', sigHandler);
+
+      const targetProc = this.process || chromeProc;
+      logger.info(`[ChromeFixture] Cleaning up fixture (PID: ${targetProc.pid}, Port: ${port}, Profile: ${profileDir})...`);
 
       // 1. Terminate Chrome process & await exit
-      const { exited, diagnostics } = await terminateChromeProcess(chromeProc, shutdownTimeoutMs);
-      if (!exited) {
-        logger.error(`[ChromeFixture] Shutdown warning: ${diagnostics}`);
+      const { exited, diagnostics } = await terminateChromeProcess(targetProc, shutdownTimeoutMs);
+      if (!exited || (targetProc.pid && isProcessAlive(targetProc.pid))) {
+        const errorMsg =
+          `Cannot remove temporary profile because Chrome process (PID: ${targetProc.pid}) did not exit within ${shutdownTimeoutMs}ms shutdown timeout.\n` +
+          `Profile directory preserved at: "${profileDir}" to avoid racing a running process.\n` +
+          `Diagnostics: ${diagnostics || 'Process is still active in the OS process table.'}`;
+        logger.error(`[ChromeFixture] ${errorMsg}`);
+        throw new Error(errorMsg);
       }
 
-      // 2. Clean temporary profile directory
+      // 2. Clean temporary profile directory only after exit is confirmed
       try {
         await removeProfileDirectory(profileDir);
         logger.info(`[ChromeFixture] Profile directory cleaned successfully: ${profileDir}`);
@@ -501,13 +558,19 @@ async function createChromeFixture(options = {}) {
     }
   };
 
-  // Process-level safety hook: ensure cleanup on unexpected termination
-  const exitHook = async () => {
+  /**
+   * Signal handlers for graceful cleanup on manual cancellation (SIGINT/SIGTERM).
+   * Note: Node does not execute asynchronous tasks in synchronous process 'exit' hooks,
+   * so actual test lifecycle cleanup must be performed in try/finally blocks.
+   */
+  const sigHandler = async (signal) => {
     try {
       await fixture.cleanup();
     } catch {}
+    process.exit(signal === 'SIGINT' ? 130 : 143);
   };
-  process.once('exit', exitHook);
+  process.once('SIGINT', sigHandler);
+  process.once('SIGTERM', sigHandler);
 
   return fixture;
 }
