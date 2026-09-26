@@ -128,7 +128,7 @@ function normalizeItemFilter(filterInput) {
   const hasValue = 'value' in candidate && candidate.value !== null && candidate.value !== undefined;
 
   const rawField = hasField ? String(candidate.field).trim() : '';
-  const rawOp = hasOperator ? String(candidate.operator).trim().toLowerCase() : 'contains';
+  const rawOp = hasOperator ? String(candidate.operator).trim().toLowerCase() : '';
   const rawVal = hasValue ? String(candidate.value).trim() : '';
 
   return {
@@ -177,6 +177,15 @@ function validateItemFilter(filterInput) {
     return {
       valid: false,
       error: 'Filter field cannot be empty',
+      filter: normalized
+    };
+  }
+
+  // Missing or blank operator
+  if (!normalized.operator || normalized.operator.trim() === '') {
+    return {
+      valid: false,
+      error: 'Filter operator cannot be empty',
       filter: normalized
     };
   }

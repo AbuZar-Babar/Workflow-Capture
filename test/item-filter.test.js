@@ -144,7 +144,45 @@ function runItemFilterTests() {
     assert.strictEqual(missingField.valid, false);
     assert(missingField.error.includes('field cannot be empty'));
 
-    // 2.4 Rejection of unsupported operators
+    // 2.4 Rejection of missing or blank operator on modern itemFilter
+    const missingOp = validateItemFilter({ field: 'Type', value: 'Invoice' });
+    assert.strictEqual(missingOp.valid, false);
+    assert(missingOp.error.includes('operator cannot be empty'));
+
+    const emptyOp = validateItemFilter({ field: 'Type', operator: '', value: 'Invoice' });
+    assert.strictEqual(emptyOp.valid, false);
+    assert(emptyOp.error.includes('operator cannot be empty'));
+
+    const blankOp = validateItemFilter({ field: 'Type', operator: '   ', value: 'Invoice' });
+    assert.strictEqual(blankOp.valid, false);
+    assert(blankOp.error.includes('operator cannot be empty'));
+
+    const nullOp = validateItemFilter({ field: 'Type', operator: null, value: 'Invoice' });
+    assert.strictEqual(nullOp.valid, false);
+    assert(nullOp.error.includes('operator cannot be empty'));
+
+    const wrappedMissingOp = validateItemFilter({ itemFilter: { field: 'Type', value: 'Invoice' } });
+    assert.strictEqual(wrappedMissingOp.valid, false);
+    assert(wrappedMissingOp.error.includes('operator cannot be empty'));
+
+    // 2.5 Legacy filter formats preserve contains default when operator is omitted
+    const legacyValid1 = validateItemFilter({ column: 'Type', value: 'Invoice' });
+    assert.strictEqual(legacyValid1.valid, true);
+    assert.strictEqual(legacyValid1.filter.operator, 'contains');
+
+    const legacyValid2 = validateItemFilter({ filterValue: 'Invoice' });
+    assert.strictEqual(legacyValid2.valid, true);
+    assert.strictEqual(legacyValid2.filter.operator, 'contains');
+
+    const legacyValid3 = validateItemFilter({ filterColumn: 'Category', filterValue: 'Electronics' });
+    assert.strictEqual(legacyValid3.valid, true);
+    assert.strictEqual(legacyValid3.filter.operator, 'contains');
+
+    const legacyValid4 = validateItemFilter({ rowFilter: { column: 'Type', value: 'Invoice' } });
+    assert.strictEqual(legacyValid4.valid, true);
+    assert.strictEqual(legacyValid4.filter.operator, 'contains');
+
+    // 2.6 Rejection of unsupported operators
     const invalidOp1 = validateItemFilter({ field: 'Type', operator: 'regex', value: 'Invoice' });
     assert.strictEqual(invalidOp1.valid, false);
     assert(invalidOp1.error.includes('Unsupported filter operator "regex"'));
@@ -157,7 +195,7 @@ function runItemFilterTests() {
     assert.strictEqual(invalidOp3.valid, false);
     assert(invalidOp3.error.includes('Unsupported filter operator ">"'));
 
-    // 2.5 Rejection of missing or empty value
+    // 2.7 Rejection of missing or empty value
     const emptyVal1 = validateItemFilter({ field: 'Type', operator: 'contains', value: '' });
     assert.strictEqual(emptyVal1.valid, false);
     assert(emptyVal1.error.includes('value cannot be empty'));
@@ -360,6 +398,24 @@ function runItemFilterTests() {
     const res4 = evaluateItemFilter({ field: 'Type', operator: 'contains', value: '' }, item);
     assert.strictEqual(res4.matches, false);
     assert(res4.error.includes('value cannot be empty'));
+
+    // 7.5 Missing or blank operator on modern itemFilter
+    const res5 = evaluateItemFilter({ field: 'Type', value: 'Invoice' }, item);
+    assert.strictEqual(res5.matches, false);
+    assert(res5.error.includes('operator cannot be empty'));
+
+    const res6 = evaluateItemFilter({ field: 'Type', operator: '   ', value: 'Invoice' }, item);
+    assert.strictEqual(res6.matches, false);
+    assert(res6.error.includes('operator cannot be empty'));
+
+    // 7.6 Legacy format without operator evaluates successfully with contains default
+    const resLegacy1 = evaluateItemFilter({ column: 'Type', value: 'Invoice' }, item);
+    assert.strictEqual(resLegacy1.matches, true);
+    assert.strictEqual(resLegacy1.operator, 'contains');
+
+    const resLegacy2 = evaluateItemFilter({ filterValue: 'Invoice' }, item);
+    assert.strictEqual(resLegacy2.matches, true);
+    assert.strictEqual(resLegacy2.operator, 'contains');
 
     console.log('  ✅ Malformed filter evaluation passed\n');
   }
