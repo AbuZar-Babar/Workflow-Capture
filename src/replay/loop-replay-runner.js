@@ -400,6 +400,13 @@ class LoopReplayRunner {
     currentPageItemIndex = null,
     activeItem = null
   ) {
+    this._lastCursor = {
+      currentItemIndex,
+      currentActionOffset,
+      currentPage,
+      currentPageItemIndex,
+      activeItem
+    };
     const checkpoint = {
       runId: manifest.runId,
       workflowId: manifest.workflowId,
@@ -624,9 +631,11 @@ class LoopReplayRunner {
     }
 
     try {
+      if (this.replayEngine) await this.replayEngine._setAutomatedAction(true, element);
       await element.scrollIntoViewIfNeeded().catch(() => {});
       await element.click();
     } finally {
+      if (this.replayEngine) await this.replayEngine._setAutomatedAction(false);
       await element.dispose().catch(() => {});
     }
 
@@ -692,19 +701,16 @@ class LoopReplayRunner {
     }).catch(() => true);
 
     if (stillClosed) {
-      const triggerCoords = await page.evaluate(() => {
-        const select = document.querySelector('mat-select .mat-mdc-select-trigger, mat-select .mat-mdc-select-value, mat-select, [role="combobox"]');
-        if (!select) return null;
-        const rect = select.getBoundingClientRect();
-        return {
-          x: rect.x + rect.width / 2,
-          y: rect.y + rect.height / 2
-        };
-      }).catch(() => null);
-
-      if (triggerCoords) {
-        await page.mouse.click(triggerCoords.x, triggerCoords.y);
-        await new Promise(r => setTimeout(r, 600));
+      const selectHandle = await page.$('mat-select .mat-mdc-select-trigger, mat-select .mat-mdc-select-value, mat-select, [role="combobox"]').catch(() => null);
+      if (selectHandle) {
+        try {
+          if (this.replayEngine) await this.replayEngine._setAutomatedAction(true, selectHandle);
+          await selectHandle.click();
+          await new Promise(r => setTimeout(r, 600));
+        } finally {
+          if (this.replayEngine) await this.replayEngine._setAutomatedAction(false);
+          await selectHandle.dispose().catch(() => {});
+        }
       }
     }
 
@@ -946,10 +952,25 @@ class LoopReplayRunner {
       } else {
         logger.error(`[Runner] Fatal execution failure: ${err.message}`);
       }
+    } finally {
+      manifest.endTime = manifest.endTime || new Date().toISOString();
+      if (this.isAborted) {
+        manifest.status = 'STOPPED';
+      }
+      try {
+        fs.writeFileSync(path.join(this.runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+      } catch {}
+      if (this._replayTargetCreatedListener && this.replayEngine?.browser) {
+        try {
+          this.replayEngine.browser.off('targetcreated', this._replayTargetCreatedListener);
+        } catch {}
+        this._replayTargetCreatedListener = null;
+      }
+      if (this.replayEngine) {
+        await this.replayEngine.disconnect().catch(() => {});
+      }
+      onProgress({ status: manifest.status, manifest });
     }
-
-    fs.writeFileSync(path.join(this.runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
-    onProgress({ status: manifest.status, manifest });
 
     return manifest;
   }
@@ -1000,11 +1021,24 @@ class LoopReplayRunner {
       manifest.activeItem = checkpoint.activeItem || null;
     }
     this.manifest = manifest;
+    this._lastCursor = checkpoint ? {
+      currentItemIndex: checkpoint.currentItemIndex ?? null,
+      currentActionOffset: checkpoint.currentActionOffset ?? null,
+      currentPage: checkpoint.currentPage ?? 1,
+      currentPageItemIndex: checkpoint.currentPageItemIndex ?? null,
+      activeItem: checkpoint.activeItem ?? null
+    } : null;
 
     logger.info(`[Loop Runner] Starting execution run ${this.runId} for workflow "${workflow.name}"`);
     onProgress({ status: checkpoint ? 'RESUMING' : 'STARTING', manifest, checkpoint });
 
+    let currentPage = 1;
+
     try {
+      if (this.replayEngine) {
+        this.replayEngine.isPaused = false;
+        this.replayEngine.isAborted = false;
+      }
       const browser = await this.replayEngine.connect();
       const pages = await browser.pages();
       const page = pages.length > 0 ? pages[0] : await browser.newPage();
@@ -1120,7 +1154,7 @@ class LoopReplayRunner {
       const maxPages = Number.isInteger(workflow.pagination?.maxPages)
         ? Math.max(1, workflow.pagination.maxPages)
         : 100;
-      let currentPage = 1;
+      currentPage = 1;
       const resumePage = checkpoint && Number.isInteger(checkpoint.currentPage)
         ? checkpoint.currentPage
         : 1;
@@ -1174,6 +1208,7 @@ class LoopReplayRunner {
         if (this.isAborted) {
           logger.warn(`[Loop Runner] Abort signal active before item #${i + 1}. Stopping loop.`);
           manifest.status = 'STOPPED';
+          this.writeLoopCheckpoint(manifest, null, 0, currentPage, i, null);
           break;
         }
 
@@ -1209,6 +1244,10 @@ class LoopReplayRunner {
             manifest.results.push(skippedResult);
             manifest.itemsSkipped = (manifest.itemsSkipped || 0) + 1;
             this.manifest = manifest;
+            this.writeLoopCheckpoint(manifest, null, 0, currentPage, i + 1, null);
+            try {
+              fs.writeFileSync(path.join(this.runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+            } catch {}
             onProgress({ status: 'ITEM_SKIPPED', itemResult: skippedResult, manifest });
             continue;
           }
@@ -1244,7 +1283,7 @@ class LoopReplayRunner {
           manifest.results.push(skippedResult);
           manifest.itemsSkipped = (manifest.itemsSkipped || 0) + 1;
           this.manifest = manifest;
-          this.writeLoopCheckpoint(manifest, skippedIndex, 0, currentPage, i, skippedResult);
+          this.writeLoopCheckpoint(manifest, null, 0, currentPage, i + 1, null);
           try {
             fs.writeFileSync(path.join(this.runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
           } catch {}
@@ -1310,6 +1349,8 @@ class LoopReplayRunner {
                 } catch (restoreErr) {
                   logger.warn('[Loop Runner] Could not restore list state before retry: ' + restoreErr.message);
                 }
+              } else if (this.replayEngine) {
+                await this.replayEngine.dismissOverlays();
               }
             }
 
@@ -1414,10 +1455,14 @@ class LoopReplayRunner {
                 await new Promise(r => setTimeout(r, 1000));
               } else {
                 // Dismiss any open dropdown, context menu, or overlay modal (e.g. cdk-overlay-backdrop)
-                try {
-                  await page.keyboard.press('Escape');
-                  await new Promise(r => setTimeout(r, 200));
-                } catch {}
+                if (this.replayEngine) {
+                  await this.replayEngine.dismissOverlays();
+                } else {
+                  try {
+                    await page.keyboard.press('Escape');
+                    await new Promise(r => setTimeout(r, 200));
+                  } catch {}
+                }
               }
 
               // Ensure the collection list container is present on the page before next item
@@ -1453,7 +1498,20 @@ class LoopReplayRunner {
             itemResult.status = 'STOPPED';
             itemResult.error = 'Execution stopped by user';
             manifest.status = 'STOPPED';
-            manifest.results.push(itemResult);
+            const existingIdx = manifest.results.findIndex(r => r.index === itemResult.index);
+            if (existingIdx >= 0) {
+              manifest.results[existingIdx] = itemResult;
+            } else {
+              manifest.results.push(itemResult);
+            }
+            this.writeLoopCheckpoint(
+              manifest,
+              itemResult.index,
+              nextActionOffset,
+              currentPage,
+              i,
+              itemResult
+            );
             break;
           }
           logger.error(`[Loop Runner] Error on item #${i + 1}: ${itemErr.message}`);
@@ -1473,24 +1531,33 @@ class LoopReplayRunner {
             if (page.url() !== currentPageUrl) {
               await page.goto(currentPageUrl, { waitUntil: 'domcontentloaded' }).catch(() => {});
             } else {
-              await page.keyboard.press('Escape').catch(() => {});
+              if (this.replayEngine) {
+                await this.replayEngine.dismissOverlays();
+              } else {
+                await page.keyboard.press('Escape').catch(() => {});
+              }
             }
           } catch {
             // Ignore recovery error
           }
         }
 
-        manifest.results.push(itemResult);
+        const existingIdx = manifest.results.findIndex(r => r.index === itemResult.index);
+        if (existingIdx >= 0) {
+          manifest.results[existingIdx] = itemResult;
+        } else {
+          manifest.results.push(itemResult);
+        }
         this.manifest = manifest;
         try {
           fs.writeFileSync(path.join(this.runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
         } catch {}
         this.writeLoopCheckpoint(
           manifest,
-          itemResult.status === 'SUCCESS' ? null : itemResult.index,
+          null,
           null,
           currentPage,
-          itemResult.status === 'SUCCESS' ? i + 1 : i,
+          i + 1,
           null
         );
         onProgress({ status: 'ITEM_COMPLETE', itemResult, manifest });
@@ -1556,7 +1623,9 @@ class LoopReplayRunner {
 
       manifest.status = this.isAborted ? 'STOPPED' : (manifest.itemsFailed > 0 ? 'COMPLETED_WITH_ERRORS' : 'COMPLETED');
       manifest.endTime = new Date().toISOString();
-      this.writeLoopCheckpoint(manifest, null, null, currentPage, null, null);
+      if (!this.isAborted) {
+        this.writeLoopCheckpoint(manifest, null, null, currentPage, null, null);
+      }
       logger.success(`\n[Loop Runner] Run ${this.runId} ${manifest.status}! Succeeded: ${manifest.itemsSucceeded}, Failed: ${manifest.itemsFailed}`);
 
     } catch (err) {
@@ -1568,11 +1637,48 @@ class LoopReplayRunner {
       } else {
         logger.error(`[Loop Runner] Fatal run failure: ${err.message}`);
       }
-    }
+    } finally {
+      manifest.endTime = manifest.endTime || new Date().toISOString();
+      if (this.isAborted) {
+        manifest.status = 'STOPPED';
+      }
 
-    // Save manifest file
-    fs.writeFileSync(path.join(this.runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
-    onProgress({ status: manifest.status, manifest });
+      try {
+        if (this.isAborted && this._lastCursor) {
+          this.writeLoopCheckpoint(
+            manifest,
+            this._lastCursor.currentItemIndex,
+            this._lastCursor.currentActionOffset,
+            this._lastCursor.currentPage || currentPage,
+            this._lastCursor.currentPageItemIndex,
+            this._lastCursor.activeItem
+          );
+        } else if (manifest.status === 'COMPLETED' || manifest.status === 'COMPLETED_WITH_ERRORS') {
+          this.writeLoopCheckpoint(manifest, null, null, currentPage, null, null);
+        }
+      } catch (cpErr) {
+        logger.warn(`[Loop Runner] Warning writing final checkpoint: ${cpErr.message}`);
+      }
+
+      try {
+        fs.writeFileSync(path.join(this.runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+      } catch (mfErr) {
+        logger.warn(`[Loop Runner] Warning writing final manifest: ${mfErr.message}`);
+      }
+
+      if (this._replayTargetCreatedListener && this.replayEngine?.browser) {
+        try {
+          this.replayEngine.browser.off('targetcreated', this._replayTargetCreatedListener);
+        } catch {}
+        this._replayTargetCreatedListener = null;
+      }
+
+      if (this.replayEngine) {
+        await this.replayEngine.disconnect().catch(() => {});
+      }
+
+      onProgress({ status: manifest.status, manifest });
+    }
 
     return manifest;
   }

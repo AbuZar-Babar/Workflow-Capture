@@ -108,7 +108,23 @@ function runLoopTests() {
   assert.strictEqual(detectedIndex, 2, 'Should skip navbar tab and pick table row as loopStepIndex');
   console.log('  ✅ findLoopCandidateIndex successfully skipped navigation and picked table row\n');
 
-  console.log('🎉 ALL LOOP DETECTOR TESTS PASSED SUCCESSFULLY!\n');
+  // Test 7: LoopReplayRunner and ReplayEngine cdpPort propagation
+  console.log('🔹 Test 7: LoopReplayRunner & ReplayEngine CDP Port Support');
+  const LoopReplayRunner = require('../src/replay/loop-replay-runner');
+  const runner = new LoopReplayRunner({ cdpPort: 9234, runId: 'test_loop_engine_runner' });
+  assert.strictEqual(runner.cdpPort, 9234);
+  assert.strictEqual(runner.replayEngine.browserURL, 'http://127.0.0.1:9234');
+  console.log('  ✅ LoopReplayRunner propagates cdpPort to ReplayEngine correctly\n');
+
+  // Test 8: ReplayEngine dismissOverlays and disconnect interfaces
+  console.log('🔹 Test 8: ReplayEngine dismissOverlays & disconnect interfaces');
+  const ReplayEngine = require('../src/replay/replay-engine');
+  const engine = new ReplayEngine({ cdpPort: 9234 });
+  assert.strictEqual(typeof engine.dismissOverlays, 'function', 'ReplayEngine must provide dismissOverlays()');
+  assert.strictEqual(typeof engine.disconnect, 'function', 'ReplayEngine must provide disconnect()');
+  console.log('  ✅ ReplayEngine reliability methods verified\n');
+
+  console.log('🎉 ALL LOOP DETECTOR & ENGINE TESTS PASSED SUCCESSFULLY!\n');
 }
 
 runLoopTests();

@@ -25,7 +25,7 @@ const logger = require('../utils/logger');
 class ReplayEngine extends EventEmitter {
   constructor(options = {}) {
     super();
-    this.browserURL = options.browserURL || 'http://localhost:9222';
+    this.browserURL = options.browserURL || (options.cdpPort ? `http://127.0.0.1:${options.cdpPort}` : 'http://localhost:9222');
     this.speed = options.speed || 1.0; // Speed multiplier (1.0 = real-time, 2.0 = 2x, etc.)
     this.botConfig = options.botConfig || getActiveBotConfig();
     this.timeoutMs = options.timeoutMs || this.botConfig?.resolution?.timeoutMs || DEFAULT_TIMEOUTS.RESOLUTION_TIMEOUT_MS;
@@ -76,6 +76,37 @@ class ReplayEngine extends EventEmitter {
   async _waitWhilePaused() {
     while (this.isPaused && !this.isAborted) await new Promise(resolve => setTimeout(resolve, 100));
     if (this.isAborted) throw new Error('Execution stopped by user');
+  }
+
+  /**
+   * Safely dismiss open popups, overlays, or dropdowns via Escape key without triggering disturbance detection
+   */
+  async dismissOverlays() {
+    if (!this.page || this.page.isClosed()) return;
+    try {
+      await this._setAutomatedAction(true, { key: 'Escape' });
+      await this.page.keyboard.press('Escape').catch(() => {});
+      await new Promise(r => setTimeout(r, 200));
+    } finally {
+      await this._setAutomatedAction(false);
+    }
+  }
+
+  /**
+   * Clean up guard listeners, teardown in-page scripts, and disconnect from browser
+   */
+  async disconnect() {
+    try {
+      await this._teardownReplayGuard();
+    } catch {}
+    if (this.browser) {
+      try {
+        await this.browser.disconnect();
+        logger.info('Disconnected from Chrome (session preserved).');
+      } catch {}
+      this.browser = null;
+      this.page = null;
+    }
   }
 
   /**
@@ -254,17 +285,48 @@ class ReplayEngine extends EventEmitter {
         }
         var onHumanInput = function(evt) {
           if (host && evt.composedPath().includes(host)) return;
-          var expected=window.__flowmindAutomatedTarget;
-          if (window.__flowmindAutomatedActionActive && expected && (expected===evt.target || expected.contains(evt.target))) return;
+          var expected = window.__flowmindAutomatedTarget;
+          var expectedKey = window.__flowmindAutomatedKey;
+          var now = Date.now();
+
+          var isAutomated = false;
+          if (window.__flowmindAutomatedActionActive) {
+            if (expected && (expected === evt.target || (expected.contains && expected.contains(evt.target)))) {
+              isAutomated = true;
+            } else if (!expected && expectedKey && (evt.key === expectedKey || evt.code === expectedKey)) {
+              isAutomated = true;
+            }
+          }
+
+          if (!isAutomated && window.__flowmindAutomatedUntil && now < window.__flowmindAutomatedUntil) {
+            var recentTarget = window.__flowmindAutomatedRecentTarget;
+            var recentKey = window.__flowmindAutomatedRecentKey;
+            if (recentTarget && (recentTarget === evt.target || (recentTarget.contains && recentTarget.contains(evt.target)))) {
+              isAutomated = true;
+            } else if (!recentTarget && recentKey && (evt.key === recentKey || evt.code === recentKey)) {
+              isAutomated = true;
+            }
+          }
+
+          if (isAutomated) return;
+
           if (window.__flowmindReplayLocked) {
             if (evt.cancelable) evt.preventDefault();
             evt.stopImmediatePropagation(); evt.stopPropagation();
           }
           if (window.__flowmindReplayPaused) return;
-          window.__flowmindReplayPaused=true;
+          window.__flowmindReplayPaused = true;
           window.__flowmindUpdateReplayGuard && window.__flowmindUpdateReplayGuard();
-          var now=Date.now();
-          if (typeof window.__flowmindReportIntervention==='function') window.__flowmindReportIntervention({type:evt.type,key:evt.key||null,tagName:evt.target&&evt.target.tagName||null,locked:!!window.__flowmindReplayLocked,time:now});
+          var now = Date.now();
+          if (typeof window.__flowmindReportIntervention === 'function') {
+            window.__flowmindReportIntervention({
+              type: evt.type,
+              key: evt.key || null,
+              tagName: evt.target && evt.target.tagName || null,
+              locked: !!window.__flowmindReplayLocked,
+              time: now
+            });
+          }
         };
         window.__flowmindReplayInputHandler=onHumanInput;
         ['pointerdown','mousedown','click','pointerup','mouseup','keydown','keypress','keyup','wheel','touchstart','touchmove','contextmenu','dragstart','dragover','drop'].forEach(function(type){window.addEventListener(type,onHumanInput,{capture:true,passive:false});});
@@ -308,17 +370,62 @@ class ReplayEngine extends EventEmitter {
   /**
    * Set flag in browser indicating automated action in progress (prevents bot synthetic actions from triggering disturbance alerts)
    */
-  async _setAutomatedAction(isActive, elementHandle = null) {
+  async _setAutomatedAction(isActive, targetOrOptions = null) {
     this.isAutomatedActionActive = !!isActive;
     if (this.page && !this.page.isClosed()) {
       try {
-        const target = elementHandle || null;
-        await this.page.evaluate((active, expected) => {
+        let targetHandle = null;
+        let expectedKey = null;
+
+        if (targetOrOptions) {
+          if (typeof targetOrOptions === 'string') {
+            expectedKey = targetOrOptions;
+          } else if (typeof targetOrOptions === 'object') {
+            if (typeof targetOrOptions.asElement === 'function') {
+              targetHandle = targetOrOptions.asElement();
+            } else if (targetOrOptions.nodeType) {
+              targetHandle = targetOrOptions;
+            } else {
+              if (targetOrOptions.key) expectedKey = targetOrOptions.key;
+              if (targetOrOptions.target) {
+                targetHandle = typeof targetOrOptions.target.asElement === 'function'
+                  ? targetOrOptions.target.asElement()
+                  : targetOrOptions.target;
+              }
+            }
+          }
+        }
+
+        await this.page.evaluate((active, target, key) => {
           window.__flowmindAutomatedActionActive = active;
-          window.__flowmindAutomatedTarget = active ? expected : null;
-          if (active) window.__flowmindAutomatedSince = Date.now();
-        }, !!isActive, target).catch(async () => {
-          if (target) await target.evaluate((el, active) => { window.__flowmindAutomatedActionActive=active; window.__flowmindAutomatedTarget=active?el:null; }, !!isActive).catch(() => {});
+          if (active) {
+            window.__flowmindAutomatedTarget = target || null;
+            window.__flowmindAutomatedKey = key || null;
+            window.__flowmindAutomatedSince = Date.now();
+          } else {
+            window.__flowmindAutomatedUntil = Date.now() + 150;
+            window.__flowmindAutomatedRecentTarget = window.__flowmindAutomatedTarget || null;
+            window.__flowmindAutomatedRecentKey = window.__flowmindAutomatedKey || null;
+            window.__flowmindAutomatedTarget = null;
+            window.__flowmindAutomatedKey = null;
+          }
+        }, !!isActive, targetHandle, expectedKey).catch(async () => {
+          if (targetHandle) {
+            await targetHandle.evaluate((el, active) => {
+              window.__flowmindAutomatedActionActive = active;
+              if (active) {
+                window.__flowmindAutomatedTarget = el;
+                window.__flowmindAutomatedKey = null;
+                window.__flowmindAutomatedSince = Date.now();
+              } else {
+                window.__flowmindAutomatedUntil = Date.now() + 150;
+                window.__flowmindAutomatedRecentTarget = el;
+                window.__flowmindAutomatedRecentKey = null;
+                window.__flowmindAutomatedTarget = null;
+                window.__flowmindAutomatedKey = null;
+              }
+            }, !!isActive).catch(() => {});
+          }
         });
       } catch {}
     }
@@ -459,6 +566,7 @@ class ReplayEngine extends EventEmitter {
     if (!this.page) throw new Error('ReplayEngine is not connected to a page.');
     if (!itemHandle) throw new Error('No collection item handle supplied.');
 
+    await this._waitWhilePaused();
     await this._waitForLoadingMasks(6000);
 
     const targetHandle = await itemHandle.evaluateHandle((item, target) => {
@@ -915,11 +1023,7 @@ class ReplayEngine extends EventEmitter {
       logger.error(`Replay halted at action #${replayStats.executedCount + 1}:`, err);
       throw err;
     } finally {
-      await this._teardownReplayGuard();
-      if (this.browser) {
-        await this.browser.disconnect();
-        logger.info('Disconnected from Chrome (session preserved).');
-      }
+      await this.disconnect().catch(() => {});
     }
 
     return replayStats;
