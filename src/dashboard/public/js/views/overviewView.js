@@ -170,43 +170,46 @@ export const OverviewView = {
           </div>
           <button class="btn btn-secondary" id="btnOverviewViewArtifacts">Open Artifacts</button>
         </section>
-      </div>
 
-      <div class="discovery-overlay hidden" id="workflowDiscoveryOverlay" role="dialog" aria-modal="true" aria-labelledby="discoveryTitle">
-        <div class="discovery-modal">
-          <div class="discovery-modal-header">
-            <div><span class="eyebrow">Preflight check</span><h2 id="discoveryTitle">Workflow Ready</h2><p id="discoverySubtitle">We are checking the page for repeated items before execution.</p></div>
-            <button class="btn btn-secondary btn-sm" id="btnDiscoveryClose">Close</button>
+        <section class="card dashboard-recent-card" style="margin-top:0.75rem;">
+          <div class="card-header-row">
+            <div class="card-title-wrap">
+              <h3>Recent Workflows</h3>
+              <p>Launch execution preflight, configure filters, and replay</p>
+            </div>
+            <button class="btn btn-secondary btn-sm" id="btnOverviewViewAllWorkflows">View All</button>
           </div>
-          <div id="discoveryLoading" class="discovery-loading"><div class="discovery-spinner"></div><div><strong>Discovering repeated items…</strong><span>Inspecting the current page and validating the recorded target.</span></div></div>
-          <div id="discoveryResult" class="hidden">
-            <div class="discovery-summary-grid">
-              <div class="discovery-metric"><span>Items found</span><strong id="discoveryItemCount">0</strong></div>
-              <div class="discovery-metric"><span>Confidence</span><strong id="discoveryConfidence">0%</strong></div>
-              <div class="discovery-metric"><span>Actions / item</span><strong id="discoveryActions">0</strong></div>
-              <div class="discovery-metric"><span>Collection</span><strong id="discoveryCollection">—</strong></div>
+          <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1rem; padding:0.75rem 1rem; background:var(--input-bg); border-radius:var(--radius-md); border:1px solid var(--border-light); flex-wrap:wrap;">
+            <label for="overviewSelectWorkflow" style="font-size:0.75rem; font-weight:700; color:var(--text-sub);">Workflow:</label>
+            <select id="overviewSelectWorkflow" class="form-control" style="flex:1; min-width:180px; height:34px; font-size:0.78rem;">
+              <option value="" disabled selected>Loading workflows...</option>
+            </select>
+            <div style="display:flex; align-items:center; gap:0.5rem;">
+              <span style="font-size:0.72rem; color:var(--text-sub);">Speed:</span>
+              <input type="range" id="overviewSpeedRange" min="0.25" max="3" step="0.25" value="1.0" style="width:70px; accent-color:var(--brand-forest);">
+              <span id="overviewSpeedVal" style="font-size:0.72rem; font-family:var(--font-mono); font-weight:700; min-width:32px;">1.00x</span>
             </div>
-            <div class="discovery-preview">
-              <div class="card-header-row"><div class="card-title-wrap"><h3>Preview items</h3><p>These are the records the automation will process.</p></div></div>
-              <div id="discoveryItemsList" class="discovery-items-list"></div>
-            </div>
-            <div class="discovery-options" style="margin-top:0.75rem; padding:0.6rem 0.8rem; background:var(--input-bg); border-radius:6px; border:1px solid var(--border-light); display:flex; align-items:center; justify-content:space-between;">
-              <div>
-                <strong style="display:block; font-size:0.75rem; color:var(--text-main);">Smart Deduplication</strong>
-                <span style="font-size:0.68rem; color:var(--text-sub);">Skips items already downloaded in previous runs</span>
-              </div>
-              <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.72rem; color:var(--text-body); cursor:pointer; font-weight:600;">
-                <input type="checkbox" id="chkDiscoveryForceRedownload"> Force Re-download
-              </label>
-            </div>
-            <div class="discovery-confirm-note" style="margin-top:0.65rem;">
-              <span class="status-dot online"></span>
-              <span>The workflow will run once per discovered item. Previously downloaded files are safely preserved.</span>
-            </div>
+            <button class="btn btn-primary btn-sm" id="btnOverviewRunReplay" style="display:inline-flex; align-items:center; gap:0.35rem;">
+              <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              <span>Review &amp; Run</span>
+            </button>
           </div>
-          <div id="discoveryError" class="hidden discovery-error"></div>
-          <div class="discovery-modal-actions"><button class="btn btn-secondary" id="btnDiscoveryCancel">Cancel</button><button class="btn btn-primary" id="btnDiscoveryContinue" disabled>Continue &amp; Run</button></div>
-        </div>
+          <div class="table-responsive">
+            <table class="data-table" style="width:100%; border-collapse:collapse;">
+              <thead>
+                <tr>
+                  <th style="text-align:left; font-size:0.7rem; color:var(--text-sub); text-transform:uppercase; padding:0.5rem 0.75rem;">Workflow</th>
+                  <th style="text-align:left; font-size:0.7rem; color:var(--text-sub); text-transform:uppercase; padding:0.5rem 0.75rem;">Steps</th>
+                  <th style="text-align:left; font-size:0.7rem; color:var(--text-sub); text-transform:uppercase; padding:0.5rem 0.75rem;">Recorded</th>
+                  <th style="text-align:right; font-size:0.7rem; color:var(--text-sub); text-transform:uppercase; padding:0.5rem 0.75rem;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="overviewRecentList">
+                <tr><td colspan="4" style="text-align:center; padding:1.25rem; color:var(--text-sub);">Loading recordings…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
     `;
 
@@ -296,19 +299,21 @@ export const OverviewView = {
     }
 
     if (btnReplay) {
-      btnReplay.onclick = async () => {
+      btnReplay.onclick = () => {
         const filename = selectWf ? selectWf.value : '';
         if (!filename) {
-          Toast.error('Please select a workflow to replay');
+          Toast.error('Please select a workflow to execute');
           return;
         }
-        const speed = speedRange ? parseFloat(speedRange.value) : 1.0;
-        try {
-          await Api.startReplay({ filename, speed });
-          Toast.info(`Launched playback for ${filename}`);
-        } catch (err) {
-          Toast.error(err.message);
-        }
+        const wfId = filename.replace('.json', '');
+        const wf = this.recordings.find(w => w.filename === filename || w.id === wfId) || {};
+        ExecutionModal.open({
+          workflowId: wfId,
+          workflowName: wf.name || wfId,
+          stepCount: wf.actionCount || wf.stepCount || 0,
+          loopStepIndex: wf.loopStepIndex,
+          isLoop: wf.isLoop || wf.mode === 'LOOP'
+        });
       };
     }
 
@@ -335,50 +340,15 @@ export const OverviewView = {
   },
 
   async openDiscovery(workflowId) {
-    const overlay = document.getElementById('workflowDiscoveryOverlay');
-    const loading = document.getElementById('discoveryLoading');
-    const result = document.getElementById('discoveryResult');
-    const errorBox = document.getElementById('discoveryError');
-    const continueBtn = document.getElementById('btnDiscoveryContinue');
-    if (!overlay) return;
-    overlay.classList.remove('hidden'); loading.classList.remove('hidden'); result.classList.add('hidden'); errorBox.classList.add('hidden'); continueBtn.disabled = true;
-    const close = () => overlay.classList.add('hidden');
-    document.getElementById('btnDiscoveryClose').onclick = close; document.getElementById('btnDiscoveryCancel').onclick = close;
-    try {
-      const data = await Api.discoverWorkflow(workflowId); const discovery = data.discovery || {};
-      document.getElementById('discoveryItemCount').textContent = discovery.itemCount ?? 0;
-      document.getElementById('discoveryConfidence').textContent = Math.round((discovery.confidence || 0) * 100) + '%';
-      document.getElementById('discoveryActions').textContent = data.actionsPerItem ?? 0;
-      document.getElementById('discoveryCollection').textContent = discovery.collection ? discovery.collection.itemTag + ' items' : '—';
-      document.getElementById('discoverySubtitle').textContent = 'Found ' + (discovery.itemCount || 0) + ' repeated items on the target page. Review before execution.';
-      const list = document.getElementById('discoveryItemsList');
-      list.innerHTML = (discovery.items || []).slice(0, 8).map((item, index) => '<div class="discovery-item-row"><span class="discovery-item-index">' + (index + 1) + '</span><span class="discovery-item-text">' + this.escapeHtml(item.text || item.id || ('Item ' + (index + 1))) + '</span></div>').join('') || '<div class="dashboard-empty">No preview items available.</div>';
-      loading.classList.add('hidden');
-      result.classList.remove('hidden');
-      continueBtn.disabled = !discovery.success || !discovery.itemCount;
-      continueBtn.onclick = async () => {
-        continueBtn.disabled = true;
-        continueBtn.textContent = 'Starting…';
-        const forceRedownload = !!document.getElementById('chkDiscoveryForceRedownload')?.checked;
-        try {
-          const run = await Api.executeWorkflow(workflowId, {
-            loopStepIndex: data.loopStepIndex ?? 0,
-            forceRedownload
-          });
-          close();
-          if (run.runId) {
-            sessionStorage.setItem('workflowCaptureActiveRunId', run.runId);
-            this.router.navigate('execution/' + encodeURIComponent(run.runId));
-          } else {
-            Toast.success('Automation queued');
-          }
-        } catch (err) {
-          Toast.error(err.message);
-          continueBtn.disabled = false;
-          continueBtn.textContent = 'Continue & Run';
-        }
-      };
-    } catch (err) { loading.classList.add('hidden'); errorBox.textContent = err.message || 'Discovery failed. Make sure Chrome is connected and the target page is open.'; errorBox.classList.remove('hidden'); }
+    const filename = `${workflowId}.json`;
+    const wf = this.recordings.find(w => w.id === workflowId || w.filename === filename || w.name === workflowId) || {};
+    ExecutionModal.open({
+      workflowId,
+      workflowName: wf.name || workflowId,
+      stepCount: wf.actionCount || wf.stepCount || 0,
+      loopStepIndex: wf.loopStepIndex,
+      isLoop: true
+    });
   },
 
   animateCountUp(element, endVal, suffix = '', duration = 800) {
