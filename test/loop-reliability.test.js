@@ -1,20 +1,22 @@
 /**
  * Test Suite: Repeated-Item Execution Reliability & Stall Regression
- * 
+ *
  * Verifies:
- * 1. Overlay dismissal and runner actions are flagged as automated to prevent
- *    in-page human disturbance detection from stalling subsequent items.
+ * 1. Narrowed automated-input suppression: targetless actions (Escape overlay dismissal)
+ *    only suppress expected keys, while real user clicks/keys trigger intervention pause.
  * 2. Sequential items execute across item boundaries without stalling or inheriting state.
  * 3. Item-level failure and retry: a failing item exhausts retries, marks FAILED,
  *    and cleanly allows the next item to proceed without inheriting stale handles.
- * 4. Checkpoint and manifest counter consistency across completed, failed, and skipped items.
- * 5. Terminal resource release: browser listeners detached and replay engine disconnected.
- * 6. Four-item invoice portal scenario executes end-to-end to completion.
+ * 4. Loop-specific abort and resume: stops preserve item/action cursor and resumes without duplicate items.
+ * 5. Checkpoint and manifest counter consistency across completed, failed, and skipped items.
+ * 6. Terminal resource release: browser listeners detached and replay engine disconnected.
+ * 7. Four-item invoice portal scenario executes end-to-end to completion on a dynamic available port.
  */
 
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
+const net = require('net');
 const { spawn } = require('child_process');
 const puppeteer = require('puppeteer-core');
 const LoopReplayRunner = require('../src/replay/loop-replay-runner');
@@ -38,6 +40,51 @@ function cleanRunDir(runId) {
   }
 }
 
+function getAvailablePort() {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.unref();
+    server.on('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const port = server.address().port;
+      server.close(() => resolve(port));
+    });
+  });
+}
+
+function waitForProcessExit(proc, timeoutMs = 7000) {
+  if (!proc || proc.killed || proc.exitCode !== null) return Promise.resolve();
+  return new Promise(resolve => {
+    let done = false;
+    const finish = () => {
+      if (!done) {
+        done = true;
+        resolve();
+      }
+    };
+
+    proc.once('exit', finish);
+    proc.kill('SIGTERM');
+
+    const forceTimer = setTimeout(() => {
+      if (!done) {
+        try {
+          proc.kill('SIGKILL');
+        } catch {}
+      }
+    }, Math.floor(timeoutMs / 2));
+
+    const maxTimer = setTimeout(() => {
+      finish();
+    }, timeoutMs);
+
+    proc.once('exit', () => {
+      clearTimeout(forceTimer);
+      clearTimeout(maxTimer);
+    });
+  });
+}
+
 async function runTests() {
   console.log('🧪 Starting Loop Reliability & Repeated-Item Execution Test Suite...\n');
 
@@ -58,60 +105,100 @@ async function runTests() {
   }
 
   // --------------------------------------------------------------------------
-  // Test 2: In-page disturbance guard treats untargeted automated actions as automated
+  // Test 2: In-page disturbance guard narrows automated-input suppression
   // --------------------------------------------------------------------------
-  console.log('🔹 Test 2: In-page disturbance guard recognizes automated page actions');
+  console.log('🔹 Test 2: Narrowed automated-input suppression protects against real user inputs');
   {
-    const engine = new ReplayEngine();
-    let interventionTriggered = false;
-    engine._handleHumanIntervention = () => {
-      interventionTriggered = true;
-    };
-
-    // Simulate in-page event logic from injection script:
-    // When __flowmindAutomatedActionActive is true and expected is null (e.g. Escape key),
-    // onHumanInput must return immediately instead of pausing replay.
-    const simulateGuard = (automatedActive, expectedTarget, evtTarget, automatedUntil = 0) => {
+    // Simulate the narrowed in-page guard logic
+    const simulateGuard = (automatedActive, expectedTarget, expectedKey, evt, automatedUntil = 0, recentTarget = null, recentKey = null) => {
       const now = Date.now();
-      if (automatedUntil && now < automatedUntil) return 'IGNORED_GRACE';
-      if (automatedActive && (!expectedTarget || expectedTarget === evtTarget || (expectedTarget.contains && expectedTarget.contains(evtTarget)))) {
-        return 'IGNORED_AUTOMATED';
+      let isAutomated = false;
+
+      if (automatedActive) {
+        if (expectedTarget && (expectedTarget === evt.target || (expectedTarget.contains && expectedTarget.contains(evt.target)))) {
+          isAutomated = true;
+        } else if (!expectedTarget && expectedKey && (evt.key === expectedKey || evt.code === expectedKey)) {
+          isAutomated = true;
+        }
       }
+
+      if (!isAutomated && automatedUntil && now < automatedUntil) {
+        if (recentTarget && (recentTarget === evt.target || (recentTarget.contains && recentTarget.contains(evt.target)))) {
+          isAutomated = true;
+        } else if (!recentTarget && recentKey && (evt.key === recentKey || evt.code === recentKey)) {
+          isAutomated = true;
+        }
+      }
+
+      if (isAutomated) return 'IGNORED_AUTOMATED';
       return 'TRIGGERED_HUMAN';
     };
 
     const mockBody = { tagName: 'BODY' };
+    const mockButton = { tagName: 'BUTTON' };
     const mockInput = { tagName: 'INPUT' };
 
-    // With fix: automated action without target (Escape on body) is recognized as automated
+    // 1. Targetless automated Escape dismissal (Escape key on body)
     assert.strictEqual(
-      simulateGuard(true, null, mockBody),
+      simulateGuard(true, null, 'Escape', { type: 'keydown', key: 'Escape', target: mockBody }),
       'IGNORED_AUTOMATED',
-      'Page-level automated keypress must not trigger human disturbance'
+      'Synthetic Escape key during dismissOverlays must be recognized as automated'
     );
 
-    // Targeted action matches target
+    // Real user click on body or button during targetless action MUST trigger pause
     assert.strictEqual(
-      simulateGuard(true, mockInput, mockInput),
-      'IGNORED_AUTOMATED',
-      'Targeted automated action must be ignored by guard'
-    );
-
-    // Trailing grace window ignores microtask bubble
-    assert.strictEqual(
-      simulateGuard(false, null, mockBody, Date.now() + 150),
-      'IGNORED_GRACE',
-      'Trailing grace period must ignore post-action event bubbles'
-    );
-
-    // Real human interaction triggers guard
-    assert.strictEqual(
-      simulateGuard(false, null, mockBody, 0),
+      simulateGuard(true, null, 'Escape', { type: 'click', target: mockBody }),
       'TRIGGERED_HUMAN',
-      'Actual user interaction outside automation must trigger intervention'
+      'Real user click during targetless action must trigger human intervention pause'
+    );
+    assert.strictEqual(
+      simulateGuard(true, null, 'Escape', { type: 'mousedown', target: mockButton }),
+      'TRIGGERED_HUMAN',
+      'Real user mousedown during targetless action must trigger human intervention pause'
     );
 
-    console.log('  ✅ Disturbance detection guard correctly isolates automated actions\n');
+    // Real user pressing a non-Escape key during targetless action MUST trigger pause
+    assert.strictEqual(
+      simulateGuard(true, null, 'Escape', { type: 'keydown', key: 'Enter', target: mockBody }),
+      'TRIGGERED_HUMAN',
+      'Real user Enter keypress during targetless action must trigger human intervention pause'
+    );
+    assert.strictEqual(
+      simulateGuard(true, null, 'Escape', { type: 'keydown', key: 'a', target: mockInput }),
+      'TRIGGERED_HUMAN',
+      'Real user typing during targetless action must trigger human intervention pause'
+    );
+
+    // 2. Targeted automated action
+    assert.strictEqual(
+      simulateGuard(true, mockButton, null, { type: 'click', target: mockButton }),
+      'IGNORED_AUTOMATED',
+      'Automated click on target element must be ignored'
+    );
+    assert.strictEqual(
+      simulateGuard(true, mockButton, null, { type: 'click', target: mockBody }),
+      'TRIGGERED_HUMAN',
+      'Click on non-target element must trigger intervention pause'
+    );
+
+    // 3. Trailing grace window: only trailing events matching recent target or recent key are ignored
+    assert.strictEqual(
+      simulateGuard(false, null, null, { type: 'keyup', key: 'Escape', target: mockBody }, Date.now() + 150, null, 'Escape'),
+      'IGNORED_AUTOMATED',
+      'Trailing Escape keyup within grace window must be ignored'
+    );
+    assert.strictEqual(
+      simulateGuard(false, null, null, { type: 'click', target: mockButton }, Date.now() + 150, null, 'Escape'),
+      'TRIGGERED_HUMAN',
+      'Real user click during grace window must trigger intervention pause'
+    );
+    assert.strictEqual(
+      simulateGuard(false, null, null, { type: 'keydown', key: 'Enter', target: mockBody }, Date.now() + 150, null, 'Escape'),
+      'TRIGGERED_HUMAN',
+      'Real user keypress during grace window must trigger intervention pause'
+    );
+
+    console.log('  ✅ Disturbance detection guard correctly isolates automated actions without broad suppression\n');
   }
 
   // --------------------------------------------------------------------------
@@ -142,7 +229,7 @@ async function runTests() {
     };
 
     // Write checkpoint with completed item 2 (next index = 3)
-    runner.writeLoopCheckpoint(manifest, null, null, 1, 3, null);
+    runner.writeLoopCheckpoint(manifest, null, 0, 1, 3, null);
 
     const cpPath = path.join(runner.runsDir, 'checkpoint.json');
     assert(fs.existsSync(cpPath), 'Checkpoint file must be written');
@@ -169,7 +256,6 @@ async function runTests() {
     const runner = new LoopReplayRunner({ runId, workflowId: 'wf_fail_iso', maxItemRetries: 1 });
     runner.initDirectories();
 
-    // Mock an engine that simulates item 1 failing all attempts, then item 2 succeeding
     let item1Attempts = 0;
     let item2Attempts = 0;
     let overlaysDismissed = 0;
@@ -202,8 +288,6 @@ async function runTests() {
       }
     };
 
-    // Verify retry policy: item 1 retried up to maxItemRetries (1 retry = 2 attempts total)
-    // Then item 2 executed independently
     const mockWorkflow = {
       id: 'wf_fail_iso',
       name: 'Failure Isolation Test',
@@ -213,7 +297,6 @@ async function runTests() {
       ]
     };
 
-    // Override ItemDiscovery for mock execution
     const ItemDiscovery = require('../src/shared/item-discovery');
     const origDiscover = ItemDiscovery.discover;
     const origGetItemHandle = ItemDiscovery.getItemHandle;
@@ -246,13 +329,11 @@ async function runTests() {
       assert.strictEqual(item2Attempts, 1, 'Item 2 should execute cleanly on attempt 1');
       assert(overlaysDismissed >= 1, 'Overlays should be dismissed safely during recovery');
 
-      // Verify manifest results
       assert.strictEqual(manifest.results[0].status, 'FAILED');
       assert.strictEqual(manifest.results[0].attempts, 2);
       assert.strictEqual(manifest.results[1].status, 'SUCCESS');
       assert.strictEqual(manifest.results[1].attempts, 1);
 
-      // Verify checkpoint agreement
       const cp = JSON.parse(fs.readFileSync(path.join(runner.runsDir, 'checkpoint.json'), 'utf8'));
       assert.strictEqual(cp.itemsSucceeded, 1);
       assert.strictEqual(cp.itemsFailed, 1);
@@ -267,9 +348,162 @@ async function runTests() {
   }
 
   // --------------------------------------------------------------------------
-  // Test 5: Terminal cleanup on stop/abort
+  // Test 5: Loop-specific abort & resume preserves item/action cursor
   // --------------------------------------------------------------------------
-  console.log('🔹 Test 5: Terminal resource release and manifest consistency on abort');
+  console.log('🔹 Test 5: Loop-specific abort & resume preserves item/action cursor');
+  {
+    const runId = `test_loop_abort_resume_${Date.now()}`;
+    const runner = new LoopReplayRunner({ runId, workflowId: 'wf_abort_resume', resumeFromCheckpoint: true });
+    runner.initDirectories();
+
+    const executedActions = [];
+    const mockPage = {
+      url: () => 'http://example.com/portal',
+      mainFrame: () => ({ evaluate: async () => true }),
+      evaluate: async () => true,
+      bringToFront: async () => {},
+      keyboard: { press: async () => {} },
+      browser: () => ({ pages: async () => [mockPage] })
+    };
+
+    runner.replayEngine = {
+      isPaused: false,
+      isAborted: false,
+      browserURL: 'http://127.0.0.1:9222',
+      connect: async () => ({
+        pages: async () => [mockPage]
+      }),
+      _ensureSelectorResolverInFrame: async () => {},
+      _setAutomatedAction: async () => {},
+      dismissOverlays: async () => {},
+      disconnect: async () => {},
+      executeAction: async () => ({ success: true }),
+      executeActionWithinItem: async (el, action, idx) => {
+        executedActions.push({ item: el.__itemIndex, action: action.__actionIndex });
+        if (el.__itemIndex === 1 && action.__actionIndex === 0) {
+          // Trigger stop after Item 2 action 0 completes
+          setImmediate(() => {
+            runner.stop();
+          });
+        }
+        return { success: true };
+      }
+    };
+
+    const mockWorkflow = {
+      id: 'wf_abort_resume',
+      name: 'Loop Abort & Resume Regression Test',
+      steps: [
+        { type: 'NAVIGATE', url: 'http://example.com/portal' },
+        { type: 'CLICK', __actionIndex: 0, target: { selectors: { cssPath: 'table tbody tr td button' } } },
+        { type: 'CLICK', __actionIndex: 1, target: { selectors: { cssPath: 'table tbody tr td a' } } }
+      ]
+    };
+
+    const ItemDiscovery = require('../src/shared/item-discovery');
+    const origDiscover = ItemDiscovery.discover;
+    const origGetItemHandle = ItemDiscovery.getItemHandle;
+
+    ItemDiscovery.discover = async () => ({
+      success: true,
+      confidence: 1.0,
+      itemCount: 3,
+      collection: { ancestorTag: 'tbody', ancestorSelector: 'table tbody', itemTag: 'tr' },
+      items: [{ index: 0 }, { index: 1 }, { index: 2 }]
+    });
+
+    ItemDiscovery.getItemHandle = async (page, disc, idx) => ({
+      asElement: () => ({
+        __itemIndex: idx,
+        evaluate: async () => ({ text: `Invoice #${idx + 1}`, link: '', dataId: '' }),
+        dispose: async () => {}
+      }),
+      dispose: async () => {}
+    });
+
+    try {
+      // 1. Initial run: stopped on item 2
+      const manifest1 = await runner.executeLoop(mockWorkflow, 1);
+      assert.strictEqual(manifest1.status, 'STOPPED', 'Run must halt with STOPPED status');
+      assert.strictEqual(manifest1.itemsSucceeded, 1, 'Item 1 must have succeeded');
+
+      const cp1Path = path.join(runner.runsDir, 'checkpoint.json');
+      assert(fs.existsSync(cp1Path), 'Checkpoint must exist on disk');
+      const cp1 = JSON.parse(fs.readFileSync(cp1Path, 'utf8'));
+
+      assert.strictEqual(cp1.status, 'STOPPED');
+      assert.strictEqual(cp1.currentPage, 1);
+      assert.strictEqual(cp1.currentPageItemIndex, 1, 'Cursor must preserve stopped item index 1 (item 2)');
+      assert.strictEqual(cp1.currentItemIndex, 2, 'Active item index must be 2');
+      assert.strictEqual(cp1.currentActionOffset, 1, 'Cursor must preserve next action offset 1');
+      assert.deepStrictEqual(cp1.completedItemIndexes, [1], 'Only item 1 in completed items');
+      assert(cp1.activeItem, 'Active item must be preserved in checkpoint');
+      assert.strictEqual(cp1.activeItem.index, 2);
+
+      // 2. Resume run: create new runner with same runId and resumeFromCheckpoint: true
+      const resumedRunner = new LoopReplayRunner({
+        runId,
+        workflowId: 'wf_abort_resume',
+        resumeFromCheckpoint: true
+      });
+      resumedRunner.initDirectories();
+
+      const resumedExecutedActions = [];
+      resumedRunner.replayEngine = {
+        isPaused: false,
+        isAborted: false,
+        browserURL: 'http://127.0.0.1:9222',
+        connect: async () => ({
+          pages: async () => [mockPage]
+        }),
+        _ensureSelectorResolverInFrame: async () => {},
+        _setAutomatedAction: async () => {},
+        dismissOverlays: async () => {},
+        disconnect: async () => {},
+        executeAction: async () => ({ success: true }),
+        executeActionWithinItem: async (el, action, idx) => {
+          resumedExecutedActions.push({ item: el.__itemIndex, action: action.__actionIndex });
+          return { success: true };
+        }
+      };
+
+      const manifest2 = await resumedRunner.executeLoop(mockWorkflow, 1);
+
+      assert.strictEqual(manifest2.status, 'COMPLETED', 'Resumed run must complete successfully');
+      assert.strictEqual(manifest2.itemsSucceeded, 3, 'All 3 items must succeed');
+      assert.strictEqual(manifest2.itemsFailed, 0, 'No items should fail');
+      assert.strictEqual(manifest2.results.length, 3, 'Results must contain exactly 3 items without duplicates');
+
+      // Verify resumed actions:
+      // Item 0 was skipped (already succeeded).
+      // Item 1 only executed action 1 (action 0 was not re-executed!).
+      // Item 2 executed action 0 and action 1.
+      assert.deepStrictEqual(
+        resumedExecutedActions,
+        [
+          { item: 1, action: 1 },
+          { item: 2, action: 0 },
+          { item: 2, action: 1 }
+        ],
+        'Resumed execution must skip item 1 action 0 and continue from cursor'
+      );
+
+      const finalCp = JSON.parse(fs.readFileSync(path.join(resumedRunner.runsDir, 'checkpoint.json'), 'utf8'));
+      assert.strictEqual(finalCp.status, 'COMPLETED');
+      assert.strictEqual(finalCp.itemsSucceeded, 3);
+      assert.deepStrictEqual(finalCp.completedItemIndexes, [1, 2, 3]);
+    } finally {
+      ItemDiscovery.discover = origDiscover;
+      ItemDiscovery.getItemHandle = origGetItemHandle;
+      cleanRunDir(runId);
+    }
+    console.log('  ✅ Loop-specific abort and resume cursor preservation verified\n');
+  }
+
+  // --------------------------------------------------------------------------
+  // Test 6: Terminal cleanup on stop/abort
+  // --------------------------------------------------------------------------
+  console.log('🔹 Test 6: Terminal resource release and manifest consistency on abort');
   {
     const runId = `test_abort_${Date.now()}`;
     const runner = new LoopReplayRunner({ runId, workflowId: 'wf_abort' });
@@ -316,18 +550,18 @@ async function runTests() {
   }
 
   // --------------------------------------------------------------------------
-  // Test 6: Browser E2E validation against invoice portal fixture (if Chrome installed)
+  // Test 7: Browser E2E validation against invoice portal fixture (if Chrome installed)
   // --------------------------------------------------------------------------
-  console.log('🔹 Test 6: Four-item invoice portal E2E replay without stalling');
+  console.log('🔹 Test 7: Four-item invoice portal E2E replay without stalling');
   const chromePath = getChromeExecutablePath();
   if (!chromePath || !fs.existsSync(chromePath)) {
     console.log('  ⚠️ Google Chrome executable not found for live browser E2E test; skipping browser run.\n');
   } else {
-    const e2ePort = 9444;
+    const e2ePort = await getAvailablePort();
     const tempProfile = path.resolve(__dirname, `../tmp/chrome-loop-profile-test-${Date.now()}`);
     if (!fs.existsSync(tempProfile)) fs.mkdirSync(tempProfile, { recursive: true });
 
-    console.log(`  Spawning test Chrome instance on port ${e2ePort}...`);
+    console.log(`  Spawning test Chrome instance on dynamic port ${e2ePort}...`);
     const chromeProc = spawn(chromePath, [
       `--remote-debugging-port=${e2ePort}`,
       `--user-data-dir=${tempProfile}`,
@@ -353,7 +587,7 @@ async function runTests() {
     }
 
     if (!connected) {
-      chromeProc.kill();
+      await waitForProcessExit(chromeProc);
       throw new Error(`Chrome failed to connect on port ${e2ePort}`);
     }
 
@@ -433,10 +667,17 @@ async function runTests() {
       console.log('  ✅ Four-item invoice portal scenario completed with 100% success without stalling\n');
     } finally {
       cleanRunDir(runId);
-      chromeProc.kill();
-      try {
-        fs.rmSync(tempProfile, { recursive: true, force: true });
-      } catch {}
+      await waitForProcessExit(chromeProc);
+      if (fs.existsSync(tempProfile)) {
+        for (let attempt = 0; attempt < 5; attempt++) {
+          try {
+            fs.rmSync(tempProfile, { recursive: true, force: true });
+            break;
+          } catch {
+            await sleep(200);
+          }
+        }
+      }
     }
   }
 

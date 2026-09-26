@@ -400,6 +400,13 @@ class LoopReplayRunner {
     currentPageItemIndex = null,
     activeItem = null
   ) {
+    this._lastCursor = {
+      currentItemIndex,
+      currentActionOffset,
+      currentPage,
+      currentPageItemIndex,
+      activeItem
+    };
     const checkpoint = {
       runId: manifest.runId,
       workflowId: manifest.workflowId,
@@ -694,23 +701,15 @@ class LoopReplayRunner {
     }).catch(() => true);
 
     if (stillClosed) {
-      const triggerCoords = await page.evaluate(() => {
-        const select = document.querySelector('mat-select .mat-mdc-select-trigger, mat-select .mat-mdc-select-value, mat-select, [role="combobox"]');
-        if (!select) return null;
-        const rect = select.getBoundingClientRect();
-        return {
-          x: rect.x + rect.width / 2,
-          y: rect.y + rect.height / 2
-        };
-      }).catch(() => null);
-
-      if (triggerCoords) {
-        if (this.replayEngine) await this.replayEngine._setAutomatedAction(true);
+      const selectHandle = await page.$('mat-select .mat-mdc-select-trigger, mat-select .mat-mdc-select-value, mat-select, [role="combobox"]').catch(() => null);
+      if (selectHandle) {
         try {
-          await page.mouse.click(triggerCoords.x, triggerCoords.y);
+          if (this.replayEngine) await this.replayEngine._setAutomatedAction(true, selectHandle);
+          await selectHandle.click();
           await new Promise(r => setTimeout(r, 600));
         } finally {
           if (this.replayEngine) await this.replayEngine._setAutomatedAction(false);
+          await selectHandle.dispose().catch(() => {});
         }
       }
     }
@@ -1022,6 +1021,13 @@ class LoopReplayRunner {
       manifest.activeItem = checkpoint.activeItem || null;
     }
     this.manifest = manifest;
+    this._lastCursor = checkpoint ? {
+      currentItemIndex: checkpoint.currentItemIndex ?? null,
+      currentActionOffset: checkpoint.currentActionOffset ?? null,
+      currentPage: checkpoint.currentPage ?? 1,
+      currentPageItemIndex: checkpoint.currentPageItemIndex ?? null,
+      activeItem: checkpoint.activeItem ?? null
+    } : null;
 
     logger.info(`[Loop Runner] Starting execution run ${this.runId} for workflow "${workflow.name}"`);
     onProgress({ status: checkpoint ? 'RESUMING' : 'STARTING', manifest, checkpoint });
@@ -1202,6 +1208,7 @@ class LoopReplayRunner {
         if (this.isAborted) {
           logger.warn(`[Loop Runner] Abort signal active before item #${i + 1}. Stopping loop.`);
           manifest.status = 'STOPPED';
+          this.writeLoopCheckpoint(manifest, null, 0, currentPage, i, null);
           break;
         }
 
@@ -1237,7 +1244,7 @@ class LoopReplayRunner {
             manifest.results.push(skippedResult);
             manifest.itemsSkipped = (manifest.itemsSkipped || 0) + 1;
             this.manifest = manifest;
-            this.writeLoopCheckpoint(manifest, skippedIndex, 0, currentPage, i, skippedResult);
+            this.writeLoopCheckpoint(manifest, null, 0, currentPage, i + 1, null);
             try {
               fs.writeFileSync(path.join(this.runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
             } catch {}
@@ -1276,7 +1283,7 @@ class LoopReplayRunner {
           manifest.results.push(skippedResult);
           manifest.itemsSkipped = (manifest.itemsSkipped || 0) + 1;
           this.manifest = manifest;
-          this.writeLoopCheckpoint(manifest, skippedIndex, 0, currentPage, i, skippedResult);
+          this.writeLoopCheckpoint(manifest, null, 0, currentPage, i + 1, null);
           try {
             fs.writeFileSync(path.join(this.runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
           } catch {}
@@ -1491,7 +1498,20 @@ class LoopReplayRunner {
             itemResult.status = 'STOPPED';
             itemResult.error = 'Execution stopped by user';
             manifest.status = 'STOPPED';
-            manifest.results.push(itemResult);
+            const existingIdx = manifest.results.findIndex(r => r.index === itemResult.index);
+            if (existingIdx >= 0) {
+              manifest.results[existingIdx] = itemResult;
+            } else {
+              manifest.results.push(itemResult);
+            }
+            this.writeLoopCheckpoint(
+              manifest,
+              itemResult.index,
+              nextActionOffset,
+              currentPage,
+              i,
+              itemResult
+            );
             break;
           }
           logger.error(`[Loop Runner] Error on item #${i + 1}: ${itemErr.message}`);
@@ -1522,7 +1542,12 @@ class LoopReplayRunner {
           }
         }
 
-        manifest.results.push(itemResult);
+        const existingIdx = manifest.results.findIndex(r => r.index === itemResult.index);
+        if (existingIdx >= 0) {
+          manifest.results[existingIdx] = itemResult;
+        } else {
+          manifest.results.push(itemResult);
+        }
         this.manifest = manifest;
         try {
           fs.writeFileSync(path.join(this.runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
@@ -1598,7 +1623,9 @@ class LoopReplayRunner {
 
       manifest.status = this.isAborted ? 'STOPPED' : (manifest.itemsFailed > 0 ? 'COMPLETED_WITH_ERRORS' : 'COMPLETED');
       manifest.endTime = new Date().toISOString();
-      this.writeLoopCheckpoint(manifest, null, null, currentPage, null, null);
+      if (!this.isAborted) {
+        this.writeLoopCheckpoint(manifest, null, null, currentPage, null, null);
+      }
       logger.success(`\n[Loop Runner] Run ${this.runId} ${manifest.status}! Succeeded: ${manifest.itemsSucceeded}, Failed: ${manifest.itemsFailed}`);
 
     } catch (err) {
@@ -1617,7 +1644,18 @@ class LoopReplayRunner {
       }
 
       try {
-        this.writeLoopCheckpoint(manifest, null, null, currentPage, null, null);
+        if (this.isAborted && this._lastCursor) {
+          this.writeLoopCheckpoint(
+            manifest,
+            this._lastCursor.currentItemIndex,
+            this._lastCursor.currentActionOffset,
+            this._lastCursor.currentPage || currentPage,
+            this._lastCursor.currentPageItemIndex,
+            this._lastCursor.activeItem
+          );
+        } else if (manifest.status === 'COMPLETED' || manifest.status === 'COMPLETED_WITH_ERRORS') {
+          this.writeLoopCheckpoint(manifest, null, null, currentPage, null, null);
+        }
       } catch (cpErr) {
         logger.warn(`[Loop Runner] Warning writing final checkpoint: ${cpErr.message}`);
       }
