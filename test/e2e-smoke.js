@@ -2,92 +2,60 @@
  * End-to-End Smoke Test for Workflow Capture & Replay
  * 
  * Verifies:
- * 1. Spawning Chrome with --remote-debugging-port=9222
+ * 1. Spawning isolated Chrome fixture with dynamic collision-free port and temporary profile
  * 2. Recorder script injection and real-time action capture
  * 3. Input debouncing & password value redaction
  * 4. Persistence to recording JSON schema
  * 5. ReplayEngine condition-based waiting on dynamic elements
  * 6. 100% action reproduction fidelity
+ * 7. Reliable Chrome shutdown and temporary profile cleanup
  */
 
-const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const puppeteer = require('puppeteer-core');
 const RecorderBridge = require('../src/recorder/recorder-bridge');
 const ReplayEngine = require('../src/replay/replay-engine');
 const logger = require('../src/utils/logger');
+const { createChromeFixture } = require('./helpers/chrome-fixture');
 
-const CHROME_PATH = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
-const DEBUG_PORT = 9222;
 const MOCK_PORTAL_PATH = path.resolve(__dirname, 'mock-portal.html');
 const MOCK_PORTAL_URL = `file://${MOCK_PORTAL_PATH.replace(/\\/g, '/')}`;
-const TEMP_PROFILE_DIR = path.resolve(__dirname, '../tmp/chrome-test-profile');
 
 async function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function startTestChrome() {
-  if (!fs.existsSync(TEMP_PROFILE_DIR)) {
-    fs.mkdirSync(TEMP_PROFILE_DIR, { recursive: true });
-  }
-
-  logger.info(`Spawning test Chrome instance on port ${DEBUG_PORT}...`);
-  const chromeProcess = spawn(CHROME_PATH, [
-    `--remote-debugging-port=${DEBUG_PORT}`,
-    `--user-data-dir=${TEMP_PROFILE_DIR}`,
-    '--headless=new',
-    '--no-first-run',
-    '--no-default-browser-check',
-    MOCK_PORTAL_URL
-  ], { detached: false });
-
-  // Wait for CDP port to be responsive
-  let connected = false;
-  for (let i = 0; i < 20; i++) {
-    await sleep(500);
-    try {
-      const browser = await puppeteer.connect({
-        browserURL: `http://localhost:${DEBUG_PORT}`,
-        defaultViewport: { width: 1280, height: 800 }
-      });
-      await browser.disconnect();
-      connected = true;
-      break;
-    } catch {}
-  }
-
-  if (!connected) {
-    chromeProcess.kill();
-    throw new Error('Timed out waiting for Chrome CDP port 9222 to open.');
-  }
-
-  logger.success('Test Chrome instance started successfully.');
-  return chromeProcess;
-}
-
 async function runSmokeTest() {
-  let chromeProcess = null;
-  const recordingName = `smoke-test-${Date.now()}`;
+  let fixture = null;
+  const runSuffix = `${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+  const recordingName = `smoke-test-${runSuffix}`;
 
   try {
-    chromeProcess = await startTestChrome();
+    fixture = await createChromeFixture({
+      initialUrl: MOCK_PORTAL_URL,
+      prefix: 'chrome-smoke-profile',
+      startupTimeoutMs: 15000,
+      shutdownTimeoutMs: 8000
+    });
+
+    const browserURL = fixture.browserURL;
 
     // ----------------------------------------------------
     // PHASE 1: RECORDING
     // ----------------------------------------------------
-    logger.header('PHASE 1: Starting Recorder');
+    logger.header(`PHASE 1: Starting Recorder on [${browserURL}]`);
     const recorder = new RecorderBridge({
       name: recordingName,
-      browserURL: `http://localhost:${DEBUG_PORT}`
+      browserURL
     });
 
     await recorder.start();
 
     // Attach Puppeteer helper to simulate real user actions in page
     const directBrowser = await puppeteer.connect({
-      browserURL: `http://localhost:${DEBUG_PORT}`,
+      browserURL,
       defaultViewport: null
     });
     const pages = await directBrowser.pages();
@@ -174,7 +142,7 @@ async function runSmokeTest() {
     logger.header('PHASE 3: Replaying Workflow from Clean Page State');
 
     // Reload the mock portal to reset all inputs & status
-    const resetBrowser = await puppeteer.connect({ browserURL: `http://localhost:${DEBUG_PORT}` });
+    const resetBrowser = await puppeteer.connect({ browserURL });
     const resetPages = await resetBrowser.pages();
     const resetPage = resetPages.find(p => p.url().includes('mock-portal.html')) || resetPages[0];
     resetPage.on('dialog', async dialog => await dialog.dismiss());
@@ -184,7 +152,7 @@ async function runSmokeTest() {
     logger.info('Portal reloaded. Executing ReplayEngine...');
 
     const engine = new ReplayEngine({
-      browserURL: `http://localhost:${DEBUG_PORT}`,
+      browserURL,
       speed: 2.0, // 2x speed for fast smoke test
       timeoutMs: 6000
     });
@@ -195,7 +163,7 @@ async function runSmokeTest() {
     // PHASE 4: ASSERTING FINAL DOM STATE
     // ----------------------------------------------------
     logger.header('PHASE 4: Verifying Final Page State After Replay');
-    const verifyBrowser = await puppeteer.connect({ browserURL: `http://localhost:${DEBUG_PORT}` });
+    const verifyBrowser = await puppeteer.connect({ browserURL });
     const verifyPages = await verifyBrowser.pages();
     const verifyPage = verifyPages.find(p => p.url().includes('mock-portal.html')) || verifyPages[0];
 
@@ -229,9 +197,10 @@ async function runSmokeTest() {
     logger.divider();
 
   } finally {
-    if (chromeProcess) {
-      logger.info('Terminating test Chrome instance...');
-      chromeProcess.kill('SIGKILL');
+    if (fixture) {
+      logger.info('Terminating test Chrome instance and cleaning up profile...');
+      await fixture.cleanup();
+      logger.info('Closed test Chrome instance and removed temporary profile.');
     }
   }
 }

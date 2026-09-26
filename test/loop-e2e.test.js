@@ -2,84 +2,48 @@
  * End-to-End Loop Replay & Batch Download Test
  * 
  * Verifies:
- * 1. Connecting to headless Chrome via CDP
+ * 1. Connecting to headless Chrome via CDP using an isolated Chrome fixture
  * 2. Navigating to the invoice table portal
  * 3. Detecting table row repeating pattern from a single row click
  * 4. Iterating over all 4 table rows and clicking Download
  * 5. CDP download interception capturing all 4 files
  * 6. Verifying manifest.json output and file integrity
+ * 7. Ensuring clean, isolated profile and process lifecycle without port or profile collisions
  */
 
-const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const puppeteer = require('puppeteer-core');
+const crypto = require('crypto');
 const assert = require('assert');
 const LoopReplayRunner = require('../src/replay/loop-replay-runner');
 const logger = require('../src/utils/logger');
+const { createChromeFixture } = require('./helpers/chrome-fixture');
 
-const CHROME_PATH = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
-const DEBUG_PORT = 9222;
 const PORTAL_PATH = path.resolve(__dirname, 'invoices-portal.html');
 const PORTAL_URL = `file://${PORTAL_PATH.replace(/\\/g, '/')}`;
-const TEMP_PROFILE = path.resolve(__dirname, '../tmp/chrome-loop-profile');
-
-async function sleep(ms) {
-  return new Promise(r => setTimeout(r, ms));
-}
-
-async function startChrome() {
-  if (!fs.existsSync(TEMP_PROFILE)) {
-    fs.mkdirSync(TEMP_PROFILE, { recursive: true });
-  }
-
-  logger.info(`Starting Headless Chrome on port ${DEBUG_PORT}...`);
-  const chromeProc = spawn(CHROME_PATH, [
-    `--remote-debugging-port=${DEBUG_PORT}`,
-    `--user-data-dir=${TEMP_PROFILE}`,
-    '--headless=new',
-    '--no-first-run',
-    '--no-default-browser-check',
-    '--disable-background-networking',
-    '--disable-component-update',
-    '--disable-default-apps',
-    '--disable-extensions',
-    PORTAL_URL
-  ], { detached: false });
-
-  let connected = false;
-  for (let i = 0; i < 20; i++) {
-    await sleep(500);
-    try {
-      const browser = await puppeteer.connect({ browserURL: `http://localhost:${DEBUG_PORT}` });
-      await browser.disconnect();
-      connected = true;
-      break;
-    } catch {}
-  }
-
-  if (!connected) {
-    chromeProc.kill();
-    throw new Error('Chrome failed to start on port 9222');
-  }
-
-  return chromeProc;
-}
 
 async function runLoopE2E() {
-  let chromeProc = null;
-  const runId = `e2e_loop_${Date.now()}`;
+  let fixture = null;
+  const runSuffix = `${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+  const runId = `e2e_loop_${runSuffix}`;
+  const workflowId = `wf_invoice_download_${runSuffix}`;
+  const workflowName = `Invoice Downloader ${runSuffix}`;
 
   try {
-    chromeProc = await startChrome();
+    fixture = await createChromeFixture({
+      initialUrl: PORTAL_URL,
+      prefix: 'chrome-loop-profile',
+      startupTimeoutMs: 15000,
+      shutdownTimeoutMs: 8000
+    });
 
-    // 1. Mock a recorded single-item workflow
+    // 1. Mock a recorded single-item workflow with unique identity per run
     const mockWorkflow = {
-      id: 'wf_invoice_download',
-      name: 'Invoice Downloader',
+      id: workflowId,
+      name: workflowName,
       steps: [
         { type: 'NAVIGATE', url: PORTAL_URL },
-                {
+        {
           type: 'CLICK',
           target: {
             candidates: [
@@ -129,8 +93,21 @@ async function runLoopE2E() {
       ]
     };
 
-    logger.header(`Starting Intelligent Loop Replay on 4 Invoices`);
-    const runner = new LoopReplayRunner({ cdpPort: DEBUG_PORT, runId });
+    logger.header(`Starting Intelligent Loop Replay on 4 Invoices [Port: ${fixture.port}]`);
+    const runner = new LoopReplayRunner({
+      cdpPort: fixture.port,
+      runId,
+      workflowId,
+      workflowName
+    });
+    runner.replayEngine.browserURL = fixture.browserURL;
+
+    // Headless automated test safeguard: auto-resume if synthetic keyboard/event triggers disturbance pause
+    runner.replayEngine.on('paused', (event) => {
+      logger.info(`[Test] Replay paused (${event?.reason || 'unknown'}), auto-resuming in test mode...`);
+      runner.replayEngine.resume().catch(() => {});
+    });
+
     const manifest = await runner.executeLoop(mockWorkflow, 1);
 
     // 2. Assert results
@@ -153,9 +130,9 @@ async function runLoopE2E() {
     logger.success(`\n🎉 Verified: Loop runner successfully generalized 2 row actions to 4 table items with 100% success!`);
 
   } finally {
-    if (chromeProc) {
-      chromeProc.kill();
-      logger.info('Closed test Chrome instance.');
+    if (fixture) {
+      await fixture.cleanup();
+      logger.info('Cleaned test Chrome instance and profile.');
     }
   }
 }
