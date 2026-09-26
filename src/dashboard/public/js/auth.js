@@ -7,30 +7,40 @@ export const Auth = {
   userKey: 'workflow_capture_user',
   
   getToken() {
-    return localStorage.getItem(this.tokenKey) || 'dev-testing-token';
+    return localStorage.getItem(this.tokenKey) || null;
   },
   
   getUser() {
     const user = localStorage.getItem(this.userKey);
-    return user ? JSON.parse(user) : {
-      id: 'dev_user_001',
-      username: 'Developer',
-      email: 'developer@workflowcapture.local'
-    };
+    if (!user) return null;
+    try {
+      return JSON.parse(user);
+    } catch {
+      return null;
+    }
   },
   
   setAuth(token, user) {
-    if (token) localStorage.setItem(this.tokenKey, token);
-    if (user) localStorage.setItem(this.userKey, JSON.stringify(user));
+    if (token) {
+      localStorage.setItem(this.tokenKey, token);
+    } else {
+      localStorage.removeItem(this.tokenKey);
+    }
+    if (user) {
+      const userStr = typeof user === 'string' ? user : JSON.stringify(user);
+      localStorage.setItem(this.userKey, userStr);
+    } else {
+      localStorage.removeItem(this.userKey);
+    }
   },
   
   clearAuth() {
-    // Keep dev session intact so dashboard is always open
-    localStorage.setItem(this.tokenKey, 'dev-testing-token');
+    localStorage.removeItem(this.tokenKey);
+    localStorage.removeItem(this.userKey);
   },
   
   isLoggedIn() {
-    return true;
+    return Boolean(this.getToken());
   },
 
   /**
@@ -53,6 +63,12 @@ export const Auth = {
     };
     
     const response = await fetch(url, fetchOptions);
+    if (response.status === 401 && !url.includes('/api/auth/me')) {
+      this.clearAuth();
+      if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+        window.dispatchEvent(new CustomEvent('auth:logout'));
+      }
+    }
     return response;
   }
 };

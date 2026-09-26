@@ -228,6 +228,34 @@ async function runDashboardSecurityTests() {
     assert(loginRes.data.token, 'Login should return token');
     assert(loginRes.headers['set-cookie'], 'Login should return Set-Cookie header');
 
+    // 2b. Failed login with wrong password returns 401 with error message and no token
+    const wrongPassRes = await makeRequest(testPort, {
+      path: '/api/auth/login',
+      method: 'POST',
+      headers: { 'content-type': 'application/json' }
+    }, { email: testEmail, password: 'WrongPassword123!' });
+    assert.strictEqual(wrongPassRes.statusCode, 401, 'Login with wrong password must return 401');
+    assert.strictEqual(wrongPassRes.data.error, 'Invalid email/username or password');
+    assert.strictEqual(wrongPassRes.data.token, undefined);
+
+    // 2c. Failed login with non-existent user returns 401 with error message
+    const nonexistentUserRes = await makeRequest(testPort, {
+      path: '/api/auth/login',
+      method: 'POST',
+      headers: { 'content-type': 'application/json' }
+    }, { email: 'nonexistent@example.com', password: testPass });
+    assert.strictEqual(nonexistentUserRes.statusCode, 401, 'Login with non-existent user must return 401');
+    assert.strictEqual(nonexistentUserRes.data.error, 'Invalid email/username or password');
+
+    // 2d. Missing credentials returns 400
+    const missingCredRes = await makeRequest(testPort, {
+      path: '/api/auth/login',
+      method: 'POST',
+      headers: { 'content-type': 'application/json' }
+    }, { email: '', password: '' });
+    assert.strictEqual(missingCredRes.statusCode, 400, 'Login with blank credentials must return 400');
+    assert.strictEqual(missingCredRes.data.error, 'Email/Username and password are required');
+
     // 3. Access protected route with Bearer token
     const authMeRes = await makeRequest(testPort, {
       path: '/api/auth/me',
