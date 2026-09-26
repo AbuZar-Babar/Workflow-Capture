@@ -1,20 +1,20 @@
 /**
  * Workflow Capture — Authentication Controller
- * 
+ *
  * Handles registration, login, profile queries, and token management.
  */
 
 const { db } = require('../database/db');
 const { hashPassword, verifyPassword } = require('./password-util');
 const { signToken } = require('./token-service');
+const { isDevBypassEnabled } = require('./auth-middleware');
 
-function sendJson(res, statusCode, data) {
-  res.writeHead(statusCode, {
+function sendJson(res, statusCode, data, extraHeaders = {}) {
+  const headers = {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
-  });
+    ...extraHeaders
+  };
+  res.writeHead(statusCode, headers);
   res.end(JSON.stringify(data));
 }
 
@@ -75,6 +75,8 @@ async function register(req, res, body) {
         createdAt: newUser.createdAt
       },
       token
+    }, {
+      'Set-Cookie': `token=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict`
     });
   } catch (err) {
     console.error('[Auth Error] Registration failure:', err);
@@ -125,6 +127,8 @@ async function login(req, res, body) {
         createdAt: user.createdAt
       },
       token
+    }, {
+      'Set-Cookie': `token=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict`
     });
   } catch (err) {
     console.error('[Auth Error] Login failure:', err);
@@ -135,9 +139,14 @@ async function login(req, res, body) {
 /**
  * Quick Bypass / Dummy Login for Development & Testing
  * POST /api/auth/dummy-login
+ * Strictly gated behind explicit development bypass on loopback.
  */
 async function dummyLogin(req, res) {
   try {
+    if (!isDevBypassEnabled()) {
+      return sendJson(res, 403, { error: 'Forbidden: Developer dummy login is disabled in secure mode' });
+    }
+
     let user = db.findOne('users', u => u.email === 'abuzarbabar53@gmail.com');
     if (!user) {
       const allUsers = db.findAll('users');
@@ -168,13 +177,14 @@ async function dummyLogin(req, res) {
         createdAt: user.createdAt
       },
       token
+    }, {
+      'Set-Cookie': `token=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict`
     });
   } catch (err) {
     console.error('[Auth Error] Dummy login failure:', err);
     return sendJson(res, 500, { error: 'Internal server error during dummy login' });
   }
 }
-
 
 /**
  * Fetch authenticated user profile
@@ -198,6 +208,8 @@ async function logout(req, res) {
   return sendJson(res, 200, {
     success: true,
     message: 'Logged out successfully'
+  }, {
+    'Set-Cookie': 'token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict'
   });
 }
 

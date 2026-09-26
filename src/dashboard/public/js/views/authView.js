@@ -20,85 +20,88 @@ export const AuthView = {
     this.logoutBtn = document.getElementById('btnLogout');
     this.dummyLoginBtn = document.getElementById('btnDummyLogin');
 
-    // Ensure overlay is strictly hidden
-    if (this.overlay) {
-      this.overlay.style.setProperty('display', 'none', 'important');
-      this.overlay.classList.add('hidden');
-    }
-
-    // Global bypass helper
+    // Global bypass helper (strictly gated by server response)
     window.quickEnterDashboard = async () => {
-      try {
-        const res = await Api.dummyLogin();
-        if (res && res.token) {
-          Auth.setAuth(res.token, res.user);
-        }
-      } catch (err) {
-        // Silently use dev fallback token
-      }
-      this.checkAuth();
+      await this.handleDummyLogin();
     };
 
     this.bindEvents();
-    
-    // Always enter dashboard directly without showing login page
+    this.render();
+
+    // Verify authenticated session against /api/auth/me on startup
     this.checkAuth();
-    window.quickEnterDashboard();
   },
   
   bindEvents() {
-    this.toggleModeBtn.onclick = (e) => {
-      e.preventDefault();
-      this.isLoginMode = !this.isLoginMode;
-      this.render();
-    };
+    if (this.toggleModeBtn) {
+      this.toggleModeBtn.onclick = (e) => {
+        e.preventDefault();
+        this.isLoginMode = !this.isLoginMode;
+        this.render();
+      };
+    }
 
-    this.form.onsubmit = async (e) => {
-      e.preventDefault();
-      this.submitBtn.disabled = true;
-      this.submitBtn.innerText = 'Please wait...';
-      
-      try {
-        const email = this.emailInput.value ? this.emailInput.value.trim() : '';
-        const password = this.passwordInput.value;
-        
-        // If the user clicks Login with blank or arbitrary demo values, seamless dummy login
-        if (!email && !password) {
-          const res = await Api.dummyLogin();
-          Auth.setAuth(res.token, res.user);
-          Toast.show('Logged in (Testing mode)', 'success');
-        } else if (this.isLoginMode) {
-          try {
-            const res = await Api.login(email, password);
-            Auth.setAuth(res.token, res.user);
-            Toast.show('Logged in successfully', 'success');
-          } catch (loginErr) {
-            // If testing phase, fall back gracefully to dummy session so user is never blocked
-            console.warn('Regular login failed, fallback to dummy session:', loginErr);
-            const res = await Api.dummyLogin();
-            Auth.setAuth(res.token, res.user);
-            Toast.show('Logged in as testing user', 'success');
-          }
-        } else {
-          const username = this.usernameInput.value;
-          const res = await Api.signup(username, email, password);
-          Auth.setAuth(res.token, res.user);
-          Toast.show('Account created successfully', 'success');
+    if (this.form) {
+      this.form.onsubmit = async (e) => {
+        e.preventDefault();
+        if (this.submitBtn) {
+          this.submitBtn.disabled = true;
+          this.submitBtn.innerText = 'Please wait...';
         }
         
-        this.checkAuth(); // This will hide the overlay and trigger router updates
-      } catch (err) {
-        Toast.show(err.message, 'error');
-      } finally {
-        this.submitBtn.disabled = false;
-        this.render();
-      }
-    };
+        try {
+          const email = this.emailInput && this.emailInput.value ? this.emailInput.value.trim() : '';
+          const password = this.passwordInput && this.passwordInput.value ? this.passwordInput.value : '';
+
+          if (this.isLoginMode) {
+            if (!email || !password) {
+              throw new Error('Email/Username and password are required');
+            }
+
+            const res = await Api.login(email, password);
+            if (res && res.token) {
+              Auth.setAuth(res.token, res.user);
+              Toast.show('Logged in successfully', 'success');
+              if (this.emailInput) this.emailInput.value = '';
+              if (this.passwordInput) this.passwordInput.value = '';
+              this.hideLoginForm();
+            } else {
+              throw new Error('Login failed: Invalid server response');
+            }
+          } else {
+            const username = this.usernameInput && this.usernameInput.value ? this.usernameInput.value.trim() : '';
+            if (!username || !email || !password) {
+              throw new Error('Username, email, and password are required');
+            }
+
+            const res = await Api.signup(username, email, password);
+            if (res && res.token) {
+              Auth.setAuth(res.token, res.user);
+              Toast.show('Account created successfully', 'success');
+              if (this.usernameInput) this.usernameInput.value = '';
+              if (this.emailInput) this.emailInput.value = '';
+              if (this.passwordInput) this.passwordInput.value = '';
+              this.hideLoginForm();
+            } else {
+              throw new Error('Registration failed: Invalid server response');
+            }
+          }
+        } catch (err) {
+          // Do not silently fall back to dummy login when real credentials fail. Show a useful error and keep the login form available.
+          Toast.show(err.message || 'Authentication failed', 'error');
+        } finally {
+          if (this.submitBtn) {
+            this.submitBtn.disabled = false;
+          }
+          this.render();
+        }
+      };
+    }
 
     if (this.dummyLoginBtn) {
-      this.dummyLoginBtn.onclick = (e) => {
+      this.dummyLoginBtn.onclick = async (e) => {
         e.preventDefault();
-        window.quickEnterDashboard();
+        await this.handleDummyLogin();
       };
     }
     
@@ -106,42 +109,109 @@ export const AuthView = {
       this.logoutBtn.onclick = async () => {
         try {
           await Api.logout();
-        } catch(e) {} // Ignore error if token expired
+        } catch (err) {
+          console.warn('Server logout notice:', err);
+        }
         Auth.clearAuth();
-        this.checkAuth();
-        Toast.show('Logged out', 'success');
+        if (this.emailInput) this.emailInput.value = '';
+        if (this.passwordInput) this.passwordInput.value = '';
+        if (this.usernameInput) this.usernameInput.value = '';
+        this.showLoginForm();
+        Toast.show('Logged out successfully', 'success');
       };
     }
     
-    // Listen for 401s from authenticatedFetch
+    // Listen for 401s from authenticatedFetch or session expiry
     window.addEventListener('auth:logout', () => {
-      this.checkAuth();
+      Auth.clearAuth();
+      this.showLoginForm();
     });
+  },
+
+  async handleDummyLogin() {
+    if (this.dummyLoginBtn) {
+      this.dummyLoginBtn.disabled = true;
+    }
+    try {
+      const res = await Api.dummyLogin();
+      if (res && res.token) {
+        Auth.setAuth(res.token, res.user);
+        Toast.show('Logged in with developer bypass', 'success');
+        this.hideLoginForm();
+      } else {
+        throw new Error('Developer bypass failed');
+      }
+    } catch (err) {
+      Toast.show(err.message || 'Developer bypass is disabled in secure mode', 'error');
+    } finally {
+      if (this.dummyLoginBtn) {
+        this.dummyLoginBtn.disabled = false;
+      }
+    }
   },
   
   render() {
     if (this.isLoginMode) {
-      this.subtitle.innerText = 'Log in to your account';
-      this.usernameGroup.style.display = 'none';
-      this.usernameInput.removeAttribute('required');
-      this.submitBtn.innerText = 'Log In';
-      this.toggleModeText.innerText = "Don't have an account? ";
-      this.toggleModeBtn.innerText = 'Sign up';
+      if (this.subtitle) this.subtitle.innerText = 'Log in to your account';
+      if (this.usernameGroup) this.usernameGroup.style.display = 'none';
+      if (this.usernameInput) this.usernameInput.removeAttribute('required');
+      if (this.submitBtn) this.submitBtn.innerText = 'Log In';
+      if (this.toggleModeText) this.toggleModeText.innerText = "Don't have an account? ";
+      if (this.toggleModeBtn) this.toggleModeBtn.innerText = 'Sign up';
     } else {
-      this.subtitle.innerText = 'Create a new account';
-      this.usernameGroup.style.display = 'flex';
-      this.usernameInput.setAttribute('required', 'true');
-      this.submitBtn.innerText = 'Sign Up';
-      this.toggleModeText.innerText = "Already have an account? ";
-      this.toggleModeBtn.innerText = 'Log in';
+      if (this.subtitle) this.subtitle.innerText = 'Create a new account';
+      if (this.usernameGroup) this.usernameGroup.style.display = 'flex';
+      if (this.usernameInput) this.usernameInput.setAttribute('required', 'true');
+      if (this.submitBtn) this.submitBtn.innerText = 'Sign Up';
+      if (this.toggleModeText) this.toggleModeText.innerText = "Already have an account? ";
+      if (this.toggleModeBtn) this.toggleModeBtn.innerText = 'Log in';
     }
   },
   
-  checkAuth() {
+  showLoginForm() {
     if (this.overlay) {
-      this.overlay.style.setProperty('display', 'none', 'important');
-      this.overlay.classList.add('hidden');
+      this.overlay.classList.remove('hidden');
+      this.overlay.style.removeProperty('display');
+      this.overlay.style.removeProperty('visibility');
+      this.overlay.style.removeProperty('pointer-events');
+      this.overlay.style.display = 'flex';
+      this.overlay.style.zIndex = '10000';
     }
-    window.dispatchEvent(new CustomEvent('auth:status', { detail: { loggedIn: true } }));
+    if (this.logoutBtn) {
+      this.logoutBtn.style.display = 'none';
+    }
+    window.dispatchEvent(new CustomEvent('auth:status', { detail: { loggedIn: false } }));
+  },
+
+  hideLoginForm() {
+    if (this.overlay) {
+      this.overlay.classList.add('hidden');
+      this.overlay.style.display = 'none';
+    }
+    if (this.logoutBtn) {
+      this.logoutBtn.style.display = '';
+    }
+    window.dispatchEvent(new CustomEvent('auth:status', { detail: { loggedIn: true, user: Auth.getUser() } }));
+  },
+
+  async checkAuth() {
+    try {
+      const res = await Auth.authenticatedFetch('/api/auth/me');
+      if (res && res.ok) {
+        const data = await res.json();
+        if (data && data.user) {
+          Auth.setAuth(Auth.getToken(), data.user);
+          this.hideLoginForm();
+          return true;
+        }
+      }
+    } catch (err) {
+      console.warn('Session verification check failed:', err);
+    }
+
+    // No valid authenticated session: clear client auth and show login form
+    Auth.clearAuth();
+    this.showLoginForm();
+    return false;
   }
 };
