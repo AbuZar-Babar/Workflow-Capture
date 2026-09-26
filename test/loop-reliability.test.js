@@ -113,15 +113,17 @@ async function withTestChrome(options, fn) {
     options = {};
   }
 
-  const chromePath = getChromeExecutablePath();
-  if (!chromePath || !fs.existsSync(chromePath)) {
+  const chromePath = options.chromePath || options.executablePath || getChromeExecutablePath();
+  if (!options.chromePath && (!chromePath || !fs.existsSync(chromePath))) {
     console.log('  ⚠️ Google Chrome executable not found; skipping live browser test.\n');
     return null;
   }
 
   const port = options.port || await getAvailablePort();
-  const tempProfile = path.resolve(__dirname, `../tmp/chrome-test-profile-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-  fs.mkdirSync(tempProfile, { recursive: true });
+  const tempProfile = options.tempProfile || path.resolve(__dirname, `../tmp/chrome-test-profile-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  if (!fs.existsSync(tempProfile)) {
+    fs.mkdirSync(tempProfile, { recursive: true });
+  }
 
   let chromeProc = null;
   let exitConfirmed = false;
@@ -142,12 +144,45 @@ async function withTestChrome(options, fn) {
 
     chromeProc = spawn(chromePath, chromeArgs, { detached: false });
 
+    // Handle asynchronous error and exit events on chromeProc
+    let spawnError = null;
+    let prematureExit = null;
+    chromeProc.on('error', (err) => {
+      spawnError = err;
+    });
+    chromeProc.on('exit', (code, signal) => {
+      if (!connected) {
+        prematureExit = { code, signal };
+      }
+    });
+
+    // Allow any immediate asynchronous spawn error (e.g. ENOENT/EACCES) to be captured
+    await new Promise(resolve => setImmediate(resolve));
+    if (spawnError) {
+      throw new Error(`Failed to spawn Chrome process at "${chromePath}": ${spawnError.message}`);
+    }
+
     const maxRetries = options.maxConnectRetries !== undefined ? options.maxConnectRetries : 25;
     const retryDelay = options.connectRetryDelayMs || 200;
     let connected = false;
 
     for (let i = 0; i < maxRetries; i++) {
+      if (spawnError) {
+        throw new Error(`Failed to spawn Chrome process at "${chromePath}": ${spawnError.message}`);
+      }
+      if (prematureExit) {
+        throw new Error(`Chrome process exited prematurely with code ${prematureExit.code}, signal ${prematureExit.signal}`);
+      }
+
       await sleep(retryDelay);
+
+      if (spawnError) {
+        throw new Error(`Failed to spawn Chrome process at "${chromePath}": ${spawnError.message}`);
+      }
+      if (prematureExit) {
+        throw new Error(`Chrome process exited prematurely with code ${prematureExit.code}, signal ${prematureExit.signal}`);
+      }
+
       try {
         const b = await puppeteer.connect({ browserURL: `http://127.0.0.1:${port}` });
         await b.disconnect();
@@ -157,18 +192,30 @@ async function withTestChrome(options, fn) {
     }
 
     if (!connected) {
+      if (spawnError) {
+        throw new Error(`Failed to spawn Chrome process at "${chromePath}": ${spawnError.message}`);
+      }
+      if (prematureExit) {
+        throw new Error(`Chrome process exited prematurely with code ${prematureExit.code}, signal ${prematureExit.signal}`);
+      }
       throw new Error(`Chrome failed to connect on port ${port} during startup`);
     }
 
     return await fn({ port, chromeProc, tempProfile });
   } finally {
     if (chromeProc) {
-      try {
-        await waitForProcessExit(chromeProc, options.killTimeoutMs || 7000);
+      const pid = chromeProc.pid;
+      if (typeof pid === 'number' && isProcessAlive(pid)) {
+        try {
+          await waitForProcessExit(chromeProc, options.killTimeoutMs || 7000);
+          exitConfirmed = true;
+        } catch (exitErr) {
+          console.error(`⚠️ Child process PID ${chromeProc.pid} failed to exit: ${exitErr.message}. Preserving temporary profile at: ${tempProfile}`);
+          throw exitErr;
+        }
+      } else {
+        // Process is either dead or never successfully spawned
         exitConfirmed = true;
-      } catch (exitErr) {
-        console.error(`⚠️ Child process PID ${chromeProc.pid} failed to exit: ${exitErr.message}. Preserving temporary profile at: ${tempProfile}`);
-        throw exitErr;
       }
     } else {
       exitConfirmed = true;
@@ -342,38 +389,35 @@ async function runTests() {
     await waitForProcessExit(normalProc, 3000);
     assert.strictEqual(isProcessAlive(normalPid), false, 'Process must be confirmed exited');
 
-    // 3. Startup-failure path cleans temporary profile in a finally-style flow only after confirmed exit
-    const failProfileDir = path.resolve(__dirname, `../tmp/test-startup-fail-${Date.now()}`);
-    fs.mkdirSync(failProfileDir, { recursive: true });
-    const failProc = spawn(process.execPath, ['-e', 'setInterval(()=>{}, 1000)']);
-    const failPid = failProc.pid;
-    let exitConfirmedOnFail = false;
-    let startupErrThrown = false;
+    // 3. Asynchronous spawn-error path in withTestChrome:
+    // When spawn fails asynchronously (e.g. invalid path / ENOENT), ensure it flows through cleanup:
+    // confirms no live child, removes the temporary profile when safe, and surfaces an actionable error.
+    const spawnErrProfile = path.resolve(__dirname, `../tmp/test-spawn-err-${Date.now()}`);
+    const nonExistentChrome = path.resolve(__dirname, `../tmp/non-existent-chrome-${Date.now()}`);
+    let spawnErrorCaught = false;
 
     try {
-      try {
-        throw new Error('Simulated startup failure: CDP port unreachable');
-      } finally {
-        if (failProc) {
-          try {
-            await waitForProcessExit(failProc, 3000);
-            exitConfirmedOnFail = true;
-          } catch (exitErr) {
-            console.error(`⚠️ Process PID ${failPid} remained alive: ${exitErr.message}. Preserving profile at ${failProfileDir}`);
-          }
-        }
-        if (exitConfirmedOnFail && fs.existsSync(failProfileDir)) {
-          fs.rmSync(failProfileDir, { recursive: true, force: true });
-        }
-      }
+      await withTestChrome({ chromePath: nonExistentChrome, tempProfile: spawnErrProfile }, async () => {
+        assert.fail('withTestChrome callback must not be invoked on spawn failure');
+      });
     } catch (err) {
-      startupErrThrown = true;
-      assert.strictEqual(err.message, 'Simulated startup failure: CDP port unreachable');
+      spawnErrorCaught = true;
+      assert(
+        err.message.includes(`Failed to spawn Chrome process at "${nonExistentChrome}"`),
+        `Actionable error must be surfaced with binary path, got: ${err.message}`
+      );
+      assert(
+        err.message.includes('ENOENT'),
+        `Actionable error must include underlying code, got: ${err.message}`
+      );
     }
 
-    assert.strictEqual(startupErrThrown, true, 'Startup failure error must bubble up');
-    assert.strictEqual(exitConfirmedOnFail, true, 'Process exit must be confirmed before profile cleanup');
-    assert.strictEqual(fs.existsSync(failProfileDir), false, 'Temporary profile must be cleaned after confirmed exit');
+    assert.strictEqual(spawnErrorCaught, true, 'Asynchronous spawn error must be caught and surfaced');
+    assert.strictEqual(
+      fs.existsSync(spawnErrProfile),
+      false,
+      'Temporary profile must be cleaned up in finally after asynchronous spawn error'
+    );
 
     // 4. If child process remains alive on failure, profile is preserved and PID + path reported
     const aliveProfileDir = path.resolve(__dirname, `../tmp/test-alive-fail-${Date.now()}`);
