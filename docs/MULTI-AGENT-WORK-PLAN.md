@@ -2,12 +2,12 @@
 
 **Status:** Ready for task assignment  
 **Planning branch:** `multi-agent`  
-**Baseline reviewed:** `113b920` (2026-09-27)
+**Baseline reviewed:** `62b8ef0` (2026-09-28)
 **Plan owner:** Integrator / project owner
 
 This plan turns the current integration state and confirmed product requirements into bounded work packages. Each package has one owner, a declared file scope, dependencies, acceptance criteria, and a handoff format. The loop/filter behavior is specified in [LOOP-FILTER-REQUIREMENTS.md](LOOP-FILTER-REQUIREMENTS.md). Tasks may be assigned to ChatGPT, Gemini, or another coding agent.
 
-Tasks 0–5 are integrated on `multi-agent`. Their owners reported task-level validation before merge; the combined application journey and real-portal behavior still require integration validation. No source behavior is considered validated by this plan alone.
+Tasks 0–5, 12, and 13 are integrated on `multi-agent`. Task-level validation evidence has been reviewed for all integrated tasks; the combined application journey and real-portal behavior still require integration validation. No source behavior is considered fully release-validated by this plan alone.
 
 ## Working rules
 
@@ -35,7 +35,7 @@ Suggested statuses: `READY`, `IN PROGRESS`, `BLOCKED`, `REVIEW`, `INTEGRATION`, 
 
 ## Shared loop/filter contract
 
-Use [LOOP-FILTER-REQUIREMENTS.md](LOOP-FILTER-REQUIREMENTS.md) as the frozen product contract for new work. Tasks 4 and 5 implemented the earlier v1 single-text-condition evaluator and review UI. Follow-up Tasks 12 and 13 extend those components to the confirmed multi-condition/date/limit behavior; Task 6 then wires the contract through API and runtime. Do not change the contract independently inside a task branch.
+Use [LOOP-FILTER-REQUIREMENTS.md](LOOP-FILTER-REQUIREMENTS.md) as the frozen product contract for new work. Tasks 4 and 5 implemented the earlier v1 single-text-condition evaluator and review UI. Tasks 12 and 13 have now extended those components to the confirmed multi-condition/date/limit behavior; Task 6 now wires the same contract through API and runtime. Do not change the contract independently inside a task branch.
 
 ## Task 0 — Establish the agent workboard
 
@@ -182,7 +182,7 @@ Use [LOOP-FILTER-REQUIREMENTS.md](LOOP-FILTER-REQUIREMENTS.md) as the frozen pro
 **Priority:** P1.
 **Goal:** connect preview, execution, persisted run state, and the shared evaluator.  
 **Owner:** one backend integration agent.  
-**Dependencies:** Tasks 1, 2, 12; Task 13 may proceed in parallel against the frozen contract.
+**Dependencies:** Tasks 1, 2, 12, and 13 integrated.
 **Allowed paths:** `src/api/run-controller.js`, `src/dashboard/server.js`, `src/dashboard/public/js/api.js`, `src/replay/loop-replay-runner.js`, `test/backend-api.test.js`, `test/row-filter-discrimination.test.js`, and new focused filter API tests.
 
 ### Subtasks
