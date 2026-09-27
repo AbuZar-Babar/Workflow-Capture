@@ -2078,10 +2078,60 @@
   user-select: none;
 }
 
-.exec-filter-inputs-grid {
+/* Match mode selector */
+.exec-match-mode-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-body);
+  padding: 0.15rem 0.1rem;
+}
+
+.exec-match-mode-label {
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.exec-match-select {
+  width: auto !important;
+  height: 30px !important;
+  padding: 0 0.6rem !important;
+  font-size: 0.75rem !important;
+  font-weight: 700 !important;
+}
+
+.exec-match-mode-suffix {
+  font-size: 0.74rem;
+  color: var(--text-sub);
+  font-weight: 500;
+}
+
+/* Multi-condition rows */
+.exec-conditions-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.exec-condition-row {
+  background: var(--card-bg);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 0.55rem 0.65rem;
+  transition: border-color 0.15s ease;
+}
+
+.exec-condition-row:hover {
+  border-color: rgba(59, 85, 217, 0.35);
+}
+
+.exec-condition-main-grid {
   display: grid;
-  grid-template-columns: 1.15fr 0.95fr 1.25fr;
-  gap: 0.55rem;
+  grid-template-columns: 1.15fr 0.95fr 1.55fr auto;
+  gap: 0.5rem;
   align-items: flex-end;
 }
 
@@ -2097,6 +2147,82 @@
   color: var(--text-sub);
 }
 
+.exec-value-group {
+  min-width: 0;
+}
+
+.exec-remove-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.exec-btn-remove-cond {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+  background: transparent;
+  color: var(--text-sub);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.exec-btn-remove-cond:hover:not(:disabled) {
+  color: var(--color-danger);
+  border-color: var(--color-danger-border);
+  background: var(--color-danger-bg);
+}
+
+.exec-btn-remove-cond:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.exec-date-range-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.exec-date-input {
+  flex: 1;
+  min-width: 0;
+  height: 34px !important;
+  padding: 0 0.45rem !important;
+  font-size: 0.74rem !important;
+}
+
+.exec-date-sep {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-sub);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.exec-custom-field-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* Loop Limit Control */
+.exec-limit-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.75rem 0.85rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+}
+
 .exec-control-input,
 .exec-control-select {
   width: 100%;
@@ -2109,13 +2235,18 @@
   color: var(--text-main);
   outline: none;
   font-family: inherit;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
 .exec-control-input:focus,
 .exec-control-select:focus {
   border-color: var(--brand-forest);
   box-shadow: 0 0 0 2px var(--brand-tint);
+}
+
+.exec-control-input.invalid {
+  border-color: var(--color-danger) !important;
+  background: var(--color-danger-bg) !important;
 }
 
 .exec-filter-rule-explainer {
@@ -2127,14 +2258,15 @@
 
 .exec-preview-counts-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: 0.55rem 0.75rem;
+  padding: 0.6rem 0.85rem;
   background: var(--card-bg);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-md);
-  font-size: 0.75rem;
+  font-size: 0.74rem;
 }
 
 .exec-preview-count-item {
@@ -2195,6 +2327,12 @@
   color: var(--color-warning);
 }
 
+.exec-sample-chip.skipped-limit {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+}
+
 .exec-alert-banner {
   display: flex;
   align-items: flex-start;
@@ -2238,12 +2376,49 @@
   color: #b45309;
 }
 
+/* ---------------- SKIPPED_LIMIT in Execution Monitor ---------------- */
+.execution-item-row.skipped-limit {
+  border-color: rgba(100, 116, 139, 0.3);
+  background: #f8fafc;
+}
+
+.skipped-limit .execution-item-icon {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.status-skipped-limit {
+  color: #64748b;
+  font-weight: 800;
+}
+
+.run-status-badge.skipped_limit {
+  background: #e2e8f0;
+  color: #475569;
+}
+
 @media (max-width: 600px) {
   .exec-preflight-grid {
     grid-template-columns: 1fr 1fr;
   }
-  .exec-filter-inputs-grid {
+  .exec-condition-main-grid {
     grid-template-columns: 1fr;
+    gap: 0.4rem;
+  }
+  .exec-date-range-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .exec-date-sep {
+    text-align: center;
+  }
+  .exec-remove-group {
+    align-items: flex-end;
+  }
+  .exec-preview-counts-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.4rem;
   }
 }
 
@@ -2265,6 +2440,8 @@
 
 [data-theme="dark"] .exec-preflight-metric,
 [data-theme="dark"] .exec-filter-mode-row,
+[data-theme="dark"] .exec-condition-row,
+[data-theme="dark"] .exec-limit-container,
 [data-theme="dark"] .exec-preview-counts-bar {
   background: rgba(30, 41, 59, 0.75);
   border-color: rgba(255, 255, 255, 0.08);
@@ -2277,8 +2454,44 @@
   color: var(--text-main);
 }
 
+[data-theme="dark"] .exec-btn-remove-cond {
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--text-sub);
+}
+
+[data-theme="dark"] .exec-btn-remove-cond:hover:not(:disabled) {
+  background: rgba(220, 38, 38, 0.2);
+  border-color: rgba(220, 38, 38, 0.4);
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .exec-sample-chip.skipped-limit {
+  background: rgba(51, 65, 85, 0.5);
+  border-color: rgba(148, 163, 184, 0.3);
+  color: #cbd5e1;
+}
+
 [data-theme="dark"] .execution-item-row.skipped-filter {
   background: rgba(30, 20, 10, 0.6);
   border-color: rgba(180, 83, 9, 0.4);
+}
+
+[data-theme="dark"] .execution-item-row.skipped-limit {
+  background: rgba(30, 41, 59, 0.5);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+[data-theme="dark"] .skipped-limit .execution-item-icon {
+  background: rgba(51, 65, 85, 0.8);
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .status-skipped-limit {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .run-status-badge.skipped_limit {
+  background: rgba(51, 65, 85, 0.8);
+  color: #cbd5e1;
 }
 
