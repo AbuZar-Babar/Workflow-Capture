@@ -1,44 +1,77 @@
 # Task Assignment Template
 
-Copy this template for each agent assignment.
+Use this template when assigning an implementation task to Gemini or another coding agent.
 
 ## Task record
 
 - **Task ID:** `Task [ID]`
-- **Goal:** [One clear statement of the intended outcome.]
+- **Title:** [Short action-oriented title.]
+- **Goal:** [One clear statement of the intended user-visible/system outcome.]
 - **Owner:** [One agent/owner.]
+- **Role:** `IMPLEMENTER` / `REVIEWER` / `OTHER`
 - **Branch:** `[task-specific branch]`
+- **Baseline:** `[exact multi-agent commit SHA]`
 - **Worktree:** `[optional local worktree path]`
 - **Dependencies:** [Task IDs, or `None`]
+- **Contract/specs to read:** [Exact docs/files.]
 - **Allowed paths:**
   - `[path]`
+- **Excluded paths:**
   - `[path]`
-- **Excluded paths:** [Files/directories this task must not edit.]
+
+## Context
+
+### Current behavior
+[What exists today. Do not describe intended behavior as if it already exists.]
+
+### Required change
+[What the implementation must accomplish.]
+
+### Integration points
+[Existing APIs/modules/contracts this task must preserve or consume.]
+
+### Non-goals
+- [Explicitly out of scope.]
+- [Explicitly out of scope.]
 
 ## Acceptance criteria
 
-- [ ] [Criterion 1]
-- [ ] [Criterion 2]
-- [ ] [Criterion 3]
+- [ ] [Objective criterion.]
+- [ ] [Objective criterion.]
+- [ ] [Objective criterion.]
+
+## Edge cases
+
+- [Case and expected behavior.]
+- [Case and expected behavior.]
+
+## Implementation constraints
+
+- Preserve existing contracts unless this task explicitly changes them.
+- Prefer existing utilities and patterns.
+- Do not refactor unrelated code.
+- Do not modify files outside the allowed paths.
+- If an allowed path is insufficient, stop and report the required scope expansion before editing.
 
 ## Validation evidence
 
-- **Commands/scenarios run:** [Exact commands or reproducible scenarios.]
-- **Result:** [Pass/fail/blocked for each relevant check.]
-- **Evidence:** [Relevant output, artifact, log, screenshot, count, or other evidence.]
+- **Focused checks:** [Exact commands/scenarios.]
+- **Required checks:** [Exact commands/scenarios.]
+- **Result:** [PASS / FAIL / BLOCKED for each.]
+- **Evidence:** [Relevant output, artifact, count, screenshot, or reproducible observation.]
 - **Not run / limitations:** [Explicitly list anything not validated and why.]
 
-## Status
+## Handoff
 
-**Status:** `READY`
+Return:
 
-Use `IN PROGRESS`, `BLOCKED`, or `REVIEW` as appropriate while the task is being worked. Only the integrator may mark the task `INTEGRATION` or `DONE` after reviewing the acceptance criteria and validation evidence.
+- **Status:** `IMPLEMENTED` / `REVIEW` / `BLOCKED`
+- **Changed paths:** [Exact list.]
+- **Commit SHA:** [SHA.]
+- **Acceptance criteria:** [PASS / NOT VALIDATED per criterion.]
+- **Validation:** [Exact results.]
+- **Risks / limitations:** [Or `None`.]
+- **Follow-up:** [Task IDs or `None`.]
+- **Notes for integrator:** [Anything required for safe integration.]
 
-## Handoff summary
-
-- **Changed files:** [List exact paths.]
-- **Commit SHA(s):** [Commit SHA(s).]
-- **Acceptance criteria met:** [Summary.]
-- **Known risks / limitations:** [Summary or `None`.]
-- **Follow-up tasks:** [Task IDs or `None`.]
-- **Notes for integrator:** [Anything needed for safe merge/integration.]
+Do not mark the task `DONE` or `INTEGRATED`. The integrator owns those states.
