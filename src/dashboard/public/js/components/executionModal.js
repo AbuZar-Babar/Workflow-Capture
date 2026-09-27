@@ -46,54 +46,80 @@ function isValidIsoDate(str) {
 }
 
 /**
- * Parses an item value deterministically into a calendar date string (YYYY-MM-DD).
- * Returns null if the value is missing or unparseable.
+ * Parses an item's date value deterministically without locale dependence,
+ * matching the shared evaluator contract from Task 12 (src/shared/item-filter.js).
+ * Accepts:
+ *  - Strict YYYY-MM-DD
+ *  - YYYY-MM-DD... ISO timestamps
+ *  - YYYY/MM/DD
+ *  - YYYY/MM/DD... timestamps
+ *  - Valid JavaScript Date objects
+ * Rejects:
+ *  - MM/DD/YYYY, M/D/YYYY
+ *  - Textual dates
+ *  - Locale-dependent Date.parse() fallback
+ *
+ * @param {any} val
+ * @returns {string|null} - YYYY-MM-DD date string, or null if missing or unparseable.
  */
 function parseItemDate(val) {
-  if (val == null) return null;
-  const s = String(val).trim();
-  if (!s) return null;
+  if (val === null || val === undefined) {
+    return null;
+  }
 
-  // Direct match: YYYY-MM-DD or starts with YYYY-MM-DD (e.g. ISO 8601 timestamps)
-  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (val instanceof Date) {
+    if (isNaN(val.getTime())) {
+      return null;
+    }
+    return val.toISOString().slice(0, 10);
+  }
+
+  const str = String(val).trim();
+  if (!str) {
+    return null;
+  }
+
+  // Accept strict YYYY-MM-DD or standard ISO timestamp beginning with YYYY-MM-DD
+  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/.exec(str);
   if (isoMatch) {
-    const y = parseInt(isoMatch[1], 10);
-    const m = parseInt(isoMatch[2], 10);
-    const d = parseInt(isoMatch[3], 10);
-    if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
-      const dt = new Date(y, m - 1, d);
-      if (dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d) {
-        return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+    const yStr = isoMatch[1];
+    const mStr = isoMatch[2];
+    const dStr = isoMatch[3];
+    const y = parseInt(yStr, 10);
+    const m = parseInt(mStr, 10);
+    const d = parseInt(dStr, 10);
+
+    if (m >= 1 && m <= 12) {
+      const isLeap = (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
+      const daysInMonth = [31, isLeap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+      if (d >= 1 && d <= daysInMonth[m - 1]) {
+        return `${yStr}-${mStr}-${dStr}`;
       }
     }
+    return null;
   }
 
-  // MM/DD/YYYY or M/D/YYYY format
-  const usMatch = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s);
-  if (usMatch) {
-    const m = parseInt(usMatch[1], 10);
-    const d = parseInt(usMatch[2], 10);
-    const y = parseInt(usMatch[3], 10);
-    if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
-      const dt = new Date(y, m - 1, d);
-      if (dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d) {
-        const mm = String(m).padStart(2, '0');
-        const dd = String(d).padStart(2, '0');
-        return `${y}-${mm}-${dd}`;
+  // Accept YYYY/MM/DD or timestamp beginning with YYYY/MM/DD
+  const slashMatch = /^(\d{4})\/(\d{2})\/(\d{2})(?:[T\s].*)?$/.exec(str);
+  if (slashMatch) {
+    const yStr = slashMatch[1];
+    const mStr = slashMatch[2];
+    const dStr = slashMatch[3];
+    const y = parseInt(yStr, 10);
+    const m = parseInt(mStr, 10);
+    const d = parseInt(dStr, 10);
+
+    if (m >= 1 && m <= 12) {
+      const isLeap = (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
+      const daysInMonth = [31, isLeap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+      if (d >= 1 && d <= daysInMonth[m - 1]) {
+        return `${yStr}-${mStr}-${dStr}`;
       }
     }
+    return null;
   }
 
-  // Fallback to Date.parse
-  const ts = Date.parse(s);
-  if (!isNaN(ts)) {
-    const dt = new Date(ts);
-    const y = dt.getUTCFullYear();
-    const m = String(dt.getUTCMonth() + 1).padStart(2, '0');
-    const d = String(dt.getUTCDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-  }
-
+  // All other formats (e.g. MM/DD/YYYY, DD/MM/YYYY, or textual dates) are ambiguous without locale
   return null;
 }
 
@@ -139,6 +165,9 @@ export const ExecutionModal = {
     skippedLimitPreview: [],
     errors: []
   },
+
+  // Deterministic date parser matching Task 12 contract
+  parseItemDate,
 
   // Backwards compatibility accessors for v1 code / callers
   get filterField() {
@@ -1262,11 +1291,13 @@ export const ExecutionModal = {
               : `Field "${cond.field}" ("${actualStr}") does not equal "${cond.value}"`
           });
         } else if (cond.operator === 'dateBetween') {
-          const itemCalDate = parseItemDate(actualStr);
+          const itemCalDate = parseItemDate(rawVal !== undefined && rawVal !== null ? rawVal : actualStr);
           if (!itemCalDate) {
             conditionResults.push({
               matches: false,
-              reason: `Field "${cond.field}" value "${actualStr}" cannot be parsed as a calendar date`
+              reason: !actualStr
+                ? `Field "${cond.field}" has missing or empty date value (cannot evaluate dateBetween)`
+                : `Field "${cond.field}" value "${actualStr}" cannot be parsed as a calendar date`
             });
           } else {
             const m = itemCalDate >= cond.dateFrom && itemCalDate <= cond.dateTo;
