@@ -4,7 +4,7 @@
 > **Status:** Active development / feature implementation + stabilization  
 > **Project type:** Professional/company project for Tekgee Technologies — not an academic/FYP project  
 > **Current integration branch:** `multi-agent`
-> **Status snapshot:** 2026-09-27 — Tasks 0–5 integrated; see [agent workstreams](docs/WORKSTREAMS.md).
+> **Status snapshot:** 2026-09-28 — Tasks 0–5, 12, and 13 integrated; Task 6 is the next implementation step; see [agent workstreams](docs/WORKSTREAMS.md).
 
 Workflow Capture is a generic browser automation platform with two core capabilities:
 
@@ -107,9 +107,7 @@ Execute against selected items
 
 ### Filtering
 
-The integrated v1 milestone includes a pure reusable evaluator for one text condition (`contains` or `equals`) and a dashboard discovery/review flow with dynamic fields, preview counts, and visible filtered-item states. The API/runtime path that makes this filter contract consistent from preview through execution is still pending Task 6.
-
-The confirmed next contract supports multiple conditions combined with `all` (AND) or `any` (OR), inclusive date ranges, and an optional limit on attempted items. Those v2 behaviors are requirements, not completed features. See [Loop and Filter Requirements](docs/LOOP-FILTER-REQUIREMENTS.md).
+The integrated filter milestone now includes a reusable evaluator for multiple conditions using `all`/`any`, `contains`, `equals`, and deterministic inclusive `dateBetween` ranges, plus a dashboard review UI with multiple filter rows and positive item-limit controls. Task 6 still needs to wire this same contract through discovery preview, execution API, loop runtime, counters, manifests, and SSE state. See [Loop and Filter Requirements](docs/LOOP-FILTER-REQUIREMENTS.md).
 
 ### Downloads and artifacts
 
@@ -193,12 +191,13 @@ The frontend is **Vanilla JS**, not React/Vue.
 - visual workflow editor
 - dashboard discovery/review/execution UI foundation
 - local dashboard authentication and access-control hardening
-- v1 reusable item-filter evaluator
+- reusable item-filter evaluator with compound/date semantics and legacy compatibility
+- filter review UI with multiple conditions, preview counts, item limits, and distinct filter/limit skip states
 
 ### Active work
 - connect filter preview and execution through the API/runtime (Task 6)
-- extend filters to multiple text/date conditions and `all`/`any` (Task 12)
-- add user-visible attempt limits and separate filter/limit skip states (Task 13)
+- wire the integrated filter/limit contract through API and runtime (Task 6)
+- rerun combined application validation and verify preview/runtime agreement
 - run integrated cross-portal and full journey validation
 
 ### Deferred
@@ -206,7 +205,7 @@ Pagination beyond the current discovered result set, cloud-scale execution, dist
 
 ## Known Validation Issues
 
-Task owners reported that their assigned test suites passed on their task branches before Tasks 0–5 were integrated. The full integrated journey has not yet been rerun on `multi-agent`, and real-portal compatibility still needs broader validation. See [the workboard](docs/WORKSTREAMS.md) for current task state and [implementation status](docs/IMPLEMENTATION-STATUS.md) for evidence limits.
+Task 12 and Task 13 focused validation passed before integration and their changes are now merged into `multi-agent` at `62b8ef0`. No GitHub Actions workflow/status is configured for that commit, so the combined application journey has not yet been certified. Real-portal compatibility also needs broader validation. See [the workboard](docs/WORKSTREAMS.md) for current task state and [implementation status](docs/IMPLEMENTATION-STATUS.md) for evidence limits.
 
 ## Project Priorities
 
