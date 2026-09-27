@@ -17,6 +17,13 @@ const logger = require('../utils/logger');
 const { db } = require('../database/db');
 const { decryptSecret } = require('../auth/secret-util');
 const { resolveTargetUrl } = require('../utils/url-helper');
+const {
+  normalizeItemFilter,
+  validateItemFilter,
+  evaluateItemFilter: sharedEvaluateItemFilter,
+  evaluateFilterPreview,
+  extractAvailableFields
+} = require('../shared/item-filter');
 
 class LoopReplayRunner {
   constructor(options = {}) {
@@ -33,6 +40,28 @@ class LoopReplayRunner {
     this.maxItemRetries = Number.isInteger(options.maxItemRetries) ? Math.max(0, options.maxItemRetries) : 1;
     this.resumeFromCheckpoint = options.resumeFromCheckpoint === true;
     this.isAborted = false;
+
+    // Filter and limit configuration
+    const rawFilter = options.itemFilter !== undefined
+      ? options.itemFilter
+      : (options.rowFilter || (options.filterValue ? { column: options.filterColumn || 'Type', value: options.filterValue } : null));
+    const filterValidation = validateItemFilter(rawFilter);
+    this.itemFilter = filterValidation.valid ? filterValidation.filter : null;
+    this.filterValidationError = filterValidation.valid ? null : filterValidation.error;
+
+    let validatedLimit = null;
+    let limitError = null;
+    if (options.loopLimit !== undefined && options.loopLimit !== null) {
+      if (typeof options.loopLimit === 'number' && Number.isInteger(options.loopLimit) && options.loopLimit > 0) {
+        validatedLimit = options.loopLimit;
+      } else if (typeof options.loopLimit === 'string' && /^\d+$/.test(options.loopLimit.trim()) && parseInt(options.loopLimit.trim(), 10) > 0) {
+        validatedLimit = parseInt(options.loopLimit.trim(), 10);
+      } else {
+        limitError = 'Invalid loopLimit: must be a positive integer';
+      }
+    }
+    this.loopLimit = validatedLimit;
+    this.loopLimitError = limitError;
     this.rowFilter = options.rowFilter || null;
 
     // Structured downloads hierarchy: downloads/<workflow-slug>/<YYYY-MM-DD>/
@@ -271,87 +300,316 @@ class LoopReplayRunner {
   }
 
   /**
-   * Evaluates if a loop item matches the configured row filter criteria (e.g. Type = "Invoice" vs "Credit Memo")
+   * Extracts fields from all discovered items in the collection using the browser DOM.
+   * Pure and deterministic extraction of headers and cell values.
    */
-  async evaluateItemFilter(page, discovery, index, rowFilter) {
-    if (!rowFilter || (!rowFilter.value && !rowFilter.text)) {
-      return { matches: true, reason: 'No filter configured' };
+  static async extractDiscoveredItems(page, discovery) {
+    if (!page || !discovery || !discovery.collection) {
+      return (discovery?.items || []).map((it, idx) => ({
+        index: it.index !== undefined ? it.index : idx,
+        label: it.text || `Item #${idx + 1}`,
+        text: it.text || '',
+        fields: it.fields || {}
+      }));
     }
 
-    const rawVal = rowFilter.value || rowFilter.text || '';
-    const targetVal = String(rawVal).trim().toLowerCase();
-    if (!targetVal || targetVal === '__any__' || targetVal === 'all') {
-      return { matches: true, reason: 'All items accepted (no filter)' };
+    try {
+      const itemsWithFields = await page.evaluate(({ collection, items }) => {
+        const visible = (el) => {
+          if (!el || !(el instanceof Element)) return false;
+          const style = getComputedStyle(el);
+          const rect = el.getBoundingClientRect();
+          return style.display !== 'none' && style.visibility !== 'hidden' &&
+            rect.width > 0 && rect.height > 0;
+        };
+
+        const structuralSignature = (el) => {
+          const children = Array.from(el.children).slice(0, 12)
+            .map(child => child.tagName.toLowerCase()).join('>');
+          return [
+            el.tagName.toLowerCase(),
+            children,
+            el.getAttribute('role') || '',
+            (el.getAttribute('data-testid') || '').replace(/\d+/g, '#').replace(/[0-9a-f]{8,}/gi, '#'),
+            (el.getAttribute('data-qa') || '').replace(/\d+/g, '#').replace(/[0-9a-f]{8,}/gi, '#')
+          ].join('|');
+        };
+
+        let ancestors = [];
+        if (collection.ancestorSelector) {
+          try {
+            ancestors = Array.from(document.querySelectorAll(collection.ancestorSelector)).filter(visible);
+          } catch {}
+        }
+        if (!ancestors.length && collection.ancestorTag) {
+          ancestors = Array.from(document.querySelectorAll(collection.ancestorTag)).filter(visible);
+        }
+
+        let domElements = [];
+        for (const ancestor of ancestors) {
+          const exact = Array.from(ancestor.children).filter(child =>
+            visible(child) &&
+            child.tagName.toLowerCase() === collection.itemTag &&
+            structuralSignature(child) === collection.itemSignature
+          );
+          if (exact.length > 0) {
+            domElements = exact;
+            break;
+          }
+          const compat = Array.from(ancestor.children).filter(child =>
+            visible(child) && child.tagName.toLowerCase() === collection.itemTag
+          );
+          if (compat.length > 0) {
+            domElements = compat;
+            break;
+          }
+        }
+
+        function extractFieldsFromElement(el) {
+          const fields = {};
+          if (!el) return fields;
+
+          const table = (typeof el.closest === 'function' && el.closest('table, [role="grid"], [role="treegrid"], .dxgvTable')) ||
+                        (typeof document !== 'undefined' && typeof document.querySelector === 'function' && document.querySelector('table, [role="grid"], [role="treegrid"], .dxgvTable'));
+          const headers = [];
+          if (table && typeof table.querySelectorAll === 'function') {
+            const thead = typeof table.querySelector === 'function' ? table.querySelector('thead') : null;
+            let headerEls = thead && typeof thead.querySelectorAll === 'function' ? Array.from(thead.querySelectorAll('th, td, [role="columnheader"]')) : [];
+            if (!headerEls.length) {
+              headerEls = Array.from(table.querySelectorAll('th, [role="columnheader"], .dxgvHeader'));
+            }
+            headerEls.forEach(h => {
+              const t = (h.innerText || h.textContent || '').trim().replace(/\s+/g, ' ');
+              if (t) headers.push(t);
+            });
+          }
+
+          let cellEls = [];
+          if (typeof el.querySelectorAll === 'function') {
+            cellEls = Array.from(el.querySelectorAll('td, [role="gridcell"], .dxgv, .cell'));
+          }
+          if (!cellEls.length && Array.isArray(el.children)) {
+            cellEls = Array.from(el.children);
+          }
+
+          const cells = cellEls.map(c =>
+            (c.innerText || c.textContent || '').trim().replace(/\s+/g, ' ')
+          );
+
+          if (headers.length > 0 && cells.length > 0) {
+            headers.forEach((hName, idx) => {
+              if (idx < cells.length) {
+                fields[hName] = cells[idx];
+              }
+            });
+          }
+
+          if (cellEls.length > 0) {
+            cellEls.forEach(c => {
+              if (typeof c.getAttribute === 'function') {
+                const attr = c.getAttribute('data-field') || c.getAttribute('data-column') || c.getAttribute('data-label') || c.getAttribute('data-name');
+                if (attr && attr.trim()) {
+                  fields[attr.trim()] = (c.innerText || c.textContent || '').trim().replace(/\s+/g, ' ');
+                }
+              }
+            });
+          }
+
+          if (typeof el.querySelectorAll === 'function') {
+            const dts = Array.from(el.querySelectorAll('dt'));
+            const dds = Array.from(el.querySelectorAll('dd'));
+            if (dts.length > 0 && dts.length === dds.length) {
+              dts.forEach((dt, idx) => {
+                const k = (dt.innerText || dt.textContent || '').trim().replace(/:$/, '');
+                const v = (dds[idx].innerText || dds[idx].textContent || '').trim();
+                if (k) fields[k] = v;
+              });
+            }
+          }
+
+          return fields;
+        }
+
+        const total = items ? items.length : domElements.length;
+        const result = [];
+        for (let i = 0; i < total; i++) {
+          const base = items && items[i] ? items[i] : {};
+          const domEl = domElements[i] || null;
+          const extracted = domEl ? extractFieldsFromElement(domEl) : (base.fields || {});
+          result.push({
+            index: base.index !== undefined ? base.index : i,
+            text: base.text || (domEl ? (domEl.innerText || domEl.textContent || '').trim() : ''),
+            label: base.text || (domEl ? (domEl.innerText || domEl.textContent || '').trim() : `Item #${i + 1}`),
+            tagName: base.tagName || (domEl ? domEl.tagName.toLowerCase() : ''),
+            signature: base.signature || (domEl ? structuralSignature(domEl) : ''),
+            href: base.href || (domEl ? domEl.querySelector('a[href]')?.href || null : null),
+            id: base.id || (domEl ? domEl.id || null : null),
+            fields: extracted
+          });
+        }
+        return result;
+      }, { collection: discovery.collection, items: discovery.items });
+
+      return itemsWithFields;
+    } catch (err) {
+      return (discovery?.items || []).map((it, idx) => ({
+        index: it.index !== undefined ? it.index : idx,
+        label: it.text || `Item #${idx + 1}`,
+        text: it.text || '',
+        fields: it.fields || {}
+      }));
+    }
+  }
+
+  /**
+   * Evaluates if a loop item matches the configured filter criteria.
+   * Uses the shared item-filter evaluator over extracted DOM fields.
+   */
+  async evaluateItemFilter(page, discovery, index, filterInput = undefined) {
+    const rawFilter = filterInput !== undefined
+      ? filterInput
+      : (this.itemFilter || this.rowFilter || null);
+
+    const validation = validateItemFilter(rawFilter);
+    if (!validation.valid) {
+      return {
+        matches: false,
+        field: null,
+        column: null,
+        actualValue: null,
+        expectedValue: null,
+        operator: null,
+        reason: `Filter validation error: ${validation.error}`,
+        error: validation.error
+      };
     }
 
-    const targetCol = rowFilter.column ? String(rowFilter.column).trim().toLowerCase() : null;
+    if (validation.filter === null) {
+      return {
+        matches: true,
+        field: null,
+        column: null,
+        actualValue: null,
+        expectedValue: null,
+        operator: null,
+        reason: 'All items accepted (no filter)',
+        error: null
+      };
+    }
 
     let itemHandle = null;
     try {
       itemHandle = await ItemDiscovery.getItemHandle(page, discovery, index);
-      const itemEl = itemHandle ? itemHandle.asElement() : null;
+      const itemEl = itemHandle ? (itemHandle.asElement ? itemHandle.asElement() : itemHandle) : null;
       if (!itemEl) {
-        return { matches: true, reason: 'Could not resolve element for filter' };
+        return {
+          matches: false,
+          field: validation.filter.conditions?.[0]?.field || null,
+          column: validation.filter.conditions?.[0]?.field?.toLowerCase() || null,
+          actualValue: null,
+          expectedValue: null,
+          operator: null,
+          reason: 'Could not resolve element for filter',
+          error: 'Could not resolve element for filter'
+        };
       }
 
-      const rowData = await itemEl.evaluate((el) => {
-        const fullText = (el.innerText || el.textContent || '').trim().replace(/\s+/g, ' ');
-        const cellEls = Array.from(el.querySelectorAll('td, [role="gridcell"], .dxgv, .cell'));
-        const cells = cellEls.map(c => (c.innerText || c.textContent || '').trim());
+      const fieldsMap = await itemEl.evaluate((el) => {
+        const fields = {};
+        if (!el) return fields;
 
-        const table = el.closest('table, [role="grid"], .dxgvTable') || document.querySelector('table, [role="grid"], .dxgvTable');
-        let headerMap = {};
-        if (table) {
-          const headerEls = Array.from(table.querySelectorAll('th, [role="columnheader"], .dxgvHeader'));
-          headerEls.forEach((h, idx) => {
-            const hText = (h.innerText || h.textContent || '').trim().toLowerCase();
-            if (hText) headerMap[hText] = idx;
+        const table = (typeof el.closest === 'function' && el.closest('table, [role="grid"], [role="treegrid"], .dxgvTable')) ||
+                      (typeof document !== 'undefined' && typeof document.querySelector === 'function' && document.querySelector('table, [role="grid"], [role="treegrid"], .dxgvTable'));
+        const headers = [];
+        if (table && typeof table.querySelectorAll === 'function') {
+          const thead = typeof table.querySelector === 'function' ? table.querySelector('thead') : null;
+          let headerEls = thead && typeof thead.querySelectorAll === 'function' ? Array.from(thead.querySelectorAll('th, td, [role="columnheader"]')) : [];
+          if (!headerEls.length) {
+            headerEls = Array.from(table.querySelectorAll('th, [role="columnheader"], .dxgvHeader'));
+          }
+          headerEls.forEach(h => {
+            const t = (h.innerText || h.textContent || '').trim().replace(/\s+/g, ' ');
+            if (t) headers.push(t);
           });
         }
-        return { fullText, cells, headerMap };
-      });
 
-      // 1. Column header match
-      if (targetCol && rowData.headerMap) {
-        const matchedKey = Object.keys(rowData.headerMap).find(k => k === targetCol || k.includes(targetCol));
-        if (matchedKey !== undefined) {
-          const colIdx = rowData.headerMap[matchedKey];
-          if (rowData.cells && colIdx < rowData.cells.length) {
-            const cellVal = rowData.cells[colIdx].toLowerCase();
-            const matches = cellVal.includes(targetVal);
-            return {
-              matches,
-              actualValue: rowData.cells[colIdx],
-              column: matchedKey,
-              reason: matches
-                ? `Column "${matchedKey}" matches "${rawVal}"`
-                : `Column "${matchedKey}" is "${rowData.cells[colIdx]}" (skipping: target is "${rawVal}")`
-            };
+        let cellEls = [];
+        if (typeof el.querySelectorAll === 'function') {
+          cellEls = Array.from(el.querySelectorAll('td, [role="gridcell"], .dxgv, .cell'));
+        }
+        if (!cellEls.length && Array.isArray(el.children)) {
+          cellEls = Array.from(el.children);
+        }
+
+        const cells = cellEls.map(c =>
+          (c.innerText || c.textContent || '').trim().replace(/\s+/g, ' ')
+        );
+
+        if (headers.length > 0 && cells.length > 0) {
+          headers.forEach((hName, idx) => {
+            if (idx < cells.length) {
+              fields[hName] = cells[idx];
+            }
+          });
+        }
+
+        if (cellEls.length > 0) {
+          cellEls.forEach(c => {
+            if (typeof c.getAttribute === 'function') {
+              const attr = c.getAttribute('data-field') || c.getAttribute('data-column') || c.getAttribute('data-label') || c.getAttribute('data-name');
+              if (attr && attr.trim()) {
+                fields[attr.trim()] = (c.innerText || c.textContent || '').trim().replace(/\s+/g, ' ');
+              }
+            }
+          });
+        }
+
+        if (typeof el.querySelectorAll === 'function') {
+          const dts = Array.from(el.querySelectorAll('dt'));
+          const dds = Array.from(el.querySelectorAll('dd'));
+          if (dts.length > 0 && dts.length === dds.length) {
+            dts.forEach((dt, idx) => {
+              const k = (dt.innerText || dt.textContent || '').trim().replace(/:$/, '');
+              const v = (dds[idx].innerText || dds[idx].textContent || '').trim();
+              if (k) fields[k] = v;
+            });
           }
         }
-      }
 
-      // 2. Exact or substring match in any cell
-      const cellMatch = rowData.cells.find(c => c.toLowerCase() === targetVal || c.toLowerCase().includes(targetVal));
-      if (cellMatch) {
-        return { matches: true, actualValue: cellMatch, reason: `Cell matched "${cellMatch}"` };
-      }
+        return fields;
+      });
 
-      // 3. Fallback to full text match
-      const fullTextLower = rowData.fullText.toLowerCase();
-      const matches = fullTextLower.includes(targetVal);
+      const evalResult = sharedEvaluateItemFilter(validation.filter, fieldsMap);
+      const firstCond = validation.filter.conditions?.[0];
+      const targetCol = firstCond ? firstCond.field : (rawFilter?.column || null);
+
       return {
-        matches,
-        actualValue: rowData.fullText.slice(0, 50),
-        reason: matches
-          ? `Row contains "${rawVal}"`
-          : `Row does not match "${rawVal}" (skipping)`
+        matches: evalResult.matches,
+        field: evalResult.field || (firstCond ? firstCond.field : null),
+        column: targetCol ? String(targetCol).trim().toLowerCase() : null,
+        actualValue: evalResult.actualValue,
+        expectedValue: evalResult.expectedValue,
+        operator: evalResult.operator,
+        reason: evalResult.reason,
+        error: evalResult.error,
+        conditionResults: evalResult.conditionResults
       };
     } catch (err) {
-      logger.warn(`[Runner] Filter check note on item #${index + 1}: ${err.message}`);
-      return { matches: true, reason: 'Filter check error fallback' };
+      logger.warn(`[Runner] Filter check error on item #${index + 1}: ${err.message}`);
+      return {
+        matches: false,
+        field: validation.filter.conditions?.[0]?.field || null,
+        column: validation.filter.conditions?.[0]?.field?.toLowerCase() || null,
+        actualValue: null,
+        expectedValue: null,
+        operator: null,
+        reason: `Filter check error: ${err.message}`,
+        error: err.message
+      };
     } finally {
-      if (itemHandle) await itemHandle.dispose().catch(() => {});
+      if (itemHandle && typeof itemHandle.dispose === 'function') {
+        await itemHandle.dispose().catch(() => {});
+      }
     }
   }
 
@@ -422,6 +680,16 @@ class LoopReplayRunner {
       itemsSucceeded: manifest.itemsSucceeded,
       itemsFailed: manifest.itemsFailed,
       itemsSkipped: manifest.itemsSkipped || 0,
+      matchingCount: manifest.matchingCount || 0,
+      selectedCount: manifest.selectedCount || 0,
+      skippedFilterCount: manifest.skippedFilterCount || 0,
+      skippedLimitCount: manifest.skippedLimitCount || 0,
+      skippedDuplicateCount: manifest.skippedDuplicateCount || 0,
+      matching: manifest.matchingCount || 0,
+      selected: manifest.selectedCount || 0,
+      skippedFilter: manifest.skippedFilterCount || 0,
+      skippedLimit: manifest.skippedLimitCount || 0,
+      skippedDuplicate: manifest.skippedDuplicateCount || 0,
       pagesProcessed: manifest.pagesProcessed || currentPage,
       itemsTotal: manifest.itemsTotal,
       results: manifest.results,
@@ -993,6 +1261,18 @@ class LoopReplayRunner {
       itemsSucceeded: 0,
       itemsFailed: 0,
       itemsSkipped: 0,
+      matchingCount: 0,
+      selectedCount: 0,
+      skippedFilterCount: 0,
+      skippedLimitCount: 0,
+      skippedDuplicateCount: 0,
+      matching: 0,
+      selected: 0,
+      skippedFilter: 0,
+      skippedLimit: 0,
+      skippedDuplicate: 0,
+      itemFilter: this.itemFilter,
+      loopLimit: this.loopLimit,
       results: [],
       downloadedFiles: []
     };
@@ -1006,9 +1286,29 @@ class LoopReplayRunner {
       manifest.itemsFailed = Number.isInteger(checkpoint.itemsFailed)
         ? checkpoint.itemsFailed
         : manifest.results.filter(result => result.status === 'FAILED').length;
+      manifest.skippedFilterCount = Number.isInteger(checkpoint.skippedFilterCount)
+        ? checkpoint.skippedFilterCount
+        : manifest.results.filter(result => result.status === 'SKIPPED_FILTER').length;
+      manifest.skippedLimitCount = Number.isInteger(checkpoint.skippedLimitCount)
+        ? checkpoint.skippedLimitCount
+        : manifest.results.filter(result => result.status === 'SKIPPED_LIMIT').length;
+      manifest.skippedDuplicateCount = Number.isInteger(checkpoint.skippedDuplicateCount)
+        ? checkpoint.skippedDuplicateCount
+        : manifest.results.filter(result => result.status === 'SKIPPED_DUPLICATE').length;
       manifest.itemsSkipped = Number.isInteger(checkpoint.itemsSkipped)
         ? checkpoint.itemsSkipped
-        : manifest.results.filter(result => result.status === 'SKIPPED_DUPLICATE').length;
+        : (manifest.skippedFilterCount + manifest.skippedLimitCount + manifest.skippedDuplicateCount);
+      manifest.matchingCount = Number.isInteger(checkpoint.matchingCount)
+        ? checkpoint.matchingCount
+        : manifest.results.filter(result => result.status !== 'SKIPPED_FILTER').length;
+      manifest.selectedCount = Number.isInteger(checkpoint.selectedCount)
+        ? checkpoint.selectedCount
+        : manifest.results.filter(result => result.status !== 'SKIPPED_FILTER' && result.status !== 'SKIPPED_LIMIT').length;
+      manifest.matching = manifest.matchingCount;
+      manifest.selected = manifest.selectedCount;
+      manifest.skippedFilter = manifest.skippedFilterCount;
+      manifest.skippedLimit = manifest.skippedLimitCount;
+      manifest.skippedDuplicate = manifest.skippedDuplicateCount;
       manifest.downloadedFiles = Array.isArray(checkpoint.downloadedFiles)
         ? checkpoint.downloadedFiles
         : [];
@@ -1134,14 +1434,86 @@ class LoopReplayRunner {
         manifest.pagesProcessed = 1;
       }
 
-      // Convert recorded actions: items inside collection become item-relative,
-      // subsequent page actions (e.g. backdrop, Run Report, Export to Excel) are page-scoped.
-      const generalizedActions = ActionGeneralizer.generalizeActions(partition.loopSteps, discovery.collection);
-
       const isDropdown = this.isDropdownOptionCollection(discovery.collection, discovery.items);
       const triggerStep = partition.setupSteps.length > 0
         ? partition.setupSteps[partition.setupSteps.length - 1]
         : null;
+
+      // Extract structured fields from DOM for all discovered items
+      let itemsWithFields = await LoopReplayRunner.extractDiscoveredItems(page, discovery);
+      if (Array.isArray(discovery.items) && Array.isArray(itemsWithFields)) {
+        for (let idx = 0; idx < discovery.items.length; idx++) {
+          if (itemsWithFields[idx]) {
+            discovery.items[idx].fields = itemsWithFields[idx].fields || {};
+          }
+        }
+      }
+
+      if (this.filterValidationError) {
+        throw new Error(`Filter configuration error: ${this.filterValidationError}`);
+      }
+      if (this.loopLimitError) {
+        throw new Error(`Filter configuration error: ${this.loopLimitError}`);
+      }
+
+      const effectiveFilter = this.itemFilter || this.rowFilter || null;
+      const preview = evaluateFilterPreview(effectiveFilter, itemsWithFields, {
+        loopLimit: this.loopLimit,
+        previewLimit: itemsWithFields.length
+      });
+
+      if (preview.errors && preview.errors.length > 0) {
+        const errMsg = `Filter configuration error: ${preview.errors.join('; ')}`;
+        logger.error(`[Loop Runner] ${errMsg}`);
+        throw new Error(errMsg);
+      }
+
+      if (itemsWithFields.length > 0 && preview.selectedCount === 0) {
+        logger.info(`[Loop Runner] Filter criteria selected 0 of ${discovery.itemCount} item(s). No items to execute.`);
+        manifest.itemsTotal = discovery.itemCount;
+        manifest.matchingCount = preview.matchingCount;
+        manifest.matching = preview.matchingCount;
+        manifest.selectedCount = 0;
+        manifest.selected = 0;
+        manifest.skippedFilterCount = preview.skippedFilterCount;
+        manifest.skippedFilter = preview.skippedFilterCount;
+        manifest.skippedLimitCount = preview.skippedLimitCount;
+        manifest.skippedLimit = preview.skippedLimitCount;
+        manifest.skippedDuplicateCount = 0;
+        manifest.skippedDuplicate = 0;
+        manifest.itemsSkipped = preview.skippedFilterCount + preview.skippedLimitCount;
+
+        for (let i = 0; i < discovery.itemCount; i++) {
+          const itemIdentifier = await this.extractItemIdentifier(page, discovery, i, isDropdown);
+          const itemFields = itemsWithFields[i]?.fields || {};
+          const filterCheck = sharedEvaluateItemFilter(effectiveFilter, itemFields);
+          const skippedResult = {
+            index: i + 1,
+            itemIndex: i,
+            page: currentPage,
+            label: itemIdentifier.itemLabel,
+            itemKey: itemIdentifier.itemKey,
+            status: 'SKIPPED_FILTER',
+            skippedReason: filterCheck.reason,
+            timestamp: new Date().toISOString()
+          };
+          manifest.results.push(skippedResult);
+          onProgress({ status: 'ITEM_SKIPPED', itemResult: skippedResult, manifest });
+        }
+
+        manifest.status = 'COMPLETED';
+        manifest.endTime = new Date().toISOString();
+        this.writeLoopCheckpoint(manifest, null, null, currentPage, null, null);
+        try {
+          fs.writeFileSync(path.join(this.runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+        } catch {}
+        onProgress({ status: manifest.status, manifest });
+        return manifest;
+      }
+
+      // Convert recorded actions: items inside collection become item-relative,
+      // subsequent page actions (e.g. backdrop, Run Report, Export to Excel) are page-scoped.
+      const generalizedActions = ActionGeneralizer.generalizeActions(partition.loopSteps, discovery.collection);
 
       logger.info(`[Loop Runner] Discovered ${discovery.itemCount} repeated item(s) with confidence ${Math.round(discovery.confidence * 100)}% (Dropdown Mode: ${isDropdown})`);
       logger.info(`[Loop Runner] Generalized ${generalizedActions.length} loop action(s) (${generalizedActions.filter(a => a.scope === 'item').length} item-scoped, ${generalizedActions.filter(a => a.scope === 'page').length} page-scoped).`);
@@ -1197,6 +1569,7 @@ class LoopReplayRunner {
           }
 
           discovery = nextDiscovery;
+          itemsWithFields = await LoopReplayRunner.extractDiscoveredItems(page, discovery);
           currentPage++;
           manifest.pagesProcessed = currentPage;
           manifest.itemsTotal += discovery.itemCount;
@@ -1221,39 +1594,81 @@ class LoopReplayRunner {
         // Extract human-readable item identifier (text, link href, or data attribute)
         const itemIdentifier = await this.extractItemIdentifier(page, discovery, i, isDropdown);
 
-        // 1. Parameterized Row Filter (e.g. Type = "Invoice" vs "Credit Memo")
-        if (this.rowFilter) {
-          const filterCheck = await this.evaluateItemFilter(page, discovery, i, this.rowFilter);
-          if (!filterCheck.matches) {
-            logger.info(`[Loop Runner] ⏭️ Skipping item #${i + 1} ("${itemIdentifier.itemLabel}") — ${filterCheck.reason}`);
-            const skippedIndex = resumeItemIndex != null && currentPage === resumePage && i === resumePageItemIndex
-              ? resumeItemIndex
-              : manifest.results.reduce((max, result) => Math.max(max, Number(result.index) || 0), 0) + 1;
+        const itemFields = itemsWithFields[i]?.fields || {};
 
-            const skippedResult = {
-              index: skippedIndex,
-              itemIndex: i,
-              page: currentPage,
-              label: itemIdentifier.itemLabel,
-              itemKey: itemIdentifier.itemKey,
-              status: 'SKIPPED_FILTER',
-              skippedReason: filterCheck.reason,
-              timestamp: new Date().toISOString()
-            };
+        // 1. Parameterized Filter Check (Shared Item Filter Evaluator)
+        const filterCheck = sharedEvaluateItemFilter(effectiveFilter, itemFields);
+        if (!filterCheck.matches) {
+          logger.info(`[Loop Runner] ⏭️ Skipping item #${i + 1} ("${itemIdentifier.itemLabel}") — ${filterCheck.reason}`);
+          const skippedIndex = resumeItemIndex != null && currentPage === resumePage && i === resumePageItemIndex
+            ? resumeItemIndex
+            : manifest.results.reduce((max, result) => Math.max(max, Number(result.index) || 0), 0) + 1;
 
-            manifest.results.push(skippedResult);
-            manifest.itemsSkipped = (manifest.itemsSkipped || 0) + 1;
-            this.manifest = manifest;
-            this.writeLoopCheckpoint(manifest, null, 0, currentPage, i + 1, null);
-            try {
-              fs.writeFileSync(path.join(this.runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
-            } catch {}
-            onProgress({ status: 'ITEM_SKIPPED', itemResult: skippedResult, manifest });
-            continue;
-          }
+          const skippedResult = {
+            index: skippedIndex,
+            itemIndex: i,
+            page: currentPage,
+            label: itemIdentifier.itemLabel,
+            itemKey: itemIdentifier.itemKey,
+            status: 'SKIPPED_FILTER',
+            skippedReason: filterCheck.reason,
+            timestamp: new Date().toISOString()
+          };
+
+          manifest.results.push(skippedResult);
+          manifest.skippedFilterCount = (manifest.skippedFilterCount || 0) + 1;
+          manifest.skippedFilter = manifest.skippedFilterCount;
+          manifest.itemsSkipped = (manifest.itemsSkipped || 0) + 1;
+          this.manifest = manifest;
+          this.writeLoopCheckpoint(manifest, null, 0, currentPage, i + 1, null);
+          try {
+            fs.writeFileSync(path.join(this.runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+          } catch {}
+          onProgress({ status: 'ITEM_SKIPPED', itemResult: skippedResult, manifest });
+          continue;
         }
 
-        // 2. Hybrid Deduplication Check: UI Identifier + DB Metadata + Physical Disk File
+        // Item matched filter!
+        manifest.matchingCount = (manifest.matchingCount || 0) + 1;
+        manifest.matching = manifest.matchingCount;
+
+        // 2. Loop Limit Check
+        if (this.loopLimit !== null && (manifest.selectedCount || 0) >= this.loopLimit) {
+          const limitReason = `Beyond loop limit (${this.loopLimit})`;
+          logger.info(`[Loop Runner] 🛑 Skipping item #${i + 1} ("${itemIdentifier.itemLabel}") — ${limitReason}`);
+          const skippedIndex = resumeItemIndex != null && currentPage === resumePage && i === resumePageItemIndex
+            ? resumeItemIndex
+            : manifest.results.reduce((max, result) => Math.max(max, Number(result.index) || 0), 0) + 1;
+
+          const skippedResult = {
+            index: skippedIndex,
+            itemIndex: i,
+            page: currentPage,
+            label: itemIdentifier.itemLabel,
+            itemKey: itemIdentifier.itemKey,
+            status: 'SKIPPED_LIMIT',
+            skippedReason: limitReason,
+            timestamp: new Date().toISOString()
+          };
+
+          manifest.results.push(skippedResult);
+          manifest.skippedLimitCount = (manifest.skippedLimitCount || 0) + 1;
+          manifest.skippedLimit = manifest.skippedLimitCount;
+          manifest.itemsSkipped = (manifest.itemsSkipped || 0) + 1;
+          this.manifest = manifest;
+          this.writeLoopCheckpoint(manifest, null, 0, currentPage, i + 1, null);
+          try {
+            fs.writeFileSync(path.join(this.runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+          } catch {}
+          onProgress({ status: 'ITEM_SKIPPED', itemResult: skippedResult, manifest });
+          continue;
+        }
+
+        // Item is selected for execution!
+        manifest.selectedCount = (manifest.selectedCount || 0) + 1;
+        manifest.selected = manifest.selectedCount;
+
+        // 3. Hybrid Deduplication Check: UI Identifier + DB Metadata + Physical Disk File
         const dedupe = this.checkIfAlreadyDownloaded(itemIdentifier.itemKey);
         if (dedupe.isDuplicate && !this.forceRedownload) {
           logger.info(`[Loop Runner] Skipping item #${i + 1} ("${itemIdentifier.itemLabel}") — already downloaded: "${dedupe.record.filename}" (${dedupe.record.filePath})`);
@@ -1281,6 +1696,8 @@ class LoopReplayRunner {
           };
 
           manifest.results.push(skippedResult);
+          manifest.skippedDuplicateCount = (manifest.skippedDuplicateCount || 0) + 1;
+          manifest.skippedDuplicate = manifest.skippedDuplicateCount;
           manifest.itemsSkipped = (manifest.itemsSkipped || 0) + 1;
           this.manifest = manifest;
           this.writeLoopCheckpoint(manifest, null, 0, currentPage, i + 1, null);
@@ -1298,11 +1715,13 @@ class LoopReplayRunner {
           resumeItemIndex != null;
 
         const itemResult = isResumingCurrentItem && checkpoint.activeItem
-          ? { ...checkpoint.activeItem, status: 'PENDING', error: null }
+          ? { ...checkpoint.activeItem, itemIndex: i, page: currentPage, status: 'PENDING', error: null }
           : {
               index: resumeItemIndex != null && currentPage === resumePage && i === resumePageItemIndex
                 ? resumeItemIndex
                 : manifest.results.reduce((max, result) => Math.max(max, Number(result.index) || 0), 0) + 1,
+              itemIndex: i,
+              page: currentPage,
               status: 'PENDING',
               itemKey: itemIdentifier.itemKey,
               label: itemIdentifier.itemLabel,
@@ -1387,7 +1806,9 @@ class LoopReplayRunner {
                       effectiveLoopStepIndex + actionOffset
                     );
                   } finally {
-                    await itemElement.dispose().catch(() => {});
+                    if (itemElement && typeof itemElement.dispose === 'function') {
+                      await itemElement.dispose().catch(() => {});
+                    }
                   }
                 } else {
                   // Page-scoped action (e.g. click backdrop, Run Report, Export to Excel)
@@ -1593,6 +2014,7 @@ class LoopReplayRunner {
         }
 
         discovery = nextDiscovery;
+        itemsWithFields = await LoopReplayRunner.extractDiscoveredItems(page, discovery);
         manifest.itemsTotal += discovery.itemCount;
         manifest.pagesProcessed = currentPage + 1;
         currentPage++;

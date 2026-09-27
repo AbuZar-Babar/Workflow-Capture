@@ -208,11 +208,18 @@ export const Api = {
     return data;
   },
 
-  async discoverWorkflow(workflowId, loopStepIndex = null) {
+  async discoverWorkflow(workflowId, loopStepIndexOrOptions = null) {
+    let body = {};
+    if (typeof loopStepIndexOrOptions === 'object' && loopStepIndexOrOptions !== null) {
+      body = { ...loopStepIndexOrOptions };
+    } else if (loopStepIndexOrOptions !== null && loopStepIndexOrOptions !== undefined) {
+      body = { loopStepIndex: loopStepIndexOrOptions };
+    }
+
     const res = await Auth.authenticatedFetch(`/api/workflows/${encodeURIComponent(workflowId)}/discover`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(loopStepIndex === null ? {} : { loopStepIndex })
+      body: JSON.stringify(body)
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || data.discovery?.reason || 'Item discovery failed');
@@ -240,6 +247,20 @@ export const Api = {
       }
       if (loopStepIndexOrOptions.rowFilter) {
         bodyPayload.rowFilter = loopStepIndexOrOptions.rowFilter;
+      }
+      if (loopStepIndexOrOptions.itemFilter !== undefined) {
+        bodyPayload.itemFilter = loopStepIndexOrOptions.itemFilter;
+        if (loopStepIndexOrOptions.isLoop === undefined && !bodyPayload.mode) {
+          bodyPayload.isLoop = true;
+          bodyPayload.mode = 'loop';
+        }
+      }
+      if (loopStepIndexOrOptions.loopLimit !== undefined) {
+        bodyPayload.loopLimit = loopStepIndexOrOptions.loopLimit;
+        if (loopStepIndexOrOptions.isLoop === undefined && !bodyPayload.mode) {
+          bodyPayload.isLoop = true;
+          bodyPayload.mode = 'loop';
+        }
       }
     } else if (typeof loopStepIndexOrOptions === 'string') {
       bodyPayload.mode = loopStepIndexOrOptions;

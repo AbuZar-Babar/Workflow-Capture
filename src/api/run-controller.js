@@ -12,6 +12,7 @@ const { sendJson } = require('../auth/auth-controller');
 const { syncWorkflowsFromDisk } = require('./workflow-controller');
 const LoopReplayRunner = require('../replay/loop-replay-runner');
 const LoopDetector = require('../shared/loop-detector');
+const { normalizeItemFilter, validateItemFilter } = require('../shared/item-filter');
 const logger = require('../utils/logger');
 
 // In-memory active runners map: runId -> { runner, userId, workflowId, startedAt }
@@ -78,17 +79,64 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
 
   const { loopStepIndex: requestedLoopIdx, forceRedownload, mode, isLoop: requestedIsLoop } = body || {};
 
+  // Validate loopLimit if provided
+  let validatedLoopLimit = null;
+  if (body.loopLimit !== undefined && body.loopLimit !== null) {
+    const rawLimit = body.loopLimit;
+    let isValidInt = false;
+    let parsedLimit = null;
+    if (typeof rawLimit === 'number' && Number.isInteger(rawLimit) && rawLimit > 0) {
+      isValidInt = true;
+      parsedLimit = rawLimit;
+    } else if (typeof rawLimit === 'string' && /^\d+$/.test(rawLimit.trim())) {
+      const n = parseInt(rawLimit.trim(), 10);
+      if (n > 0) {
+        isValidInt = true;
+        parsedLimit = n;
+      }
+    }
+    if (!isValidInt) {
+      return sendJson(res, 400, { error: 'loopLimit must be a positive integer' });
+    }
+    validatedLoopLimit = parsedLimit;
+  }
+
+  // Validate itemFilter / rowFilter / legacy filter parameters
+  const rawFilterInput = body.itemFilter !== undefined
+    ? body.itemFilter
+    : (body.rowFilter || (body.filterValue ? { column: body.filterColumn || 'Type', value: body.filterValue } : null));
+
+  let normalizedFilter = null;
+  if (rawFilterInput !== undefined && rawFilterInput !== null) {
+    const filterValidation = validateItemFilter(rawFilterInput);
+    if (!filterValidation.valid) {
+      return sendJson(res, 400, { error: filterValidation.error || 'Invalid itemFilter configuration' });
+    }
+    normalizedFilter = filterValidation.filter;
+  }
+
+  // Preserve legacy rowFilter where applicable
+  let legacyRowFilter = null;
+  if (body.rowFilter && typeof body.rowFilter === 'object') {
+    legacyRowFilter = body.rowFilter;
+  } else if (body.filterValue) {
+    legacyRowFilter = { column: body.filterColumn || 'Type', value: body.filterValue };
+  } else if (normalizedFilter && normalizedFilter.conditions && normalizedFilter.conditions.length === 1 && normalizedFilter.conditions[0].operator === 'contains') {
+    legacyRowFilter = { column: normalizedFilter.conditions[0].field, value: normalizedFilter.conditions[0].value };
+  }
+
   // Determine execution mode:
-  // Default is STANDARD (macro replay). Loop is only enabled if explicitly requested or configured.
+  // Default is STANDARD (macro replay). Loop is enabled if explicitly requested, configured, or filter/limit set.
   let isLoop = false;
   let loopStepIndex = null;
+  const hasFilterOrLimit = normalizedFilter !== null || validatedLoopLimit !== null;
 
   if (mode === 'single' || mode === 'standard' || requestedIsLoop === false || requestedLoopIdx === -1) {
     // Explicitly requested single macro execution
     isLoop = false;
     loopStepIndex = null;
-  } else if (mode === 'loop' || mode === 'batch' || requestedIsLoop === true || (Number.isInteger(requestedLoopIdx) && requestedLoopIdx >= 0)) {
-    // Explicitly requested loop execution
+  } else if (mode === 'loop' || mode === 'batch' || requestedIsLoop === true || hasFilterOrLimit || (Number.isInteger(requestedLoopIdx) && requestedLoopIdx >= 0)) {
+    // Explicitly requested loop execution or filter/limit active
     isLoop = true;
     if (Number.isInteger(requestedLoopIdx) && requestedLoopIdx >= 0) {
       loopStepIndex = requestedLoopIdx;
@@ -109,9 +157,6 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
     loopStepIndex = null;
   }
 
-  const rawFilter = body.rowFilter || (body.filterValue ? { column: body.filterColumn || 'Type', value: body.filterValue } : null);
-  const rowFilter = (rawFilter && (rawFilter.value || rawFilter.text) && rawFilter.value !== '__any__' && rawFilter.value !== 'all') ? rawFilter : null;
-
   const totalSteps = steps.length;
   const runId = `run_${Date.now()}`;
   const runRecord = db.insert('runs', {
@@ -123,8 +168,15 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
     itemsSucceeded: 0,
     itemsFailed: 0,
     itemsSkipped: 0,
+    matchingCount: 0,
+    selectedCount: 0,
+    skippedFilterCount: 0,
+    skippedLimitCount: 0,
+    skippedDuplicateCount: 0,
     forceRedownload: !!forceRedownload,
-    rowFilter,
+    itemFilter: normalizedFilter,
+    loopLimit: validatedLoopLimit,
+    rowFilter: legacyRowFilter,
     mode: isLoop ? 'LOOP' : 'STANDARD',
     loopStepIndex: isLoop ? loopStepIndex : null,
     startedAt: new Date().toISOString()
@@ -136,7 +188,9 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
     workflowName: workflow.name || workflow.id,
     userId,
     forceRedownload: !!forceRedownload,
-    rowFilter
+    itemFilter: normalizedFilter,
+    loopLimit: validatedLoopLimit,
+    rowFilter: legacyRowFilter
   });
   activeRunners.set(runId, {
     runner,
@@ -180,7 +234,12 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
             itemsTotal: progress.manifest.itemsTotal,
             itemsSucceeded: progress.manifest.itemsSucceeded,
             itemsFailed: progress.manifest.itemsFailed,
-            itemsSkipped: progress.manifest.itemsSkipped || 0
+            itemsSkipped: progress.manifest.itemsSkipped || 0,
+            matchingCount: progress.manifest.matchingCount !== undefined ? progress.manifest.matchingCount : (progress.manifest.matching ?? 0),
+            selectedCount: progress.manifest.selectedCount !== undefined ? progress.manifest.selectedCount : (progress.manifest.selected ?? 0),
+            skippedFilterCount: progress.manifest.skippedFilterCount !== undefined ? progress.manifest.skippedFilterCount : (progress.manifest.skippedFilter ?? 0),
+            skippedLimitCount: progress.manifest.skippedLimitCount !== undefined ? progress.manifest.skippedLimitCount : (progress.manifest.skippedLimit ?? 0),
+            skippedDuplicateCount: progress.manifest.skippedDuplicateCount !== undefined ? progress.manifest.skippedDuplicateCount : (progress.manifest.skippedDuplicate ?? 0)
           });
         }
       };
@@ -198,6 +257,11 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
         itemsSucceeded: manifest.itemsSucceeded,
         itemsFailed: manifest.itemsFailed,
         itemsSkipped: manifest.itemsSkipped || 0,
+        matchingCount: manifest.matchingCount !== undefined ? manifest.matchingCount : (manifest.matching ?? 0),
+        selectedCount: manifest.selectedCount !== undefined ? manifest.selectedCount : (manifest.selected ?? 0),
+        skippedFilterCount: manifest.skippedFilterCount !== undefined ? manifest.skippedFilterCount : (manifest.skippedFilter ?? 0),
+        skippedLimitCount: manifest.skippedLimitCount !== undefined ? manifest.skippedLimitCount : (manifest.skippedLimit ?? 0),
+        skippedDuplicateCount: manifest.skippedDuplicateCount !== undefined ? manifest.skippedDuplicateCount : (manifest.skippedDuplicate ?? 0),
         downloadedFiles: manifest.downloadedFiles,
         completedAt: manifest.endTime || new Date().toISOString()
       });

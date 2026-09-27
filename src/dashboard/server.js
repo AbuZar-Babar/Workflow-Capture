@@ -44,6 +44,8 @@ const RecorderBridge = require('../recorder/recorder-bridge');
 const ReplayEngine = require('../replay/replay-engine');
 const LoopDetector = require('../shared/loop-detector');
 const ItemDiscovery = require('../shared/item-discovery');
+const LoopReplayRunner = require('../replay/loop-replay-runner');
+const { extractAvailableFields, evaluateFilterPreview } = require('../shared/item-filter');
 const { connectToBrowser } = require('../utils/cdp-connector');
 const logger = require('../utils/logger');
 const authController = require('../auth/auth-controller');
@@ -487,6 +489,46 @@ const server = http.createServer(async (req, res) => {
             }
           }
 
+          let availableFields = [];
+          let filterPreview = null;
+
+          if (discovery.success) {
+            const itemsWithFields = await LoopReplayRunner.extractDiscoveredItems(page, discovery);
+            if (Array.isArray(discovery.items)) {
+              discovery.items.forEach((item, idx) => {
+                if (itemsWithFields[idx]) {
+                  item.fields = itemsWithFields[idx].fields || {};
+                }
+              });
+            }
+            availableFields = extractAvailableFields(itemsWithFields);
+            discovery.availableFields = availableFields;
+
+            const effectiveFilter = body.itemFilter !== undefined
+              ? body.itemFilter
+              : (body.rowFilter || (body.filterValue ? { column: body.filterColumn || 'Type', value: body.filterValue } : null));
+
+            filterPreview = evaluateFilterPreview(effectiveFilter, itemsWithFields, {
+              loopLimit: body.loopLimit !== undefined ? body.loopLimit : null,
+              previewLimit: 10
+            });
+          } else {
+            filterPreview = {
+              totalCount: 0,
+              matchingCount: 0,
+              selectedCount: 0,
+              skippedFilterCount: 0,
+              skippedLimitCount: 0,
+              skippedCount: 0,
+              selectedPreview: [],
+              skippedFilterPreview: [],
+              skippedLimitPreview: [],
+              skippedPreview: [],
+              availableFields: [],
+              errors: [discovery.reason || 'Item discovery failed']
+            };
+          }
+
           return sendJson(res, discovery.success ? 200 : 422, {
             success: discovery.success,
             workflowId,
@@ -496,7 +538,9 @@ const server = http.createServer(async (req, res) => {
             setupActionCount: partition.setupSteps.length,
             targetAction: targetStep.type || targetStep.action || 'ACTION',
             targetUrl: page.url(),
-            discovery
+            discovery,
+            availableFields,
+            filterPreview
           });
         } finally {
           await browser.disconnect().catch(() => {});
