@@ -3,7 +3,8 @@
 > **Working name:** Workflow Capture  
 > **Status:** Active development / feature implementation + stabilization  
 > **Project type:** Professional/company project for Tekgee Technologies — not an academic/FYP project  
-> **Branch:** `ui-improvements`
+> **Current integration branch:** `multi-agent`
+> **Status snapshot:** 2026-09-27 — Tasks 0–5 integrated; see [agent workstreams](docs/WORKSTREAMS.md).
 
 Workflow Capture is a generic browser automation platform with two core capabilities:
 
@@ -77,8 +78,8 @@ Portal-specific details should primarily live in workflow/configuration data or 
 - resilient selector resolution
 - semantic/text/attribute/CSS/XPath fallback strategies
 - condition-based waiting
-- repeated workflow execution
-- item-level processing
+- repeated-item loop runner with item-level processing, retry/checkpoint support, and run manifests
+- isolated browser-test infrastructure for concurrent test runs
 
 ### Item discovery
 
@@ -106,11 +107,9 @@ Execute against selected items
 
 ### Filtering
 
-Filtering is **currently under active development**.
+The integrated v1 milestone includes a pure reusable evaluator for one text condition (`contains` or `equals`) and a dashboard discovery/review flow with dynamic fields, preview counts, and visible filtered-item states. The API/runtime path that makes this filter contract consistent from preview through execution is still pending Task 6.
 
-A specific portal currently uses a hardcoded filtering value as an intermediate implementation. The target is a reusable filter system that can select or skip discovered items based on item/row attributes or content.
-
-The generic filter schema is **not yet finalized**, so current portal-specific filtering should not be treated as the final design.
+The confirmed next contract supports multiple conditions combined with `all` (AND) or `any` (OR), inclusive date ranges, and an optional limit on attempted items. Those v2 behaviors are requirements, not completed features. See [Loop and Filter Requirements](docs/LOOP-FILTER-REQUIREMENTS.md).
 
 ### Downloads and artifacts
 
@@ -182,51 +181,41 @@ The frontend is **Vanilla JS**, not React/Vue.
 
 ## Current Development Status
 
-### Substantially implemented
+### Integrated foundations
 - CDP/browser automation foundation
 - workflow recording and replay
 - selector resolution
 - item discovery
 - action generalization
-- loop/batch execution
+- repeated-item execution, retry/checkpoint foundations, and process cleanup
 - download handling
 - workflow/run/artifact tracking
 - visual workflow editor
-- dashboard execution UI
+- dashboard discovery/review/execution UI foundation
+- local dashboard authentication and access-control hardening
+- v1 reusable item-filter evaluator
 
 ### Active work
-- generic reusable item filters
-- loop execution reliability
-- real-portal validation
-- complete dashboard journey validation
-- stabilization and hardening
+- connect filter preview and execution through the API/runtime (Task 6)
+- extend filters to multiple text/date conditions and `all`/`any` (Task 12)
+- add user-visible attempt limits and separate filter/limit skip states (Task 13)
+- run integrated cross-portal and full journey validation
 
 ### Deferred
-Authentication is **not currently a product priority**. It will be addressed later, after the core recording → discovery → filtering → execution → artifact pipeline is fully working.
-
-Other speculative capabilities such as cloud-scale execution, distributed queues, scheduling, AI selector recovery, and Document AI are also deferred unless they become explicit requirements.
+Pagination beyond the current discovered result set, cloud-scale execution, distributed queues, scheduling, AI selector recovery, and Document AI remain future work unless separately prioritized. Dashboard security has been addressed; logging into a target portal remains part of the user's browser/session workflow.
 
 ## Known Validation Issues
 
-The latest engineering audit identified:
-
-- full `npm test` can encounter a Windows/Puppeteer Chrome temporary-profile cleanup `EBUSY` error;
-- a focused loop E2E run connected successfully, discovered four repeated items, and completed the first item/download, but stalled when beginning item two;
-- real-portal compatibility still needs broader validation;
-- generic filtering is not yet finalized.
-
-These are current engineering findings, not formal coverage percentages.
+Task owners reported that their assigned test suites passed on their task branches before Tasks 0–5 were integrated. The full integrated journey has not yet been rerun on `multi-agent`, and real-portal compatibility still needs broader validation. See [the workboard](docs/WORKSTREAMS.md) for current task state and [implementation status](docs/IMPLEMENTATION-STATUS.md) for evidence limits.
 
 ## Project Priorities
 
-1. Make recording/replay reliable.
-2. Make item discovery reliable.
-3. Generalize filtering beyond the current hardcoded portal value.
-4. Make repeated-item execution reliable.
-5. Maintain structured downloads and artifact traceability.
-6. Validate the complete recording → discovery → filtering → execution → artifact flow.
-7. Validate against real portals.
-8. Defer authentication and speculative platform expansion until the core product is stable.
+1. Integrate the filter and attempt-limit contract through preview, API, runtime, and persisted run state.
+2. Verify normal replay and loop-marker behavior on the invoice fixture.
+3. Validate failures, retries, filters, date boundaries, and item limits together.
+4. Complete the full recording → discovery → review → execution → artifact journey.
+5. Validate against more than one portal structure and record compatibility limits.
+6. Defer pagination and speculative platform expansion until the current-page batch flow is stable.
 
 ## Documentation
 
@@ -234,6 +223,8 @@ These are current engineering findings, not formal coverage percentages.
 - [Architecture](docs/ARCHITECTURE.md)
 - [Decisions](docs/DECISIONS.md)
 - [TODO / Current Work](docs/TODO.md)
+- [Loop and Filter Requirements](docs/LOOP-FILTER-REQUIREMENTS.md)
+- [Agent Workstreams](docs/WORKSTREAMS.md)
 - [Changelog](CHANGELOG.md)
 
 ## Project Classification

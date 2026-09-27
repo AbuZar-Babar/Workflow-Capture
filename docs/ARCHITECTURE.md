@@ -96,7 +96,7 @@ A representative recorded action can be generalized into an item-relative action
 
 ## 6. Filtering
 
-Filtering is currently being generalized.
+The integrated v1 contains a pure shared evaluator for a single text condition and a dashboard preflight/review flow. End-to-end API/runtime integration and the expanded v2 contract are still in progress.
 
 ```
 Discovered Items
@@ -109,9 +109,7 @@ Selected items ──→ execution
 Skipped items ───→ run results
 ```
 
-The current implementation contains a portal-specific/hardcoded filter value. That is an intermediate implementation, not the final generic filter architecture.
-
-The eventual filter contract should be configurable and independent of one portal's field names or values.
+The target contract supports one or more item-field conditions combined with `all` (AND) or `any` (OR), text `contains`/`equals`, and inclusive date-only `dateBetween` ranges. An optional positive item limit is applied after filtering in discovery order. The first N matching items are selected; each consumes one slot when its workflow begins, even if it fails. Filter mismatches and matches outside the limit have distinct skipped states. The exact contract and edge cases are maintained in [LOOP-FILTER-REQUIREMENTS.md](LOOP-FILTER-REQUIREMENTS.md).
 
 ## 7. Repeated Execution
 
@@ -123,7 +121,8 @@ Conceptual item states:
 - running
 - succeeded
 - failed
-- skipped
+- skipped by filter (`SKIPPED_FILTER`)
+- skipped by attempt limit (`SKIPPED_LIMIT`)
 
 Failure isolation should allow a failed item to be reported without unnecessarily aborting the complete batch.
 
@@ -187,9 +186,7 @@ The frontend uses Vanilla JavaScript ES modules. Drawflow provides the visual wo
 
 ## 11. Authentication
 
-Authentication is deliberately **not on the current critical path**.
-
-Existing authentication/security infrastructure may remain in the codebase, but product authentication workflows are deferred until the core recording → discovery → filtering → execution → artifact pipeline is stable.
+Dashboard local-mode authentication and access-control hardening are integrated. Portal authentication is separate: the automation uses the user's authenticated browser/session and does not currently provide a general portal-login service.
 
 ## 12. Deferred Architecture
 

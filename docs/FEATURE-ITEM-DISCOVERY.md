@@ -1,9 +1,10 @@
-# Feature Branch: Item Discovery
+# Historical Specification: Item Discovery
 
-**Branch:** `feature/item-discovery`  
-**Base:** `main`  
-**Status:** In development  
+**Original branch:** `feature/item-discovery`
+**Status:** Historical feature-branch specification; discovery foundations have since been integrated.
 **Primary objective:** Convert a recorded single-item workflow into a reusable batch workflow by discovering the collection of similar records on the current page.
+
+> This document preserves the earlier discovery design and branch acceptance criteria. It is not the current branch or workboard. See [WORKSTREAMS.md](WORKSTREAMS.md) for current task status and [LOOP-FILTER-REQUIREMENTS.md](LOOP-FILTER-REQUIREMENTS.md) for the approved loop/filter contract.
 
 ---
 
@@ -517,7 +518,7 @@ The pagination branch will add:
 
 ---
 
-## 14. Definition of Done
+## 14. Original Branch Definition of Done (Historical)
 
 This branch is ready for review when:
 

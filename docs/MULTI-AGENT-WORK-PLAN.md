@@ -2,12 +2,12 @@
 
 **Status:** Ready for task assignment  
 **Planning branch:** `multi-agent`  
-**Baseline reviewed:** `9851a0c` (2026-09-26)  
+**Baseline reviewed:** `113b920` (2026-09-27)
 **Plan owner:** Integrator / project owner
 
-This plan turns the current branch review into bounded work packages. Each package has one owner, a declared file scope, dependencies, acceptance criteria, and a handoff format. Tasks may be assigned to ChatGPT, Gemini, Codex, or another coding agent.
+This plan turns the current integration state and confirmed product requirements into bounded work packages. Each package has one owner, a declared file scope, dependencies, acceptance criteria, and a handoff format. The loop/filter behavior is specified in [LOOP-FILTER-REQUIREMENTS.md](LOOP-FILTER-REQUIREMENTS.md). Tasks may be assigned to ChatGPT, Gemini, or another coding agent.
 
-The review was static. The loop E2E stall and several UI/runtime findings still need reproduction in a running app. No source behavior is considered validated by this plan alone.
+Tasks 0–5 are integrated on `multi-agent`. Their owners reported task-level validation before merge; the combined application journey and real-portal behavior still require integration validation. No source behavior is considered validated by this plan alone.
 
 ## Working rules
 
@@ -33,27 +33,9 @@ For each task, record:
 
 Suggested statuses: `READY`, `IN PROGRESS`, `BLOCKED`, `REVIEW`, `INTEGRATION`, `DONE`.
 
-## Shared filter contract
+## Shared loop/filter contract
 
-Freeze this contract before Tasks 5–7 begin so the dashboard and runtime can be developed independently:
-
-```json
-{
-  "itemFilter": {
-    "field": "Type",
-    "operator": "contains",
-    "value": "Invoice"
-  }
-}
-```
-
-- Version 1 supports one condition with `contains` or `equals`; comparisons trim whitespace and ignore letter case.
-- Omitting `itemFilter` means process all discovered items.
-- Legacy `rowFilter: { "column": "Type", "value": "Invoice" }` and the existing `filterColumn` / `filterValue` pair remain accepted and are normalized to the new shape.
-- A configured field that cannot be read is a validation error. Never fall back to matching the entire row or accept an item when evaluation fails.
-- The discovery preview request accepts `loopStepIndex` and optional `itemFilter`. Its response includes `availableFields` and `filterPreview` with `totalCount`, `selectedCount`, `skippedCount`, `selectedPreview`, `skippedPreview`, and `errors`.
-- The execution request accepts the same `itemFilter`. Preview and execution use the same extraction and evaluation rules.
-- A filtered item is represented as `SKIPPED_FILTER` with a human-readable reason. A preview error or zero selected items prevents the user from starting the filtered run.
+Use [LOOP-FILTER-REQUIREMENTS.md](LOOP-FILTER-REQUIREMENTS.md) as the frozen product contract for new work. Tasks 4 and 5 implemented the earlier v1 single-text-condition evaluator and review UI. Follow-up Tasks 12 and 13 extend those components to the confirmed multi-condition/date/limit behavior; Task 6 then wires the contract through API and runtime. Do not change the contract independently inside a task branch.
 
 ## Task 0 — Establish the agent workboard
 
@@ -151,7 +133,7 @@ Freeze this contract before Tasks 5–7 begin so the dashboard and runtime can b
 
 **Priority:** P0.  
 **Goal:** define deterministic filter semantics independent of portal-specific labels.  
-**Owner:** one shared-engine agent.  
+**Owner:** one shared-engine agent.
 **Dependencies:** none; freeze the shared contract above before work starts.  
 **Allowed paths:** new `src/shared/item-filter.js` and new `test/item-filter.test.js` only.
 
@@ -172,9 +154,9 @@ Freeze this contract before Tasks 5–7 begin so the dashboard and runtime can b
 
 ## Task 5 — Unify discovery, review, filtering, and execution UI
 
-**Priority:** P1.  
+**Priority:** P1.
 **Goal:** make every dashboard entry point use the same preflight and make the actual target set clear before execution.  
-**Owner:** one dashboard-flow agent.  
+**Owner:** one dashboard-flow agent.
 **Dependencies:** shared filter contract frozen; coordinate against Task 6 response contract. Can work in parallel with Task 6 after those contracts are agreed.  
 **Allowed paths:** `src/dashboard/public/js/views/overviewView.js`, `src/dashboard/public/js/components/executionModal.js`, `src/dashboard/public/js/views/executionView.js`, and related styles in `src/dashboard/public/css/views.css`.
 
@@ -195,27 +177,31 @@ Freeze this contract before Tasks 5–7 begin so the dashboard and runtime can b
 - Filtered-out items show a skipped state, not a pending or completed state.
 - Controls remain keyboard-operable and labels describe the action and target clearly.
 
-## Task 6 — Integrate generic filters in API and runtime
+## Task 6 — Integrate filters and item limits in API and runtime
 
-**Priority:** P1.  
+**Priority:** P1.
 **Goal:** connect preview, execution, persisted run state, and the shared evaluator.  
 **Owner:** one backend integration agent.  
-**Dependencies:** Tasks 1, 2, and 4; Task 5 may proceed in parallel against the frozen contract.  
+**Dependencies:** Tasks 1, 2, 12; Task 13 may proceed in parallel against the frozen contract.
 **Allowed paths:** `src/api/run-controller.js`, `src/dashboard/server.js`, `src/dashboard/public/js/api.js`, `src/replay/loop-replay-runner.js`, `test/backend-api.test.js`, `test/row-filter-discrimination.test.js`, and new focused filter API tests.
 
 ### Subtasks
 
-1. Accept and validate `itemFilter` in discovery-preview and execution endpoints.
+1. Accept and validate the v2 `itemFilter` and `loopLimit` in discovery-preview and execution endpoints.
 2. Extract item fields from supported table/grid headers and cells; expose only fields that were actually found.
-3. Return the defined `filterPreview` counts, samples, and validation errors.
+3. Return the defined `filterPreview` counts, samples, and validation errors, including matching-before-limit and selected-after-limit counts.
 4. Apply the same normalized evaluator at execution time; remove full-row fallback for configured fields.
-5. Record filtered items as `SKIPPED_FILTER` with a reason and update run counters consistently.
-6. Preserve legacy `rowFilter`, `filterColumn`, and `filterValue` inputs through normalization.
-7. Add API/runtime tests for matching, nonmatching, missing fields, malformed input, legacy clients, and preview/execution agreement.
+5. Record filter mismatches as `SKIPPED_FILTER` and matches beyond `loopLimit` as `SKIPPED_LIMIT`, with reasons and consistent counters/manifests/SSE events.
+6. Apply a positive `loopLimit` after filtering in discovery order. Count an item once when its loop begins, even if the item later fails; retries do not consume another slot.
+7. Preserve legacy `rowFilter`, `filterColumn`, `filterValue`, and v1 `itemFilter` inputs through normalization.
+8. Add API/runtime tests for matching, nonmatching, inclusive date ranges, invalid dates/fields, all/any, limits, failures, retries, legacy clients, and preview/execution agreement.
 
 ### Acceptance criteria
 
 - Preview and execution select the same items for the same workflow and filter.
+- Date range endpoints are inclusive and invalid ranges/configuration fail before execution.
+- Limit N starts no more than N selected item workflows; success/failure does not change the consumed limit.
+- Filtered-out and limit-excluded items have distinct terminal statuses and reasons.
 - A requested but unavailable field returns a clear error and runs no filtered actions.
 - No-filter behavior still processes all eligible discovered items.
 - Old filter payloads continue to work with documented semantics.
@@ -223,10 +209,10 @@ Freeze this contract before Tasks 5–7 begin so the dashboard and runtime can b
 
 ## Task 7 — Make test suites complete and discoverable
 
-**Priority:** P1.  
+**Priority:** P1.
 **Goal:** make it obvious which suites run locally and in CI, and ensure the intended tests are not omitted.  
 **Owner:** one test-governance agent.  
-**Dependencies:** Tasks 3, 4, and 6.  
+**Dependencies:** Tasks 3, 6, 12, and 13.
 **Allowed paths:** `package.json`, new `docs/TESTING.md`, and new/updated `.github/workflows/*` only.
 
 ### Subtasks
@@ -246,11 +232,13 @@ Freeze this contract before Tasks 5–7 begin so the dashboard and runtime can b
 
 ## Task 8 — Reconcile project status and technical docs
 
-**Priority:** P1.  
+**Priority:** P1.
 **Goal:** remove branch/status contradictions and establish one canonical roadmap.  
 **Owner:** one documentation agent.  
-**Dependencies:** Tasks 1–7 should be integrated before final status claims are updated.  
+**Dependencies:** Tasks 1–7, 12, and 13 should be integrated before final status claims are updated.
 **Allowed paths:** `README.md`, root `TODO.md`, `CHANGELOG.md`, `docs/TODO.md`, `docs/IMPLEMENTATION-STATUS.md`, `docs/ARCHITECTURE.md`, `docs/DECISIONS.md`.
+
+Treat `docs/LOOP-FILTER-REQUIREMENTS.md` as the approved product contract; do not change its behavior without the product owner's direction.
 
 ### Subtasks
 
@@ -271,7 +259,7 @@ Freeze this contract before Tasks 5–7 begin so the dashboard and runtime can b
 **Priority:** P1 release gate.  
 **Goal:** validate the actual user journey and document compatibility limits.  
 **Owner:** one validation lead; use separate portal testers only when they have separate environments.  
-**Dependencies:** Tasks 1–8.  
+**Dependencies:** Tasks 1–8, 12, and 13.
 **Allowed paths:** new dedicated fixtures under `test/fixtures/`, a validation matrix under `docs/validation/`, and test-owned artifacts. Do not edit engine code from this task; file defects as follow-up tasks.
 
 ### Subtasks
@@ -294,7 +282,7 @@ Freeze this contract before Tasks 5–7 begin so the dashboard and runtime can b
 **Priority:** P2.  
 **Goal:** remove stale asynchronous updates and ensure dashboard status reflects actual state.  
 **Owner:** one frontend reliability agent.  
-**Dependencies:** Task 5; avoid editing its files until it is merged.  
+**Dependencies:** Tasks 5 and 13; avoid editing its files until Task 13 is merged.
 **Allowed paths:** `src/dashboard/public/js/views/workflowEditorView.js`, `src/dashboard/public/js/components/header.js`, and `src/dashboard/public/index.html`.
 
 ### Subtasks
@@ -315,7 +303,7 @@ Freeze this contract before Tasks 5–7 begin so the dashboard and runtime can b
 **Priority:** P2 after the release gate.  
 **Goal:** reduce change collisions and make future agent tasks smaller.  
 **Owner:** assign one module area per agent; do not run overlapping refactors.  
-**Dependencies:** Tasks 1–10 and a stable behavior baseline.  
+**Dependencies:** Tasks 1–10, 12, 13, and a stable behavior baseline.
 **Candidate work items:**
 
 - Extract focused checkpoint, pagination, download, and item-execution modules from `loop-replay-runner.js` while preserving its external interface.
@@ -329,16 +317,65 @@ Freeze this contract before Tasks 5–7 begin so the dashboard and runtime can b
 - Each extraction has behavior-level regression coverage before the old implementation is removed.
 - File ownership remains exclusive during the refactor wave.
 
+## Task 12 — Extend the shared evaluator for compound and date filters
+
+**Priority:** P1.
+**Goal:** implement the confirmed v2 filter semantics as a deterministic pure evaluator.
+**Owner:** one shared-engine agent.
+**Dependencies:** Task 4; use the frozen requirements document.
+**Allowed paths:** `src/shared/item-filter.js` and `test/item-filter.test.js` only.
+
+### Subtasks
+
+1. Normalize v2 `conditions` and `matchMode: all|any`, plus legacy single-condition formats.
+2. Validate text operators and strict inclusive `dateBetween` ranges using date-only ISO values.
+3. Distinguish an unavailable configured field from an item-level missing/unparseable date value; return nonmatching reasons for the latter.
+4. Extend preview evaluation to report matching items, item-level skips/reasons, and configuration errors; apply an optional limit after filtering and report selected and limit-skipped items.
+5. Add unit coverage for all/any, empty/malformed conditions, date boundaries, invalid/reversed dates, legacy normalization, and missing item values.
+
+### Acceptance criteria
+
+- Evaluator remains pure and has no browser, database, API, or dashboard dependency.
+- All/any semantics and inclusive dates match the requirements document exactly.
+- Invalid configuration never matches; item-level missing/unparseable date values do not abort other items.
+- Existing v1 and legacy filter cases remain supported.
+
+## Task 13 — Extend filter review UI and item limit controls
+
+**Priority:** P1.
+**Goal:** let users configure multiple conditions, review the selected batch, and cap item attempts.
+**Owner:** one dashboard-flow agent.
+**Dependencies:** Task 5; contract in `LOOP-FILTER-REQUIREMENTS.md` is frozen. May run in parallel with Tasks 12 and 6 because paths are disjoint.
+**Allowed paths:** `src/dashboard/public/js/components/executionModal.js`, `src/dashboard/public/js/views/executionView.js`, and `src/dashboard/public/css/views.css` only.
+
+### Subtasks
+
+1. Add multiple filter rows and `All`/`Any` selection, with text and date-between inputs.
+2. Add an all-matching-items / positive integer item limit control.
+3. Show discovered, matching-before-limit, selected-after-limit, filter-skipped, and limit-skipped counts and representative samples.
+4. Pass the exact `itemFilter` and `loopLimit` request options through the existing API client interface; coordinate contract names without editing Task 6 files.
+5. Render `SKIPPED_FILTER` and `SKIPPED_LIMIT` distinctly with readable reasons and correct counters.
+6. Keep invalid filters and zero selected items blocked and make the selected order/limit clear before starting.
+
+### Acceptance criteria
+
+- UI supports the contract without portal-specific filter choices.
+- Preview counts and samples reflect the active conditions, match mode, and limit.
+- Execution request carries the reviewed filter/limit values without UI/API contract drift.
+- Both skip states are terminal, visible, and included in processed/remaining calculations.
+- Controls are keyboard-operable and explain the limit as attempted items, including failures.
+
 ## Parallel schedule
 
 | Wave | Tasks | Notes |
 |---|---|---|
 | 0 — Set up | Task 0 | Establish owners and task branches/worktrees first. |
 | 1 — Independent foundations | Tasks 1, 2, 3, 4 | Disjoint files. Security and loop reliability are highest priority. |
-| 2 — Product flow | Tasks 5 and 6 | May run concurrently once the filter and API contracts above are frozen. Task 6 waits for Tasks 1, 2, and 4 to merge. |
-| 3 — Integration discipline | Tasks 7 and 8 | Start after feature/test owners have listed final suites and outcomes. These tasks own different files. |
-| 4 — Release validation | Task 9 | Run after all behavior changes are integrated. File defects as new tasks. |
-| 5 — Follow-up | Tasks 10 and 11 | Lower priority; keep them out of the reliability/filter release wave. |
+| 2 — Filter v2 foundations | Tasks 12 and 13 | Independent files; can start in parallel against the frozen requirements. |
+| 3 — API/runtime integration | Task 6 | Start after Task 12 is integrated; Task 13 can continue in parallel. |
+| 4 — Test/docs governance | Tasks 7 and 8 | Start after Tasks 3, 6, 12, and 13 provide final suites and outcomes. |
+| 5 — Release validation | Task 9 | Run after all behavior changes are integrated. File defects as new tasks. |
+| 6 — Follow-up | Tasks 10 and 11 | Task 10 waits for Task 13; Task 11 follows the release gate. |
 
 ## Agent handoff prompt
 

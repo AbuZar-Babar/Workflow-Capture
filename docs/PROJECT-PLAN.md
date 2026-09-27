@@ -76,6 +76,12 @@ Iterate
 Execute
 ```
 
+## Confirmed Initial Loop and Filter Behavior
+
+The initial product behavior is now agreed: normal replay without a loop marker runs once; with one loop-start marker, steps before it run once and the marked step through the end repeats for each selected discovered item. Users can filter by multiple item fields using `all` (AND) or `any` (OR), including inclusive date ranges, and can process all matches or cap the number of attempted items. The limit selects the first N matches in discovery order and counts each item when its workflow begins, including items that fail. The initial loop model has no separate end marker or post-loop action region.
+
+These are confirmed requirements, not a claim that the full feature is already implemented. The detailed request shape, validation rules, preview counts, skip states, and legacy compatibility are in [LOOP-FILTER-REQUIREMENTS.md](LOOP-FILTER-REQUIREMENTS.md); implementation progress is in [WORKSTREAMS.md](WORKSTREAMS.md).
+
 ---
 
 ## 3. Target Architecture
@@ -544,7 +550,7 @@ Record → Save workflow → Replay
 ```
 
 ### Phase 2 — Collection discovery and item loops
-Priority: **next major milestone**
+Status: foundations integrated; full dashboard/API/runtime validation remains in progress.
 
 Goal:
 
@@ -555,7 +561,9 @@ Detect collection
       ↓
 Confirm N items
       ↓
-Process all
+Review filters and optional attempt limit
+      ↓
+Process selected items
 ```
 
 ### Phase 3 — Pagination and dynamic lists

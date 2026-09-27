@@ -1,43 +1,20 @@
-# Workflow Capture — Current TODO
+# Workflow Capture — Current Follow-up Work
 
-## P0 — Core Reliability
+Task ownership, dependencies, and implementation status are maintained in [WORKSTREAMS.md](WORKSTREAMS.md); do not use this page to claim task completion. The confirmed loop and filter behavior is in [LOOP-FILTER-REQUIREMENTS.md](LOOP-FILTER-REQUIREMENTS.md).
 
-- [ ] Investigate and fix the loop E2E stall when processing item 2.
-- [ ] Make repeated-item execution reliable across all discovered items.
-- [ ] Resolve the Windows/Puppeteer Chrome temporary-profile `EBUSY` cleanup issue.
-- [ ] Run the complete recording → discovery → filtering → execution → download journey end-to-end.
+Tasks 0–5 are integrated on `multi-agent`. Their owners reported focused validation on their task branches. The integrated end-to-end journey still needs verification.
 
-## P1 — Filtering
+## Next implementation work
 
-- [ ] Replace the current portal-specific/hardcoded filter value with a generic filter configuration model.
-- [ ] Define the filter condition schema.
-- [ ] Support filtering based on discovered item/row attributes and content.
-- [ ] Clearly expose selected vs skipped items in the discovery/review UI.
-- [ ] Validate filtering against more than one portal structure.
+- [ ] Extend the evaluator to multiple text/date conditions with `all` and `any` semantics (Task 12).
+- [ ] Add inclusive date ranges, all-matches mode, positive attempt limits, and distinct filter/limit skipped states to the review UI (Task 13).
+- [ ] Wire the same filter/limit rules through discovery preview, execution API, loop runtime, counters, and manifests (Task 6).
+- [ ] Re-run focused suites after integration and validate preview/runtime agreement.
+- [ ] Validate recording → discovery → review → filter/limit → execution → monitor → artifacts on fixtures.
+- [ ] Validate representative table/list/card layouts on authorized portals and document limitations.
 
-## P1 — Real-Portal Validation
+## Later work
 
-- [ ] Validate recording and replay on a real portal.
-- [ ] Validate item discovery on representative tables/lists/cards.
-- [ ] Validate generalized item actions.
-- [ ] Validate structured downloads and artifact traceability.
-- [ ] Document portal compatibility limitations.
-
-## P1 — Product Flow / UX
-
-- [ ] Validate recording → stop → save → discovery → review → filter → run → monitor → results → artifacts.
-- [ ] Keep recording state unambiguous.
-- [ ] Make discovery confidence, item count, selected/skipped items, and intended actions visible before execution.
-- [ ] Provide clear per-item execution outcomes and failure reasons.
-
-## P2 — Deferred
-
-- [ ] Implement product authentication after the core pipeline is stable.
-- [ ] Revisit scheduling/queues only if they become explicit requirements.
-- [ ] Revisit cloud/distributed execution only when scale requirements are known.
-- [ ] Revisit AI-assisted selector recovery only after deterministic behavior is sufficiently validated.
-- [ ] Finalize product naming/branding.
-
-## Release Discipline
-
-Until the core pipeline is reliable, prioritize bug fixes, validation, usability, and filter generalization over unrelated feature expansion.
+- [ ] Add pagination, Load More, infinite scroll, or virtualized-list support after current-page processing is stable.
+- [ ] Improve duplicate prevention and recovery behavior based on end-to-end findings.
+- [ ] Revisit scheduling, distributed execution, AI-assisted recovery, and Document AI only when explicitly prioritized.

@@ -1,8 +1,10 @@
 # Workflow Capture — Implementation Status
 
-> Updated: 2026-09-20
+> Updated: 2026-09-27
 >
-> This document records what has actually been implemented on the `feature/item-discovery` branch. It is intentionally separate from the long-term product plan so planned capabilities are not confused with completed work.
+> Current integration branch: `multi-agent` at `113b920`. Tasks 0–5 are integrated. Task owners reported their assigned checks passed on their task branches before merge; the combined end-to-end journey has not yet been rerun after integration. See [WORKSTREAMS.md](WORKSTREAMS.md) for status and [LOOP-FILTER-REQUIREMENTS.md](LOOP-FILTER-REQUIREMENTS.md) for confirmed requirements that are not all implemented yet.
+>
+> The technical descriptions below originated as an earlier engine implementation snapshot. Treat them as implementation background; current task status and validation evidence are maintained in the linked workboard.
 
 ---
 
@@ -30,7 +32,7 @@ Persist checkpoint state
 Resume after interruption
 ```
 
-The current implementation is **not yet a complete production RPA platform**. It is a working engine prototype for the core record → discover → replay workflow.
+The current implementation is **not yet a complete production RPA platform**. It includes the recording, discovery, item-scoped replay, loop reliability, dashboard review, security, and reusable filter foundations described below, with API/runtime filter integration and the full product journey still in progress.
 
 ---
 
@@ -166,9 +168,9 @@ all remaining actions = per-item workflow
 
 This works for the current demonstration workflow.
 
-### Known limitation
+### Current agreed behavior and remaining work
 
-Explicit loop boundaries are not yet represented as a first-class workflow construct. Therefore, a future workflow containing global/teardown actions after the loop could require more sophisticated partitioning.
+The approved initial behavior is one loop-start marker: preceding steps run once, and the marker through the workflow end repeats for each selected item. There is no separate loop-end marker or post-loop action region in this version. The product contract is recorded in [LOOP-FILTER-REQUIREMENTS.md](LOOP-FILTER-REQUIREMENTS.md); editor persistence and complete end-to-end validation remain part of follow-up work.
 
 ---
 
@@ -472,11 +474,11 @@ Relevant tests currently present include:
 
 The package test scripts have also been updated to include the new unit suites.
 
-**Important:** after the latest implementation work, the test suite has deliberately **not yet been run**. The planned workflow is to finish the current coding milestone first and then run the complete relevant test suite once.
+Task owners reported passing their focused suites on their task branches before integration. The combined test suite and end-to-end recording → discovery → filtering → execution flow have not yet been rerun on the integrated `multi-agent` branch. Use [WORKSTREAMS.md](WORKSTREAMS.md) for the task-level evidence and remaining validation work.
 
 ---
 
-## 16. Current Git Milestone
+## 16. Earlier Item-Discovery Git Milestone (Historical)
 
 The recent feature branch work includes:
 
@@ -510,15 +512,12 @@ The following should still be considered unfinished:
 
 ### High priority
 
-- user confirmation UI: "Found N items — continue?";
-- dashboard visibility for discovery results;
-- dashboard controls for pagination/resume;
-- actual resume UX from the dashboard;
-- stronger item identity / duplicate prevention;
-- robust checkpoint recovery testing;
-- better handling of SPA pagination and virtualized grids;
-- selector edge cases such as `:scope` and complex CSS paths;
-- explicit workflow loop boundaries.
+- API/runtime integration of preview and execution with the shared filter evaluator;
+- multiple filter conditions with `all`/`any` and inclusive date ranges;
+- all-matching-items versus a positive attempt limit, including distinct filter/limit skip states;
+- integrated verification that preview and runtime select the same items and that failures still consume a limit slot;
+- end-to-end dashboard journey and real-portal validation;
+- stronger item identity / duplicate prevention and robust checkpoint recovery coverage.
 
 ### Medium priority
 
@@ -575,4 +574,4 @@ The core principle remains:
 
 > **Record the procedure, not the individual records.**
 
-The next major milestone should be to expose these capabilities through the dashboard and make the complete workflow understandable and controllable by a user rather than only through runner configuration.
+The next major milestone is to complete the agreed loop/filter behavior through the dashboard, API, runtime, and persisted run state, then validate the complete workflow against fixtures and authorized real portals.

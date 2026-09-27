@@ -1,14 +1,16 @@
 # Workflow Capture — Roadmap & TODO
 
+> **Status snapshot:** This is a legacy roadmap snapshot, not the active task board. Active ownership and completion state are in [docs/WORKSTREAMS.md](docs/WORKSTREAMS.md); confirmed loop/filter behavior is in [docs/LOOP-FILTER-REQUIREMENTS.md](docs/LOOP-FILTER-REQUIREMENTS.md). Branch references and unchecked items below describe the original item-discovery work and must not be treated as current assignments.
+
 This roadmap reflects the current product direction: **record one document/record workflow, discover the complete collection, iterate over it, handle pagination/dynamic content, reliably download artifacts, and later feed those artifacts into Document AI.**
 
 For the detailed architecture and product strategy, see [PROJECT-PLAN.md](docs/PROJECT-PLAN.md).
 
-For the active implementation branch, see [FEATURE-ITEM-DISCOVERY.md](docs/FEATURE-ITEM-DISCOVERY.md).
+For the historical item-discovery specification, see [FEATURE-ITEM-DISCOVERY.md](docs/FEATURE-ITEM-DISCOVERY.md).
 
 ---
 
-## Current Status
+## Historical Foundation Checklist
 
 ### Core foundation — implemented
 
@@ -40,12 +42,12 @@ For the active implementation branch, see [FEATURE-ITEM-DISCOVERY.md](docs/FEATU
 
 ---
 
-# Active Development
+# Historical Development Backlog
 
 ## Phase 2 — Collection Discovery + Automatic Item Loop
 
-**Status: IN PROGRESS**  
-**Branch:** `feature/item-discovery`
+**Status:** Discovery foundations integrated; API/runtime filtering and the expanded loop/filter requirements remain in progress.
+**Original branch:** `feature/item-discovery` (historical)
 
 **Goal:** turn one recorded item workflow into a batch workflow on the current page.
 
@@ -103,7 +105,7 @@ Pagination is intentionally excluded from this phase.
 
 ## Phase 2 — Collection Discovery + Automatic Item Loop
 
-**Status: IN PROGRESS — see active branch above.**
+**Status:** Historical phase checklist; current task status is maintained in `docs/WORKSTREAMS.md`.
 
 ---
 
@@ -272,7 +274,7 @@ Management Workflow
 
 # Immediate Next Task
 
-The active branch `feature/item-discovery` should implement this narrow proof:
+The remaining current-page proof is tracked by Tasks 6, 9, 12, and 13 in `docs/WORKSTREAMS.md`:
 
 > **Record one invoice → detect the invoice collection → show the number of matching invoices → execute the recorded download workflow for every invoice on the current page → produce item-level results.**
 
