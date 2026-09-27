@@ -116,7 +116,7 @@ export const ExecutionView = {
           <article class="stat-card">
             <span class="stat-label">Skipped</span>
             <strong id="executionSkipped" style="color:#d97706;">0</strong>
-            <span class="stat-meta" id="executionSkippedMeta">Filtered / dupes</span>
+            <span class="stat-meta" id="executionSkippedMeta">Filtered / limit / dupes</span>
           </article>
           <article class="stat-card">
             <span class="stat-label">Downloads</span>
@@ -381,7 +381,7 @@ export const ExecutionView = {
 
     const ok = Number(m.itemsSucceeded ?? run.itemsSucceeded ?? 0);
     const fail = Number(m.itemsFailed ?? run.itemsFailed ?? 0);
-    const terminalItemStatuses = new Set(['SUCCESS', 'FAILED', 'STOPPED', 'SKIPPED_DUPLICATE', 'SKIPPED_FILTER']);
+    const terminalItemStatuses = new Set(['SUCCESS', 'FAILED', 'STOPPED', 'SKIPPED_DUPLICATE', 'SKIPPED_FILTER', 'SKIPPED_LIMIT']);
     const processed = results.filter(x => terminalItemStatuses.has(x.status)).length;
     const remaining = Math.max(0, totalCount - processed);
     const files = Array.isArray(m.downloadedFiles) ? m.downloadedFiles.length : Number((run.downloadedFiles || []).length);
@@ -440,23 +440,20 @@ export const ExecutionView = {
     if (elFail) elFail.textContent = fail;
 
     const filterSkipped = results.filter(r => r.status === 'SKIPPED_FILTER').length;
+    const limitSkipped = results.filter(r => r.status === 'SKIPPED_LIMIT').length;
     const dupSkipped = results.filter(r => r.status === 'SKIPPED_DUPLICATE').length;
-    const skippedCount = m.itemsSkipped ?? run.itemsSkipped ?? (filterSkipped + dupSkipped);
+    const skippedCount = m.itemsSkipped ?? run.itemsSkipped ?? (filterSkipped + limitSkipped + dupSkipped);
 
     const elSkip = document.getElementById('executionSkipped');
     if (elSkip) elSkip.textContent = skippedCount;
 
     const elSkipMeta = document.getElementById('executionSkippedMeta');
     if (elSkipMeta) {
-      if (filterSkipped > 0 && dupSkipped > 0) {
-        elSkipMeta.textContent = `${filterSkipped} filtered · ${dupSkipped} dupes`;
-      } else if (filterSkipped > 0) {
-        elSkipMeta.textContent = `${filterSkipped} filtered out`;
-      } else if (dupSkipped > 0) {
-        elSkipMeta.textContent = `${dupSkipped} duplicates`;
-      } else {
-        elSkipMeta.textContent = 'Filtered / dupes';
-      }
+      const parts = [];
+      if (filterSkipped > 0) parts.push(`${filterSkipped} filtered`);
+      if (limitSkipped > 0) parts.push(`${limitSkipped} limit`);
+      if (dupSkipped > 0) parts.push(`${dupSkipped} dupes`);
+      elSkipMeta.textContent = parts.length > 0 ? parts.join(' · ') : 'Filtered / limit / dupes';
     }
 
     const elDown = document.getElementById('executionDownloads');
@@ -491,13 +488,11 @@ export const ExecutionView = {
     if (elProgDetail) {
       let skipDetail = '';
       if (skippedCount > 0) {
-        if (filterSkipped > 0 && dupSkipped > 0) {
-          skipDetail = ` · ${filterSkipped} filtered, ${dupSkipped} dupes`;
-        } else if (filterSkipped > 0) {
-          skipDetail = ` · ${filterSkipped} filtered out`;
-        } else {
-          skipDetail = ` · ${skippedCount} skipped`;
-        }
+        const skipParts = [];
+        if (filterSkipped > 0) skipParts.push(`${filterSkipped} filtered out`);
+        if (limitSkipped > 0) skipParts.push(`${limitSkipped} limit capped`);
+        if (dupSkipped > 0) skipParts.push(`${dupSkipped} dupes`);
+        skipDetail = skipParts.length > 0 ? ` · ${skipParts.join(', ')}` : ` · ${skippedCount} skipped`;
       }
       elProgDetail.textContent = totalCount > 0
         ? `${ok} succeeded · ${fail} failed${skipDetail} · ${remaining} ${remaining === 1 ? unitSingular : unitPlural} remaining`
@@ -636,6 +631,8 @@ export const ExecutionView = {
         badgeLabel = 'LOOP ROW';
         if (res && res.status === 'SKIPPED_FILTER') {
           targetDetail = res.skippedReason ? `Filter skipped: ${res.skippedReason}` : 'Skipped by record filter condition';
+        } else if (res && res.status === 'SKIPPED_LIMIT') {
+          targetDetail = res.skippedReason ? `Limit skipped: ${res.skippedReason}` : 'Skipped: reached maximum loop item limit';
         } else if (res && res.status === 'SKIPPED_DUPLICATE') {
           targetDetail = res.skippedReason || 'Skipped duplicate: already downloaded';
         } else if (res && Array.isArray(res.downloadedFiles) && res.downloadedFiles.length > 0) {
@@ -670,6 +667,10 @@ export const ExecutionView = {
           state = 'skipped-filter';
           icon = '⊘';
           stateLabel = 'Filtered Out';
+        } else if (s === 'SKIPPED_LIMIT') {
+          state = 'skipped-limit';
+          icon = '⇥';
+          stateLabel = 'Limit Excluded';
         } else if (s === 'SKIPPED_DUPLICATE') {
           state = 'skipped';
           icon = '↷';
@@ -701,6 +702,8 @@ export const ExecutionView = {
       let filterBadge = '';
       if (res && res.status === 'SKIPPED_FILTER') {
         filterBadge = `<span class="badge-tag warning" style="font-size:0.6rem; padding:1px 5px; background:#fef3c7; color:#b45309; font-weight:700;">SKIPPED FILTER</span>`;
+      } else if (res && res.status === 'SKIPPED_LIMIT') {
+        filterBadge = `<span class="badge-tag secondary" style="font-size:0.6rem; padding:1px 5px; background:#e2e8f0; color:#475569; font-weight:700;">SKIPPED LIMIT</span>`;
       } else if (res && res.status === 'SKIPPED_DUPLICATE') {
         filterBadge = `<span class="badge-tag warning" style="font-size:0.6rem; padding:1px 5px; background:#fef3c7; color:#b45309; font-weight:700;">DUPLICATE</span>`;
       }

@@ -2,12 +2,14 @@
  * Workflow Capture — Workflow Execution & Loop Review Modal
  * 
  * Unifies execution preflight, item discovery, record filtering, and launch review.
- * Conforms to the Shared Filter Contract from MULTI-AGENT-WORK-PLAN.md:
- *  - itemFilter: { field, operator, value }
- *  - Operators: 'contains' | 'equals' (case-insensitive, whitespace trimmed)
- *  - Preflight counts: totalCount, selectedCount, skippedCount, representative samples
- *  - Blocks execution on preview errors or zero-match filtered runs
- *  - Passes itemFilter unchanged to API client
+ * Conforms to the Shared Filter Contract from docs/LOOP-FILTER-REQUIREMENTS.md:
+ *  - Multiple filter conditions (field, operator: contains | equals | dateBetween, value / from-to dates)
+ *  - Match mode: 'all' | 'any' (default: 'all')
+ *  - Loop item limit: positive integer or empty (unlimited)
+ *  - Preflight counts: totalCount, matchingCount, selectedCount, skippedFilterCount, skippedLimitCount
+ *  - Representative samples for selected, filter-skipped, and limit-skipped items
+ *  - Blocks execution on preview errors, invalid limit, or zero-selected runs
+ *  - Passes exact itemFilter and loopLimit payload to API client
  */
 
 import { Api } from '../api.js';
@@ -26,6 +28,101 @@ function escapeHtml(str) {
   }[c]));
 }
 
+/**
+ * Validates strict YYYY-MM-DD date-only strings with real calendar boundaries.
+ */
+function isValidIsoDate(str) {
+  if (typeof str !== 'string') return false;
+  const trimmed = str.trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+  if (!match) return false;
+  const year = parseInt(match[1], 10);
+  const month = parseInt(match[2], 10);
+  const day = parseInt(match[3], 10);
+  if (month < 1 || month > 12) return false;
+  if (day < 1 || day > 31) return false;
+  const d = new Date(year, month - 1, day);
+  return d.getFullYear() === year && d.getMonth() === month - 1 && d.getDate() === day;
+}
+
+/**
+ * Parses an item's date value deterministically without locale dependence,
+ * matching the shared evaluator contract from Task 12 (src/shared/item-filter.js).
+ * Accepts:
+ *  - Strict YYYY-MM-DD
+ *  - YYYY-MM-DD... ISO timestamps
+ *  - YYYY/MM/DD
+ *  - YYYY/MM/DD... timestamps
+ *  - Valid JavaScript Date objects
+ * Rejects:
+ *  - MM/DD/YYYY, M/D/YYYY
+ *  - Textual dates
+ *  - Locale-dependent Date.parse() fallback
+ *
+ * @param {any} val
+ * @returns {string|null} - YYYY-MM-DD date string, or null if missing or unparseable.
+ */
+function parseItemDate(val) {
+  if (val === null || val === undefined) {
+    return null;
+  }
+
+  if (val instanceof Date) {
+    if (isNaN(val.getTime())) {
+      return null;
+    }
+    return val.toISOString().slice(0, 10);
+  }
+
+  const str = String(val).trim();
+  if (!str) {
+    return null;
+  }
+
+  // Accept strict YYYY-MM-DD or standard ISO timestamp beginning with YYYY-MM-DD
+  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/.exec(str);
+  if (isoMatch) {
+    const yStr = isoMatch[1];
+    const mStr = isoMatch[2];
+    const dStr = isoMatch[3];
+    const y = parseInt(yStr, 10);
+    const m = parseInt(mStr, 10);
+    const d = parseInt(dStr, 10);
+
+    if (m >= 1 && m <= 12) {
+      const isLeap = (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
+      const daysInMonth = [31, isLeap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+      if (d >= 1 && d <= daysInMonth[m - 1]) {
+        return `${yStr}-${mStr}-${dStr}`;
+      }
+    }
+    return null;
+  }
+
+  // Accept YYYY/MM/DD or timestamp beginning with YYYY/MM/DD
+  const slashMatch = /^(\d{4})\/(\d{2})\/(\d{2})(?:[T\s].*)?$/.exec(str);
+  if (slashMatch) {
+    const yStr = slashMatch[1];
+    const mStr = slashMatch[2];
+    const dStr = slashMatch[3];
+    const y = parseInt(yStr, 10);
+    const m = parseInt(mStr, 10);
+    const d = parseInt(dStr, 10);
+
+    if (m >= 1 && m <= 12) {
+      const isLeap = (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
+      const daysInMonth = [31, isLeap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+      if (d >= 1 && d <= daysInMonth[m - 1]) {
+        return `${yStr}-${mStr}-${dStr}`;
+      }
+    }
+    return null;
+  }
+
+  // All other formats (e.g. MM/DD/YYYY, DD/MM/YYYY, or textual dates) are ambiguous without locale
+  return null;
+}
+
 export const ExecutionModal = {
   container: null,
   currentWorkflowId: null,
@@ -36,23 +133,66 @@ export const ExecutionModal = {
   selectedMode: 'single', // 'single' | 'loop'
   onExecuted: null,
 
-  // Preflight and filter state
+  // Preflight and filter state (v2 contract)
   preflightStatus: 'idle', // 'idle' | 'loading' | 'success' | 'error'
   preflightError: '',
   discoveryData: null,
   availableFields: [],
   filterEnabled: true,
-  filterField: 'Type',
-  customFieldName: '',
-  filterOperator: 'contains', // 'contains' | 'equals'
-  filterValue: 'Invoice',
+  matchMode: 'all', // 'all' | 'any'
+  conditions: [
+    {
+      id: 'cond_1',
+      field: 'Type',
+      customField: '',
+      operator: 'contains',
+      value: 'Invoice',
+      dateFrom: '',
+      dateTo: ''
+    }
+  ],
+  loopLimit: null, // positive integer or null (unlimited)
+  loopLimitInput: '', // raw input string
+
   filterPreview: {
     totalCount: 0,
+    matchingCount: 0,
     selectedCount: 0,
-    skippedCount: 0,
+    skippedFilterCount: 0,
+    skippedLimitCount: 0,
     selectedPreview: [],
-    skippedPreview: [],
+    skippedFilterPreview: [],
+    skippedLimitPreview: [],
     errors: []
+  },
+
+  // Deterministic date parser matching Task 12 contract
+  parseItemDate,
+
+  // Backwards compatibility accessors for v1 code / callers
+  get filterField() {
+    return this.conditions[0]?.field || 'Type';
+  },
+  set filterField(val) {
+    if (this.conditions[0]) this.conditions[0].field = val;
+  },
+  get filterOperator() {
+    return this.conditions[0]?.operator || 'contains';
+  },
+  set filterOperator(val) {
+    if (this.conditions[0]) this.conditions[0].operator = val;
+  },
+  get filterValue() {
+    return this.conditions[0]?.value || '';
+  },
+  set filterValue(val) {
+    if (this.conditions[0]) this.conditions[0].value = val;
+  },
+  get customFieldName() {
+    return this.conditions[0]?.customField || '';
+  },
+  set customFieldName(val) {
+    if (this.conditions[0]) this.conditions[0].customField = val;
   },
 
   init() {
@@ -90,22 +230,35 @@ export const ExecutionModal = {
     this.selectedMode = this.isLoopConfigured ? 'loop' : 'single';
     this.onExecuted = onExecuted;
 
-    // Reset preflight state
+    // Reset preflight & filter state
     this.preflightStatus = 'idle';
     this.preflightError = '';
     this.discoveryData = null;
     this.availableFields = [];
     this.filterEnabled = true;
-    this.filterField = 'Type';
-    this.customFieldName = '';
-    this.filterOperator = 'contains';
-    this.filterValue = 'Invoice';
+    this.matchMode = 'all';
+    this.loopLimit = null;
+    this.loopLimitInput = '';
+    this.conditions = [
+      {
+        id: 'cond_1',
+        field: 'Type',
+        customField: '',
+        operator: 'contains',
+        value: 'Invoice',
+        dateFrom: '',
+        dateTo: ''
+      }
+    ];
     this.filterPreview = {
       totalCount: 0,
+      matchingCount: 0,
       selectedCount: 0,
-      skippedCount: 0,
+      skippedFilterCount: 0,
+      skippedLimitCount: 0,
       selectedPreview: [],
-      skippedPreview: [],
+      skippedFilterPreview: [],
+      skippedLimitPreview: [],
       errors: []
     };
 
@@ -123,6 +276,44 @@ export const ExecutionModal = {
       this.container.classList.add('hidden');
     }
     document.removeEventListener('keydown', this.handleKeyDown);
+  },
+
+  isLimitInvalid() {
+    const raw = String(this.loopLimitInput || '').trim();
+    if (raw === '') return false;
+    if (!/^\d+$/.test(raw)) return true;
+    const n = parseInt(raw, 10);
+    return n <= 0;
+  },
+
+  addCondition() {
+    const id = 'cond_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+    const defaultField = this.availableFields.length > 0 ? this.availableFields[0] : 'Type';
+    this.conditions.push({
+      id,
+      field: defaultField,
+      customField: '',
+      operator: 'contains',
+      value: '',
+      dateFrom: '',
+      dateTo: ''
+    });
+    this.refreshConditionsUI();
+  },
+
+  removeCondition(condId) {
+    if (this.conditions.length <= 1) return;
+    this.conditions = this.conditions.filter(c => c.id !== condId);
+    this.refreshConditionsUI();
+  },
+
+  refreshConditionsUI() {
+    const container = this.container?.querySelector('#execConditionsContainer');
+    if (container) {
+      container.innerHTML = this.renderConditionRows();
+      this.bindConditionEvents();
+    }
+    this.evaluateFilterPreview();
   },
 
   render() {
@@ -153,7 +344,7 @@ export const ExecutionModal = {
           <div style="display:flex; flex-direction:column; gap:0.65rem;">
             <!-- Option 1: Macro Execution (Single) -->
             <label class="exec-option-label ${!isLoopSelected ? 'active' : ''}" id="labelExecSingle">
-              <input type="radio" name="execModeRadio" value="single" ${!isLoopSelected ? 'checked' : ''} style="margin-top:0.25rem; accent-color:var(--brand-forest);">
+              <input type="radio" name="execModeRadio" value="single" ${!isLoopSelected ? 'checked' : ''} style="margin-top:0.25rem; accent-color:var(--brand-forest);" aria-label="Run as Macro (Single Execution)">
               <div style="display:flex; flex-direction:column; gap:0.2rem;">
                 <div style="display:flex; align-items:center; gap:0.5rem;">
                   <strong style="font-size:0.9rem; color:var(--text-main);">⚡ Run as Macro (Single Execution)</strong>
@@ -165,7 +356,7 @@ export const ExecutionModal = {
 
             <!-- Option 2: Loop Execution (Batch) -->
             <label class="exec-option-label ${isLoopSelected ? 'active' : ''}" id="labelExecLoop">
-              <input type="radio" name="execModeRadio" value="loop" ${isLoopSelected ? 'checked' : ''} style="margin-top:0.25rem; accent-color:var(--brand-forest);">
+              <input type="radio" name="execModeRadio" value="loop" ${isLoopSelected ? 'checked' : ''} style="margin-top:0.25rem; accent-color:var(--brand-forest);" aria-label="Run as Loop (Batch / Filtered Items)">
               <div style="display:flex; flex-direction:column; gap:0.2rem;">
                 <div style="display:flex; align-items:center; gap:0.5rem;">
                   <strong style="font-size:0.9rem; color:var(--text-main);">🔁 Run as Loop (Batch / Filtered Items)</strong>
@@ -208,6 +399,92 @@ export const ExecutionModal = {
     this.updateExecuteButton();
   },
 
+  renderConditionRows() {
+    const hasFields = this.availableFields.length > 0;
+
+    return this.conditions.map((cond, idx) => {
+      const isCustomField = cond.field === '__custom__' || (!hasFields && !!cond.field);
+      const currentField = isCustomField ? (cond.customField || cond.field || 'Type') : (cond.field || 'Type');
+      const isDateOp = cond.operator === 'dateBetween';
+
+      return `
+        <div class="exec-condition-row" data-cond-id="${escapeHtml(cond.id)}">
+          <div class="exec-condition-main-grid">
+            <!-- Field Selector -->
+            <div class="exec-field-group">
+              <label for="execCondField_${cond.id}">Field</label>
+              ${hasFields ? `
+                <select id="execCondField_${cond.id}" class="exec-control-select exec-cond-field" data-cond-id="${escapeHtml(cond.id)}" aria-label="Condition ${idx + 1} Field">
+                  ${this.availableFields.map(f => `<option value="${escapeHtml(f)}" ${f.toLowerCase() === currentField.toLowerCase() ? 'selected' : ''}>${escapeHtml(f)}</option>`).join('')}
+                  <option value="__custom__" ${cond.field === '__custom__' ? 'selected' : ''}>Custom field…</option>
+                </select>
+              ` : `
+                <input type="text" id="execCondField_${cond.id}" class="exec-control-input exec-cond-field-input" data-cond-id="${escapeHtml(cond.id)}" value="${escapeHtml(currentField)}" placeholder="e.g. Type, Status…" aria-label="Condition ${idx + 1} Field">
+              `}
+            </div>
+
+            <!-- Operator Selector -->
+            <div class="exec-field-group">
+              <label for="execCondOp_${cond.id}">Operator</label>
+              <select id="execCondOp_${cond.id}" class="exec-control-select exec-cond-operator" data-cond-id="${escapeHtml(cond.id)}" aria-label="Condition ${idx + 1} Operator">
+                <option value="contains" ${cond.operator === 'contains' ? 'selected' : ''}>contains</option>
+                <option value="equals" ${cond.operator === 'equals' ? 'selected' : ''}>equals</option>
+                <option value="dateBetween" ${cond.operator === 'dateBetween' ? 'selected' : ''}>dateBetween</option>
+              </select>
+            </div>
+
+            <!-- Value / Date Inputs -->
+            <div class="exec-field-group exec-value-group">
+              <label for="${isDateOp ? `execCondDateFrom_${cond.id}` : `execCondVal_${cond.id}`}">${isDateOp ? 'Date Range (YYYY-MM-DD)' : 'Match Value'}</label>
+              ${isDateOp ? `
+                <div class="exec-date-range-row">
+                  <input type="date" id="execCondDateFrom_${cond.id}" class="exec-control-input exec-date-input exec-cond-date-from" data-cond-id="${escapeHtml(cond.id)}" value="${escapeHtml(cond.dateFrom || '')}" placeholder="YYYY-MM-DD" aria-label="Condition ${idx + 1} From Date">
+                  <span class="exec-date-sep">to</span>
+                  <input type="date" id="execCondDateTo_${cond.id}" class="exec-control-input exec-date-input exec-cond-date-to" data-cond-id="${escapeHtml(cond.id)}" value="${escapeHtml(cond.dateTo || '')}" placeholder="YYYY-MM-DD" aria-label="Condition ${idx + 1} To Date">
+                </div>
+              ` : `
+                <input type="text" id="execCondVal_${cond.id}" class="exec-control-input exec-cond-value" data-cond-id="${escapeHtml(cond.id)}" value="${escapeHtml(cond.value || '')}" placeholder="e.g. Invoice" aria-label="Condition ${idx + 1} Value">
+              `}
+            </div>
+
+            <!-- Remove Condition Button -->
+            <div class="exec-field-group exec-remove-group">
+              <label>&nbsp;</label>
+              <button type="button" class="btn-icon exec-btn-remove-cond" data-cond-id="${escapeHtml(cond.id)}" title="Remove this condition" aria-label="Remove condition ${idx + 1}" ${this.conditions.length <= 1 ? 'disabled' : ''}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Custom Field Sub-Input if __custom__ selected -->
+          ${cond.field === '__custom__' ? `
+            <div class="exec-custom-field-row" style="margin-top:0.35rem;">
+              <label for="execCondCustomField_${cond.id}" style="font-size:0.68rem; font-weight:700; color:var(--text-sub);">Custom Column / Field Name</label>
+              <input type="text" id="execCondCustomField_${cond.id}" class="exec-control-input exec-cond-custom-field" data-cond-id="${escapeHtml(cond.id)}" value="${escapeHtml(cond.customField || '')}" placeholder="Enter exact column name..." aria-label="Condition ${idx + 1} Custom Field Name">
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
+  },
+
+  renderFilterExplanation() {
+    if (!this.filterEnabled) {
+      return '⚡ <strong>Process all items:</strong> No filter conditions applied. All discovered items will be processed sequentially.';
+    }
+
+    const opWord = this.matchMode === 'any' ? 'ANY' : 'ALL';
+    const condDescs = this.conditions.map(c => {
+      const field = (c.field === '__custom__' ? c.customField : c.field).trim() || 'Field';
+      if (c.operator === 'dateBetween') {
+        return `<code>${escapeHtml(field)}</code> date between "${escapeHtml(c.dateFrom || 'YYYY-MM-DD')}" and "${escapeHtml(c.dateTo || 'YYYY-MM-DD')}"`;
+      }
+      return `<code>${escapeHtml(field)}</code> ${escapeHtml(c.operator)} "${escapeHtml(c.value || '...')}"`;
+    });
+
+    return `⚡ Loop will inspect each item: rows matching <strong style="color:var(--brand-forest);">${opWord}</strong> of [ ${condDescs.join(', ')} ] will be selected. Other rows are skipped as <code>SKIPPED_FILTER</code>.`;
+  },
+
   renderPreflightContent() {
     if (this.preflightStatus === 'loading') {
       return `
@@ -247,10 +524,6 @@ export const ExecutionModal = {
       const collectionName = discovery.collection ? `${discovery.collection.itemTag || 'Item'} rows` : 'Table / Grid';
       const actionsPerItem = this.discoveryData?.actionsPerItem ?? 1;
 
-      const hasFields = this.availableFields.length > 0;
-      const isCustomField = this.filterField === '__custom__' || (!hasFields && !!this.filterField);
-      const currentField = isCustomField ? (this.customFieldName || this.filterField || 'Type') : (this.filterField || 'Type');
-
       return `
         <!-- Preflight Metrics Bar -->
         <div class="exec-preflight-grid">
@@ -273,13 +546,13 @@ export const ExecutionModal = {
         </div>
 
         <!-- Filter Guard Section -->
-        <div style="display:flex; flex-direction:column; gap:0.6rem; padding-top:0.25rem;">
+        <div style="display:flex; flex-direction:column; gap:0.65rem; padding-top:0.25rem;">
           <div style="display:flex; align-items:center; justify-content:space-between;">
             <div style="display:flex; align-items:center; gap:0.45rem;">
               <span style="font-size:0.82rem; font-weight:800; color:var(--text-main);">🎯 Target Filter Guard</span>
-              <span class="badge-tag primary" style="font-size:0.65rem; padding:0.1rem 0.4rem;">Shared Filter Contract</span>
+              <span class="badge-tag primary" style="font-size:0.65rem; padding:0.1rem 0.4rem;">v2 Contract</span>
             </div>
-            <span style="font-size:0.72rem; color:var(--text-sub);">Generic field-level preflight</span>
+            <span style="font-size:0.72rem; color:var(--text-sub);">Multi-condition &amp; limit preflight</span>
           </div>
 
           <!-- Explicit Filter Mode Toggle -->
@@ -290,68 +563,80 @@ export const ExecutionModal = {
             </label>
             <label class="exec-filter-mode-label" style="margin-left:0.5rem;">
               <input type="radio" name="execFilterModeToggle" value="filter" ${this.filterEnabled ? 'checked' : ''} style="accent-color:var(--brand-forest);">
-              <span>Filter items by field condition</span>
+              <span>Filter items by field condition(s)</span>
             </label>
           </div>
 
           <!-- Filter Condition Controls (visible when filter is enabled) -->
           <div id="execFilterControlsWrapper" style="display:${this.filterEnabled ? 'flex' : 'none'}; flex-direction:column; gap:0.65rem;">
-            <div class="exec-filter-inputs-grid">
 
-              <!-- Field Selector -->
-              <div class="exec-field-group">
-                <label for="execFilterFieldSelect">Target Field</label>
-                ${hasFields ? `
-                  <select id="execFilterFieldSelect" class="exec-control-select">
-                    ${this.availableFields.map(f => `<option value="${escapeHtml(f)}" ${f.toLowerCase() === currentField.toLowerCase() ? 'selected' : ''}>${escapeHtml(f)}</option>`).join('')}
-                    <option value="__custom__" ${this.filterField === '__custom__' ? 'selected' : ''}>Custom field…</option>
-                  </select>
-                ` : `
-                  <input type="text" id="execFilterCustomField" class="exec-control-input" value="${escapeHtml(currentField)}" placeholder="e.g. Type, Status…">
-                `}
-              </div>
-
-              <!-- Operator Selector -->
-              <div class="exec-field-group">
-                <label for="execFilterOperatorSelect">Operator</label>
-                <select id="execFilterOperatorSelect" class="exec-control-select">
-                  <option value="contains" ${this.filterOperator === 'contains' ? 'selected' : ''}>contains</option>
-                  <option value="equals" ${this.filterOperator === 'equals' ? 'selected' : ''}>equals</option>
-                </select>
-              </div>
-
-              <!-- Value Input -->
-              <div class="exec-field-group">
-                <label for="execFilterValueInput">Match Value</label>
-                <input type="text" id="execFilterValueInput" class="exec-control-input" value="${escapeHtml(this.filterValue)}" placeholder="e.g. Invoice">
-              </div>
+            <!-- Match Mode Row -->
+            <div class="exec-match-mode-row">
+              <label for="execFilterMatchMode" class="exec-match-mode-label">Match</label>
+              <select id="execFilterMatchMode" class="exec-control-select exec-match-select" aria-label="Condition match mode">
+                <option value="all" ${this.matchMode === 'all' ? 'selected' : ''}>ALL conditions (AND)</option>
+                <option value="any" ${this.matchMode === 'any' ? 'selected' : ''}>ANY condition (OR)</option>
+              </select>
+              <span class="exec-match-mode-suffix">of the following:</span>
             </div>
 
-            <!-- Custom field name input if '__custom__' selected with available fields -->
-            <div id="execCustomFieldContainer" style="display:${this.filterField === '__custom__' ? 'flex' : 'none'}; flex-direction:column; gap:0.25rem;">
-              <label for="execFilterCustomFieldInput" style="font-size:0.7rem; font-weight:700; color:var(--text-sub);">Custom Column / Field Name</label>
-              <input type="text" id="execFilterCustomFieldInput" class="exec-control-input" value="${escapeHtml(this.customFieldName)}" placeholder="Enter exact column name...">
+            <!-- Conditions List -->
+            <div id="execConditionsContainer" class="exec-conditions-container">
+              ${this.renderConditionRows()}
+            </div>
+
+            <!-- Add Condition Button -->
+            <div style="display:flex; justify-content:flex-start; margin-top:0.15rem;">
+              <button type="button" class="btn btn-secondary btn-sm" id="btnAddConditionBtn" style="font-size:0.73rem; padding:0.3rem 0.75rem; display:inline-flex; align-items:center; gap:0.35rem;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                <span>Add Condition</span>
+              </button>
             </div>
 
             <!-- Explanatory rule text -->
             <p class="exec-filter-rule-explainer" id="execFilterExplanation">
-              ⚡ Loop will inspect each item: only rows where <strong style="color:var(--brand-forest);">${escapeHtml(currentField)} ${escapeHtml(this.filterOperator)} "${escapeHtml(this.filterValue)}"</strong> will execute. Other rows are skipped as <code>SKIPPED_FILTER</code>.
+              ${this.renderFilterExplanation()}
             </p>
+          </div>
+
+          <!-- Loop Item Limit Control -->
+          <div class="exec-limit-container">
+            <div class="exec-field-group">
+              <div style="display:flex; align-items:center; justify-content:space-between;">
+                <label for="execLoopLimitInput" style="font-size:0.75rem; font-weight:700; color:var(--text-main);">Loop Item Limit (Attempt Cap)</label>
+                <span style="font-size:0.68rem; color:var(--text-sub);">Empty for all matching items</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:0.5rem;">
+                <input type="number" id="execLoopLimitInput" class="exec-control-input ${this.isLimitInvalid() ? 'invalid' : ''}" value="${escapeHtml(this.loopLimitInput)}" min="1" step="1" placeholder="Unlimited (all matching items)" aria-describedby="execLimitHelp">
+                <span class="badge-tag info" style="font-size:0.68rem; padding:0.2rem 0.5rem; white-space:nowrap;" id="execLimitBadge">${this.loopLimit ? `${this.loopLimit} items max` : 'Unlimited'}</span>
+              </div>
+              <span id="execLimitHelp" style="font-size:0.69rem; color:var(--text-sub); line-height:1.35;">
+                Limits the run to at most N matching items in discovery order. Each selected item counts as an attempt even if it fails.
+              </span>
+            </div>
           </div>
 
           <!-- Live Preview Summary Counts -->
           <div class="exec-preview-counts-bar" id="execPreviewCountsBar">
             <div class="exec-preview-count-item">
-              <span style="color:var(--text-sub);">Total:</span>
+              <span style="color:var(--text-sub);">Discovered:</span>
               <strong style="color:var(--text-main);" id="prevTotalCount">${this.filterPreview.totalCount}</strong>
+            </div>
+            <div class="exec-preview-count-item">
+              <span style="color:var(--text-sub);">Matching:</span>
+              <span class="badge-tag info" style="font-size:0.72rem; padding:0.1rem 0.5rem; font-weight:800;" id="prevMatchingCount">${this.filterPreview.matchingCount ?? this.filterPreview.selectedCount}</span>
             </div>
             <div class="exec-preview-count-item">
               <span style="color:var(--text-sub);">Selected:</span>
               <span class="badge-tag success" style="font-size:0.72rem; padding:0.1rem 0.5rem; font-weight:800;" id="prevSelectedCount">${this.filterPreview.selectedCount}</span>
             </div>
             <div class="exec-preview-count-item">
-              <span style="color:var(--text-sub);">Skipped:</span>
-              <span class="badge-tag warning" style="font-size:0.72rem; padding:0.1rem 0.5rem; font-weight:800;" id="prevSkippedCount">${this.filterPreview.skippedCount}</span>
+              <span style="color:var(--text-sub);">Skipped (Filter):</span>
+              <span class="badge-tag warning" style="font-size:0.72rem; padding:0.1rem 0.5rem; font-weight:800;" id="prevSkippedFilterCount">${this.filterPreview.skippedFilterCount ?? this.filterPreview.skippedCount}</span>
+            </div>
+            <div class="exec-preview-count-item">
+              <span style="color:var(--text-sub);">Skipped (Limit):</span>
+              <span class="badge-tag secondary" style="font-size:0.72rem; padding:0.1rem 0.5rem; font-weight:800;" id="prevSkippedLimitCount">${this.filterPreview.skippedLimitCount ?? 0}</span>
             </div>
           </div>
 
@@ -379,9 +664,12 @@ export const ExecutionModal = {
 
   renderRepresentativeSamples() {
     const selected = Array.isArray(this.filterPreview.selectedPreview) ? this.filterPreview.selectedPreview : [];
-    const skipped = Array.isArray(this.filterPreview.skippedPreview) ? this.filterPreview.skippedPreview : [];
+    const filterSkipped = Array.isArray(this.filterPreview.skippedFilterPreview)
+      ? this.filterPreview.skippedFilterPreview
+      : (Array.isArray(this.filterPreview.skippedPreview) ? this.filterPreview.skippedPreview : []);
+    const limitSkipped = Array.isArray(this.filterPreview.skippedLimitPreview) ? this.filterPreview.skippedLimitPreview : [];
 
-    if (selected.length === 0 && skipped.length === 0) {
+    if (selected.length === 0 && filterSkipped.length === 0 && limitSkipped.length === 0) {
       return '';
     }
 
@@ -403,15 +691,33 @@ export const ExecutionModal = {
       `;
     }
 
-    if (skipped.length > 0) {
+    if (filterSkipped.length > 0) {
+      const totalFilterSkipped = this.filterPreview.skippedFilterCount ?? this.filterPreview.skippedCount ?? filterSkipped.length;
       html += `
         <div class="exec-sample-section">
-          <span class="exec-sample-title">Skipped Sample Items (First ${skipped.length} of ${this.filterPreview.skippedCount}):</span>
+          <span class="exec-sample-title">Filter-Skipped Sample Items (First ${filterSkipped.length} of ${totalFilterSkipped}):</span>
           <div class="exec-sample-chips">
-            ${skipped.map(item => `
+            ${filterSkipped.map(item => `
               <span class="exec-sample-chip skipped" title="${escapeHtml(item.reason || 'Skipped by filter')}">
-                <span>↷ ${escapeHtml(item.label || item.text || item.id || `Item #${item.index || ''}`)}</span>
-                <span style="opacity:0.8; font-size:0.65rem;">(${escapeHtml(item.reason || 'skipped')})</span>
+                <span>⊘ ${escapeHtml(item.label || item.text || item.id || `Item #${item.index || ''}`)}</span>
+                <span style="opacity:0.8; font-size:0.65rem;">(${escapeHtml(item.reason || 'filter mismatch')})</span>
+              </span>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    if (limitSkipped.length > 0) {
+      const totalLimitSkipped = this.filterPreview.skippedLimitCount ?? limitSkipped.length;
+      html += `
+        <div class="exec-sample-section">
+          <span class="exec-sample-title">Limit-Skipped Sample Items (First ${limitSkipped.length} of ${totalLimitSkipped}):</span>
+          <div class="exec-sample-chips">
+            ${limitSkipped.map(item => `
+              <span class="exec-sample-chip skipped-limit" title="${escapeHtml(item.reason || 'Skipped by limit')}">
+                <span>⇥ ${escapeHtml(item.label || item.text || item.id || `Item #${item.index || ''}`)}</span>
+                <span style="opacity:0.8; font-size:0.65rem;">(${escapeHtml(item.reason || 'limit reached')})</span>
               </span>
             `).join('')}
           </div>
@@ -423,25 +729,25 @@ export const ExecutionModal = {
   },
 
   renderAlertBanner() {
-    if (this.filterEnabled && Array.isArray(this.filterPreview.errors) && this.filterPreview.errors.length > 0) {
+    if (Array.isArray(this.filterPreview.errors) && this.filterPreview.errors.length > 0) {
       return `
         <div class="exec-alert-banner error" role="alert">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0; margin-top:2px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
           <div>
-            <strong>Filter Configuration Error:</strong>
+            <strong>Configuration Error:</strong>
             <div style="margin-top:0.15rem;">${this.filterPreview.errors.map(e => escapeHtml(e)).join(' · ')}</div>
           </div>
         </div>
       `;
     }
 
-    if (this.filterEnabled && this.filterPreview.totalCount > 0 && this.filterPreview.selectedCount === 0) {
+    if (this.filterPreview.totalCount > 0 && this.filterPreview.selectedCount === 0) {
       return `
         <div class="exec-alert-banner warning" role="alert">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0; margin-top:2px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
           <div>
-            <strong>Zero Items Match Filter:</strong>
-            <p style="margin:0.15rem 0 0;">Out of ${this.filterPreview.totalCount} discovered items, 0 match the criteria. Filtered execution is blocked to prevent running an empty batch. Adjust the match value or select &ldquo;Process all items&rdquo; to proceed.</p>
+            <strong>Zero Items Selected:</strong>
+            <p style="margin:0.15rem 0 0;">Out of ${this.filterPreview.totalCount} discovered items, 0 are selected. Execution is blocked to prevent running an empty batch. Adjust your filter conditions, item limit, or select &ldquo;Process all items&rdquo; to proceed.</p>
           </div>
         </div>
       `;
@@ -516,63 +822,139 @@ export const ExecutionModal = {
       };
     });
 
-    // Field Selector
-    const fieldSelect = preflightContainer.querySelector('#execFilterFieldSelect');
-    const customFieldWrapper = preflightContainer.querySelector('#execCustomFieldContainer');
-    const customFieldInput = preflightContainer.querySelector('#execFilterCustomFieldInput');
-    const standaloneCustomField = preflightContainer.querySelector('#execFilterCustomField');
+    // Match Mode Select ('all' vs 'any')
+    const matchSelect = preflightContainer.querySelector('#execFilterMatchMode');
+    if (matchSelect) {
+      matchSelect.onchange = () => {
+        this.matchMode = matchSelect.value === 'any' ? 'any' : 'all';
+        this.evaluateFilterPreview();
+      };
+    }
 
-    if (fieldSelect) {
+    // Add Condition Button
+    const btnAdd = preflightContainer.querySelector('#btnAddConditionBtn');
+    if (btnAdd) {
+      btnAdd.onclick = () => this.addCondition();
+    }
+
+    // Item Limit Input
+    const limitInput = preflightContainer.querySelector('#execLoopLimitInput');
+    if (limitInput) {
+      limitInput.oninput = () => {
+        this.loopLimitInput = limitInput.value;
+        const badge = preflightContainer.querySelector('#execLimitBadge');
+        if (badge) {
+          if (this.isLimitInvalid()) {
+            badge.className = 'badge-tag warning';
+            badge.textContent = 'Invalid limit';
+          } else {
+            const raw = this.loopLimitInput.trim();
+            badge.className = 'badge-tag info';
+            badge.textContent = raw ? `${raw} max attempts` : 'Unlimited';
+          }
+        }
+        this.evaluateFilterPreview();
+      };
+    }
+
+    this.bindConditionEvents();
+  },
+
+  bindConditionEvents() {
+    const preflightContainer = this.container.querySelector('#execPreflightContainer');
+    if (!preflightContainer) return;
+
+    // Condition Field Selects
+    preflightContainer.querySelectorAll('.exec-cond-field').forEach(fieldSelect => {
       fieldSelect.onchange = () => {
-        this.filterField = fieldSelect.value;
-        if (this.discoveryData) {
-          this.discoveryData.filterPreview = null;
+        const condId = fieldSelect.getAttribute('data-cond-id');
+        const cond = this.conditions.find(c => c.id === condId);
+        if (cond) {
+          cond.field = fieldSelect.value;
+          this.refreshConditionsUI();
         }
-        if (this.filterField === '__custom__') {
-          if (customFieldWrapper) customFieldWrapper.style.display = 'flex';
-          this.customFieldName = customFieldInput?.value.trim() || '';
-        } else {
-          if (customFieldWrapper) customFieldWrapper.style.display = 'none';
+      };
+    });
+
+    // Standalone Custom Field Inputs (when no schema fields available)
+    preflightContainer.querySelectorAll('.exec-cond-field-input').forEach(fieldInput => {
+      fieldInput.oninput = () => {
+        const condId = fieldInput.getAttribute('data-cond-id');
+        const cond = this.conditions.find(c => c.id === condId);
+        if (cond) {
+          cond.field = fieldInput.value;
+          this.evaluateFilterPreview();
         }
-        this.evaluateFilterPreview();
       };
-    }
+    });
 
-    if (customFieldInput) {
-      customFieldInput.oninput = () => {
-        this.customFieldName = customFieldInput.value;
-        if (this.discoveryData) this.discoveryData.filterPreview = null;
-        this.evaluateFilterPreview();
+    // Custom Field Sub-Inputs (when '__custom__' selected)
+    preflightContainer.querySelectorAll('.exec-cond-custom-field').forEach(customInput => {
+      customInput.oninput = () => {
+        const condId = customInput.getAttribute('data-cond-id');
+        const cond = this.conditions.find(c => c.id === condId);
+        if (cond) {
+          cond.customField = customInput.value;
+          this.evaluateFilterPreview();
+        }
       };
-    }
+    });
 
-    if (standaloneCustomField) {
-      standaloneCustomField.oninput = () => {
-        this.filterField = standaloneCustomField.value;
-        if (this.discoveryData) this.discoveryData.filterPreview = null;
-        this.evaluateFilterPreview();
+    // Operator Selects
+    preflightContainer.querySelectorAll('.exec-cond-operator').forEach(opSelect => {
+      opSelect.onchange = () => {
+        const condId = opSelect.getAttribute('data-cond-id');
+        const cond = this.conditions.find(c => c.id === condId);
+        if (cond) {
+          cond.operator = opSelect.value;
+          this.refreshConditionsUI();
+        }
       };
-    }
+    });
 
-    // Operator Selector
-    const operatorSelect = preflightContainer.querySelector('#execFilterOperatorSelect');
-    if (operatorSelect) {
-      operatorSelect.onchange = () => {
-        this.filterOperator = operatorSelect.value;
-        if (this.discoveryData) this.discoveryData.filterPreview = null;
-        this.evaluateFilterPreview();
-      };
-    }
-
-    // Value Input
-    const valInput = preflightContainer.querySelector('#execFilterValueInput');
-    if (valInput) {
+    // Text Value Inputs
+    preflightContainer.querySelectorAll('.exec-cond-value').forEach(valInput => {
       valInput.oninput = () => {
-        this.filterValue = valInput.value;
-        if (this.discoveryData) this.discoveryData.filterPreview = null;
-        this.evaluateFilterPreview();
+        const condId = valInput.getAttribute('data-cond-id');
+        const cond = this.conditions.find(c => c.id === condId);
+        if (cond) {
+          cond.value = valInput.value;
+          this.evaluateFilterPreview();
+        }
       };
-    }
+    });
+
+    // Date From Inputs
+    preflightContainer.querySelectorAll('.exec-cond-date-from').forEach(dateInput => {
+      dateInput.oninput = () => {
+        const condId = dateInput.getAttribute('data-cond-id');
+        const cond = this.conditions.find(c => c.id === condId);
+        if (cond) {
+          cond.dateFrom = dateInput.value;
+          this.evaluateFilterPreview();
+        }
+      };
+    });
+
+    // Date To Inputs
+    preflightContainer.querySelectorAll('.exec-cond-date-to').forEach(dateInput => {
+      dateInput.oninput = () => {
+        const condId = dateInput.getAttribute('data-cond-id');
+        const cond = this.conditions.find(c => c.id === condId);
+        if (cond) {
+          cond.dateTo = dateInput.value;
+          this.evaluateFilterPreview();
+        }
+      };
+    });
+
+    // Remove Condition Buttons
+    preflightContainer.querySelectorAll('.exec-btn-remove-cond').forEach(btn => {
+      btn.onclick = () => {
+        const condId = btn.getAttribute('data-cond-id');
+        this.removeCondition(condId);
+      };
+    });
   },
 
   async runPreflight() {
@@ -585,15 +967,38 @@ export const ExecutionModal = {
     this.updateExecuteButton();
 
     try {
-      // Build request body according to preview contract: { loopStepIndex, itemFilter }
-      const itemFilterPayload = (this.filterEnabled && this.filterField && this.filterValue) ? {
-        field: (this.filterField === '__custom__' ? this.customFieldName : this.filterField).trim(),
-        operator: this.filterOperator,
-        value: this.filterValue.trim()
+      // Build request body according to preview contract: { loopStepIndex, itemFilter, loopLimit }
+      const conditions = this.conditions.map(c => {
+        const field = (c.field === '__custom__' ? c.customField : c.field).trim();
+        if (c.operator === 'dateBetween') {
+          return {
+            field,
+            operator: 'dateBetween',
+            value: {
+              from: (c.dateFrom || '').trim(),
+              to: (c.dateTo || '').trim()
+            }
+          };
+        }
+        return {
+          field,
+          operator: c.operator || 'contains',
+          value: (c.value || '').trim()
+        };
+      });
+
+      const itemFilterPayload = this.filterEnabled ? {
+        matchMode: this.matchMode,
+        conditions
       } : null;
 
-      const requestedField = itemFilterPayload ? itemFilterPayload.field : null;
-      const fieldBeforeDiscovery = (this.filterField === '__custom__' ? this.customFieldName : this.filterField).trim();
+      let loopLimitPayload = null;
+      if (this.loopLimitInput && this.loopLimitInput.trim()) {
+        const raw = this.loopLimitInput.trim();
+        if (/^\d+$/.test(raw) && parseInt(raw, 10) > 0) {
+          loopLimitPayload = parseInt(raw, 10);
+        }
+      }
 
       let data;
       try {
@@ -602,7 +1007,8 @@ export const ExecutionModal = {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             loopStepIndex: this.loopStepIndex,
-            itemFilter: itemFilterPayload
+            itemFilter: itemFilterPayload,
+            loopLimit: loopLimitPayload
           })
         });
         data = await res.json();
@@ -620,42 +1026,37 @@ export const ExecutionModal = {
       this.discoveryData = data;
       this.availableFields = this.extractAvailableFields(data);
 
-      // If filterField is not set or not in availableFields, pick the first discovered field
-      if (this.availableFields.length > 0 && (!this.filterField || this.filterField === 'Type')) {
-        const hasType = this.availableFields.some(f => f.toLowerCase() === 'type');
-        this.filterField = hasType ? 'Type' : this.availableFields[0];
+      // If condition field not in availableFields, default to first available field if available
+      if (this.availableFields.length > 0 && this.conditions.length === 1 && this.conditions[0].field === 'Type' && !this.availableFields.some(f => f.toLowerCase() === 'type')) {
+        this.conditions[0].field = this.availableFields[0];
       }
 
-      const activeField = (this.filterField === '__custom__' ? this.customFieldName : this.filterField).trim();
-
-      // Check if server returned a filterPreview that matches the currently selected field and filter
+      // Check if server returned a filterPreview that confirms filter and limit
       const serverPreview = data.filterPreview;
-      const serverField = (serverPreview?.field || serverPreview?.itemFilter?.field || '').trim();
-      const isFieldUnchanged = fieldBeforeDiscovery && activeField.toLowerCase() === fieldBeforeDiscovery.toLowerCase();
-      const isServerFieldMatching = !serverField || serverField.toLowerCase() === activeField.toLowerCase();
-      const isRequestedFieldMatching = !requestedField || requestedField.toLowerCase() === activeField.toLowerCase();
+      const serverConfirmsLimit = (loopLimitPayload === null) ||
+        (serverPreview && (serverPreview.skippedLimitCount !== undefined || (typeof serverPreview.selectedCount === 'number' && serverPreview.selectedCount <= loopLimitPayload)));
 
       const canUseServerPreview = serverPreview &&
         typeof serverPreview.selectedCount === 'number' &&
         this.filterEnabled &&
-        isFieldUnchanged &&
-        isServerFieldMatching &&
-        isRequestedFieldMatching;
+        serverConfirmsLimit;
 
       if (canUseServerPreview) {
         this.filterPreview = {
           totalCount: Number(serverPreview.totalCount ?? data.discovery?.itemCount ?? 0),
+          matchingCount: Number(serverPreview.matchingCount ?? serverPreview.selectedCount ?? 0),
           selectedCount: Number(serverPreview.selectedCount ?? 0),
-          skippedCount: Number(serverPreview.skippedCount ?? 0),
+          skippedFilterCount: Number(serverPreview.skippedFilterCount ?? serverPreview.skippedCount ?? 0),
+          skippedLimitCount: Number(serverPreview.skippedLimitCount ?? 0),
           selectedPreview: Array.isArray(serverPreview.selectedPreview) ? serverPreview.selectedPreview : [],
-          skippedPreview: Array.isArray(serverPreview.skippedPreview) ? serverPreview.skippedPreview : [],
+          skippedFilterPreview: Array.isArray(serverPreview.skippedFilterPreview)
+            ? serverPreview.skippedFilterPreview
+            : (Array.isArray(serverPreview.skippedPreview) ? serverPreview.skippedPreview : []),
+          skippedLimitPreview: Array.isArray(serverPreview.skippedLimitPreview) ? serverPreview.skippedLimitPreview : [],
           errors: Array.isArray(serverPreview.errors) ? serverPreview.errors : []
         };
       } else {
-        // Discard stale or mismatched server preview; evaluate client-side for the current field and filter
-        if (data.filterPreview) {
-          data.filterPreview = null;
-        }
+        // Evaluate client-side using discovered items
         this.evaluateFilterPreview();
       }
 
@@ -688,7 +1089,11 @@ export const ExecutionModal = {
     const items = Array.isArray(data.discovery?.items) ? data.discovery.items : [];
     items.forEach(item => {
       if (item && item.fields && typeof item.fields === 'object') {
-        Object.keys(item.fields).forEach(k => k && fields.add(k.trim()));
+        if (item.fields instanceof Map) {
+          for (const k of item.fields.keys()) if (k) fields.add(String(k).trim());
+        } else {
+          Object.keys(item.fields).forEach(k => k && fields.add(k.trim()));
+        }
       } else if (item && typeof item === 'object') {
         Object.keys(item).forEach(k => {
           const lower = k.toLowerCase();
@@ -707,119 +1112,249 @@ export const ExecutionModal = {
     const items = Array.isArray(discovery.items) ? discovery.items : [];
     const totalCount = Number(discovery.itemCount ?? items.length);
 
+    // 1. Validate Loop Limit
+    let parsedLimit = null;
+    let limitError = null;
+    const rawLimit = String(this.loopLimitInput || '').trim();
+
+    if (rawLimit !== '') {
+      if (!/^\d+$/.test(rawLimit)) {
+        limitError = 'Item limit must be a positive whole number';
+      } else {
+        const n = parseInt(rawLimit, 10);
+        if (n <= 0) {
+          limitError = 'Item limit must be greater than zero';
+        } else {
+          parsedLimit = n;
+        }
+      }
+    }
+    this.loopLimit = parsedLimit;
+
+    // 2. If filter is disabled (Process all items / No filter)
     if (!this.filterEnabled) {
+      const errors = limitError ? [limitError] : [];
+      let selectedItems = items;
+      let limitSkippedItems = [];
+
+      if (parsedLimit !== null && items.length > 0) {
+        selectedItems = items.slice(0, parsedLimit);
+        limitSkippedItems = items.slice(parsedLimit);
+      }
+
+      const selectedCount = errors.length > 0 ? 0 : (parsedLimit !== null ? Math.min(totalCount, parsedLimit) : totalCount);
+      const skippedLimitCount = errors.length > 0 ? 0 : (parsedLimit !== null ? Math.max(0, totalCount - parsedLimit) : 0);
+
       this.filterPreview = {
         totalCount,
-        selectedCount: totalCount,
-        skippedCount: 0,
-        selectedPreview: items.slice(0, 5).map((item, idx) => ({
+        matchingCount: totalCount,
+        selectedCount,
+        skippedFilterCount: 0,
+        skippedLimitCount,
+        selectedPreview: selectedItems.slice(0, 5).map((item, idx) => ({
           index: idx + 1,
           label: this.getItemLabel(item, idx + 1),
           raw: item
         })),
-        skippedPreview: [],
-        errors: []
-      };
-      this.updateFilterPreviewUI();
-      return;
-    }
-
-    const field = (this.filterField === '__custom__' ? this.customFieldName : this.filterField).trim();
-    const value = this.filterValue.trim();
-    const operator = this.filterOperator || 'contains';
-    const errors = [];
-
-    if (!field) {
-      errors.push('Filter field is required');
-    }
-    if (!value && value !== '0') {
-      errors.push('Filter value is required');
-    }
-    if (this.availableFields.length > 0 && field && !this.availableFields.some(f => f.toLowerCase() === field.toLowerCase())) {
-      errors.push(`Field "${field}" not found in discovered fields (${this.availableFields.join(', ')})`);
-    }
-    if (operator !== 'contains' && operator !== 'equals') {
-      errors.push(`Unsupported operator "${operator}". Use "contains" or "equals".`);
-    }
-
-    if (errors.length > 0) {
-      this.filterPreview = {
-        totalCount,
-        selectedCount: 0,
-        skippedCount: 0,
-        selectedPreview: [],
-        skippedPreview: [],
+        skippedFilterPreview: [],
+        skippedLimitPreview: limitSkippedItems.slice(0, 5).map((item, idx) => ({
+          index: (parsedLimit || 0) + idx + 1,
+          label: this.getItemLabel(item, (parsedLimit || 0) + idx + 1),
+          reason: `Exceeded loop item limit (capped at ${parsedLimit})`,
+          raw: item
+        })),
         errors
       };
       this.updateFilterPreviewUI();
       return;
     }
 
-    // Client-side pure evaluation across discovered items matching shared filter contract
-    const selectedList = [];
-    const skippedList = [];
-    const normTargetVal = value.toLowerCase();
+    // 3. Filter is enabled: Validate matchMode and conditions
+    const errors = [];
+    if (limitError) {
+      errors.push(limitError);
+    }
+
+    if (this.matchMode !== 'all' && this.matchMode !== 'any') {
+      errors.push('Match mode must be "all" or "any"');
+    }
+
+    if (!Array.isArray(this.conditions) || this.conditions.length === 0) {
+      errors.push('At least one filter condition is required');
+    }
+
+    const validatedConditions = [];
+
+    this.conditions.forEach((c, idx) => {
+      const rowNum = idx + 1;
+      const field = (c.field === '__custom__' ? c.customField : c.field).trim();
+      const op = c.operator || 'contains';
+
+      if (!field) {
+        errors.push(`Condition #${rowNum}: Field name is required`);
+      } else if (this.availableFields.length > 0 && !this.availableFields.some(f => f.toLowerCase() === field.toLowerCase())) {
+        errors.push(`Condition #${rowNum}: Field "${field}" not found in discovered fields (${this.availableFields.join(', ')})`);
+      }
+
+      if (!['contains', 'equals', 'dateBetween'].includes(op)) {
+        errors.push(`Condition #${rowNum}: Unsupported operator "${op}". Use contains, equals, or dateBetween.`);
+      }
+
+      if (op === 'contains' || op === 'equals') {
+        const val = String(c.value ?? '').trim();
+        if (!val && val !== '0') {
+          errors.push(`Condition #${rowNum}: Match value is required`);
+        } else {
+          validatedConditions.push({ index: rowNum, field, operator: op, value: val });
+        }
+      } else if (op === 'dateBetween') {
+        const from = String(c.dateFrom ?? '').trim();
+        const to = String(c.dateTo ?? '').trim();
+
+        if (!from) {
+          errors.push(`Condition #${rowNum}: "From" date is required for dateBetween`);
+        } else if (!isValidIsoDate(from)) {
+          errors.push(`Condition #${rowNum}: "From" date must use YYYY-MM-DD format`);
+        }
+
+        if (!to) {
+          errors.push(`Condition #${rowNum}: "To" date is required for dateBetween`);
+        } else if (!isValidIsoDate(to)) {
+          errors.push(`Condition #${rowNum}: "To" date must use YYYY-MM-DD format`);
+        }
+
+        if (isValidIsoDate(from) && isValidIsoDate(to)) {
+          if (from > to) {
+            errors.push(`Condition #${rowNum}: "From" date (${from}) must not be after "To" date (${to})`);
+          } else {
+            validatedConditions.push({ index: rowNum, field, operator: op, dateFrom: from, dateTo: to });
+          }
+        }
+      }
+    });
+
+    if (errors.length > 0) {
+      this.filterPreview = {
+        totalCount,
+        matchingCount: 0,
+        selectedCount: 0,
+        skippedFilterCount: 0,
+        skippedLimitCount: 0,
+        selectedPreview: [],
+        skippedFilterPreview: [],
+        skippedLimitPreview: [],
+        errors
+      };
+      this.updateFilterPreviewUI();
+      return;
+    }
+
+    // 4. Evaluate each item against conditions
+    const matchingList = [];
+    const filterSkippedList = [];
 
     items.forEach((item, idx) => {
       const itemIndex = idx + 1;
       const label = this.getItemLabel(item, itemIndex);
-      const extracted = this.extractFieldValue(item, field);
 
-      if (!extracted.found) {
-        // Shared contract rule: configured field that cannot be read is a validation error, never a match
-        const errorMsg = `Item #${itemIndex} (${label}) cannot provide configured field "${field}"`;
-        if (!errors.includes(errorMsg)) {
-          errors.push(errorMsg);
+      let itemMatches = false;
+      const conditionResults = [];
+
+      for (const cond of validatedConditions) {
+        const extracted = this.extractFieldValue(item, cond.field);
+
+        if (!extracted.found) {
+          conditionResults.push({
+            matches: false,
+            reason: `Field "${cond.field}" not found on item`
+          });
+          continue;
         }
-        skippedList.push({
-          index: itemIndex,
-          label,
-          field,
-          fieldValue: undefined,
-          reason: `Field "${field}" not found on item`,
-          raw: item
-        });
-        return;
+
+        const rawVal = extracted.value;
+        const actualStr = rawVal !== undefined && rawVal !== null ? String(rawVal).trim() : '';
+
+        if (cond.operator === 'contains') {
+          const m = actualStr.toLowerCase().includes(cond.value.toLowerCase());
+          conditionResults.push({
+            matches: m,
+            reason: m
+              ? `Field "${cond.field}" contains "${cond.value}"`
+              : `Field "${cond.field}" ("${actualStr}") does not contain "${cond.value}"`
+          });
+        } else if (cond.operator === 'equals') {
+          const m = actualStr.toLowerCase() === cond.value.toLowerCase();
+          conditionResults.push({
+            matches: m,
+            reason: m
+              ? `Field "${cond.field}" equals "${cond.value}"`
+              : `Field "${cond.field}" ("${actualStr}") does not equal "${cond.value}"`
+          });
+        } else if (cond.operator === 'dateBetween') {
+          const itemCalDate = parseItemDate(rawVal !== undefined && rawVal !== null ? rawVal : actualStr);
+          if (!itemCalDate) {
+            conditionResults.push({
+              matches: false,
+              reason: !actualStr
+                ? `Field "${cond.field}" has missing or empty date value (cannot evaluate dateBetween)`
+                : `Field "${cond.field}" value "${actualStr}" cannot be parsed as a calendar date`
+            });
+          } else {
+            const m = itemCalDate >= cond.dateFrom && itemCalDate <= cond.dateTo;
+            conditionResults.push({
+              matches: m,
+              reason: m
+                ? `Field "${cond.field}" date (${itemCalDate}) is between ${cond.dateFrom} and ${cond.dateTo}`
+                : `Field "${cond.field}" date (${itemCalDate}) is outside ${cond.dateFrom} to ${cond.dateTo}`
+            });
+          }
+        }
       }
 
-      const itemVal = String(extracted.value ?? '').trim().toLowerCase();
-      let matches = false;
-      let reason = '';
-
-      if (operator === 'contains') {
-        matches = itemVal.includes(normTargetVal);
-        reason = matches ? 'Matches filter' : `Field "${field}" ("${extracted.value}") does not contain "${value}"`;
-      } else if (operator === 'equals') {
-        matches = itemVal === normTargetVal;
-        reason = matches ? 'Matches filter' : `Field "${field}" ("${extracted.value}") does not equal "${value}"`;
+      if (this.matchMode === 'all') {
+        itemMatches = conditionResults.length > 0 && conditionResults.every(r => r.matches);
+      } else {
+        itemMatches = conditionResults.length > 0 && conditionResults.some(r => r.matches);
       }
 
-      if (matches) {
-        selectedList.push({
+      if (itemMatches) {
+        matchingList.push({
           index: itemIndex,
           label,
-          field,
-          fieldValue: extracted.value,
           raw: item
         });
       } else {
-        skippedList.push({
+        const failReasons = conditionResults.filter(r => !r.matches).map(r => r.reason);
+        filterSkippedList.push({
           index: itemIndex,
           label,
-          field,
-          fieldValue: extracted.value,
-          reason,
+          reason: failReasons.join('; ') || 'Did not match filter criteria',
           raw: item
         });
       }
     });
 
+    // 5. Apply loop limit to matching items
+    let selectedList = matchingList;
+    let limitSkippedList = [];
+
+    if (parsedLimit !== null && parsedLimit > 0) {
+      selectedList = matchingList.slice(0, parsedLimit);
+      limitSkippedList = matchingList.slice(parsedLimit).map(item => ({
+        ...item,
+        reason: `Exceeded loop item limit (capped at ${parsedLimit})`
+      }));
+    }
+
     this.filterPreview = {
       totalCount: items.length || totalCount,
-      selectedCount: errors.length > 0 ? 0 : selectedList.length,
-      skippedCount: skippedList.length,
-      selectedPreview: errors.length > 0 ? [] : selectedList.slice(0, 5),
-      skippedPreview: skippedList.slice(0, 5),
+      matchingCount: matchingList.length,
+      selectedCount: selectedList.length,
+      skippedFilterCount: filterSkippedList.length,
+      skippedLimitCount: limitSkippedList.length,
+      selectedPreview: selectedList.slice(0, 5),
+      skippedFilterPreview: filterSkippedList.slice(0, 5),
+      skippedLimitPreview: limitSkippedList.slice(0, 5),
       errors
     };
 
@@ -843,11 +1378,19 @@ export const ExecutionModal = {
     if (!item || !fieldName) return { found: false, value: undefined };
     const targetKey = fieldName.trim().toLowerCase();
 
-    // Check item.fields object
+    // Check item.fields Map or Object
     if (item.fields && typeof item.fields === 'object') {
-      for (const [k, v] of Object.entries(item.fields)) {
-        if (k.trim().toLowerCase() === targetKey) {
-          return { found: true, value: v };
+      if (item.fields instanceof Map) {
+        for (const [k, v] of item.fields.entries()) {
+          if (k.trim().toLowerCase() === targetKey) {
+            return { found: true, value: v };
+          }
+        }
+      } else {
+        for (const [k, v] of Object.entries(item.fields)) {
+          if (k.trim().toLowerCase() === targetKey) {
+            return { found: true, value: v };
+          }
         }
       }
     }
@@ -861,7 +1404,7 @@ export const ExecutionModal = {
       }
     }
 
-    // If targetKey is 'text' or 'label'
+    // Check text / label / name properties
     if (['text', 'label', 'name'].includes(targetKey)) {
       const v = item.text || item.label || (typeof item === 'string' ? item : undefined);
       if (v !== undefined) return { found: true, value: v };
@@ -877,24 +1420,39 @@ export const ExecutionModal = {
     // Update explanation
     const expText = preflightContainer.querySelector('#execFilterExplanation');
     if (expText) {
-      if (!this.filterEnabled) {
-        expText.innerHTML = `⚡ <strong>No filter applied:</strong> All discovered items in the grid will be processed sequentially.`;
-      } else {
-        const field = (this.filterField === '__custom__' ? this.customFieldName : this.filterField).trim() || 'Field';
-        const op = this.filterOperator || 'contains';
-        const val = this.filterValue.trim() || '...';
-        expText.innerHTML = `⚡ Loop will inspect each item: only rows where <strong style="color:var(--brand-forest);">${escapeHtml(field)} ${escapeHtml(op)} "${escapeHtml(val)}"</strong> will execute. Other rows are skipped as <code>SKIPPED_FILTER</code>.`;
-      }
+      expText.innerHTML = this.renderFilterExplanation();
     }
 
     // Update Counts Bar
     const totalEl = preflightContainer.querySelector('#prevTotalCount');
+    const matchEl = preflightContainer.querySelector('#prevMatchingCount');
     const selEl = preflightContainer.querySelector('#prevSelectedCount');
-    const skipEl = preflightContainer.querySelector('#prevSkippedCount');
+    const skipFilterEl = preflightContainer.querySelector('#prevSkippedFilterCount');
+    const skipLimitEl = preflightContainer.querySelector('#prevSkippedLimitCount');
+    const metricTotalEl = preflightContainer.querySelector('#metricDiscoveredCount');
 
     if (totalEl) totalEl.textContent = this.filterPreview.totalCount;
+    if (metricTotalEl) metricTotalEl.textContent = this.filterPreview.totalCount;
+    if (matchEl) matchEl.textContent = this.filterPreview.matchingCount ?? this.filterPreview.selectedCount;
     if (selEl) selEl.textContent = this.filterPreview.selectedCount;
-    if (skipEl) skipEl.textContent = this.filterPreview.skippedCount;
+    if (skipFilterEl) skipFilterEl.textContent = this.filterPreview.skippedFilterCount;
+    if (skipLimitEl) skipLimitEl.textContent = this.filterPreview.skippedLimitCount;
+
+    // Update Limit Badge & Input state
+    const limitBadge = preflightContainer.querySelector('#execLimitBadge');
+    const limitInput = preflightContainer.querySelector('#execLoopLimitInput');
+    if (limitBadge) {
+      if (this.isLimitInvalid()) {
+        limitBadge.className = 'badge-tag warning';
+        limitBadge.textContent = 'Invalid limit';
+        if (limitInput) limitInput.classList.add('invalid');
+      } else {
+        const raw = this.loopLimitInput.trim();
+        limitBadge.className = 'badge-tag info';
+        limitBadge.textContent = raw ? `${raw} max attempts` : 'Unlimited';
+        if (limitInput) limitInput.classList.remove('invalid');
+      }
+    }
 
     // Update Representative Samples
     const samplesContainer = preflightContainer.querySelector('#execRepresentativeSamplesContainer');
@@ -939,24 +1497,24 @@ export const ExecutionModal = {
     }
 
     if (this.preflightStatus === 'success') {
-      const hasErrors = this.filterEnabled && Array.isArray(this.filterPreview.errors) && this.filterPreview.errors.length > 0;
-      const isZeroMatch = this.filterEnabled && this.filterPreview.selectedCount === 0;
+      const hasErrors = Array.isArray(this.filterPreview.errors) && this.filterPreview.errors.length > 0;
+      const isZeroSelected = this.filterPreview.selectedCount === 0;
 
       if (hasErrors) {
         confirmBtn.disabled = true;
-        confirmBtn.title = 'Fix filter configuration error: ' + (this.filterPreview.errors[0] || '');
-        if (confirmText) confirmText.textContent = 'Invalid Filter';
+        confirmBtn.title = 'Fix configuration error: ' + (this.filterPreview.errors[0] || '');
+        if (confirmText) confirmText.textContent = 'Invalid Configuration';
         return;
       }
 
-      if (isZeroMatch) {
+      if (isZeroSelected) {
         confirmBtn.disabled = true;
-        confirmBtn.title = 'Zero items match your filter. Filtered runs with 0 items are blocked.';
-        if (confirmText) confirmText.textContent = '0 Matching Items';
+        confirmBtn.title = 'Zero items selected. Filtered runs with 0 items are blocked.';
+        if (confirmText) confirmText.textContent = '0 Selected Items';
         return;
       }
 
-      const count = this.filterEnabled ? this.filterPreview.selectedCount : this.filterPreview.totalCount;
+      const count = this.filterPreview.selectedCount;
       confirmBtn.disabled = count <= 0;
       confirmBtn.title = `Execute loop on ${count} item${count === 1 ? '' : 's'}`;
       if (confirmText) {
@@ -978,52 +1536,98 @@ export const ExecutionModal = {
     const isLoopMode = this.selectedMode === 'loop';
     const forceRedownload = !!chkRedownload?.checked;
 
-    // Build itemFilter payload according to shared filter contract
     let itemFilter = null;
+    let loopLimit = null;
     let rowFilter = null;
 
-    if (isLoopMode && this.filterEnabled) {
-      const field = (this.filterField === '__custom__' ? this.customFieldName : this.filterField).trim();
-      const operator = this.filterOperator || 'contains';
-      const value = this.filterValue.trim();
-
-      // Guard against zero-match or invalid filter execution
-      if (!field || (!value && value !== '0') || this.filterPreview.selectedCount === 0 || (Array.isArray(this.filterPreview.errors) && this.filterPreview.errors.length > 0)) {
-        Toast.error('Cannot execute: filter has errors, zero matches, or invalid field.');
-        return;
+    if (isLoopMode) {
+      // 1. Validate Loop Limit
+      const rawLimit = String(this.loopLimitInput || '').trim();
+      if (rawLimit !== '') {
+        if (!/^\d+$/.test(rawLimit) || parseInt(rawLimit, 10) <= 0) {
+          Toast.error('Cannot execute: loop item limit must be a positive integer.');
+          return;
+        }
+        loopLimit = parseInt(rawLimit, 10);
       }
 
-      // Agreed itemFilter contract shape
-      itemFilter = {
-        field,
-        operator,
-        value
-      };
+      // 2. Validate filter if enabled
+      if (this.filterEnabled) {
+        if (Array.isArray(this.filterPreview.errors) && this.filterPreview.errors.length > 0) {
+          Toast.error('Cannot execute: ' + this.filterPreview.errors[0]);
+          return;
+        }
 
-      // Legacy rowFilter shape for backward compatibility
-      rowFilter = {
-        column: field,
-        value
-      };
+        if (this.filterPreview.selectedCount === 0) {
+          Toast.error('Cannot execute: 0 items selected for execution.');
+          return;
+        }
+
+        const conditions = this.conditions.map(c => {
+          const field = (c.field === '__custom__' ? c.customField : c.field).trim();
+          if (c.operator === 'dateBetween') {
+            return {
+              field,
+              operator: 'dateBetween',
+              value: {
+                from: (c.dateFrom || '').trim(),
+                to: (c.dateTo || '').trim()
+              }
+            };
+          }
+          return {
+            field,
+            operator: c.operator || 'contains',
+            value: String(c.value ?? '').trim()
+          };
+        });
+
+        itemFilter = {
+          matchMode: this.matchMode || 'all',
+          conditions
+        };
+
+        // Legacy rowFilter compatibility for single condition text filter
+        if (conditions.length === 1 && (conditions[0].operator === 'contains' || conditions[0].operator === 'equals')) {
+          rowFilter = {
+            column: conditions[0].field,
+            value: conditions[0].value,
+            operator: conditions[0].operator
+          };
+        }
+      } else {
+        // Filter disabled: check if zero items exist
+        if (this.filterPreview.totalCount === 0) {
+          Toast.error('Cannot execute: no discovered items found.');
+          return;
+        }
+        if (this.filterPreview.selectedCount === 0) {
+          Toast.error('Cannot execute: 0 items selected for execution.');
+          return;
+        }
+      }
     }
 
     if (confirmBtn) confirmBtn.disabled = true;
     if (confirmText) confirmText.textContent = 'Launching…';
 
     const launchDesc = isLoopMode
-      ? (itemFilter ? `loop (${itemFilter.field} ${itemFilter.operator} "${itemFilter.value}")` : 'batch loop (all items)')
+      ? (itemFilter ? `loop (${itemFilter.conditions.length} condition(s), limit: ${loopLimit ?? 'unlimited'})` : `batch loop (all items, limit: ${loopLimit ?? 'unlimited'})`)
       : 'single macro';
     Toast.info(`Starting ${launchDesc} execution…`);
 
     try {
-      const res = await Api.executeWorkflow(this.currentWorkflowId, {
+      const executeOptions = {
         mode: this.selectedMode,
         isLoop: isLoopMode,
         loopStepIndex: isLoopMode ? this.loopStepIndex : null,
         forceRedownload,
         itemFilter,
+        loopLimit,
         rowFilter
-      });
+      };
+
+      const res = await Api.executeWorkflow(this.currentWorkflowId, executeOptions);
 
       this.close();
       Toast.success('Workflow execution dispatched!');
