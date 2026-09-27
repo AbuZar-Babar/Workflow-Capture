@@ -1,8 +1,8 @@
 # Workflow Capture — Implementation Status
 
-> Updated: 2026-09-27
+> Updated: 2026-09-28
 >
-> Current integration branch: `multi-agent` at `113b920`. Tasks 0–5 are integrated. Task owners reported their assigned checks passed on their task branches before merge; the combined end-to-end journey has not yet been rerun after integration. See [WORKSTREAMS.md](WORKSTREAMS.md) for status and [LOOP-FILTER-REQUIREMENTS.md](LOOP-FILTER-REQUIREMENTS.md) for confirmed requirements that are not all implemented yet.
+> Current integration branch: `multi-agent` at `62b8ef0`. Tasks 0–5, 12, and 13 are integrated. Task 12 provides compound/date filter evaluation; Task 13 provides the matching dashboard review UI and item-limit controls. The API/runtime integration in Task 6 is the next implementation step. The combined end-to-end journey and real-portal behavior have not yet been rerun on the merged tree. See [WORKSTREAMS.md](WORKSTREAMS.md) for task status and [LOOP-FILTER-REQUIREMENTS.md](LOOP-FILTER-REQUIREMENTS.md) for the frozen contract.
 >
 > The technical descriptions below originated as an earlier engine implementation snapshot. Treat them as implementation background; current task status and validation evidence are maintained in the linked workboard.
 
@@ -32,7 +32,7 @@ Persist checkpoint state
 Resume after interruption
 ```
 
-The current implementation is **not yet a complete production RPA platform**. It includes the recording, discovery, item-scoped replay, loop reliability, dashboard review, security, and reusable filter foundations described below, with API/runtime filter integration and the full product journey still in progress.
+The current implementation is **not yet a complete production RPA platform**. It includes the recording, discovery, item-scoped replay, loop reliability, dashboard review, security, and the expanded filter evaluator/UI foundations described below. API/runtime filter integration and the full product journey are still in progress.
 
 ---
 
@@ -513,8 +513,8 @@ The following should still be considered unfinished:
 ### High priority
 
 - API/runtime integration of preview and execution with the shared filter evaluator;
-- multiple filter conditions with `all`/`any` and inclusive date ranges;
-- all-matching-items versus a positive attempt limit, including distinct filter/limit skip states;
+- end-to-end agreement between UI preview and runtime selection, including distinct filter/limit skip states;
+- integrated validation of failures, retries, and limit consumption;
 - integrated verification that preview and runtime select the same items and that failures still consume a limit slot;
 - end-to-end dashboard journey and real-portal validation;
 - stronger item identity / duplicate prevention and robust checkpoint recovery coverage.
