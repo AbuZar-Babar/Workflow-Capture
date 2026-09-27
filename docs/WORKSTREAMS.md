@@ -5,7 +5,7 @@
 **Source of truth:** `docs/MULTI-AGENT-WORK-PLAN.md`
 **Product contract:** `docs/LOOP-FILTER-REQUIREMENTS.md`
 
-Status reflects integration progress as of 2026-09-27. Tasks 0–5 are integrated. Their owners reported passing task-level validation before merge; the combined end-to-end flow has not yet been rerun after integration. This documentation refresh records current requirements and status; Task 8 remains open for final reconciliation after its dependencies are integrated. `READY` means the task may be assigned now; `BLOCKED` means one or more task dependencies must be integrated first.
+Status reflects integration progress as of 2026-09-28. Tasks 0–5, 12, and 13 are integrated on `multi-agent`. Task 12 extends the shared evaluator to compound/date filters; Task 13 extends the review UI with the matching filter contract and item limits. The combined application journey has not yet been rerun after these merges, and API/runtime wiring remains the next implementation step. `READY` means the task may be assigned now; `BLOCKED` means one or more task dependencies must be integrated first.
 
 > **Status authority:** Only the integration owner/integrator may move a task to `INTEGRATION` or `DONE`, and only after reviewing the owner's validation evidence and acceptance criteria.
 
@@ -17,18 +17,18 @@ Status reflects integration progress as of 2026-09-27. Tasks 0–5 are integrate
 | Task 3 — Isolate browser-backed tests | None | DONE |
 | Task 4 — Implement a reusable filter evaluator | None; implemented v1 single-condition contract | DONE |
 | Task 5 — Unify discovery, review, filtering, and execution UI | v1 contract; coordinate with Task 6 response contract | DONE |
-| Task 6 — Integrate filters and item limits in API and runtime | Tasks 1, 2, 12; Task 13 may proceed in parallel | BLOCKED |
+| Task 6 — Integrate filters and item limits in API and runtime | Tasks 1, 2, 12; Task 13 integrated | READY |
 | Task 7 — Make test suites complete and discoverable | Tasks 3, 6, 12, 13 | BLOCKED |
 | Task 8 — Reconcile project status and technical docs | Tasks 1–7, 12, 13 | BLOCKED |
 | Task 9 — Cross-portal and end-to-end validation | Tasks 1–8, 12, 13 | BLOCKED |
 | Task 10 — Dashboard lifecycle correctness | Tasks 5, 13 | BLOCKED |
 | Task 11 — Modularize large modules (deferred) | Tasks 1–10, 12, 13; stable behavior baseline | BLOCKED |
-| Task 12 — Extend evaluator for compound and date filters | Task 4; frozen product contract | READY |
-| Task 13 — Extend filter UI and attempt limit controls | Task 5; frozen product contract | READY |
+| Task 12 — Extend evaluator for compound and date filters | Task 4; frozen product contract | DONE |
+| Task 13 — Extend filter UI and attempt limit controls | Task 5; frozen product contract | DONE |
 
 ## Integrated task evidence
 
-The validation results below were reported by task owners on their task branches before integration. They have not been rerun as a combined suite on `multi-agent`.
+The validation results below include task-owner evidence reviewed before integration. Tasks 12 and 13 are now integrated, but the combined application suite has not yet been rerun on the merged `multi-agent` head.
 
 | Task | Source branch / commit | Integration commit | Reported validation |
 |---|---|---|---|
@@ -39,7 +39,10 @@ The validation results below were reported by task owners on their task branches
 | 4 — Filter evaluator v1 | `gemini/task-4-filter-evaluator` / `818d3c6` | `8d2aa9b` | `node test/item-filter.test.js`; `git diff --check`. |
 | 5 — Discovery/review UI v1 | `gemini/task-5-filter-ui` / `ab2d52c` | `a5d0ff7` | `validate-task-5.mjs`; `node test/backend-api.test.js`; `node test/row-filter-discrimination.test.js`; `git diff --check`. |
 
-The current integration head is `113b920`. The final merged tree passed `git diff --check`; the integrator has not rerun application tests since merging.
+Task 12 — Compound/date evaluator | `gemini/task-12-filter-evaluator` / `f385f85` | `7c17cae` | `node test/item-filter.test.js` (15 groups passed); `node test/row-filter-discrimination.test.js`; `git diff --check`. Reviewed for deterministic date parsing and filter-before-limit semantics. |
+| 13 — Filter review UI + limits | `gemini/task-13-filter-ui` / `34a6008` | `62b8ef0` | `node scratch/task13-ui-validation.mjs`; `node test/row-filter-discrimination.test.js`; `node test/backend-api.test.js`; `git diff --check`. Final correction aligned client date parsing with Task 12. |
+
+The current integration head is `62b8ef0`. GitHub reports no configured status checks or workflow runs for this commit. The combined application journey has therefore not yet been certified on the merged tree.
 
 ## Ownership and integration rules
 
