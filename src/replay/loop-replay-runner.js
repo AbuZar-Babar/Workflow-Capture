@@ -103,7 +103,9 @@ class LoopReplayRunner {
   processAndStoreDownload(sourcePath, itemKey = null, itemLabel = null) {
     if (!sourcePath || !fs.existsSync(sourcePath)) return null;
     const filename = path.basename(sourcePath);
-    if (filename.endsWith('.crdownload') || filename.endsWith('.tmp')) return null;
+    if (filename.endsWith('.crdownload') ||
+        filename.endsWith('.tmp') ||
+        (filename.startsWith('downloads') && (filename.endsWith('.htm') || filename.endsWith('.html')))) return null;
 
     try {
       this.initDirectories();
@@ -624,7 +626,12 @@ class LoopReplayRunner {
       const files = fs.existsSync(this.downloadsDir)
         ? fs.readdirSync(this.downloadsDir)
         : [];
-      const candidates = files.filter(file => !previous.has(file) && !file.endsWith('.crdownload') && !file.endsWith('.tmp'));
+      const candidates = files.filter(file =>
+        !previous.has(file) &&
+        !file.endsWith('.crdownload') &&
+        !file.endsWith('.tmp') &&
+        !(file.startsWith('downloads') && (file.endsWith('.htm') || file.endsWith('.html')))
+      );
       if (candidates.length) {
         return candidates.map(filename => ({
           filename,
@@ -646,7 +653,11 @@ class LoopReplayRunner {
 
   snapshotDownloadedFiles() {
     return fs.existsSync(this.downloadsDir)
-      ? fs.readdirSync(this.downloadsDir).filter(file => !file.endsWith('.crdownload') && !file.endsWith('.tmp'))
+      ? fs.readdirSync(this.downloadsDir).filter(file =>
+          !file.endsWith('.crdownload') &&
+          !file.endsWith('.tmp') &&
+          !(file.startsWith('downloads') && (file.endsWith('.htm') || file.endsWith('.html')))
+        )
       : [];
   }
 
@@ -1758,6 +1769,9 @@ class LoopReplayRunner {
             if (attempt > 0) {
               itemResult.retryCount = attempt;
               logger.warn('[Loop Runner] Retrying item #' + (i + 1) + ' (attempt ' + (attempt + 1) + '/' + (this.maxItemRetries + 1) + ')');
+              if (this.replayEngine && typeof this.replayEngine.setAutomatedTransition === 'function') {
+                await this.replayEngine.setAutomatedTransition(true, { itemIndex: i, attempt, reason: 'retry_transition' });
+              }
               await new Promise(r => setTimeout(r, 500));
 
               // Reacquire the live DOM item and resume at the failed action checkpoint.
@@ -1852,6 +1866,11 @@ class LoopReplayRunner {
                   itemResult
                 );
                 await new Promise(r => setTimeout(r, 300));
+              }
+
+              // Begin automated transition between items
+              if (this.replayEngine && typeof this.replayEngine.setAutomatedTransition === 'function') {
+                await this.replayEngine.setAutomatedTransition(true, { fromItemIndex: i, reason: 'item_transition' });
               }
 
               // Allow the complete per-item procedure to settle before restoring state.
@@ -2031,7 +2050,11 @@ class LoopReplayRunner {
       // 5. Gather and organize all downloaded files into structured folder
       if (fs.existsSync(this.downloadsDir)) {
         const files = fs.readdirSync(this.downloadsDir)
-          .filter(file => !file.endsWith('.crdownload') && !file.endsWith('.tmp'));
+          .filter(file =>
+            !file.endsWith('.crdownload') &&
+            !file.endsWith('.tmp') &&
+            !(file.startsWith('downloads') && (file.endsWith('.htm') || file.endsWith('.html')))
+          );
         manifest.downloadedFiles = files.map(file => {
           const rawPath = path.join(this.downloadsDir, file);
           const stored = this.processAndStoreDownload(rawPath);
@@ -2096,6 +2119,9 @@ class LoopReplayRunner {
       }
 
       if (this.replayEngine) {
+        if (typeof this.replayEngine.setAutomatedTransition === 'function') {
+          await this.replayEngine.setAutomatedTransition(false).catch(() => {});
+        }
         await this.replayEngine.disconnect().catch(() => {});
       }
 

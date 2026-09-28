@@ -37,6 +37,7 @@ class ReplayEngine extends EventEmitter {
     this.isAborted = false;
     this.currentActionIndex = 0;
     this.isAutomatedActionActive = false;
+    this.isAutomatedTransitionActive = false;
     this.lastIntervention = null;
     this.isPaused = false;
     this.isLocked = false;
@@ -88,7 +89,25 @@ class ReplayEngine extends EventEmitter {
       await this.page.keyboard.press('Escape').catch(() => {});
       await new Promise(r => setTimeout(r, 200));
     } finally {
-      await this._setAutomatedAction(false);
+      await this._setAutomatedAction(false, { key: 'Escape' });
+    }
+  }
+
+  /**
+   * Set or clear the automated transition flag (e.g. between loop items, navigating, reacquiring, or dismissing overlays)
+   */
+  async setAutomatedTransition(active, details = {}) {
+    this.isAutomatedTransitionActive = !!active;
+    if (this.page && !this.page.isClosed()) {
+      try {
+        await this.page.evaluate((isActive, transDetails) => {
+          window.__flowmindAutomatedTransitionActive = isActive;
+          window.__flowmindAutomatedTransitionDetails = transDetails || null;
+          if (!isActive) {
+            window.__flowmindTransitionUntil = Date.now() + 300;
+          }
+        }, !!active, details).catch(() => {});
+      } catch {}
     }
   }
 
@@ -96,6 +115,7 @@ class ReplayEngine extends EventEmitter {
    * Clean up guard listeners, teardown in-page scripts, and disconnect from browser
    */
   async disconnect() {
+    this.isAutomatedTransitionActive = false;
     try {
       await this._teardownReplayGuard();
     } catch {}
@@ -251,6 +271,7 @@ class ReplayEngine extends EventEmitter {
     const injectionScript = `
       (function() {
         window.__flowmindAutomatedActionActive = false;
+        window.__flowmindAutomatedTransitionActive = ${this.isAutomatedTransitionActive};
         window.__flowmindAutomatedSince = 0;
         window.__flowmindReplayPaused = ${this.isPaused};
         window.__flowmindReplayLocked = ${this.isLocked};
@@ -283,15 +304,37 @@ class ReplayEngine extends EventEmitter {
           };
           window.__flowmindUpdateReplayGuard();
         }
+
+        var isElementMatch = function(expected, target, evt) {
+          if (!expected || !target) return false;
+          if (expected === target) return true;
+          if (expected.contains && expected.contains(target)) return true;
+          if (evt && typeof evt.composedPath === 'function') {
+            try {
+              var path = evt.composedPath();
+              if (Array.isArray(path) && path.includes(expected)) return true;
+            } catch (e) {}
+          }
+          return false;
+        };
+
         var onHumanInput = function(evt) {
-          if (host && evt.composedPath().includes(host)) return;
+          // 1. Synthetic events created by scripts / frameworks are NOT human input
+          if (evt.isTrusted === false) return;
+
+          // 2. Events originating from our own replay guard overlay
+          if (host && evt.composedPath && evt.composedPath().includes(host)) return;
+
           var expected = window.__flowmindAutomatedTarget;
+          var expectedItem = window.__flowmindAutomatedItem;
           var expectedKey = window.__flowmindAutomatedKey;
           var now = Date.now();
 
           var isAutomated = false;
           if (window.__flowmindAutomatedActionActive) {
-            if (expected && (expected === evt.target || (expected.contains && expected.contains(evt.target)))) {
+            if (expected && isElementMatch(expected, evt.target, evt)) {
+              isAutomated = true;
+            } else if (expectedItem && isElementMatch(expectedItem, evt.target, evt)) {
               isAutomated = true;
             } else if (!expected && expectedKey && (evt.key === expectedKey || evt.code === expectedKey)) {
               isAutomated = true;
@@ -300,11 +343,37 @@ class ReplayEngine extends EventEmitter {
 
           if (!isAutomated && window.__flowmindAutomatedUntil && now < window.__flowmindAutomatedUntil) {
             var recentTarget = window.__flowmindAutomatedRecentTarget;
+            var recentItem = window.__flowmindAutomatedRecentItem;
             var recentKey = window.__flowmindAutomatedRecentKey;
-            if (recentTarget && (recentTarget === evt.target || (recentTarget.contains && recentTarget.contains(evt.target)))) {
+            if (recentTarget && isElementMatch(recentTarget, evt.target, evt)) {
+              isAutomated = true;
+            } else if (recentItem && isElementMatch(recentItem, evt.target, evt)) {
               isAutomated = true;
             } else if (!recentTarget && recentKey && (evt.key === recentKey || evt.code === recentKey)) {
               isAutomated = true;
+            }
+          }
+
+          // 3. Automated transition state: between items, navigating, reacquiring, or dismissing overlays
+          if (!isAutomated && (window.__flowmindAutomatedTransitionActive || (window.__flowmindTransitionUntil && now < window.__flowmindTransitionUntil))) {
+            if (evt.type === 'wheel') {
+              isAutomated = true;
+            } else if (evt.target) {
+              var isBackdrop = Boolean(
+                (evt.target.classList && (
+                  evt.target.classList.contains('cdk-overlay-backdrop') ||
+                  evt.target.classList.contains('modal-backdrop') ||
+                  evt.target.classList.contains('x-mask')
+                )) ||
+                (typeof evt.target.className === 'string' && (
+                  evt.target.className.includes('backdrop') ||
+                  evt.target.className.includes('overlay') ||
+                  evt.target.className.includes('mask')
+                ))
+              );
+              if (isBackdrop) {
+                isAutomated = true;
+              }
             }
           }
 
@@ -351,8 +420,13 @@ class ReplayEngine extends EventEmitter {
       for (const frame of page.frames()) await frame.evaluate((state) => {
         window.__flowmindReplayPaused=state.paused;
         window.__flowmindReplayLocked=state.locked;
+        window.__flowmindAutomatedTransitionActive=state.transitionActive;
         window.__flowmindUpdateReplayGuard && window.__flowmindUpdateReplayGuard();
-      }, { paused: this.isPaused, locked: this.isLocked }).catch(() => {});
+      }, {
+        paused: this.isPaused,
+        locked: this.isLocked,
+        transitionActive: this.isAutomatedTransitionActive
+      }).catch(() => {});
     }
   }
 
@@ -375,6 +449,7 @@ class ReplayEngine extends EventEmitter {
     if (this.page && !this.page.isClosed()) {
       try {
         let targetHandle = null;
+        let itemHandle = null;
         let expectedKey = null;
 
         if (targetOrOptions) {
@@ -392,39 +467,51 @@ class ReplayEngine extends EventEmitter {
                   ? targetOrOptions.target.asElement()
                   : targetOrOptions.target;
               }
+              if (targetOrOptions.item) {
+                itemHandle = typeof targetOrOptions.item.asElement === 'function'
+                  ? targetOrOptions.item.asElement()
+                  : targetOrOptions.item;
+              }
             }
           }
         }
 
-        await this.page.evaluate((active, target, key) => {
+        await this.page.evaluate((active, target, item, key) => {
           window.__flowmindAutomatedActionActive = active;
           if (active) {
             window.__flowmindAutomatedTarget = target || null;
+            window.__flowmindAutomatedItem = item || null;
             window.__flowmindAutomatedKey = key || null;
             window.__flowmindAutomatedSince = Date.now();
           } else {
-            window.__flowmindAutomatedUntil = Date.now() + 150;
-            window.__flowmindAutomatedRecentTarget = window.__flowmindAutomatedTarget || null;
-            window.__flowmindAutomatedRecentKey = window.__flowmindAutomatedKey || null;
+            window.__flowmindAutomatedUntil = Date.now() + 300;
+            window.__flowmindAutomatedRecentTarget = window.__flowmindAutomatedTarget || target || null;
+            window.__flowmindAutomatedRecentItem = window.__flowmindAutomatedItem || item || null;
+            window.__flowmindAutomatedRecentKey = window.__flowmindAutomatedKey || key || null;
             window.__flowmindAutomatedTarget = null;
+            window.__flowmindAutomatedItem = null;
             window.__flowmindAutomatedKey = null;
           }
-        }, !!isActive, targetHandle, expectedKey).catch(async () => {
-          if (targetHandle) {
-            await targetHandle.evaluate((el, active) => {
+        }, !!isActive, targetHandle, itemHandle, expectedKey).catch(async () => {
+          const handleToEval = targetHandle || itemHandle;
+          if (handleToEval) {
+            await handleToEval.evaluate((el, active, key) => {
               window.__flowmindAutomatedActionActive = active;
               if (active) {
                 window.__flowmindAutomatedTarget = el;
-                window.__flowmindAutomatedKey = null;
+                window.__flowmindAutomatedItem = null;
+                window.__flowmindAutomatedKey = key || null;
                 window.__flowmindAutomatedSince = Date.now();
               } else {
-                window.__flowmindAutomatedUntil = Date.now() + 150;
+                window.__flowmindAutomatedUntil = Date.now() + 300;
                 window.__flowmindAutomatedRecentTarget = el;
-                window.__flowmindAutomatedRecentKey = null;
+                window.__flowmindAutomatedRecentItem = null;
+                window.__flowmindAutomatedRecentKey = key || null;
                 window.__flowmindAutomatedTarget = null;
+                window.__flowmindAutomatedItem = null;
                 window.__flowmindAutomatedKey = null;
               }
-            }, !!isActive).catch(() => {});
+            }, !!isActive, expectedKey).catch(() => {});
           }
         });
       } catch {}
@@ -522,6 +609,10 @@ class ReplayEngine extends EventEmitter {
         nextAction.target?.fingerprint?.role === 'option'
       )
     );
+
+      if (this.isAutomatedTransitionActive) {
+        await this.setAutomatedTransition(false);
+      }
 
       await this._waitWhilePaused();
       await this._setAutomatedAction(true, elementHandle);
@@ -672,17 +763,21 @@ class ReplayEngine extends EventEmitter {
         )
       );
 
-      await elementHandle.scrollIntoViewIfNeeded().catch(() => {});
+      if (this.isAutomatedTransitionActive) {
+        await this.setAutomatedTransition(false);
+      }
+
       await this._waitWhilePaused();
-      await this._setAutomatedAction(true, elementHandle);
+      await this._setAutomatedAction(true, { target: elementHandle, item: itemHandle });
       try {
+        await elementHandle.scrollIntoViewIfNeeded().catch(() => {});
         await dispatchAction(elementHandle, actionToDispatch, {
           page: this.page,
           botConfig: this.botConfig,
           isNextActionOption
         });
       } finally {
-        await this._setAutomatedAction(false, elementHandle);
+        await this._setAutomatedAction(false, { target: elementHandle, item: itemHandle });
       }
 
       return { success: true, scoped: true };

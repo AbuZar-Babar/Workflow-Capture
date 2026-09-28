@@ -139,6 +139,7 @@ async function withTestChrome(options, fn) {
       '--disable-component-update',
       '--disable-default-apps',
       '--disable-extensions',
+      '--disable-features=OptimizationGuideModelDownloading,OptimizationHintsFetching,OptimizationTargetPrediction',
       ...(options.args || [PORTAL_URL])
     ];
 
@@ -319,7 +320,54 @@ async function runTests() {
         await sleep(60);
         assert.strictEqual(engine.isPaused, false, 'Automated click on target element must NOT pause replay');
         await engine._setAutomatedAction(false);
-        await sleep(160); // Wait for grace window to expire
+        await sleep(310); // Wait for grace window to expire
+
+        // 4b. Synthetic (untrusted script-dispatched) events must NOT pause replay
+        assert.strictEqual(engine.isPaused, false);
+        await page.evaluate(() => {
+          document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+          document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
+        });
+        await sleep(60);
+        assert.strictEqual(engine.isPaused, false, 'Synthetic (isTrusted: false) script events must NOT pause replay');
+
+        // 4c. Nested target: parent element automated, event lands on descendant
+        const firstRow = await page.$('table#invoices-table tbody tr:first-child');
+        assert(firstRow, 'First row must exist');
+        await engine._setAutomatedAction(true, firstRow);
+        await markBtn.click(); // markBtn is a child of firstRow
+        await sleep(60);
+        assert.strictEqual(engine.isPaused, false, 'Click on descendant when parent is automated must NOT pause');
+        await engine._setAutomatedAction(false);
+        await sleep(310);
+
+        // 4d. Nested target: child element automated, event dispatched or bubbles to ancestor
+        await engine._setAutomatedAction(true, { target: markBtn, item: firstRow });
+        await firstRow.click(); // firstRow is an ancestor containing markBtn
+        await sleep(60);
+        assert.strictEqual(engine.isPaused, false, 'Click on ancestor containing target or item must NOT pause');
+        await engine._setAutomatedAction(false);
+        await sleep(310);
+
+        // 4e. Automated transition state: wheel and backdrop dismissal events do NOT pause
+        await engine.setAutomatedTransition(true, { reason: 'item_transition' });
+        await page.evaluate(() => {
+          window.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: 100 }));
+        });
+        await sleep(60);
+        assert.strictEqual(engine.isPaused, false, 'Wheel event during automated transition must NOT pause');
+
+        await page.evaluate(() => {
+          const backdrop = document.createElement('div');
+          backdrop.className = 'cdk-overlay-backdrop';
+          document.body.appendChild(backdrop);
+          backdrop.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+          backdrop.remove();
+        });
+        await sleep(60);
+        assert.strictEqual(engine.isPaused, false, 'Backdrop dismissal during automated transition must NOT pause');
+        await engine.setAutomatedTransition(false);
+        await sleep(310);
 
         // 5. Unrelated human click triggers pause
         assert.strictEqual(engine.isPaused, false);
@@ -856,11 +904,29 @@ async function runTests() {
         ]
       };
 
-      const runner = new LoopReplayRunner({ cdpPort: port, runId });
+      let unexpectedPauses = 0;
+      const runner = new LoopReplayRunner({
+        cdpPort: port,
+        runId,
+        workflowId: 'wf_invoice_download',
+        workflowName: 'Invoice Downloader',
+        forceRedownload: true
+      });
+      runner.replayEngine.on('human_intervention', (intervention) => {
+        unexpectedPauses++;
+        console.error('Unexpected human intervention during automated loop:', intervention);
+      });
+      runner.replayEngine.on('paused', (evt) => {
+        if (evt?.reason === 'human_input') {
+          unexpectedPauses++;
+        }
+      });
+
       const manifest = await runner.executeLoop(mockWorkflow, 1);
 
       // Verify all acceptance criteria
       assert.strictEqual(manifest.status, 'COMPLETED', 'Scenario must complete successfully without stalling');
+      assert.strictEqual(unexpectedPauses, 0, 'No false human intervention pauses should occur during automated loop replay');
       assert.strictEqual(manifest.itemsTotal, 4, 'Should detect all 4 invoice rows');
       assert.strictEqual(manifest.itemsSucceeded, 4, 'All 4 invoice rows should succeed');
       assert.strictEqual(manifest.itemsFailed, 0, 'No rows should fail');
@@ -881,6 +947,84 @@ async function runTests() {
       assert.deepStrictEqual(checkpoint.completedItemIndexes, [1, 2, 3, 4]);
 
       console.log('  ✅ Four-item invoice portal scenario completed with 100% success without stalling\n');
+    } finally {
+      cleanRunDir(runId);
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // Test 9: Genuine human intervention pauses loop and resume continues execution
+  // --------------------------------------------------------------------------
+  console.log('🔹 Test 9: Genuine human intervention pauses loop and resume continues');
+  await withTestChrome({ args: [PORTAL_URL] }, async ({ port }) => {
+    const runId = `loop_human_pause_resume_${Date.now()}`;
+    try {
+      const mockWorkflow = {
+        id: 'wf_pause_resume',
+        name: 'Pause Resume Test',
+        steps: [
+          { type: 'NAVIGATE', url: PORTAL_URL },
+          {
+            type: 'CLICK',
+            target: {
+              candidates: [{ strategy: 'css-path', value: 'table#invoices-table tbody > tr:nth-child(1) > td:nth-child(5) > button.btn-mark' }],
+              fingerprint: { tagName: 'button', text: 'Mark', classes: ['btn-mark'] }
+            }
+          }
+        ]
+      };
+
+      const runner = new LoopReplayRunner({
+        cdpPort: port,
+        runId,
+        workflowId: 'wf_pause_resume',
+        workflowName: 'Pause Resume Test',
+        loopLimit: 3
+      });
+
+      let interventionDetected = false;
+      let resumeTriggered = false;
+
+      runner.replayEngine.on('human_intervention', () => {
+        interventionDetected = true;
+        // Simulate user clicking "Resume" in UI after noticing the pause
+        setTimeout(async () => {
+          resumeTriggered = true;
+          await runner.replayEngine.resume();
+        }, 200);
+      });
+
+      // Hook progress: during processing of item 2, simulate a real human click outside the table
+      const originalExecuteActionWithinItem = runner.replayEngine.executeActionWithinItem.bind(runner.replayEngine);
+      let itemExecCount = 0;
+
+      runner.replayEngine.executeActionWithinItem = async function(itemEl, action, idx) {
+        itemExecCount++;
+        if (itemExecCount === 2) {
+          // Simulate human clicking outside table on page header/body
+          setTimeout(async () => {
+            try {
+              if (runner.replayEngine.page && !runner.replayEngine.page.isClosed()) {
+                const h1 = await runner.replayEngine.page.$('h1');
+                if (h1) {
+                  await h1.click();
+                } else {
+                  await runner.replayEngine.page.mouse.click(20, 20);
+                }
+              }
+            } catch {}
+          }, 80);
+        }
+        return await originalExecuteActionWithinItem(itemEl, action, idx);
+      };
+
+      const manifest = await runner.executeLoop(mockWorkflow, 1);
+      assert.strictEqual(manifest.status, 'COMPLETED', 'Workflow must complete successfully after resume');
+      assert.strictEqual(interventionDetected, true, 'Genuine human intervention must be detected');
+      assert.strictEqual(resumeTriggered, true, 'Resume must be triggered and allow continuation');
+      assert.strictEqual(manifest.itemsSucceeded, 3, 'All 3 items must succeed');
+
+      console.log('  ✅ Genuine human intervention paused loop and resume continued to completion\n');
     } finally {
       cleanRunDir(runId);
     }
