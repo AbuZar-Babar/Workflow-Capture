@@ -1,13 +1,13 @@
 # Workflow Capture — Multi-Agent Work Plan
 
-**Status:** Ready for task assignment  
-**Planning branch:** `multi-agent`  
-**Baseline reviewed:** `62b8ef0` (2026-09-28)
+**Status:** Active execution — Tasks 0–7, 12, and 13 integrated; Task 8 in progress; Task 9 next
+**Planning branch:** `multi-agent`
+**Baseline reviewed:** `739ee48` (2026-09-28)
 **Plan owner:** Integrator / project owner
 
 This plan turns the current integration state and confirmed product requirements into bounded work packages. Each package has one owner, a declared file scope, dependencies, acceptance criteria, and a handoff format. The loop/filter behavior is specified in [LOOP-FILTER-REQUIREMENTS.md](LOOP-FILTER-REQUIREMENTS.md). Tasks may be assigned to ChatGPT, Gemini, or another coding agent.
 
-Tasks 0–5, 12, and 13 are integrated on `multi-agent`. Task-level validation evidence has been reviewed for all integrated tasks; the combined application journey and real-portal behavior still require integration validation. No source behavior is considered fully release-validated by this plan alone.
+Tasks 0–7, 12, and 13 are integrated on `multi-agent`. Task-level validation evidence has been reviewed for all integrated tasks; Task 8 (Documentation & Status Reconciliation) is currently active; Task 9 (Cross-portal and end-to-end validation) is the upcoming release gate. No source behavior is considered fully release-validated by this plan alone.
 
 ## Working rules
 
@@ -35,7 +35,7 @@ Suggested statuses: `READY`, `IN PROGRESS`, `BLOCKED`, `REVIEW`, `INTEGRATION`, 
 
 ## Shared loop/filter contract
 
-Use [LOOP-FILTER-REQUIREMENTS.md](LOOP-FILTER-REQUIREMENTS.md) as the frozen product contract for new work. Tasks 4 and 5 implemented the earlier v1 single-text-condition evaluator and review UI. Tasks 12 and 13 have now extended those components to the confirmed multi-condition/date/limit behavior; Task 6 now wires the same contract through API and runtime. Do not change the contract independently inside a task branch.
+Use [LOOP-FILTER-REQUIREMENTS.md](LOOP-FILTER-REQUIREMENTS.md) as the frozen product contract for new work. Tasks 4 and 5 implemented the earlier v1 single-text-condition evaluator and review UI. Tasks 12 and 13 extended those components to the confirmed multi-condition/date/limit behavior; Task 6 integrated the same contract through API and runtime; Task 7 established complete test suites, isolation, and CI automation. Do not change the contract independently inside a task branch.
 
 ## Task 0 — Establish the agent workboard
 
