@@ -7,9 +7,45 @@ export const WorkflowEditorView = {
   editor: null,
   workflowId: null,
   workflow: null,
+  currentGeneration: 0,
+  isMounted: false,
+  mountedWorkflowId: null,
+  activeTimers: null,
+
+  setSafeTimeout(fn, ms) {
+    if (!this.isMounted) return null;
+    if (!this.activeTimers) this.activeTimers = new Set();
+    const timerId = setTimeout(() => {
+      if (this.activeTimers) this.activeTimers.delete(timerId);
+      if (!this.isMounted) return;
+      fn();
+    }, ms);
+    this.activeTimers.add(timerId);
+    return timerId;
+  },
+
+  clearAllTimers() {
+    if (this.activeTimers) {
+      for (const id of this.activeTimers) {
+        clearTimeout(id);
+      }
+      this.activeTimers.clear();
+    }
+  },
 
   async render(container, router, workflowId) {
+    // Teardown previous editor instance/listeners before mounting new workflow
+    this.destroy();
+
+    // Advance generation counter to invalidate any in-flight requests from previous views
+    this.currentGeneration += 1;
+    const generation = this.currentGeneration;
+    this.isMounted = true;
+    this.mountedWorkflowId = workflowId;
     this.workflowId = workflowId;
+    this.workflow = null;
+    this.activeTimers = new Set();
+
     container.innerHTML = `
       <div class="workflow-editor-layout">
         <div class="workflow-editor-header">
@@ -66,9 +102,11 @@ export const WorkflowEditorView = {
     });
 
     document.getElementById('btnExecuteFlowEditor')?.addEventListener('click', () => {
+      if (!this.isMounted || !this.mountedWorkflowId) return;
+      const targetWfId = this.mountedWorkflowId;
       const steps = this.workflow?.steps || (this.workflow?.recordingData && this.workflow.recordingData.actions) || [];
       ExecutionModal.open({
-        workflowId: this.workflowId,
+        workflowId: targetWfId,
         workflowName: this.workflow?.name || 'Workflow',
         stepCount: steps.length,
         loopStepIndex: this.workflow?.loopStepIndex,
@@ -77,10 +115,17 @@ export const WorkflowEditorView = {
     });
 
     try {
-      const data = await Api.getWorkflowById(this.workflowId);
+      const data = await Api.getWorkflowById(workflowId);
+
+      // Guard: Ignore response if unmounted or if another workflow was mounted in the meantime
+      if (!this.isMounted || this.currentGeneration !== generation || this.mountedWorkflowId !== workflowId) {
+        return;
+      }
+
       this.workflow = data.workflow || data;
       const wfName = this.workflow.name || 'Workflow';
-      document.getElementById('wfTitle').textContent = `Visual Editor: ${wfName}`;
+      const titleEl = document.getElementById('wfTitle');
+      if (titleEl) titleEl.textContent = `Visual Editor: ${wfName}`;
       
       const steps = this.workflow.steps || (this.workflow.recordingData && this.workflow.recordingData.actions) || [];
       const badge = document.getElementById('wfStepCounter');
@@ -95,6 +140,9 @@ export const WorkflowEditorView = {
 
       this.initDrawflow();
     } catch (err) {
+      if (!this.isMounted || this.currentGeneration !== generation || this.mountedWorkflowId !== workflowId) {
+        return;
+      }
       console.error(err);
       Toast.error('Failed to load workflow: ' + err.message);
     }
@@ -864,7 +912,7 @@ export const WorkflowEditorView = {
       }
 
       // Wire interactive events for name input, option dropdown, and role
-      setTimeout(() => {
+      this.setSafeTimeout(() => {
         const nodeEl = document.getElementById(`node-${nodeId}`);
         if (nodeEl) {
           const nameInput = nodeEl.querySelector('.df-name-input');
@@ -1128,8 +1176,12 @@ export const WorkflowEditorView = {
   isSaving: false,
 
   async saveWorkflow() {
+    if (!this.isMounted || !this.mountedWorkflowId || !this.editor) return;
     if (this.isSaving) return;
     this.isSaving = true;
+
+    const targetWorkflowId = this.mountedWorkflowId;
+    const saveGeneration = this.currentGeneration;
 
     const btn = document.getElementById('btnSaveFlow');
     const origText = btn ? btn.innerHTML : '';
@@ -1139,7 +1191,7 @@ export const WorkflowEditorView = {
     }
 
     try {
-      if (!this.editor || !this.workflowId) return;
+      if (!this.editor || !this.isMounted || this.currentGeneration !== saveGeneration) return;
 
       const exported = this.editor.export();
       const data = exported.drawflow.Home.data;
@@ -1279,15 +1331,20 @@ export const WorkflowEditorView = {
       const wfMode = hasLoop ? 'LOOP' : 'STANDARD';
 
       const targetUrlInput = document.getElementById('wfTargetUrlInput');
-      const updatedTargetUrl = targetUrlInput ? targetUrlInput.value.trim() : (this.workflow.targetUrl || '');
+      const updatedTargetUrl = targetUrlInput ? targetUrlInput.value.trim() : (this.workflow?.targetUrl || '');
 
-      await Api.updateWorkflow(this.workflowId, {
+      await Api.updateWorkflow(targetWorkflowId, {
         steps: newSteps,
         loopStepIndex,
         isLoop: hasLoop,
         mode: wfMode,
         targetUrl: updatedTargetUrl
       });
+
+      // Guard: Check if still mounted and still on the same generation / workflow
+      if (!this.isMounted || this.currentGeneration !== saveGeneration || this.mountedWorkflowId !== targetWorkflowId) {
+        return;
+      }
 
       if (this.workflow) {
         this.workflow.steps = newSteps;
@@ -1301,13 +1358,20 @@ export const WorkflowEditorView = {
       const badge = document.getElementById('wfStepCounter');
       if (badge) badge.textContent = `${newSteps.length} Steps`;
     } catch (err) {
+      if (!this.isMounted || this.currentGeneration !== saveGeneration || this.mountedWorkflowId !== targetWorkflowId) {
+        return;
+      }
       console.error(err);
       Toast.error('Failed to save workflow: ' + err.message);
     } finally {
-      this.isSaving = false;
-      if (btn) {
-        btn.innerHTML = origText;
-        btn.disabled = false;
+      if (this.isMounted && this.currentGeneration === saveGeneration) {
+        this.isSaving = false;
+        if (btn) {
+          btn.innerHTML = origText;
+          btn.disabled = false;
+        }
+      } else {
+        this.isSaving = false;
       }
     }
   },
@@ -1322,8 +1386,27 @@ export const WorkflowEditorView = {
   },
 
   destroy() {
+    this.isMounted = false;
+    this.currentGeneration += 1;
+    this.mountedWorkflowId = null;
+    this.workflowId = null;
+    this.workflow = null;
+    this.isSaving = false;
+
+    this.clearAllTimers();
     this.hideConnectionMenu();
     this.hideDeleteModal();
+
+    const deleteModal = document.getElementById('deleteNodeModal');
+    const btnClose = document.getElementById('btnCloseDeleteModal');
+    const btnCancel = document.getElementById('btnCancelDeleteStep');
+    const btnConfirm = document.getElementById('btnConfirmDeleteStep');
+    if (btnClose) btnClose.onclick = null;
+    if (btnCancel) btnCancel.onclick = null;
+    if (btnConfirm) btnConfirm.onclick = null;
+    if (deleteModal) deleteModal.onclick = null;
+    this.pendingDeleteNodeId = null;
+
     if (this.keyHandler) {
       window.removeEventListener('keydown', this.keyHandler);
       this.keyHandler = null;
@@ -1351,7 +1434,6 @@ export const WorkflowEditorView = {
       } catch {}
       this.editor = null;
     }
-    this.workflow = null;
     this.selectedConnectionInfo = null;
     this.selectedNodeId = null;
   }

@@ -17,6 +17,7 @@ export const Header = {
   recordingBannerTimer: null,
   recordingStartTime: null,
   lastActionCount: 0,
+  refreshTimer: null,
 
   init() {
     this.elCdpDot = document.getElementById('cdpDot');
@@ -52,10 +53,26 @@ export const Header = {
       this.elBtnRefreshStatus.onclick = () => this.refreshStatus();
     }
 
+    if (this.refreshTimer) {
+      clearInterval(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+
     this.refreshStatus();
-    setInterval(() => {
+    this.refreshTimer = setInterval(() => {
       if (!document.hidden) this.refreshStatus();
     }, 8000);
+  },
+
+  destroy() {
+    if (this.refreshTimer) {
+      clearInterval(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+    if (this.recordingBannerTimer) {
+      clearInterval(this.recordingBannerTimer);
+      this.recordingBannerTimer = null;
+    }
   },
 
   setGlobalRecordingBanner(isRecording, meta = {}) {
@@ -107,11 +124,21 @@ export const Header = {
   },
 
   async refreshStatus() {
+    if (!this.elCdpDot) this.elCdpDot = document.getElementById('cdpDot');
+    if (!this.elCdpText) this.elCdpText = document.getElementById('cdpText');
+    if (!this.elSystemStateText) this.elSystemStateText = document.getElementById('systemStateText');
+
     try {
       const data = await Api.getStatus();
 
-      // CDP Pill
-      if (data.cdp && data.cdp.online) {
+      // State-driven Status Pill
+      if (data.recorder && data.recorder.isRecording) {
+        if (this.elCdpDot) this.elCdpDot.className = 'status-dot recording';
+        if (this.elCdpText) this.elCdpText.textContent = 'Recording Active';
+      } else if (data.replay && data.replay.isReplaying) {
+        if (this.elCdpDot) this.elCdpDot.className = 'status-dot online';
+        if (this.elCdpText) this.elCdpText.textContent = 'Replay Active';
+      } else if (data.cdp && data.cdp.online) {
         if (this.elCdpDot) this.elCdpDot.className = 'status-dot online';
         const tabCount = data.cdp.tabs ? data.cdp.tabs.length : 0;
         if (this.elCdpText) this.elCdpText.textContent = `CDP Online (${tabCount} tab${tabCount === 1 ? '' : 's'})`;
@@ -153,10 +180,24 @@ export const Header = {
   },
 
   setEngineState(state) {
-    if (!this.elSystemStateText) return;
-    this.elSystemStateText.textContent = state;
-    if (state === 'RECORDING') this.elSystemStateText.style.color = '#ef4444';
-    else if (state === 'REPLAYING') this.elSystemStateText.style.color = '#0284c7';
-    else this.elSystemStateText.style.color = 'var(--brand-forest)';
+    if (!this.elSystemStateText) this.elSystemStateText = document.getElementById('systemStateText');
+    if (this.elSystemStateText) {
+      this.elSystemStateText.textContent = state;
+      if (state === 'RECORDING') this.elSystemStateText.style.color = '#ef4444';
+      else if (state === 'REPLAYING') this.elSystemStateText.style.color = '#0284c7';
+      else this.elSystemStateText.style.color = 'var(--brand-forest)';
+    }
+
+    if (!this.elCdpDot) this.elCdpDot = document.getElementById('cdpDot');
+    if (!this.elCdpText) this.elCdpText = document.getElementById('cdpText');
+    if (state === 'RECORDING') {
+      if (this.elCdpDot) this.elCdpDot.className = 'status-dot recording';
+      if (this.elCdpText) this.elCdpText.textContent = 'Recording Active';
+    } else if (state === 'REPLAYING') {
+      if (this.elCdpDot) this.elCdpDot.className = 'status-dot online';
+      if (this.elCdpText) this.elCdpText.textContent = 'Replay Active';
+    } else if (state === 'IDLE') {
+      this.refreshStatus();
+    }
   }
 };
