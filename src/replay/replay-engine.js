@@ -261,6 +261,7 @@ class ReplayEngine extends EventEmitter {
     }
 
     for (const [name, handler] of [
+      ['__flowmindPauseReplay', () => this.pause('user_overlay')],
       ['__flowmindResumeReplay', () => this.resume()],
       ['__flowmindStopReplay', () => this.abort()],
       ['__flowmindSetReplayLock', (locked) => this.setLocked(locked)]
@@ -281,26 +282,63 @@ class ReplayEngine extends EventEmitter {
         if (window === window.top) {
           host = document.createElement('div');
           host.id = '__flowmind-replay-guard';
-          host.style.cssText = 'all:initial;position:fixed;top:18px;right:18px;z-index:2147483647;font:13px/1.4 Inter,system-ui,sans-serif;color:#eef2ff;';
+          host.style.cssText = 'all:initial;position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:2147483647;pointer-events:none;';
           var shadow = host.attachShadow({mode:'open'});
-          shadow.innerHTML = '<style>*{box-sizing:border-box} .card{width:270px;padding:12px 14px;background:#20283a;border:1px solid #39445b;border-radius:15px;box-shadow:0 12px 34px #10162655;display:flex;gap:10px;align-items:center}.dot{width:9px;height:9px;border-radius:50%;background:#42d392;box-shadow:0 0 12px #42d39288;flex:none}.paused .dot{background:#f5a742;box-shadow:0 0 12px #f5a74288}.copy{flex:1;min-width:0}.title{font-weight:700;font-size:12px}.sub{color:#aab5ca;font-size:11px;margin-top:2px}.actions{display:flex;gap:6px;margin-top:9px}.actions[hidden]{display:none}button{border:1px solid #46536e;border-radius:7px;background:#2b354b;color:#eef2ff;padding:5px 9px;font:600 11px system-ui;cursor:pointer}button:hover{background:#394660}.lock{margin-top:8px}.lock.on{border-color:#ed7777;color:#ffb3b3}.stop{color:#ffb3b3}</style><div class="card"><i class="dot"></i><div class="copy"><div class="title"></div><div class="sub"></div><button class="lock"></button><div class="actions" hidden><button class="resume">Resume</button><button class="stop">Stop</button></div></div></div>';
+          shadow.innerHTML = '<style>' +
+            '*{box-sizing:border-box;margin:0;padding:0}' +
+            '@keyframes fmPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.35;transform:scale(0.85)}}' +
+            '.pill{pointer-events:auto;display:inline-flex;align-items:center;gap:8px;padding:4px 12px;background:rgba(15,23,42,0.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.16);border-radius:9999px;box-shadow:0 4px 16px rgba(0,0,0,0.45),0 1px 3px rgba(0,0,0,0.2);font:500 12px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;color:#f8fafc;user-select:none;transition:all 0.2s ease}' +
+            '.pill.paused{border-color:rgba(245,158,11,0.55);background:rgba(30,27,20,0.95);box-shadow:0 4px 18px rgba(245,158,11,0.25),0 1px 4px rgba(0,0,0,0.3)}' +
+            '.dot{width:7px;height:7px;border-radius:50%;background:#10b981;box-shadow:0 0 6px #10b981;flex:none;animation:fmPulse 2s infinite ease-in-out}' +
+            '.pill.paused .dot{background:#f59e0b;box-shadow:0 0 6px #f59e0b}' +
+            '.label{font-weight:600;font-size:11.5px;letter-spacing:0.2px;white-space:nowrap}' +
+            '.btn{display:inline-flex;align-items:center;justify-content:center;border:none;border-radius:9999px;padding:3px 9px;font:600 11px/1.2 system-ui,sans-serif;cursor:pointer;transition:all 0.15s ease}' +
+            '.btn-pause{background:rgba(255,255,255,0.1);color:#cbd5e1;border:1px solid rgba(255,255,255,0.18)}' +
+            '.btn-pause:hover{background:rgba(255,255,255,0.2);color:#ffffff}' +
+            '.btn-resume{background:#2563eb;color:#ffffff;box-shadow:0 1px 4px rgba(37,99,235,0.4)}' +
+            '.btn-resume:hover{background:#1d4ed8}' +
+            '.btn-stop{background:rgba(239,68,68,0.2);color:#fca5a5;border:1px solid rgba(239,68,68,0.4)}' +
+            '.btn-stop:hover{background:rgba(239,68,68,0.35);color:#ffffff}' +
+            '.actions{display:inline-flex;align-items:center;gap:5px}' +
+            '</style>' +
+            '<div class="pill">' +
+              '<i class="dot"></i>' +
+              '<span class="label">Running</span>' +
+              '<div class="actions">' +
+                '<button class="btn btn-pause" title="Pause automation">Pause</button>' +
+                '<button class="btn btn-resume" title="Resume automation" style="display:none">Resume</button>' +
+                '<button class="btn btn-stop" title="Stop automation" style="display:none">Stop</button>' +
+              '</div>' +
+            '</div>';
           if (document.documentElement) document.documentElement.appendChild(host);
           else document.addEventListener('DOMContentLoaded', function(){ if(document.documentElement) document.documentElement.appendChild(host); }, {once:true});
-          shadow.querySelector('.resume').addEventListener('click', () => window.__flowmindResumeReplay && window.__flowmindResumeReplay());
-          shadow.querySelector('.stop').addEventListener('click', () => window.__flowmindStopReplay && window.__flowmindStopReplay());
-          shadow.querySelector('.lock').addEventListener('click', () => window.__flowmindSetReplayLock && window.__flowmindSetReplayLock(!window.__flowmindReplayLocked));
+
+          shadow.querySelector('.btn-pause').addEventListener('click', () => window.__flowmindPauseReplay && window.__flowmindPauseReplay());
+          shadow.querySelector('.btn-resume').addEventListener('click', () => window.__flowmindResumeReplay && window.__flowmindResumeReplay());
+          shadow.querySelector('.btn-stop').addEventListener('click', () => window.__flowmindStopReplay && window.__flowmindStopReplay());
+
           window.__flowmindReplayGuardHost = host;
           window.__flowmindUpdateReplayGuard = function() {
-            var card=shadow.querySelector('.card'), actions=shadow.querySelector('.actions');
-            card.classList.toggle('paused', !!window.__flowmindReplayPaused);
-            shadow.querySelector('.title').textContent=window.__flowmindReplayPaused?'Workflow paused':'Automation running';
-            shadow.querySelector('.sub').textContent=window.__flowmindReplayPaused
-              ? (window.__flowmindReplayLocked?'Input blocked. Resume when ready.':'Workflow paused. Resume when ready.')
-              : (window.__flowmindReplayLocked?'Input lock is on':'Interact with the site to pause');
-            var lock=shadow.querySelector('.lock');
-            lock.textContent=window.__flowmindReplayLocked?'Input lock: On':'Input lock: Off';
-            lock.classList.toggle('on', !!window.__flowmindReplayLocked);
-            actions.hidden=!window.__flowmindReplayPaused;
+            var pill = shadow.querySelector('.pill');
+            var label = shadow.querySelector('.label');
+            var btnPause = shadow.querySelector('.btn-pause');
+            var btnResume = shadow.querySelector('.btn-resume');
+            var btnStop = shadow.querySelector('.btn-stop');
+
+            var isPaused = !!window.__flowmindReplayPaused;
+            pill.classList.toggle('paused', isPaused);
+
+            if (isPaused) {
+              label.textContent = 'Paused';
+              btnPause.style.display = 'none';
+              btnResume.style.display = 'inline-flex';
+              btnStop.style.display = 'inline-flex';
+            } else {
+              label.textContent = 'Running';
+              btnPause.style.display = 'inline-flex';
+              btnResume.style.display = 'none';
+              btnStop.style.display = 'none';
+            }
           };
           window.__flowmindUpdateReplayGuard();
         }
