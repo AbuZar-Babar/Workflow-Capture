@@ -490,7 +490,7 @@ The testing architecture was formalized in Task 7 and is documented in [TESTING.
 - **Manual / Optional Verification Test**:
   - `test/iframe-click-capture-robustness.test.js` (`test:iframe-robustness`): Standalone verification test for nested iframe injection, mousedown suppression, canvas relative coordinate clicks, and DevExpress toolbar icons.
 
-Test suites are formally partitioned in `package.json` into fast browserless suites (`npm test` / `npm run test:fast`) and browser-backed suites (`npm run test:browser`), with automated GitHub Actions CI configured in `.github/workflows/ci.yml`. See [TESTING.md](TESTING.md) for the complete directory.
+Test suites are formally partitioned in `package.json` into fast browserless suites (`npm test` / `npm run test:fast`) and browser-backed suites (`npm run test:browser`). Automated GitHub Actions CI is configured in `.github/workflows/ci.yml`, running the fast test suite across a matrix of Node.js 18.x, 20.x, and 22.x on `ubuntu-latest`, followed by the browser-backed E2E test suite on Node.js 20.x with Google Chrome on `windows-latest`. See [TESTING.md](TESTING.md) for the complete test taxonomy and execution directory.
 
 ---
 

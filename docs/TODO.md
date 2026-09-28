@@ -22,11 +22,10 @@ Tasks 0–7, 12, and 13 are integrated on `multi-agent` at `739ee486094e19b80cc6
   - [ ] Validate preview/runtime agreement across representative portal DOM structures (tables, divs, lists).
   - [ ] Validate failures, retries, compound filters, date boundaries, and item limits together in end-to-end runs.
   - [ ] Document portal compatibility matrix and operational limitations.
-- [ ] Task 10: Dashboard lifecycle correctness (follows Task 9 release gate validation).
 
 ## Blocked work
 
-- None currently blocked by external blockers. Task 10 is sequenced after Task 9 validation findings.
+- [ ] Task 10: Dashboard lifecycle correctness — blocked and sequenced behind Task 9 release gate validation findings (no external dependencies or third-party blockers; execution is intentionally gated on prerequisite validation evidence).
 
 ## Deferred work
 
