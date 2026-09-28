@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - multi-agent
+      - 'chatgpt/**'
+      - 'gemini/**'
+  pull_request:
+    branches:
+      - main
+      - multi-agent
+
+permissions:
+  contents: read
+
+jobs:
+  fast-tests:
+    name: Fast Test Suite (Unit & API)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [18.x, 20.x, 22.x]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run fast test suite (npm test)
+        run: npm test
+
+  browser-e2e:
+    name: Browser & E2E Suite (Windows Chrome)
+    needs: fast-tests
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify Google Chrome installation
+        shell: pwsh
+        run: |
+          $chromePath = "C:\Program Files\Google\Chrome\Application\chrome.exe"
+          if (Test-Path $chromePath) {
+            Write-Host "Google Chrome found at: $chromePath"
+            & $chromePath --version
+          } else {
+            Write-Error "Google Chrome executable not found at expected path: $chromePath. Environment cannot provision required browser."
+            exit 1
+          }
+
+      - name: Run Browser & E2E tests
+        run: npm run test:browser
+        env:
+          CHROME_PATH: 'C:\Program Files\Google\Chrome\Application\chrome.exe'
