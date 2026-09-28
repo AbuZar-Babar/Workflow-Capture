@@ -2,7 +2,7 @@
 
 > Updated: 2026-09-28
 >
-> Current integration branch: `multi-agent` at `62b8ef0`. Tasks 0–5, 12, and 13 are integrated. Task 12 provides compound/date filter evaluation; Task 13 provides the matching dashboard review UI and item-limit controls. The API/runtime integration in Task 6 is the next implementation step. The combined end-to-end journey and real-portal behavior have not yet been rerun on the merged tree. See [WORKSTREAMS.md](WORKSTREAMS.md) for task status and [LOOP-FILTER-REQUIREMENTS.md](LOOP-FILTER-REQUIREMENTS.md) for the frozen contract.
+> Current integration branch: `multi-agent` at `739ee486094e19b80cc6b4a9a78a90821a165d8b`. Tasks 0–7, 12, and 13 are integrated. Task 6 wired the filter and attempt-limit contract through API and runtime; Task 7 established complete, discoverable test suites, browser test isolation, and GitHub Actions CI automation. Task 8 is the active documentation reconciliation task; Task 9 is the next release-gate validation milestone. See [WORKSTREAMS.md](WORKSTREAMS.md) for task status and [LOOP-FILTER-REQUIREMENTS.md](LOOP-FILTER-REQUIREMENTS.md) for the frozen contract.
 >
 > The technical descriptions below originated as an earlier engine implementation snapshot. Treat them as implementation background; current task status and validation evidence are maintained in the linked workboard.
 
@@ -32,7 +32,7 @@ Persist checkpoint state
 Resume after interruption
 ```
 
-The current implementation is **not yet a complete production RPA platform**. It includes the recording, discovery, item-scoped replay, loop reliability, dashboard review, security, and the expanded filter evaluator/UI foundations described below. API/runtime filter integration and the full product journey are still in progress.
+The current implementation is **not yet a complete production RPA platform**. It includes recording, discovery, item-scoped replay, loop reliability, dashboard review, security, compound/date filter evaluation, API/runtime filter integration, and test isolation/CI foundations. The combined release-gate journey across diverse real portals (Task 9) is the next milestone.
 
 ---
 
@@ -462,19 +462,35 @@ The E2E assertions cover:
 
 ## 15. Test Coverage Added
 
-Relevant tests currently present include:
+The testing architecture was formalized in Task 7 and is documented in [TESTING.md](TESTING.md). The repository contains 21 test files categorized into explicit suites:
 
-- item discovery unit tests;
-- action generalization tests;
-- multi-action generalization tests;
-- loop partition tests;
-- multi-action loop execution coverage;
-- download tracking E2E coverage;
-- pagination-related implementation coverage.
+- **Unit Tests (`npm run test:unit`)**:
+  - `test/action-generalizer.test.js`: CSS selector scoping (`:scope`, relative paths), nth-row conversion, multi-action generalization.
+  - `test/bot-config.test.js`: Bot presets, human mouse Bezier trajectories, typing cadence dynamics.
+  - `test/checkbox-idempotency.test.js`: Checkbox state detection and idempotent click skipping.
+  - `test/devexpress-iframe-capture.test.js`: DevExpress toolbar candidates against mock DOM nodes.
+  - `test/download-deduplication.test.js`: JsonDB schema, slugified run paths, file hash deduplication.
+  - `test/dropdown-loop.test.js`: Mat-option and dropdown pattern recognition, action generalization.
+  - `test/item-discovery.test.js`: Candidate collection scoring, confidence heuristics, navigation toolbar exclusion.
+  - `test/item-filter.test.js` (Task 12): Pure reusable filter evaluator, compound AND/OR logic, `dateBetween` inclusive boundaries, loop limits.
+  - `test/loop-engine.test.js`: Table row/list item sibling detection, setup vs loop step sequence partitioning.
+  - `test/secret-vault.test.js`: AES-256 secret encryption/decryption, master key derivation, database secret storage.
+  - `test/selector-resolver.test.js`: ID stability heuristics, transient class stripping, element fingerprint scoring.
+- **API & Integration Tests (`npm run test:api`)**:
+  - `test/auth.test.js`: Authentication controller, password hashing, JWT signing, Auth middleware, token verification.
+  - `test/backend-api.test.js`: REST API endpoints for user auth, workflow CRUD, runs lifecycle, stop run.
+  - `test/dashboard-security.test.js` (Task 1): In-process HTTP server startup, loopback binding, token enforcement, developer bypass guards, CORS policies.
+  - `test/execution-mode.test.js`: Run controller execution mode branching (STANDARD macro vs LOOP).
+  - `test/filter-api-runtime.test.js` (Task 6): Filter/limit API endpoints, preview vs runtime agreement, date range filtering, limit semantics, error handling.
+  - `test/row-filter-discrimination.test.js`: Row filter parameter handling in run controller, simulated ERP row item matching/skipping.
+- **Browser & End-to-End Tests (`npm run test:browser`)**:
+  - `test/loop-e2e.test.js`: 4-item invoice table loop replay and batch download verification via `ChromeFixture`.
+  - `test/e2e-smoke.js`: Full recorder attach, live action capture, redaction, persistence, and replay on `mock-portal.html`.
+  - `test/loop-reliability.test.js` (Task 2): Multi-item loop reliability, abort/resume, human disturbance guard, and 4-item invoice scenario with real Chrome.
+- **Manual / Optional Verification Test**:
+  - `test/iframe-click-capture-robustness.test.js` (`test:iframe-robustness`): Standalone verification test for nested iframe injection, mousedown suppression, canvas relative coordinate clicks, and DevExpress toolbar icons.
 
-The package test scripts have also been updated to include the new unit suites.
-
-Task owners reported passing their focused suites on their task branches before integration. The combined test suite and end-to-end recording → discovery → filtering → execution flow have not yet been rerun on the integrated `multi-agent` branch. Use [WORKSTREAMS.md](WORKSTREAMS.md) for the task-level evidence and remaining validation work.
+Test suites are formally partitioned in `package.json` into fast browserless suites (`npm test` / `npm run test:fast`) and browser-backed suites (`npm run test:browser`). Automated GitHub Actions CI is configured in `.github/workflows/ci.yml`, running the fast test suite across a matrix of Node.js 18.x, 20.x, and 22.x on `ubuntu-latest`, followed by the browser-backed E2E test suite on Node.js 20.x with Google Chrome on `windows-latest`. See [TESTING.md](TESTING.md) for the complete test taxonomy and execution directory.
 
 ---
 
@@ -508,16 +524,14 @@ cca56295  Resume after completed loop items
 
 ## 17. What Is Still Missing From the MVP
 
-The following should still be considered unfinished:
+The following represents the remaining roadmap:
 
 ### High priority
 
-- API/runtime integration of preview and execution with the shared filter evaluator;
-- end-to-end agreement between UI preview and runtime selection, including distinct filter/limit skip states;
-- integrated validation of failures, retries, and limit consumption;
-- integrated verification that preview and runtime select the same items and that failures still consume a limit slot;
-- end-to-end dashboard journey and real-portal validation;
-- stronger item identity / duplicate prevention and robust checkpoint recovery coverage.
+- End-to-end dashboard journey and real-portal validation release gate across representative portal and DOM structures (Task 9);
+- Dashboard lifecycle correctness, navigation transitions, and modal state resilience under active execution (Task 10);
+- Stronger item identity / duplicate prevention and checkpoint recovery across long multi-page runs;
+- Multi-portal compatibility testing and documented portal variance.
 
 ### Medium priority
 
@@ -574,4 +588,4 @@ The core principle remains:
 
 > **Record the procedure, not the individual records.**
 
-The next major milestone is to complete the agreed loop/filter behavior through the dashboard, API, runtime, and persisted run state, then validate the complete workflow against fixtures and authorized real portals.
+The next major milestone is to execute Task 9: cross-portal and end-to-end validation of the complete user journey against fixtures and authorized real portals, followed by Task 10 dashboard lifecycle hardening.

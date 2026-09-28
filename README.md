@@ -4,7 +4,7 @@
 > **Status:** Active development / feature implementation + stabilization  
 > **Project type:** Professional/company project for Tekgee Technologies — not an academic/FYP project  
 > **Current integration branch:** `multi-agent`
-> **Status snapshot:** 2026-09-28 — Tasks 0–5, 12, and 13 integrated; Task 6 is the next implementation step; see [agent workstreams](docs/WORKSTREAMS.md).
+> **Status snapshot:** 2026-09-28 — Tasks 0–7, 12, and 13 integrated; Task 8 (Documentation & Status Reconciliation) active; Task 9 (Cross-portal and end-to-end validation) is the next milestone; see [agent workstreams](docs/WORKSTREAMS.md).
 
 Workflow Capture is a generic browser automation platform with two core capabilities:
 
@@ -107,7 +107,7 @@ Execute against selected items
 
 ### Filtering
 
-The integrated filter milestone now includes a reusable evaluator for multiple conditions using `all`/`any`, `contains`, `equals`, and deterministic inclusive `dateBetween` ranges, plus a dashboard review UI with multiple filter rows and positive item-limit controls. Task 6 still needs to wire this same contract through discovery preview, execution API, loop runtime, counters, manifests, and SSE state. See [Loop and Filter Requirements](docs/LOOP-FILTER-REQUIREMENTS.md).
+The filtering milestone provides end-to-end filter evaluation and item-limit controls. It includes a reusable evaluator supporting compound conditions (`all`/`any`), string operators (`contains`, `equals`), and deterministic inclusive `dateBetween` date ranges. The contract is wired end-to-end through discovery preview, dashboard review UI, execution API (`itemFilter`, `loopLimit`), loop runtime, live counters, execution manifests, and SSE event streaming with distinct `SKIPPED_FILTER` and `SKIPPED_LIMIT` item outcomes. See [Loop and Filter Requirements](docs/LOOP-FILTER-REQUIREMENTS.md).
 
 ### Downloads and artifacts
 
@@ -193,34 +193,39 @@ The frontend is **Vanilla JS**, not React/Vue.
 - local dashboard authentication and access-control hardening
 - reusable item-filter evaluator with compound/date semantics and legacy compatibility
 - filter review UI with multiple conditions, preview counts, item limits, and distinct filter/limit skip states
+- end-to-end filter and item-limit API/runtime execution wiring (Task 6)
+- complete test suite taxonomy (fast unit/API, browser-isolated, complete suite) with CI automation (Task 7)
 
 ### Active work
-- connect filter preview and execution through the API/runtime (Task 6)
-- wire the integrated filter/limit contract through API and runtime (Task 6)
-- rerun combined application validation and verify preview/runtime agreement
-- run integrated cross-portal and full journey validation
+- Task 8: Documentation & status reconciliation across all project records.
+
+### Next milestones
+- Task 9: Cross-portal / E2E release gate validation across representative portal fixtures.
+- Task 10: Dashboard lifecycle correctness (after release gate validation).
+- Task 11: Modularization of large modules (deferred until behavior is stable).
 
 ### Deferred
 Pagination beyond the current discovered result set, cloud-scale execution, distributed queues, scheduling, AI selector recovery, and Document AI remain future work unless separately prioritized. Dashboard security has been addressed; logging into a target portal remains part of the user's browser/session workflow.
 
 ## Known Validation Issues
 
-Task 12 and Task 13 focused validation passed before integration and their changes are now merged into `multi-agent` at `62b8ef0`. No GitHub Actions workflow/status is configured for that commit, so the combined application journey has not yet been certified. Real-portal compatibility also needs broader validation. See [the workboard](docs/WORKSTREAMS.md) for current task state and [implementation status](docs/IMPLEMENTATION-STATUS.md) for evidence limits.
+Tasks 0–7, 12, and 13 have passed focused validation and are integrated into `multi-agent` at `739ee486094e19b80cc6b4a9a78a90821a165d8b`. Test infrastructure has been formalized into fast, API, and browser-isolated suites documented in [Testing Guide](docs/TESTING.md) and automated via `.github/workflows/ci.yml`. However, comprehensive cross-portal validation across varied DOM patterns (tables, divs, nested lists) and full end-to-end recording-to-artifact journeys remain to be validated in Task 9. See [the workboard](docs/WORKSTREAMS.md) for current task state and [implementation status](docs/IMPLEMENTATION-STATUS.md) for evidence limits.
 
 ## Project Priorities
 
-1. Integrate the filter and attempt-limit contract through preview, API, runtime, and persisted run state.
-2. Verify normal replay and loop-marker behavior on the invoice fixture.
-3. Validate failures, retries, filters, date boundaries, and item limits together.
-4. Complete the full recording → discovery → review → execution → artifact journey.
-5. Validate against more than one portal structure and record compatibility limits.
-6. Defer pagination and speculative platform expansion until the current-page batch flow is stable.
+1. Complete Task 8 documentation and status reconciliation.
+2. Execute Task 9 cross-portal and end-to-end release gate validation.
+3. Validate failures, retries, compound filters, date boundaries, and item limits together in end-to-end scenarios.
+4. Verify recording → discovery → review → execution → artifact journey across representative portal fixtures.
+5. Address dashboard lifecycle and navigation correctness (Task 10).
+6. Defer pagination, modularization, and speculative platform expansion until baseline behavior is certified.
 
 ## Documentation
 
 - [Product & Technical Plan](docs/PROJECT-PLAN.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Decisions](docs/DECISIONS.md)
+- [Testing Guide](docs/TESTING.md)
 - [TODO / Current Work](docs/TODO.md)
 - [Loop and Filter Requirements](docs/LOOP-FILTER-REQUIREMENTS.md)
 - [Agent Workstreams](docs/WORKSTREAMS.md)
