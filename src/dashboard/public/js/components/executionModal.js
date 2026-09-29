@@ -1,13 +1,13 @@
 /**
  * Workflow Capture — Workflow Execution & Loop Review Modal
  * 
- * Unifies execution preflight, item discovery, record filtering, and launch review.
- * Conforms to the Shared Filter Contract from docs/LOOP-FILTER-REQUIREMENTS.md:
+ * Unifies execution preflight, record discovery, record filtering, and launch review.
+ * Conforms strictly to the Shared Filter Contract:
  *  - Multiple filter conditions (field, operator: contains | equals | dateBetween, value / from-to dates)
  *  - Match mode: 'all' | 'any' (default: 'all')
- *  - Loop item limit: positive integer or empty (unlimited)
+ *  - Loop item limit: positive integer or null (unlimited)
  *  - Preflight counts: totalCount, matchingCount, selectedCount, skippedFilterCount, skippedLimitCount
- *  - Representative samples for selected, filter-skipped, and limit-skipped items
+ *  - Representative samples for selected, filter-skipped, and limit-skipped records
  *  - Blocks execution on preview errors, invalid limit, or zero-selected runs
  *  - Passes exact itemFilter and loopLimit payload to API client
  */
@@ -46,8 +46,8 @@ function isValidIsoDate(str) {
 }
 
 /**
- * Parses an item's date value deterministically without locale dependence,
- * matching the shared evaluator contract from Task 12 (src/shared/item-filter.js).
+ * Parses a record's date value deterministically without locale dependence,
+ * matching the shared evaluator contract from src/shared/item-filter.js.
  * Accepts:
  *  - Strict YYYY-MM-DD
  *  - YYYY-MM-DD... ISO timestamps
@@ -132,6 +132,7 @@ export const ExecutionModal = {
   isLoopConfigured: false,
   selectedMode: 'single', // 'single' | 'loop'
   onExecuted: null,
+  previousActiveElement: null,
 
   // Preflight and filter state (v2 contract)
   preflightStatus: 'idle', // 'idle' | 'loading' | 'success' | 'error'
@@ -166,10 +167,10 @@ export const ExecutionModal = {
     errors: []
   },
 
-  // Deterministic date parser matching Task 12 contract
+  // Deterministic date parser matching shared evaluator contract
   parseItemDate,
 
-  // Backwards compatibility accessors for v1 code / callers
+  // Backwards compatibility accessors for v1 callers
   get filterField() {
     return this.conditions[0]?.field || 'Type';
   },
@@ -213,15 +214,51 @@ export const ExecutionModal = {
     });
 
     this.handleKeyDown = (e) => {
-      if (e.key === 'Escape' && this.container && !this.container.classList.contains('hidden')) {
+      if (!this.container || this.container.classList.contains('hidden')) return;
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
         this.close();
+        return;
+      }
+
+      if (e.key === 'Tab') {
+        const focusable = this.getFocusableElements();
+        if (focusable.length === 0) {
+          e.preventDefault();
+          return;
+        }
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === first || !this.container.contains(document.activeElement)) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (document.activeElement === last || !this.container.contains(document.activeElement)) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
       }
     };
+  },
+
+  getFocusableElements() {
+    if (!this.container) return [];
+    const selector = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    return Array.from(this.container.querySelectorAll(selector)).filter(el => {
+      return el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0;
+    });
   },
 
   open({ workflowId, workflowName = 'Workflow', stepCount = 0, loopStepIndex = null, isLoop = false, onExecuted = null }) {
     if (!this.container) this.init();
 
+    this.previousActiveElement = document.activeElement;
     this.currentWorkflowId = workflowId;
     this.workflowName = workflowName || 'Workflow';
     this.stepCount = stepCount || 0;
@@ -266,6 +303,17 @@ export const ExecutionModal = {
 
     this.render();
 
+    // Accessibility: auto-focus initial actionable element
+    requestAnimationFrame(() => {
+      const closeBtn = this.container.querySelector('#btnCloseExecModal');
+      if (closeBtn && typeof closeBtn.focus === 'function') {
+        closeBtn.focus();
+      } else {
+        const focusables = this.getFocusableElements();
+        if (focusables.length > 0) focusables[0].focus();
+      }
+    });
+
     if (this.selectedMode === 'loop') {
       this.runPreflight();
     }
@@ -276,6 +324,14 @@ export const ExecutionModal = {
       this.container.classList.add('hidden');
     }
     document.removeEventListener('keydown', this.handleKeyDown);
+
+    // Accessibility: restore focus to triggering element
+    if (this.previousActiveElement && typeof this.previousActiveElement.focus === 'function') {
+      try {
+        this.previousActiveElement.focus();
+      } catch {}
+      this.previousActiveElement = null;
+    }
   },
 
   isLimitInvalid() {
@@ -321,8 +377,9 @@ export const ExecutionModal = {
     const isLoopSelected = this.selectedMode === 'loop';
 
     this.container.innerHTML = `
-      <div class="modal-dialog exec-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="execModalTitle">
-        <div class="modal-header" style="padding: 1.25rem 1.5rem;">
+      <div class="modal-dialog exec-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="execModalTitle" style="max-height:88vh; display:flex; flex-direction:column; overflow:hidden;">
+        <!-- Modal Header -->
+        <div class="modal-header" style="padding:1.1rem 1.4rem; flex-shrink:0; border-bottom:1px solid var(--border-light); background:var(--card-bg);">
           <div style="display:flex; align-items:center; gap:0.6rem;">
             <div style="width:34px; height:34px; border-radius:10px; background:var(--brand-tint); color:var(--brand-forest); display:flex; align-items:center; justify-content:center;">
               <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
@@ -332,64 +389,64 @@ export const ExecutionModal = {
               <span style="font-size:0.75rem; color:var(--text-sub);">${this.stepCount > 0 ? `${this.stepCount} steps recorded` : 'Workflow Execution'}</span>
             </div>
           </div>
-          <button class="btn-icon" id="btnCloseExecModal" title="Close" aria-label="Close execution dialog" style="background:transparent; border:none; cursor:pointer;">
+          <button class="btn-icon" id="btnCloseExecModal" title="Close dialog" aria-label="Close dialog" style="background:transparent; border:none; cursor:pointer;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
         </div>
 
-        <div class="modal-body" style="padding: 1.4rem 1.5rem; gap: 1.1rem; max-height: 80vh; overflow-y: auto;">
-          <p style="font-size: 0.82rem; color: var(--text-sub); margin: 0;">Select how you want to execute this workflow:</p>
+        <!-- Scrollable Modal Body -->
+        <div class="modal-body" style="padding:1.2rem 1.4rem; gap:1rem; overflow-y:auto; flex:1; min-height:0;">
+          <p style="font-size:0.8rem; color:var(--text-sub); margin:0;">Select how you want to run this workflow:</p>
 
           <!-- Execution Mode Options -->
-          <div style="display:flex; flex-direction:column; gap:0.65rem;">
-            <!-- Option 1: Macro Execution (Single) -->
+          <div style="display:flex; flex-direction:column; gap:0.6rem;">
+            <!-- Option 1: Run once (Single) -->
             <label class="exec-option-label ${!isLoopSelected ? 'active' : ''}" id="labelExecSingle">
-              <input type="radio" name="execModeRadio" value="single" ${!isLoopSelected ? 'checked' : ''} style="margin-top:0.25rem; accent-color:var(--brand-forest);" aria-label="Run as Macro (Single Execution)">
+              <input type="radio" name="execModeRadio" value="single" ${!isLoopSelected ? 'checked' : ''} style="margin-top:0.25rem; accent-color:var(--brand-forest);" aria-label="Run once (Standard)">
               <div style="display:flex; flex-direction:column; gap:0.2rem;">
                 <div style="display:flex; align-items:center; gap:0.5rem;">
-                  <strong style="font-size:0.9rem; color:var(--text-main);">⚡ Run as Macro (Single Execution)</strong>
+                  <strong style="font-size:0.88rem; color:var(--text-main);">⚡ Run once (Standard)</strong>
                   <span class="badge-tag success" style="font-size:0.65rem; padding:0.12rem 0.4rem;">Standard</span>
                 </div>
-                <span style="font-size:0.76rem; color:var(--text-sub);">Replays the exact recorded workflow once from start to finish. Does not iterate through other rows.</span>
+                <span style="font-size:0.75rem; color:var(--text-sub);">Runs the recorded workflow once from start to finish. Does not iterate through table records.</span>
               </div>
             </label>
 
-            <!-- Option 2: Loop Execution (Batch) -->
+            <!-- Option 2: Run for multiple records (Batch / Loop) -->
             <label class="exec-option-label ${isLoopSelected ? 'active' : ''}" id="labelExecLoop">
-              <input type="radio" name="execModeRadio" value="loop" ${isLoopSelected ? 'checked' : ''} style="margin-top:0.25rem; accent-color:var(--brand-forest);" aria-label="Run as Loop (Batch / Filtered Items)">
+              <input type="radio" name="execModeRadio" value="loop" ${isLoopSelected ? 'checked' : ''} style="margin-top:0.25rem; accent-color:var(--brand-forest);" aria-label="Run for multiple records (Batch run)">
               <div style="display:flex; flex-direction:column; gap:0.2rem;">
                 <div style="display:flex; align-items:center; gap:0.5rem;">
-                  <strong style="font-size:0.9rem; color:var(--text-main);">🔁 Run as Loop (Batch / Filtered Items)</strong>
-                  ${hasLoopConfigured ? '<span class="badge-tag success" style="font-size:0.65rem; padding:0.12rem 0.4rem;">Configured</span>' : '<span class="badge-tag primary" style="font-size:0.65rem; padding:0.12rem 0.4rem;">Auto-Discovery</span>'}
+                  <strong style="font-size:0.88rem; color:var(--text-main);">🔁 Run for multiple records (Batch run)</strong>
+                  ${hasLoopConfigured ? '<span class="badge-tag success" style="font-size:0.65rem; padding:0.12rem 0.4rem;">Configured</span>' : '<span class="badge-tag primary" style="font-size:0.65rem; padding:0.12rem 0.4rem;">Find records</span>'}
                 </div>
-                <span style="font-size:0.76rem; color:var(--text-sub);">Discovers repeated records on the target page and iterates across matching items using the preflight filter guard.</span>
+                <span style="font-size:0.75rem; color:var(--text-sub);">Scans the target page for repeated records and iterates across matching records with filter and limit controls.</span>
               </div>
             </label>
           </div>
 
-          <!-- Loop Discovery & Preflight Section -->
-          <div id="execLoopSection" style="display: ${isLoopSelected ? 'flex' : 'none'}; flex-direction:column; gap:0.85rem;">
-
+          <!-- Loop Discovery, Filter & Limit Section -->
+          <div id="execLoopSection" style="display:${isLoopSelected ? 'flex' : 'none'}; flex-direction:column; gap:0.85rem;">
             <!-- Preflight Container (Mount point for Loading / Error / Preflight Review) -->
             <div id="execPreflightContainer" class="exec-preflight-container">
               ${this.renderPreflightContent()}
             </div>
 
             <!-- Deduplication Option -->
-            <div style="display:flex; align-items:center; gap:0.5rem; padding:0.25rem 0.15rem;">
+            <div style="display:flex; align-items:center; gap:0.5rem; padding:0.2rem 0.1rem;">
               <input type="checkbox" id="chkExecForceRedownload" style="accent-color:var(--brand-forest); cursor:pointer;">
-              <label for="chkExecForceRedownload" style="font-size:0.78rem; color:var(--text-body); cursor:pointer; user-select:none;">Force re-download (re-download existing artifacts without skipping duplicates)</label>
+              <label for="chkExecForceRedownload" style="font-size:0.76rem; color:var(--text-body); cursor:pointer; user-select:none;">Force re-download (re-process records even if already downloaded)</label>
             </div>
           </div>
+        </div>
 
-          <!-- Action Buttons -->
-          <div style="display:flex; justify-content:flex-end; align-items:center; gap:0.65rem; margin-top:0.25rem; padding-top:1rem; border-top:1px solid var(--border-light);">
-            <button type="button" class="btn btn-secondary btn-sm" id="btnCancelExecModal">Cancel</button>
-            <button type="button" class="btn btn-primary btn-sm" id="btnConfirmExecModal" style="display:inline-flex; align-items:center; gap:0.4rem; padding:0.55rem 1.25rem;">
-              <svg width="13" height="13" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-              <span id="btnConfirmExecText">Start Execution</span>
-            </button>
-          </div>
+        <!-- Sticky Modal Footer -->
+        <div class="modal-footer" style="display:flex; justify-content:flex-end; align-items:center; gap:0.65rem; padding:0.85rem 1.4rem; border-top:1px solid var(--border-light); background:var(--card-bg); flex-shrink:0;">
+          <button type="button" class="btn btn-secondary btn-sm" id="btnCancelExecModal">Cancel</button>
+          <button type="button" class="btn btn-primary btn-sm" id="btnConfirmExecModal" style="display:inline-flex; align-items:center; gap:0.4rem; padding:0.55rem 1.25rem;">
+            <svg width="13" height="13" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            <span id="btnConfirmExecText">Run Workflow</span>
+          </button>
         </div>
       </div>
     `;
@@ -427,23 +484,23 @@ export const ExecutionModal = {
             <div class="exec-field-group">
               <label for="execCondOp_${cond.id}">Operator</label>
               <select id="execCondOp_${cond.id}" class="exec-control-select exec-cond-operator" data-cond-id="${escapeHtml(cond.id)}" aria-label="Condition ${idx + 1} Operator">
-                <option value="contains" ${cond.operator === 'contains' ? 'selected' : ''}>contains</option>
-                <option value="equals" ${cond.operator === 'equals' ? 'selected' : ''}>equals</option>
-                <option value="dateBetween" ${cond.operator === 'dateBetween' ? 'selected' : ''}>dateBetween</option>
+                <option value="contains" ${cond.operator === 'contains' ? 'selected' : ''}>Contains</option>
+                <option value="equals" ${cond.operator === 'equals' ? 'selected' : ''}>Equals</option>
+                <option value="dateBetween" ${cond.operator === 'dateBetween' ? 'selected' : ''}>Between dates</option>
               </select>
             </div>
 
-            <!-- Value / Date Inputs -->
+            <!-- Value / Date Range Inputs -->
             <div class="exec-field-group exec-value-group">
-              <label for="${isDateOp ? `execCondDateFrom_${cond.id}` : `execCondVal_${cond.id}`}">${isDateOp ? 'Date Range (YYYY-MM-DD)' : 'Match Value'}</label>
+              <label for="${isDateOp ? `execCondDateFrom_${cond.id}` : `execCondVal_${cond.id}`}">${isDateOp ? 'Date range (YYYY-MM-DD)' : 'Match value'}</label>
               ${isDateOp ? `
                 <div class="exec-date-range-row">
-                  <input type="date" id="execCondDateFrom_${cond.id}" class="exec-control-input exec-date-input exec-cond-date-from" data-cond-id="${escapeHtml(cond.id)}" value="${escapeHtml(cond.dateFrom || '')}" placeholder="YYYY-MM-DD" aria-label="Condition ${idx + 1} From Date">
+                  <input type="date" id="execCondDateFrom_${cond.id}" class="exec-control-input exec-date-input exec-cond-date-from" data-cond-id="${escapeHtml(cond.id)}" value="${escapeHtml(cond.dateFrom || '')}" placeholder="YYYY-MM-DD" aria-label="Condition ${idx + 1} from date">
                   <span class="exec-date-sep">to</span>
-                  <input type="date" id="execCondDateTo_${cond.id}" class="exec-control-input exec-date-input exec-cond-date-to" data-cond-id="${escapeHtml(cond.id)}" value="${escapeHtml(cond.dateTo || '')}" placeholder="YYYY-MM-DD" aria-label="Condition ${idx + 1} To Date">
+                  <input type="date" id="execCondDateTo_${cond.id}" class="exec-control-input exec-date-input exec-cond-date-to" data-cond-id="${escapeHtml(cond.id)}" value="${escapeHtml(cond.dateTo || '')}" placeholder="YYYY-MM-DD" aria-label="Condition ${idx + 1} to date">
                 </div>
               ` : `
-                <input type="text" id="execCondVal_${cond.id}" class="exec-control-input exec-cond-value" data-cond-id="${escapeHtml(cond.id)}" value="${escapeHtml(cond.value || '')}" placeholder="e.g. Invoice" aria-label="Condition ${idx + 1} Value">
+                <input type="text" id="execCondVal_${cond.id}" class="exec-control-input exec-cond-value" data-cond-id="${escapeHtml(cond.id)}" value="${escapeHtml(cond.value || '')}" placeholder="e.g. Invoice" aria-label="Condition ${idx + 1} value">
               `}
             </div>
 
@@ -470,29 +527,29 @@ export const ExecutionModal = {
 
   renderFilterExplanation() {
     if (!this.filterEnabled) {
-      return '⚡ <strong>Process all items:</strong> No filter conditions applied. All discovered items will be processed sequentially.';
+      return '⚡ <strong>Process all records:</strong> No filter conditions applied. All discovered records will be processed sequentially.';
     }
 
     const opWord = this.matchMode === 'any' ? 'ANY' : 'ALL';
     const condDescs = this.conditions.map(c => {
       const field = (c.field === '__custom__' ? c.customField : c.field).trim() || 'Field';
       if (c.operator === 'dateBetween') {
-        return `<code>${escapeHtml(field)}</code> date between "${escapeHtml(c.dateFrom || 'YYYY-MM-DD')}" and "${escapeHtml(c.dateTo || 'YYYY-MM-DD')}"`;
+        return `<code>${escapeHtml(field)}</code> between "${escapeHtml(c.dateFrom || 'YYYY-MM-DD')}" and "${escapeHtml(c.dateTo || 'YYYY-MM-DD')}"`;
       }
       return `<code>${escapeHtml(field)}</code> ${escapeHtml(c.operator)} "${escapeHtml(c.value || '...')}"`;
     });
 
-    return `⚡ Loop will inspect each item: rows matching <strong style="color:var(--brand-forest);">${opWord}</strong> of [ ${condDescs.join(', ')} ] will be selected. Other rows are skipped as <code>SKIPPED_FILTER</code>.`;
+    return `⚡ Records matching <strong style="color:var(--brand-forest);">${opWord}</strong> of [ ${condDescs.join(', ')} ] will be selected. Other records are filtered out.`;
   },
 
   renderPreflightContent() {
     if (this.preflightStatus === 'loading') {
       return `
-        <div class="exec-preflight-loading">
-          <div class="exec-preflight-spinner"></div>
+        <div class="exec-preflight-loading" role="status" aria-live="polite">
+          <div class="exec-preflight-spinner" aria-hidden="true"></div>
           <div>
-            <strong style="display:block; font-size:0.82rem; color:var(--text-main);">Inspecting page and discovering repeatable items…</strong>
-            <span style="display:block; margin-top:0.2rem; font-size:0.72rem; color:var(--text-sub);">Connecting via CDP to evaluate repeating DOM elements and schema fields.</span>
+            <strong style="display:block; font-size:0.84rem; color:var(--text-main);">Scanning page for records…</strong>
+            <span style="display:block; margin-top:0.2rem; font-size:0.72rem; color:var(--text-sub);">Checking the page for repeating records and table fields.</span>
           </div>
         </div>
       `;
@@ -500,17 +557,17 @@ export const ExecutionModal = {
 
     if (this.preflightStatus === 'error') {
       return `
-        <div class="exec-preflight-error">
+        <div class="exec-preflight-error" role="alert">
           <div style="display:flex; align-items:flex-start; gap:0.5rem;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0; margin-top:2px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0; margin-top:2px;" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
             <div style="flex:1;">
-              <strong>Preflight Discovery Failed</strong>
-              <p style="margin:0.2rem 0 0; font-size:0.72rem; line-height:1.4;">${escapeHtml(this.preflightError || 'Target page not available or no repeating items could be found.')}</p>
+              <strong>Couldn't scan records on this page</strong>
+              <p style="margin:0.2rem 0 0; font-size:0.72rem; line-height:1.4;">${escapeHtml(this.preflightError || 'Target page not available or no repeating records could be found.')}</p>
             </div>
           </div>
           <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:0.35rem;">
             <button type="button" class="btn btn-secondary btn-sm" id="btnRetryPreflight" style="font-size:0.72rem; padding:0.25rem 0.65rem;">
-              <span>Retry Preflight Check</span>
+              <span>Scan again</span>
             </button>
           </div>
         </div>
@@ -521,18 +578,36 @@ export const ExecutionModal = {
       const discovery = this.discoveryData?.discovery || {};
       const totalDiscovered = Number(this.filterPreview.totalCount ?? discovery.itemCount ?? 0);
       const confidencePct = Math.round((discovery.confidence || 0.95) * 100);
-      const collectionName = discovery.collection ? `${discovery.collection.itemTag || 'Item'} rows` : 'Table / Grid';
+      const collectionName = discovery.collection ? `${discovery.collection.itemTag || 'Table'} rows` : 'Table / Grid';
       const actionsPerItem = this.discoveryData?.actionsPerItem ?? 1;
+
+      // Handle 0 records discovered empty state cleanly
+      if (totalDiscovered === 0) {
+        return `
+          <div class="exec-alert-banner warning" role="alert">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0; margin-top:2px;" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            <div>
+              <strong>No repeating records found on this page</strong>
+              <p style="margin:0.2rem 0 0; font-size:0.74rem; line-height:1.4;">The scan did not detect any repeated table rows or records. Make sure the portal is open to a page with data rows, then scan again.</p>
+            </div>
+          </div>
+          <div style="display:flex; justify-content:flex-end; margin-top:0.4rem;">
+            <button type="button" class="btn btn-secondary btn-sm" id="btnRetryPreflight" style="font-size:0.72rem;">
+              <span>Scan again</span>
+            </button>
+          </div>
+        `;
+      }
 
       return `
         <!-- Preflight Metrics Bar -->
         <div class="exec-preflight-grid">
           <div class="exec-preflight-metric">
-            <span>Discovered</span>
+            <span>Records found</span>
             <strong id="metricDiscoveredCount">${totalDiscovered}</strong>
           </div>
           <div class="exec-preflight-metric">
-            <span>Confidence</span>
+            <span>Scan confidence</span>
             <strong>${confidencePct}%</strong>
           </div>
           <div class="exec-preflight-metric">
@@ -540,30 +615,43 @@ export const ExecutionModal = {
             <strong style="font-size:0.8rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(collectionName)}">${escapeHtml(collectionName)}</strong>
           </div>
           <div class="exec-preflight-metric">
-            <span>Actions / item</span>
+            <span>Actions / record</span>
             <strong>${actionsPerItem}</strong>
           </div>
         </div>
 
-        <!-- Filter Guard Section -->
+        <!-- Available Discovered Fields Overview -->
+        ${this.availableFields.length > 0 ? `
+          <div style="background:var(--card-bg); border:1px solid var(--border-light); border-radius:var(--radius-md); padding:0.55rem 0.75rem; display:flex; flex-direction:column; gap:0.3rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:0.68rem; font-weight:700; color:var(--text-sub); text-transform:uppercase; letter-spacing:0.04em;">Available fields (${this.availableFields.length})</span>
+              <span style="font-size:0.68rem; color:var(--text-sub);">Selectable in filters below</span>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; gap:0.3rem;">
+              ${this.availableFields.map(f => `<span class="badge-tag secondary" style="font-size:0.68rem; padding:0.12rem 0.45rem;">${escapeHtml(f)}</span>`).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- Filter Section -->
         <div style="display:flex; flex-direction:column; gap:0.65rem; padding-top:0.25rem;">
           <div style="display:flex; align-items:center; justify-content:space-between;">
             <div style="display:flex; align-items:center; gap:0.45rem;">
-              <span style="font-size:0.82rem; font-weight:800; color:var(--text-main);">🎯 Target Filter Guard</span>
-              <span class="badge-tag primary" style="font-size:0.65rem; padding:0.1rem 0.4rem;">v2 Contract</span>
+              <span style="font-size:0.82rem; font-weight:800; color:var(--text-main);">🎯 Filter records</span>
+              <span class="badge-tag primary" style="font-size:0.65rem; padding:0.1rem 0.4rem;">Smart Filter</span>
             </div>
-            <span style="font-size:0.72rem; color:var(--text-sub);">Multi-condition &amp; limit preflight</span>
+            <span style="font-size:0.72rem; color:var(--text-sub);">Choose conditions to select matching records</span>
           </div>
 
-          <!-- Explicit Filter Mode Toggle -->
+          <!-- Filter Mode Toggle -->
           <div class="exec-filter-mode-row">
             <label class="exec-filter-mode-label">
               <input type="radio" name="execFilterModeToggle" value="all" ${!this.filterEnabled ? 'checked' : ''} style="accent-color:var(--brand-forest);">
-              <span>Process all items (No filter)</span>
+              <span>Process all records (No filter)</span>
             </label>
             <label class="exec-filter-mode-label" style="margin-left:0.5rem;">
               <input type="radio" name="execFilterModeToggle" value="filter" ${this.filterEnabled ? 'checked' : ''} style="accent-color:var(--brand-forest);">
-              <span>Filter items by field condition(s)</span>
+              <span>Filter records by condition</span>
             </label>
           </div>
 
@@ -574,8 +662,8 @@ export const ExecutionModal = {
             <div class="exec-match-mode-row">
               <label for="execFilterMatchMode" class="exec-match-mode-label">Match</label>
               <select id="execFilterMatchMode" class="exec-control-select exec-match-select" aria-label="Condition match mode">
-                <option value="all" ${this.matchMode === 'all' ? 'selected' : ''}>ALL conditions (AND)</option>
-                <option value="any" ${this.matchMode === 'any' ? 'selected' : ''}>ANY condition (OR)</option>
+                <option value="all" ${this.matchMode === 'all' ? 'selected' : ''}>All conditions (AND)</option>
+                <option value="any" ${this.matchMode === 'any' ? 'selected' : ''}>Any condition (OR)</option>
               </select>
               <span class="exec-match-mode-suffix">of the following:</span>
             </div>
@@ -599,27 +687,27 @@ export const ExecutionModal = {
             </p>
           </div>
 
-          <!-- Loop Item Limit Control -->
+          <!-- Limit Section ("How many should run?") -->
           <div class="exec-limit-container">
             <div class="exec-field-group">
               <div style="display:flex; align-items:center; justify-content:space-between;">
-                <label for="execLoopLimitInput" style="font-size:0.75rem; font-weight:700; color:var(--text-main);">Loop Item Limit (Attempt Cap)</label>
-                <span style="font-size:0.68rem; color:var(--text-sub);">Empty for all matching items</span>
+                <label for="execLoopLimitInput" style="font-size:0.75rem; font-weight:700; color:var(--text-main);">How many should run?</label>
+                <span style="font-size:0.68rem; color:var(--text-sub);">Leave empty to process all</span>
               </div>
               <div style="display:flex; align-items:center; gap:0.5rem;">
-                <input type="number" id="execLoopLimitInput" class="exec-control-input ${this.isLimitInvalid() ? 'invalid' : ''}" value="${escapeHtml(this.loopLimitInput)}" min="1" step="1" placeholder="Unlimited (all matching items)" aria-describedby="execLimitHelp">
-                <span class="badge-tag info" style="font-size:0.68rem; padding:0.2rem 0.5rem; white-space:nowrap;" id="execLimitBadge">${this.loopLimit ? `${this.loopLimit} items max` : 'Unlimited'}</span>
+                <input type="number" id="execLoopLimitInput" class="exec-control-input ${this.isLimitInvalid() ? 'invalid' : ''}" value="${escapeHtml(this.loopLimitInput)}" min="1" step="1" placeholder="Unlimited (all matching records)" aria-describedby="execLimitHelp">
+                <span class="badge-tag info" style="font-size:0.68rem; padding:0.2rem 0.5rem; white-space:nowrap;" id="execLimitBadge">${this.loopLimit ? `${this.loopLimit} records max` : 'Unlimited'}</span>
               </div>
               <span id="execLimitHelp" style="font-size:0.69rem; color:var(--text-sub); line-height:1.35;">
-                Limits the run to at most N matching items in discovery order. Each selected item counts as an attempt even if it fails.
+                Leave empty to process every matching record. Enter a positive number to cap the run.
               </span>
             </div>
           </div>
 
           <!-- Live Preview Summary Counts -->
-          <div class="exec-preview-counts-bar" id="execPreviewCountsBar">
+          <div class="exec-preview-counts-bar" id="execPreviewCountsBar" aria-live="polite">
             <div class="exec-preview-count-item">
-              <span style="color:var(--text-sub);">Discovered:</span>
+              <span style="color:var(--text-sub);">Found:</span>
               <strong style="color:var(--text-main);" id="prevTotalCount">${this.filterPreview.totalCount}</strong>
             </div>
             <div class="exec-preview-count-item">
@@ -631,12 +719,16 @@ export const ExecutionModal = {
               <span class="badge-tag success" style="font-size:0.72rem; padding:0.1rem 0.5rem; font-weight:800;" id="prevSelectedCount">${this.filterPreview.selectedCount}</span>
             </div>
             <div class="exec-preview-count-item">
-              <span style="color:var(--text-sub);">Skipped (Filter):</span>
+              <span style="color:var(--text-sub);">Filtered out:</span>
               <span class="badge-tag warning" style="font-size:0.72rem; padding:0.1rem 0.5rem; font-weight:800;" id="prevSkippedFilterCount">${this.filterPreview.skippedFilterCount ?? this.filterPreview.skippedCount}</span>
             </div>
             <div class="exec-preview-count-item">
-              <span style="color:var(--text-sub);">Skipped (Limit):</span>
+              <span style="color:var(--text-sub);">Limit reached:</span>
               <span class="badge-tag secondary" style="font-size:0.72rem; padding:0.1rem 0.5rem; font-weight:800;" id="prevSkippedLimitCount">${this.filterPreview.skippedLimitCount ?? 0}</span>
+            </div>
+            <div class="exec-preview-count-item">
+              <span style="color:var(--text-sub);">Errors:</span>
+              <span class="badge-tag ${this.filterPreview.errors.length > 0 ? 'warning' : 'secondary'}" style="font-size:0.72rem; padding:0.1rem 0.5rem; font-weight:800;" id="prevErrorsCount">${this.filterPreview.errors.length}</span>
             </div>
           </div>
 
@@ -646,7 +738,7 @@ export const ExecutionModal = {
           </div>
 
           <!-- Preview Validation & Zero-Match Blocking Banners -->
-          <div id="execAlertContainer">
+          <div id="execAlertContainer" aria-live="polite">
             ${this.renderAlertBanner()}
           </div>
         </div>
@@ -656,8 +748,8 @@ export const ExecutionModal = {
     // Default fallback: preflight standby
     return `
       <div style="display:flex; align-items:center; justify-content:space-between; padding:0.5rem 0;">
-        <span style="font-size:0.78rem; color:var(--text-sub);">Preflight discovery inspects target items before execution.</span>
-        <button type="button" class="btn btn-secondary btn-sm" id="btnStartPreflightCheck" style="font-size:0.72rem;">Run Preflight Check</button>
+        <span style="font-size:0.76rem; color:var(--text-sub);">Scan page to find repeating records before running.</span>
+        <button type="button" class="btn btn-secondary btn-sm" id="btnStartPreflightCheck" style="font-size:0.72rem;">Scan for records</button>
       </div>
     `;
   },
@@ -678,12 +770,12 @@ export const ExecutionModal = {
     if (selected.length > 0) {
       html += `
         <div class="exec-sample-section">
-          <span class="exec-sample-title">Selected Sample Items (First ${selected.length} of ${this.filterPreview.selectedCount}):</span>
+          <span class="exec-sample-title">Selected sample records (First ${selected.length} of ${this.filterPreview.selectedCount}):</span>
           <div class="exec-sample-chips">
             ${selected.map(item => `
-              <span class="exec-sample-chip selected" title="${escapeHtml(item.label || item.text || item.id || 'Selected item')}">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span>${escapeHtml(item.label || item.text || item.id || `Item #${item.index || ''}`)}</span>
+              <span class="exec-sample-chip selected" title="${escapeHtml(item.label || item.text || item.id || 'Selected record')}">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>${escapeHtml(item.label || item.text || item.id || `Record #${item.index || ''}`)}</span>
               </span>
             `).join('')}
           </div>
@@ -695,11 +787,11 @@ export const ExecutionModal = {
       const totalFilterSkipped = this.filterPreview.skippedFilterCount ?? this.filterPreview.skippedCount ?? filterSkipped.length;
       html += `
         <div class="exec-sample-section">
-          <span class="exec-sample-title">Filter-Skipped Sample Items (First ${filterSkipped.length} of ${totalFilterSkipped}):</span>
+          <span class="exec-sample-title">Filtered out sample records (First ${filterSkipped.length} of ${totalFilterSkipped}):</span>
           <div class="exec-sample-chips">
             ${filterSkipped.map(item => `
-              <span class="exec-sample-chip skipped" title="${escapeHtml(item.reason || 'Skipped by filter')}">
-                <span>⊘ ${escapeHtml(item.label || item.text || item.id || `Item #${item.index || ''}`)}</span>
+              <span class="exec-sample-chip skipped" title="${escapeHtml(item.reason || 'Filtered out')}">
+                <span>⊘ ${escapeHtml(item.label || item.text || item.id || `Record #${item.index || ''}`)}</span>
                 <span style="opacity:0.8; font-size:0.65rem;">(${escapeHtml(item.reason || 'filter mismatch')})</span>
               </span>
             `).join('')}
@@ -712,11 +804,11 @@ export const ExecutionModal = {
       const totalLimitSkipped = this.filterPreview.skippedLimitCount ?? limitSkipped.length;
       html += `
         <div class="exec-sample-section">
-          <span class="exec-sample-title">Limit-Skipped Sample Items (First ${limitSkipped.length} of ${totalLimitSkipped}):</span>
+          <span class="exec-sample-title">Limit reached sample records (First ${limitSkipped.length} of ${totalLimitSkipped}):</span>
           <div class="exec-sample-chips">
             ${limitSkipped.map(item => `
-              <span class="exec-sample-chip skipped-limit" title="${escapeHtml(item.reason || 'Skipped by limit')}">
-                <span>⇥ ${escapeHtml(item.label || item.text || item.id || `Item #${item.index || ''}`)}</span>
+              <span class="exec-sample-chip skipped-limit" title="${escapeHtml(item.reason || 'Limit reached')}">
+                <span>⇥ ${escapeHtml(item.label || item.text || item.id || `Record #${item.index || ''}`)}</span>
                 <span style="opacity:0.8; font-size:0.65rem;">(${escapeHtml(item.reason || 'limit reached')})</span>
               </span>
             `).join('')}
@@ -732,9 +824,9 @@ export const ExecutionModal = {
     if (Array.isArray(this.filterPreview.errors) && this.filterPreview.errors.length > 0) {
       return `
         <div class="exec-alert-banner error" role="alert">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0; margin-top:2px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0; margin-top:2px;" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
           <div>
-            <strong>Configuration Error:</strong>
+            <strong>Check your filter configuration:</strong>
             <div style="margin-top:0.15rem;">${this.filterPreview.errors.map(e => escapeHtml(e)).join(' · ')}</div>
           </div>
         </div>
@@ -744,10 +836,10 @@ export const ExecutionModal = {
     if (this.filterPreview.totalCount > 0 && this.filterPreview.selectedCount === 0) {
       return `
         <div class="exec-alert-banner warning" role="alert">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0; margin-top:2px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0; margin-top:2px;" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
           <div>
-            <strong>Zero Items Selected:</strong>
-            <p style="margin:0.15rem 0 0;">Out of ${this.filterPreview.totalCount} discovered items, 0 are selected. Execution is blocked to prevent running an empty batch. Adjust your filter conditions, item limit, or select &ldquo;Process all items&rdquo; to proceed.</p>
+            <strong>No records selected:</strong>
+            <p style="margin:0.15rem 0 0;">Out of ${this.filterPreview.totalCount} discovered records, 0 are selected. Execution is paused to prevent running an empty batch. Adjust your filter conditions, maximum records, or choose &ldquo;Process all records&rdquo; to continue.</p>
           </div>
         </div>
       `;
@@ -850,7 +942,7 @@ export const ExecutionModal = {
           } else {
             const raw = this.loopLimitInput.trim();
             badge.className = 'badge-tag info';
-            badge.textContent = raw ? `${raw} max attempts` : 'Unlimited';
+            badge.textContent = raw ? `${raw} records max` : 'Unlimited';
           }
         }
         this.evaluateFilterPreview();
@@ -1012,7 +1104,7 @@ export const ExecutionModal = {
           })
         });
         data = await res.json();
-        if (!res.ok) throw new Error(data.error || data.discovery?.reason || 'Discovery preflight failed');
+        if (!res.ok) throw new Error(data.error || data.discovery?.reason || 'Discovery scan failed');
       } catch (authErr) {
         // Fallback to Api.discoverWorkflow if available
         if (typeof Api.discoverWorkflow === 'function') {
@@ -1056,7 +1148,7 @@ export const ExecutionModal = {
           errors: Array.isArray(serverPreview.errors) ? serverPreview.errors : []
         };
       } else {
-        // Evaluate client-side using discovered items
+        // Evaluate client-side using discovered records
         this.evaluateFilterPreview();
       }
 
@@ -1067,7 +1159,7 @@ export const ExecutionModal = {
       this.updateExecuteButton();
     } catch (err) {
       this.preflightStatus = 'error';
-      this.preflightError = err.message || 'Discovery preflight failed';
+      this.preflightError = err.message || 'Discovery scan failed';
       if (preflightContainer) {
         preflightContainer.innerHTML = this.renderPreflightContent();
         this.bindPreflightEvents();
@@ -1119,11 +1211,11 @@ export const ExecutionModal = {
 
     if (rawLimit !== '') {
       if (!/^\d+$/.test(rawLimit)) {
-        limitError = 'Item limit must be a positive whole number';
+        limitError = 'Enter a valid positive number of records';
       } else {
         const n = parseInt(rawLimit, 10);
         if (n <= 0) {
-          limitError = 'Item limit must be greater than zero';
+          limitError = 'Maximum records must be greater than zero';
         } else {
           parsedLimit = n;
         }
@@ -1131,7 +1223,7 @@ export const ExecutionModal = {
     }
     this.loopLimit = parsedLimit;
 
-    // 2. If filter is disabled (Process all items / No filter)
+    // 2. If filter is disabled (Process all records / No filter)
     if (!this.filterEnabled) {
       const errors = limitError ? [limitError] : [];
       let selectedItems = items;
@@ -1160,7 +1252,7 @@ export const ExecutionModal = {
         skippedLimitPreview: limitSkippedItems.slice(0, 5).map((item, idx) => ({
           index: (parsedLimit || 0) + idx + 1,
           label: this.getItemLabel(item, (parsedLimit || 0) + idx + 1),
-          reason: `Exceeded loop item limit (capped at ${parsedLimit})`,
+          reason: `Limit reached (capped at ${parsedLimit})`,
           raw: item
         })),
         errors
@@ -1212,13 +1304,13 @@ export const ExecutionModal = {
         const to = String(c.dateTo ?? '').trim();
 
         if (!from) {
-          errors.push(`Condition #${rowNum}: "From" date is required for dateBetween`);
+          errors.push(`Condition #${rowNum}: "From" date is required`);
         } else if (!isValidIsoDate(from)) {
           errors.push(`Condition #${rowNum}: "From" date must use YYYY-MM-DD format`);
         }
 
         if (!to) {
-          errors.push(`Condition #${rowNum}: "To" date is required for dateBetween`);
+          errors.push(`Condition #${rowNum}: "To" date is required`);
         } else if (!isValidIsoDate(to)) {
           errors.push(`Condition #${rowNum}: "To" date must use YYYY-MM-DD format`);
         }
@@ -1266,7 +1358,7 @@ export const ExecutionModal = {
         if (!extracted.found) {
           conditionResults.push({
             matches: false,
-            reason: `Field "${cond.field}" not found on item`
+            reason: `Field "${cond.field}" not found on record`
           });
           continue;
         }
@@ -1296,7 +1388,7 @@ export const ExecutionModal = {
             conditionResults.push({
               matches: false,
               reason: !actualStr
-                ? `Field "${cond.field}" has missing or empty date value (cannot evaluate dateBetween)`
+                ? `Field "${cond.field}" has missing or empty date value`
                 : `Field "${cond.field}" value "${actualStr}" cannot be parsed as a calendar date`
             });
           } else {
@@ -1328,7 +1420,7 @@ export const ExecutionModal = {
         filterSkippedList.push({
           index: itemIndex,
           label,
-          reason: failReasons.join('; ') || 'Did not match filter criteria',
+          reason: failReasons.join('; ') || 'Filtered out by criteria',
           raw: item
         });
       }
@@ -1342,7 +1434,7 @@ export const ExecutionModal = {
       selectedList = matchingList.slice(0, parsedLimit);
       limitSkippedList = matchingList.slice(parsedLimit).map(item => ({
         ...item,
-        reason: `Exceeded loop item limit (capped at ${parsedLimit})`
+        reason: `Limit reached (capped at ${parsedLimit})`
       }));
     }
 
@@ -1362,7 +1454,7 @@ export const ExecutionModal = {
   },
 
   getItemLabel(item, fallbackIndex = 1) {
-    if (!item) return `Item #${fallbackIndex}`;
+    if (!item) return `Record #${fallbackIndex}`;
     if (typeof item === 'string') return item;
     if (item.label) return String(item.label);
     if (item.text) return String(item.text);
@@ -1371,7 +1463,7 @@ export const ExecutionModal = {
       const vals = Object.values(item.fields).filter(Boolean);
       if (vals.length > 0) return vals.join(' · ');
     }
-    return `Item #${fallbackIndex}`;
+    return `Record #${fallbackIndex}`;
   },
 
   extractFieldValue(item, fieldName) {
@@ -1429,6 +1521,7 @@ export const ExecutionModal = {
     const selEl = preflightContainer.querySelector('#prevSelectedCount');
     const skipFilterEl = preflightContainer.querySelector('#prevSkippedFilterCount');
     const skipLimitEl = preflightContainer.querySelector('#prevSkippedLimitCount');
+    const errorsEl = preflightContainer.querySelector('#prevErrorsCount');
     const metricTotalEl = preflightContainer.querySelector('#metricDiscoveredCount');
 
     if (totalEl) totalEl.textContent = this.filterPreview.totalCount;
@@ -1437,6 +1530,10 @@ export const ExecutionModal = {
     if (selEl) selEl.textContent = this.filterPreview.selectedCount;
     if (skipFilterEl) skipFilterEl.textContent = this.filterPreview.skippedFilterCount;
     if (skipLimitEl) skipLimitEl.textContent = this.filterPreview.skippedLimitCount;
+    if (errorsEl) {
+      errorsEl.textContent = this.filterPreview.errors.length;
+      errorsEl.className = `badge-tag ${this.filterPreview.errors.length > 0 ? 'warning' : 'secondary'}`;
+    }
 
     // Update Limit Badge & Input state
     const limitBadge = preflightContainer.querySelector('#execLimitBadge');
@@ -1449,7 +1546,7 @@ export const ExecutionModal = {
       } else {
         const raw = this.loopLimitInput.trim();
         limitBadge.className = 'badge-tag info';
-        limitBadge.textContent = raw ? `${raw} max attempts` : 'Unlimited';
+        limitBadge.textContent = raw ? `${raw} records max` : 'Unlimited';
         if (limitInput) limitInput.classList.remove('invalid');
       }
     }
@@ -1476,23 +1573,23 @@ export const ExecutionModal = {
 
     if (this.selectedMode === 'single') {
       confirmBtn.disabled = false;
-      confirmBtn.title = 'Start single workflow execution';
-      if (confirmText) confirmText.textContent = 'Start Single Execution';
+      confirmBtn.title = 'Run workflow once';
+      if (confirmText) confirmText.textContent = 'Run Workflow';
       return;
     }
 
     // In Loop Mode: check preflight status and filter constraints
     if (this.preflightStatus === 'loading') {
       confirmBtn.disabled = true;
-      confirmBtn.title = 'Preflight discovery in progress…';
-      if (confirmText) confirmText.textContent = 'Discovering items…';
+      confirmBtn.title = 'Scanning page for records…';
+      if (confirmText) confirmText.textContent = 'Scanning records…';
       return;
     }
 
     if (this.preflightStatus === 'error') {
       confirmBtn.disabled = true;
-      confirmBtn.title = 'Preflight check failed. Please resolve the error before executing.';
-      if (confirmText) confirmText.textContent = 'Preflight Error';
+      confirmBtn.title = 'Scanning failed. Please scan again before running.';
+      if (confirmText) confirmText.textContent = 'Scan Failed';
       return;
     }
 
@@ -1502,30 +1599,30 @@ export const ExecutionModal = {
 
       if (hasErrors) {
         confirmBtn.disabled = true;
-        confirmBtn.title = 'Fix configuration error: ' + (this.filterPreview.errors[0] || '');
-        if (confirmText) confirmText.textContent = 'Invalid Configuration';
+        confirmBtn.title = 'Check configuration: ' + (this.filterPreview.errors[0] || '');
+        if (confirmText) confirmText.textContent = 'Check Configuration';
         return;
       }
 
       if (isZeroSelected) {
         confirmBtn.disabled = true;
-        confirmBtn.title = 'Zero items selected. Filtered runs with 0 items are blocked.';
-        if (confirmText) confirmText.textContent = '0 Selected Items';
+        confirmBtn.title = '0 records selected. Execution is paused because no records match your filter.';
+        if (confirmText) confirmText.textContent = '0 Records Selected';
         return;
       }
 
       const count = this.filterPreview.selectedCount;
       confirmBtn.disabled = count <= 0;
-      confirmBtn.title = `Execute loop on ${count} item${count === 1 ? '' : 's'}`;
+      confirmBtn.title = `Run workflow on ${count} record${count === 1 ? '' : 's'}`;
       if (confirmText) {
-        confirmText.textContent = `Execute Loop (${count} item${count === 1 ? '' : 's'})`;
+        confirmText.textContent = `Run ${count} Record${count === 1 ? '' : 's'}`;
       }
       return;
     }
 
     // Preflight not yet run
     confirmBtn.disabled = true;
-    if (confirmText) confirmText.textContent = 'Run Preflight First';
+    if (confirmText) confirmText.textContent = 'Scan for Records First';
   },
 
   async execute() {
@@ -1545,7 +1642,7 @@ export const ExecutionModal = {
       const rawLimit = String(this.loopLimitInput || '').trim();
       if (rawLimit !== '') {
         if (!/^\d+$/.test(rawLimit) || parseInt(rawLimit, 10) <= 0) {
-          Toast.error('Cannot execute: loop item limit must be a positive integer.');
+          Toast.error('Cannot execute: maximum records must be a positive integer.');
           return;
         }
         loopLimit = parseInt(rawLimit, 10);
@@ -1559,7 +1656,7 @@ export const ExecutionModal = {
         }
 
         if (this.filterPreview.selectedCount === 0) {
-          Toast.error('Cannot execute: 0 items selected for execution.');
+          Toast.error('Cannot execute: 0 records selected for execution.');
           return;
         }
 
@@ -1596,13 +1693,13 @@ export const ExecutionModal = {
           };
         }
       } else {
-        // Filter disabled: check if zero items exist
+        // Filter disabled: check if zero records exist
         if (this.filterPreview.totalCount === 0) {
-          Toast.error('Cannot execute: no discovered items found.');
+          Toast.error('Cannot execute: no discovered records found.');
           return;
         }
         if (this.filterPreview.selectedCount === 0) {
-          Toast.error('Cannot execute: 0 items selected for execution.');
+          Toast.error('Cannot execute: 0 records selected for execution.');
           return;
         }
       }
@@ -1612,9 +1709,9 @@ export const ExecutionModal = {
     if (confirmText) confirmText.textContent = 'Launching…';
 
     const launchDesc = isLoopMode
-      ? (itemFilter ? `loop (${itemFilter.conditions.length} condition(s), limit: ${loopLimit ?? 'unlimited'})` : `batch loop (all items, limit: ${loopLimit ?? 'unlimited'})`)
-      : 'single macro';
-    Toast.info(`Starting ${launchDesc} execution…`);
+      ? (itemFilter ? `batch run (${itemFilter.conditions.length} condition(s), limit: ${loopLimit ?? 'unlimited'})` : `batch run (all records, limit: ${loopLimit ?? 'unlimited'})`)
+      : 'single run';
+    Toast.info(`Starting ${launchDesc}…`);
 
     try {
       const executeOptions = {
@@ -1647,3 +1744,7 @@ export const ExecutionModal = {
     }
   }
 };
+
+if (typeof window !== 'undefined') {
+  window.ExecutionModal = ExecutionModal;
+}
