@@ -15,6 +15,7 @@ export const Modal = {
   elBtnClose: null,
   previousActiveElement: null,
   escapeHandler: null,
+  keydownHandler: null,
 
   init() {
     this.elModal = document.getElementById('stepInspectorModal');
@@ -95,30 +96,67 @@ export const Modal = {
     this.show();
   },
 
+  getFocusableElements() {
+    if (!this.elModal) return [];
+    const selector = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    return Array.from(this.elModal.querySelectorAll(selector)).filter(el => {
+      return el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0;
+    });
+  },
+
   show() {
     if (!this.elModal) return;
     this.previousActiveElement = document.activeElement;
     this.elModal.classList.remove('hidden');
 
-    // Accessibility: Bind escape listener
-    if (this.escapeHandler) {
-      window.removeEventListener('keydown', this.escapeHandler);
+    // Accessibility: Keydown handler for Escape and Tab focus trap
+    if (this.keydownHandler) {
+      window.removeEventListener('keydown', this.keydownHandler);
     }
-    this.escapeHandler = (e) => {
-      if (e.key === 'Escape' && !this.elModal.classList.contains('hidden')) {
+    this.keydownHandler = (e) => {
+      if (!this.elModal || this.elModal.classList.contains('hidden')) return;
+
+      if (e.key === 'Escape') {
         e.preventDefault();
         this.hide();
+        return;
+      }
+
+      if (e.key === 'Tab') {
+        const focusable = this.getFocusableElements();
+        if (focusable.length === 0) {
+          e.preventDefault();
+          return;
+        }
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === first || !this.elModal.contains(document.activeElement)) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (document.activeElement === last || !this.elModal.contains(document.activeElement)) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
       }
     };
-    window.addEventListener('keydown', this.escapeHandler);
+    this.escapeHandler = this.keydownHandler;
+    window.addEventListener('keydown', this.keydownHandler);
 
-    // Accessibility: focus first actionable element (close button)
+    // Accessibility: focus first actionable element (close button or first focusable)
     requestAnimationFrame(() => {
-      if (this.elBtnClose && typeof this.elBtnClose.focus === 'function') {
-        this.elBtnClose.focus();
-      } else {
-        const focusable = this.elModal.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-        focusable?.focus();
+      const focusable = this.getFocusableElements();
+      if (focusable.length > 0) {
+        if (this.elBtnClose && focusable.includes(this.elBtnClose)) {
+          this.elBtnClose.focus();
+        } else {
+          focusable[0].focus();
+        }
       }
     });
   },
@@ -127,8 +165,9 @@ export const Modal = {
     if (!this.elModal) return;
     this.elModal.classList.add('hidden');
 
-    if (this.escapeHandler) {
-      window.removeEventListener('keydown', this.escapeHandler);
+    if (this.keydownHandler) {
+      window.removeEventListener('keydown', this.keydownHandler);
+      this.keydownHandler = null;
       this.escapeHandler = null;
     }
 
@@ -141,3 +180,7 @@ export const Modal = {
     }
   }
 };
+
+if (typeof window !== 'undefined') {
+  window.Modal = Modal;
+}
