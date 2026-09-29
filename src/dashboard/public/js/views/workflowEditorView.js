@@ -1,3 +1,10 @@
+/**
+ * Workflow Capture — Modernized Workflow Editor View
+ * Human-friendly visual editor built on Drawflow with clear setup vs repeated distinction,
+ * progressive disclosure for technical selectors, accessible node actions,
+ * and robust Task 10 lifecycle safeguards.
+ */
+
 import { Api } from '../api.js';
 import { Toast } from '../components/toast.js';
 import { Router } from '../router.js';
@@ -11,6 +18,21 @@ export const WorkflowEditorView = {
   isMounted: false,
   mountedWorkflowId: null,
   activeTimers: null,
+  selectedConnectionInfo: null,
+  selectedNodeId: null,
+  pendingDeleteNodeId: null,
+  isSaving: false,
+  isSpaceDown: false,
+  isSpacePanning: false,
+  spaceStartX: 0,
+  spaceStartY: 0,
+
+  // Event handlers for clean removal in destroy()
+  keyHandler: null,
+  keyUpHandler: null,
+  onCanvasMouseDown: null,
+  onWindowMouseMove: null,
+  onWindowMouseUp: null,
 
   setSafeTimeout(fn, ms) {
     if (!this.isMounted) return null;
@@ -48,56 +70,102 @@ export const WorkflowEditorView = {
 
     container.innerHTML = `
       <div class="workflow-editor-layout">
-        <div class="workflow-editor-header">
-          <div style="display: flex; gap: 1rem; align-items: center;">
-            <button class="btn btn-secondary btn-sm" id="btnBack">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+
+        <!-- Modernized Editor Header -->
+        <header class="workflow-editor-header" role="region" aria-label="Workflow Editor Header">
+          <div style="display:flex; align-items:center; gap:1rem; flex:1; min-width:0;">
+            <button class="btn btn-secondary btn-sm" id="btnBack" title="Back to Workflow Library" aria-label="Back to Workflow Library">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+              </svg>
               <span>Back to Workflows</span>
             </button>
-            <h2 id="wfTitle" style="margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--text-main);">Loading Workflow...</h2>
-          </div>
-          <div style="display: flex; gap: 0.75rem; align-items: center;">
-            <div style="display: flex; align-items: center; gap: 0.35rem; background: rgba(0,0,0,0.04); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.2rem 0.6rem;">
-              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
-              <label for="wfTargetUrlInput" style="font-size: 0.72rem; font-weight: 700; color: var(--text-sub); white-space: nowrap; margin: 0;">Target URL:</label>
-              <input type="text" id="wfTargetUrlInput" placeholder="https://example.com" style="border: none; background: transparent; font-size: 0.75rem; font-family: var(--font-mono); color: var(--text-main); width: 220px; outline: none;" />
+
+            <!-- Editable Workflow Name -->
+            <div class="wf-header-title-wrap" style="display:flex; flex-direction:column; gap:2px; min-width:180px; max-width:320px; flex:1;">
+              <label for="wfNameInput" style="font-size:0.65rem; font-weight:700; color:var(--text-sub); text-transform:uppercase; letter-spacing:0.04em;">Workflow Name</label>
+              <input
+                type="text"
+                id="wfNameInput"
+                class="wf-title-input"
+                value="Loading Workflow…"
+                placeholder="Workflow Name"
+                aria-label="Workflow Name"
+                spellcheck="false"
+              />
             </div>
-            <span id="wfStepCounter" class="badge-tag success">0 Steps</span>
-            <button class="btn btn-primary btn-sm" id="btnSaveFlow">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+          </div>
+
+          <!-- Target URL and Primary Actions -->
+          <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+
+            <!-- Visible Target Website -->
+            <div class="wf-header-target-box" style="display:flex; flex-direction:column; gap:2px;">
+              <label for="wfTargetUrlInput" style="font-size:0.65rem; font-weight:700; color:var(--text-sub); text-transform:uppercase; letter-spacing:0.04em;">Target Website</label>
+              <div style="display:flex; align-items:center; gap:0.35rem; background:var(--bg-surface-sunken); border:1px solid var(--border-light); border-radius:var(--radius-md); padding:0.25rem 0.6rem;">
+                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color:var(--accent-primary); flex-shrink:0;">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="2" y1="12" x2="22" y2="12"></line>
+                </svg>
+                <input
+                  type="text"
+                  id="wfTargetUrlInput"
+                  placeholder="https://example.com"
+                  aria-label="Target Website URL"
+                  style="border:none; background:transparent; font-size:0.78rem; font-family:var(--font-mono); color:var(--text-primary); width:200px; outline:none;"
+                  spellcheck="false"
+                />
+              </div>
+            </div>
+
+            <span id="wfStepCounter" class="badge-tag success" style="margin-top:auto; height:32px; display:inline-flex; align-items:center;">0 Steps</span>
+
+            <button class="btn btn-secondary btn-sm" id="btnSaveFlow" style="margin-top:auto;" title="Save changes to this workflow (Ctrl+S)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                <polyline points="7 3 7 8 15 8"></polyline>
+              </svg>
               <span>Save Workflow</span>
             </button>
-            <button class="btn btn-secondary btn-sm" id="btnExecuteFlowEditor" style="background:var(--brand-forest); color:#ffffff; border-color:var(--brand-forest); display:inline-flex; align-items:center; gap:0.35rem;">
-              <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-              <span>Execute Flow</span>
+
+            <button class="btn btn-primary btn-sm" id="btnExecuteFlowEditor" style="margin-top:auto;" title="Run this workflow (Ctrl+Enter)">
+              <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+              <span>Run</span>
             </button>
           </div>
-        </div>
+        </header>
+
+        <!-- Drawflow Visual Canvas -->
         <div class="workflow-editor-canvas" id="drawflow">
-          <div class="drawflow-canvas-controls">
-            <button type="button" id="btnZoomIn" title="Zoom In">
+          <div class="drawflow-canvas-controls" role="toolbar" aria-label="Canvas zoom and view controls">
+            <button type="button" id="btnZoomIn" title="Zoom in" aria-label="Zoom in">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             </button>
-            <button type="button" id="btnZoomOut" title="Zoom Out">
+            <button type="button" id="btnZoomOut" title="Zoom out" aria-label="Zoom out">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             </button>
-            <button type="button" id="btnZoomReset" title="Reset View">
+            <button type="button" id="btnZoomReset" title="Reset view zoom" aria-label="Reset view zoom">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
             </button>
-            <button type="button" id="btnCanvasShortcutsHelp" title="Keyboard Shortcuts: Space+Drag to Pan · Del/Backspace to Delete · Ctrl+S to Save · Ctrl+Enter to Run · Esc to Deselect">
+            <button type="button" id="btnCanvasShortcutsHelp" title="Shortcuts: Space+Drag to Pan · Del to Delete · Ctrl+S to Save · Ctrl+Enter to Run · Esc to Deselect" aria-label="View keyboard shortcuts">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect><line x1="6" y1="8" x2="6.01" y2="8"></line><line x1="10" y1="8" x2="10.01" y2="8"></line><line x1="14" y1="8" x2="14.01" y2="8"></line><line x1="18" y1="8" x2="18.01" y2="8"></line><line x1="8" y1="12" x2="8.01" y2="12"></line><line x1="12" y1="12" x2="12.01" y2="12"></line><line x1="16" y1="12" x2="16.01" y2="12"></line><line x1="7" y1="16" x2="17" y2="16"></line></svg>
             </button>
           </div>
         </div>
+
       </div>
     `;
 
-    document.getElementById('btnBack').addEventListener('click', () => {
+    document.getElementById('btnBack')?.addEventListener('click', () => {
       this.hideConnectionMenu();
       Router.navigate('workflows');
     });
 
-    document.getElementById('btnSaveFlow').addEventListener('click', () => {
+    document.getElementById('btnSaveFlow')?.addEventListener('click', () => {
       this.saveWorkflow();
     });
 
@@ -114,6 +182,16 @@ export const WorkflowEditorView = {
       });
     });
 
+    // Update in-memory workflow name as user types in header input
+    const nameInput = document.getElementById('wfNameInput');
+    if (nameInput) {
+      nameInput.addEventListener('input', (e) => {
+        if (this.workflow) {
+          this.workflow.name = e.target.value;
+        }
+      });
+    }
+
     try {
       const data = await Api.getWorkflowById(workflowId);
 
@@ -124,9 +202,11 @@ export const WorkflowEditorView = {
 
       this.workflow = data.workflow || data;
       const wfName = this.workflow.name || 'Workflow';
-      const titleEl = document.getElementById('wfTitle');
-      if (titleEl) titleEl.textContent = `Visual Editor: ${wfName}`;
-      
+
+      if (nameInput) {
+        nameInput.value = wfName;
+      }
+
       const steps = this.workflow.steps || (this.workflow.recordingData && this.workflow.recordingData.actions) || [];
       const badge = document.getElementById('wfStepCounter');
       if (badge) badge.textContent = `${steps.length} Steps`;
@@ -144,15 +224,15 @@ export const WorkflowEditorView = {
         return;
       }
       console.error(err);
-      Toast.error('Failed to load workflow: ' + err.message);
+      Toast.error('Failed to load workflow: ' + (err.message || 'Unknown error'));
     }
   },
 
   initDrawflow() {
     const container = document.getElementById('drawflow');
     if (!container) return;
-    
-    // Ensure parent-drawflow is the primary class so Drawflow's internal switch statement matches
+
+    // Ensure parent-drawflow is the primary class so Drawflow internal switch matches
     container.className = 'parent-drawflow workflow-editor-canvas';
 
     this.editor = new Drawflow(container);
@@ -161,13 +241,13 @@ export const WorkflowEditorView = {
 
     // Universal Pan / Drag handler across the entire canvas viewport
     container.addEventListener('mousedown', (e) => {
-      // Ignore clicks on nodes, form inputs, canvas control buttons, connections, or quick menus
       if (
-        e.target.closest('.drawflow-node') || 
-        e.target.closest('.drawflow-canvas-controls') || 
-        e.target.closest('button') || 
-        e.target.closest('input') || 
+        e.target.closest('.drawflow-node') ||
+        e.target.closest('.drawflow-canvas-controls') ||
+        e.target.closest('button') ||
+        e.target.closest('input') ||
         e.target.closest('select') ||
+        e.target.closest('details') ||
         e.target.closest('.connection') ||
         e.target.closest('.main-path') ||
         e.target.closest('.point') ||
@@ -184,10 +264,10 @@ export const WorkflowEditorView = {
 
     container.addEventListener('touchstart', (e) => {
       if (
-        e.touches && 
-        e.touches.length === 1 && 
-        !e.target.closest('.drawflow-node') && 
-        !e.target.closest('.drawflow-canvas-controls') && 
+        e.touches &&
+        e.touches.length === 1 &&
+        !e.target.closest('.drawflow-node') &&
+        !e.target.closest('.drawflow-canvas-controls') &&
         !e.target.closest('button') &&
         !e.target.closest('.connection') &&
         !e.target.closest('.main-path') &&
@@ -201,7 +281,7 @@ export const WorkflowEditorView = {
       }
     }, { capture: true, passive: true });
 
-    // Wire Zoom & Reset controls
+    // Zoom controls
     document.getElementById('btnZoomIn')?.addEventListener('click', (e) => {
       e.stopPropagation();
       this.editor.zoom_in();
@@ -216,13 +296,13 @@ export const WorkflowEditorView = {
     });
     document.getElementById('btnCanvasShortcutsHelp')?.addEventListener('click', (e) => {
       e.stopPropagation();
-      Toast.info('Shortcuts: Space+Drag to Pan · Del/Backspace to Delete · Ctrl+S to Save · Ctrl+Enter to Execute · Esc to Cancel');
+      Toast.info('Shortcuts: Space+Drag to Pan · Del to Delete · Ctrl+S to Save · Ctrl+Enter to Run · Esc to Deselect');
     });
 
     this.initDeleteModal();
     this.initConnectionInteractions(container);
 
-    // Hook Drawflow connection/removal events to automatically refresh visual step numbering
+    // Refresh visual step numbers when links change
     this.editor.on('connectionCreated', () => {
       this.refreshStepNumbers();
     });
@@ -236,15 +316,11 @@ export const WorkflowEditorView = {
     this.renderWorkflowSteps();
   },
 
-  selectedConnectionInfo: null,
-  keyDeleteHandler: null,
-
   initConnectionInteractions(container) {
     this.selectedConnectionInfo = null;
 
-    // Listen for canvas click to select connection or handle delete buttons
     container.addEventListener('click', (e) => {
-      // 1. If clicked on native Drawflow delete button
+      // 1. Native Drawflow delete button
       if (e.target.closest('.drawflow-delete')) {
         e.stopPropagation();
         this.hideConnectionMenu();
@@ -253,12 +329,12 @@ export const WorkflowEditorView = {
         } else if (this.editor.connection_selected) {
           this.editor.removeConnection();
           this.refreshStepNumbers();
-          Toast.info('Link deleted.');
+          Toast.info('Link removed.');
         }
         return;
       }
 
-      // 2. If clicked on our floating menu delete button
+      // 2. Floating menu delete button
       if (e.target.closest('.df-btn-del-conn')) {
         e.stopPropagation();
         if (this.selectedConnectionInfo) {
@@ -267,7 +343,7 @@ export const WorkflowEditorView = {
         return;
       }
 
-      // 3. If clicked on a connection line (.main-path or .connection)
+      // 3. Connection path click
       const connPath = e.target.closest('.main-path');
       const connSvg = e.target.closest('.connection');
       if (connPath || connSvg) {
@@ -281,14 +357,13 @@ export const WorkflowEditorView = {
         return;
       }
 
-      // 4. Clicked elsewhere: hide menu and unselect connection
+      // 4. Click elsewhere
       if (!e.target.closest('.df-conn-menu')) {
         this.hideConnectionMenu();
         this.selectedConnectionInfo = null;
       }
     });
 
-    // Drawflow event hooks
     this.editor.on('connectionSelected', (info) => {
       this.selectedConnectionInfo = {
         id_output: String(info.output_id),
@@ -298,7 +373,6 @@ export const WorkflowEditorView = {
       };
     });
 
-    // Track selected node and connection states
     this.editor.on('nodeSelected', (nodeId) => {
       this.selectedNodeId = String(nodeId);
     });
@@ -397,17 +471,17 @@ export const WorkflowEditorView = {
         return;
       }
 
-      // Ctrl+Enter / Cmd+Enter: Execute active workflow
+      // Ctrl+Enter / Cmd+Enter: Run active workflow
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
         document.getElementById('btnExecuteFlowEditor')?.click();
         return;
       }
 
-      // Ignore remaining canvas editing shortcuts if typing inside an input field
+      // Ignore remaining canvas shortcuts when inside input fields
       if (isInputFocused) return;
 
-      // Space key down: trigger canvas pan mode (grab cursor)
+      // Space key down: trigger canvas pan mode
       if (e.code === 'Space' && !this.isSpaceDown) {
         this.isSpaceDown = true;
         container.classList.add('is-space-down');
@@ -415,7 +489,7 @@ export const WorkflowEditorView = {
         return;
       }
 
-      // Delete or Backspace key: deletes selected connection or selected node
+      // Delete or Backspace key: deletes selected connection or node
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (this.selectedConnectionInfo) {
           e.preventDefault();
@@ -492,12 +566,12 @@ export const WorkflowEditorView = {
         </svg>
         <span>Link: <strong>${this.escapeHtml(sourceNum)}</strong> ➔ <strong>${this.escapeHtml(targetNum)}</strong></span>
       </div>
-      <button type="button" class="df-btn-del-conn" title="Delete this connection">
+      <button type="button" class="df-btn-del-conn" title="Remove this connection">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="3 6 5 6 21 6"></polyline>
           <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
         </svg>
-        Delete Link
+        <span>Remove Link</span>
       </button>
     `;
 
@@ -529,7 +603,7 @@ export const WorkflowEditorView = {
       this.selectedConnectionInfo = null;
       this.hideConnectionMenu();
       this.refreshStepNumbers();
-      Toast.info('Link deleted. You can manually drag between ports to connect steps.');
+      Toast.info('Link removed. You can relink steps by dragging between ports.');
     } catch (err) {
       console.warn('Could not remove connection via removeSingleConnection:', err);
       try {
@@ -537,14 +611,12 @@ export const WorkflowEditorView = {
         this.selectedConnectionInfo = null;
         this.hideConnectionMenu();
         this.refreshStepNumbers();
-        Toast.info('Link deleted.');
+        Toast.info('Link removed.');
       } catch (e2) {
         Toast.error('Failed to remove link');
       }
     }
   },
-
-  pendingDeleteNodeId: null,
 
   initDeleteModal() {
     const modal = document.getElementById('deleteNodeModal');
@@ -573,6 +645,10 @@ export const WorkflowEditorView = {
     const modal = document.getElementById('deleteNodeModal');
     if (modal) {
       modal.classList.remove('hidden');
+      // Focus cancel button for safe keyboard accessibility
+      requestAnimationFrame(() => {
+        document.getElementById('btnCancelDeleteStep')?.focus();
+      });
     }
   },
 
@@ -598,21 +674,14 @@ export const WorkflowEditorView = {
         return;
       }
 
-      // Remove the node from Drawflow canvas (this automatically removes attached connections)
       this.editor.removeNodeId(`node-${nodeId}`);
-
-      // We intentionally do NOT auto-reconnect surrounding nodes per user preference,
-      // leaving the gap open so the user can manually wire links as desired.
-
       this.hideConnectionMenu();
       this.selectedConnectionInfo = null;
-
-      // Refresh numbering on remaining step cards
       this.refreshStepNumbers();
 
-      Toast.success('Step deleted. Connect remaining steps by dragging from an output port to an input port.');
+      Toast.info('Step removed. Connect remaining steps by dragging from an output port to an input port.');
     } catch (err) {
-      Toast.error('Failed to delete step: ' + err.message);
+      Toast.error('Failed to remove step: ' + err.message);
     } finally {
       this.hideDeleteModal();
     }
@@ -685,20 +754,44 @@ export const WorkflowEditorView = {
       Toast.info('This workflow has no recorded steps yet.');
       return;
     }
-    
+
     let previousNodeId = null;
     let pos_x = 80;
     let pos_y = 100;
 
+    // Identify first loop index
+    let activeLoopIndex = null;
+    if (Number.isInteger(this.workflow.loopStepIndex) && this.workflow.loopStepIndex >= 0) {
+      activeLoopIndex = this.workflow.loopStepIndex;
+    } else {
+      const foundIdx = steps.findIndex(s => s.role === 'LOOP' || s.isLoop || s.loopMode === 'sequential_iteration');
+      if (foundIdx >= 0) activeLoopIndex = foundIdx;
+    }
+
     steps.forEach((step, index) => {
-      const actionType = (step.action || step.type || 'CLICK').toUpperCase();
+      const rawAction = (step.action || step.type || 'CLICK').toUpperCase();
       const friendlyName = this.getFriendlyStepName(step, index);
       const actionDesc = this.describeAction(step, friendlyName);
+
+      // Determine step role (SETUP vs LOOP)
+      let isLoopStep = false;
+      if (step.role) {
+        isLoopStep = step.role === 'LOOP';
+      } else if (activeLoopIndex !== null) {
+        isLoopStep = index >= activeLoopIndex;
+      }
+
+      const isLoopAnchor = isLoopStep && (index === activeLoopIndex);
+
+      // Map action type to clean, user-friendly label
+      const actionLabel = this.getUserActionLabel(step, rawAction, friendlyName);
+      const actionClass = rawAction.toLowerCase();
+      const actionIcon = this.getActionIcon(actionLabel);
 
       // Resolve best target selector representation
       let targetSelector = '';
       const candidates = (step.target && Array.isArray(step.target.candidates)) ? step.target.candidates : [];
-      
+
       if (typeof step.target === 'string') {
         targetSelector = step.target;
       } else if (candidates.length > 0) {
@@ -713,42 +806,26 @@ export const WorkflowEditorView = {
       const stepValue = step.value || (step.meta && step.meta.value) || '';
       const selectedOptionText = (step.meta && step.meta.text) || '';
 
-      const actionClass = actionType.toLowerCase();
-      let actionIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>`;
-      if (actionType === 'CLICK') actionIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"></path><path d="M13 13l6 6"></path></svg>`;
-      else if (actionType === 'TYPE') actionIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"></rect><line x1="6" y1="8" x2="6" y2="8"></line><line x1="10" y1="8" x2="10" y2="8"></line><line x1="14" y1="8" x2="14" y2="8"></line><line x1="18" y1="8" x2="18" y2="8"></line><line x1="6" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="18" y2="12"></line><line x1="10" y1="16" x2="14" y2="16"></line></svg>`;
-      else if (actionType === 'NAVIGATE') actionIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>`;
-      else if (actionType === 'SELECT') actionIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>`;
-      else if (actionType === 'KEY_PRESS' || actionType === 'PRESS_KEY' || actionType === 'ENTER') actionIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 10 4 15 9 20"></polyline><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg>`;
-
       // Parse list / dropdown options from fingerprint or meta
       const availableOptions = this.extractAvailableOptions(step);
-      const isListOrSelect = actionType === 'SELECT' || availableOptions.length > 0 || /select|dropdown|list|option|:nth-child/i.test(targetSelector);
+      const isListOrSelect = rawAction === 'SELECT' || availableOptions.length > 0 || /select|dropdown|list|option|:nth-child/i.test(targetSelector);
 
-      // Determine step role (SETUP vs LOOP)
-      let isLoopStep = false;
-      if (step.role) {
-        isLoopStep = step.role === 'LOOP';
-      } else if (Number.isInteger(this.workflow.loopStepIndex) && this.workflow.loopStepIndex >= 0) {
-        isLoopStep = index >= this.workflow.loopStepIndex;
-      } else {
-        isLoopStep = false;
-      }
+      // Human-readable title: avoid raw selector as title
+      const humanNodeTitle = this.getHumanNodeTitle(step, actionLabel, friendlyName);
 
       // Step Node HTML setup
       let html = `
         <div class="df-node-header">
           <div class="df-action-badge ${actionClass}">
             <span style="display:inline-flex; align-items:center;">${actionIcon}</span>
-            <span>${this.escapeHtml(actionType)}</span>
+            <span>${this.escapeHtml(actionLabel)}</span>
           </div>
           <div style="display:flex; align-items:center; gap:0.35rem;">
-            <span class="df-role-badge ${isLoopStep ? 'role-loop' : 'role-setup'}" id="badge-role-${index}">
-              ${isLoopStep ? '🔁 LOOP' : '⚙️ ONCE'}
+            <span class="df-role-badge ${isLoopAnchor ? 'role-anchor' : (isLoopStep ? 'role-loop' : 'role-setup')}" id="badge-role-${index}" title="${isLoopAnchor ? 'Loop discovery anchor · Repeats for each record' : (isLoopStep ? 'Repeats for each record' : 'Runs once during setup')}">
+              ${isLoopAnchor ? '🔁 Finds records here' : (isLoopStep ? '🔁 Repeats' : '⚙️ Run once')}
             </span>
-            ${isListOrSelect ? `<span class="df-badge-pill options" title="Contains selectable options" style="display:inline-flex; align-items:center; gap:0.25rem;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg> Choices</span>` : ''}
             <span class="df-step-number">#${index + 1}</span>
-            <button type="button" class="df-btn-delete-node" title="Delete this step">
+            <button type="button" class="df-btn-delete-node" title="Delete step" aria-label="Delete step #${index + 1}">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="3 6 5 6 21 6"></polyline>
                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -757,44 +834,45 @@ export const WorkflowEditorView = {
           </div>
         </div>
 
-        <!-- Human-Friendly Hero Header -->
+        <!-- Human-Readable Hero Header (Never raw selector) -->
         <div class="df-node-hero">
-          <span class="df-node-title" id="node-title-${index}">${this.escapeHtml(friendlyName)}</span>
+          <span class="df-node-title" id="node-title-${index}">${this.escapeHtml(humanNodeTitle)}</span>
           <span class="df-node-desc" id="node-desc-${index}">${this.escapeHtml(actionDesc)}</span>
         </div>
 
         <div class="df-node-body">
-          <!-- Editable Friendly Name -->
+
+          <!-- Element / Step Friendly Name -->
           <div class="df-input-group">
             <label style="display:flex; justify-content:space-between; align-items:center;">
-              <span>Element / Step Name</span>
-              <span style="font-size:0.62rem; color:var(--text-sub); font-weight:normal;">User-Friendly</span>
+              <span>Step Description</span>
+              <span style="font-size:0.62rem; color:var(--text-sub); font-weight:normal;">User-facing</span>
             </label>
             <input type="text" class="df-name-input" value="${this.escapeHtml(friendlyName)}" placeholder="e.g. Invoice Button" spellcheck="false" />
           </div>
 
-          <!-- Execution Role -->
-          <div class="df-input-group" style="background:${isLoopStep ? '#fef3c7' : '#f8fafc'}; padding:0.45rem 0.55rem; border-radius:6px; border:1px solid ${isLoopStep ? '#fcd34d' : '#e2e8f0'};">
-            <label style="color:${isLoopStep ? '#92400e' : '#475569'}; font-weight:700; font-size:0.7rem; display:flex; justify-content:space-between; align-items:center;">
+          <!-- Execution Role: Clearly distinguish 'Run once' from 'Repeats for each record' -->
+          <div class="df-input-group df-role-group ${isLoopAnchor ? 'is-anchor' : (isLoopStep ? 'is-loop' : 'is-setup')}">
+            <label style="font-weight:700; font-size:0.7rem; display:flex; justify-content:space-between; align-items:center;">
               <span>Execution Role</span>
-              <span class="df-role-helper" style="font-size:0.65rem; color:${isLoopStep ? '#b45309' : '#64748b'};">${isLoopStep ? 'Repeats for all items' : 'Runs once (navigation / form)'}</span>
+              <span class="df-role-helper">${isLoopAnchor ? 'Finds records here' : (isLoopStep ? 'Repeats for each record' : 'Runs once')}</span>
             </label>
-            <select class="df-role-select" style="font-size:0.75rem; font-weight:600; background:#fff; border-color:${isLoopStep ? '#f59e0b' : '#cbd5e1'};">
-              <option value="SETUP" ${!isLoopStep ? 'selected' : ''}>⚙️ SETUP — Run once (Tabs, Login, Search)</option>
-              <option value="LOOP" ${isLoopStep ? 'selected' : ''}>🔁 LOOP TARGET — Iterate across table rows/items</option>
+            <select class="df-role-select">
+              <option value="SETUP" ${!isLoopStep ? 'selected' : ''}>⚙️ Run once (setup step)</option>
+              <option value="LOOP" ${isLoopStep ? 'selected' : ''}>🔁 Repeats for each record</option>
             </select>
           </div>
       `;
 
-      // List / Dropdown Options Selector
+      // Select / Dropdown options
       if (isListOrSelect && availableOptions.length > 0) {
         html += `
-          <div class="df-input-group" style="background:#f0fdf4; padding:0.6rem; border-radius:8px; border:1px solid #bbf7d0;">
-            <label style="color:#166534; display:flex; justify-content:space-between; align-items:center;">
-              <span>Available Options / Items</span>
-              <span style="font-size:0.65rem; color:#15803d;">${availableOptions.length} Items</span>
+          <div class="df-input-group" style="background:var(--bg-surface-sunken); padding:0.6rem; border-radius:var(--radius-md); border:1px solid var(--border-light);">
+            <label style="display:flex; justify-content:space-between; align-items:center;">
+              <span>Available Options</span>
+              <span style="font-size:0.65rem; color:var(--text-sub);">${availableOptions.length} Items</span>
             </label>
-            <select class="df-option-select" style="background:#ffffff; border-color:#86efac; font-weight:600;">
+            <select class="df-option-select" style="background:var(--bg-surface); font-weight:600;">
               ${availableOptions.map((opt, optIdx) => {
                 const isSelected = (stepValue && (opt.value === stepValue || opt.label === stepValue)) ||
                                    (selectedOptionText && opt.label.includes(selectedOptionText)) ||
@@ -806,37 +884,27 @@ export const WorkflowEditorView = {
                 `;
               }).join('')}
               <option value="__dynamic_loop__" ${step.isLoop || stepValue === '{{loop:index}}' ? 'selected' : ''}>
-                [Dynamic Loop] Iterate: Item #1 on Run 1, Item #2 on Run 2...
+                Repeats for each record (Iterate sequentially)
               </option>
             </select>
-            <small style="font-size:0.65rem; color:#15803d; margin-top:2px;">Pick an option to select or choose dynamic iteration loop.</small>
-          </div>
-        `;
-      } else if (isListOrSelect) {
-        // Fallback option helper for list/table items
-        html += `
-          <div class="df-input-group" style="background:#f8fafc; padding:0.5rem; border-radius:8px; border:1px solid #e2e8f0;">
-            <label style="color:#475569;">Iteration / Option Mode</label>
-            <select class="df-option-select" style="font-size:0.75rem;">
-              <option value="fixed" ${!step.isLoop ? 'selected' : ''}>Fixed Item Target</option>
-              <option value="__dynamic_loop__" ${step.isLoop ? 'selected' : ''}>[Dynamic Loop] Select Item #1 on Run 1, #2 on Run 2...</option>
-            </select>
+            <small style="font-size:0.65rem; color:var(--text-sub); margin-top:2px;">Select fixed choice or choose to repeat for each record.</small>
           </div>
         `;
       }
 
-      if (actionType === 'TYPE' || actionType === 'NAVIGATE' || actionType === 'SELECT' || actionType === 'KEY_PRESS' || actionType === 'PRESS_KEY' || stepValue || step.key) {
-        const valLabel = (actionType === 'KEY_PRESS' || actionType === 'PRESS_KEY') ? 'Key to Press (e.g. Enter, Tab, Escape)' : 'Value / Text to Type';
-        const displayVal = step.key || stepValue || selectedOptionText || (actionType === 'KEY_PRESS' ? 'Enter' : '');
+      // Value input for Type, Navigate, Key Press
+      if (rawAction === 'TYPE' || rawAction === 'NAVIGATE' || rawAction === 'SELECT' || rawAction === 'KEY_PRESS' || rawAction === 'PRESS_KEY' || stepValue || step.key) {
+        const valLabel = (rawAction === 'KEY_PRESS' || rawAction === 'PRESS_KEY') ? 'Key to press' : (rawAction === 'NAVIGATE' ? 'Target website URL' : 'Value to enter');
+        const displayVal = step.key || stepValue || selectedOptionText || (rawAction === 'KEY_PRESS' ? 'Enter' : '');
         html += `
           <div class="df-input-group">
             <label>${valLabel}</label>
-            <input type="text" class="df-value-input" value="${this.escapeHtml(displayVal)}" placeholder="Enter value or key..." spellcheck="false" />
+            <input type="text" class="df-value-input" value="${this.escapeHtml(displayVal)}" placeholder="Enter value..." spellcheck="false" />
           </div>
         `;
       }
 
-      // Checkbox Desired State Selector
+      // Checkbox Target State: Idempotent action explanation
       const isCheckboxStep = Boolean(
         step.isCheckbox === true ||
         step.desiredState !== undefined ||
@@ -856,36 +924,51 @@ export const WorkflowEditorView = {
 
       if (isCheckboxStep) {
         html += `
-          <div class="df-input-group df-checkbox-group" style="background:#eff6ff; padding:0.6rem; border-radius:8px; border:1px solid #bfdbfe;">
-            <label style="color:#1d4ed8; font-weight:700; font-size:0.75rem; display:flex; justify-content:space-between; align-items:center;">
-              <span>☑️ Checkbox Target State</span>
-              <span style="font-size:0.65rem; color:#2563eb; background:#dbeafe; padding:1px 6px; border-radius:4px;">Idempotent</span>
+          <div class="df-input-group df-checkbox-group" style="background:var(--accent-subtle); padding:0.6rem; border-radius:var(--radius-md); border:1px solid rgba(37,99,235,0.2);">
+            <label style="color:var(--accent-primary); font-weight:700; font-size:0.75rem; display:flex; justify-content:space-between; align-items:center;">
+              <span>Checkbox Target State</span>
+              <span class="badge-tag info" style="font-size:0.62rem;" title="This action can safely be repeated if the run is retried.">Safe to retry</span>
             </label>
-            <select class="df-checkbox-select" style="font-size:0.75rem; font-weight:600; background:#fff; border-color:#93c5fd; color:#1e3a8a; width:100%; border-radius:6px; padding:0.35rem 0.5rem; margin-top:4px;">
-              <option value="true" ${desiredCheckboxState !== false ? 'selected' : ''}>Ensure CHECKED (Select / ON)</option>
-              <option value="false" ${desiredCheckboxState === false ? 'selected' : ''}>Ensure UNCHECKED (Deselect / OFF)</option>
+            <select class="df-checkbox-select" style="font-size:0.75rem; font-weight:600; background:var(--bg-surface); color:var(--text-primary); width:100%; border-radius:var(--radius-sm); padding:0.35rem 0.5rem; margin-top:4px;">
+              <option value="true" ${desiredCheckboxState !== false ? 'selected' : ''}>Ensure checked (ON)</option>
+              <option value="false" ${desiredCheckboxState === false ? 'selected' : ''}>Ensure unchecked (OFF)</option>
             </select>
-            <small style="font-size:0.65rem; color:#3b82f6; display:block; margin-top:3px;">Preserves state on repeat runs; never toggles mistakenly.</small>
+            <small style="font-size:0.66rem; color:var(--text-sub); display:block; margin-top:3px;">Safe to retry: this action can safely be repeated if the run is retried.</small>
           </div>
         `;
       }
 
-      // Collapsible Advanced Technical Selector
+      // Progressive disclosure: Technical details hidden under Advanced
       html += `
           <details class="df-advanced-details">
             <summary class="df-advanced-summary">
-              <span>⚙️ Technical Selector (CSS / XPath)</span>
+              <span>Advanced · Element location</span>
               <svg class="df-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
             </summary>
             <div class="df-advanced-body">
-              <input type="text" class="df-target-input" value="${this.escapeHtml(targetSelector)}" placeholder="#element-id or .class" spellcheck="false" />
-              <span style="font-size:0.65rem; color:var(--text-sub); display:block; margin-top:3px;">Browser DOM locator path</span>
+              <div class="df-input-group">
+                <label style="font-size:0.68rem; color:var(--text-sub); font-weight:600;">Element location</label>
+                <input type="text" class="df-target-input" value="${this.escapeHtml(targetSelector)}" placeholder="#element-id or .class or //xpath" spellcheck="false" />
+                <span style="font-size:0.65rem; color:var(--text-muted); display:block; margin-top:2px;">Browser locator path (CSS or XPath)</span>
+              </div>
+              ${candidates.length > 1 ? `
+                <div style="margin-top:0.45rem;">
+                  <span style="font-size:0.66rem; font-weight:700; color:var(--text-sub); display:block; margin-bottom:0.25rem;">Candidate locators (${candidates.length})</span>
+                  <div style="display:flex; flex-direction:column; gap:0.25rem; max-height:80px; overflow-y:auto;">
+                    ${candidates.slice(0, 4).map(c => `
+                      <div style="font-size:0.67rem; font-family:var(--font-mono); background:var(--bg-surface-sunken); padding:2px 6px; border-radius:4px; border:1px solid var(--border-light); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;" title="${this.escapeHtml(c.value)}">
+                        [${this.escapeHtml(c.strategy)}] ${this.escapeHtml(c.value)}
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              ` : ''}
             </div>
           </details>
 
-          <!-- Card Footer with Delete Option -->
+          <!-- Node Footer with Accessible Delete Action -->
           <div class="df-node-footer">
-            <button type="button" class="df-btn-delete-text" title="Delete this step from workflow">
+            <button type="button" class="df-btn-delete-text" title="Delete this step from workflow" aria-label="Delete step #${index + 1}">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="3 6 5 6 21 6"></polyline>
                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -896,14 +979,16 @@ export const WorkflowEditorView = {
         </div>
       `;
 
+      const nodeCls = isLoopAnchor ? 'step-node is-loop-anchor' : (isLoopStep ? 'step-node is-loop-node' : 'step-node');
+
       const nodeId = this.editor.addNode(
-        'step', 
-        1, 
-        1, 
-        pos_x, 
-        pos_y, 
-        'step-node', 
-        { action: actionType, originalStep: step }, 
+        'step',
+        1,
+        1,
+        pos_x,
+        pos_y,
+        nodeCls,
+        { action: rawAction, originalStep: step },
         html
       );
 
@@ -911,7 +996,7 @@ export const WorkflowEditorView = {
         this.editor.addConnection(previousNodeId, nodeId, "output_1", "input_1");
       }
 
-      // Wire interactive events for name input, option dropdown, and role
+      // Wire interactive events
       this.setSafeTimeout(() => {
         const nodeEl = document.getElementById(`node-${nodeId}`);
         if (nodeEl) {
@@ -919,16 +1004,16 @@ export const WorkflowEditorView = {
           const valueInput = nodeEl.querySelector('.df-value-input');
           const titleEl = document.getElementById(`node-title-${index}`);
           const descEl = document.getElementById(`node-desc-${index}`);
-          const targetInput = nodeEl.querySelector('.df-target-input');
           const optionSelect = nodeEl.querySelector('.df-option-select');
 
           if (nameInput) {
             nameInput.addEventListener('input', (e) => {
               const newName = e.target.value.trim() || `Step #${index + 1}`;
-              if (titleEl) titleEl.textContent = newName;
+              const newHumanTitle = this.getHumanNodeTitle(step, actionLabel, newName);
+              if (titleEl) titleEl.textContent = newHumanTitle;
               if (descEl) descEl.textContent = this.describeAction({
                 ...step,
-                action: actionType,
+                action: rawAction,
                 value: valueInput?.value || stepValue,
                 key: step.key
               }, newName);
@@ -940,7 +1025,7 @@ export const WorkflowEditorView = {
               const currentName = nameInput ? nameInput.value.trim() : friendlyName;
               if (descEl) descEl.textContent = this.describeAction({
                 ...step,
-                action: actionType,
+                action: rawAction,
                 value: e.target.value,
                 key: step.key
               }, currentName);
@@ -952,7 +1037,7 @@ export const WorkflowEditorView = {
               const val = e.target.value;
               if (val === '__dynamic_loop__') {
                 valueInput.value = '{{loop:index}}';
-                Toast.info(`Step #${index + 1} set to dynamic iteration mode`);
+                Toast.info(`Step #${index + 1} will repeat for each record.`);
               } else {
                 const selectedOpt = e.target.options[e.target.selectedIndex];
                 const label = selectedOpt ? selectedOpt.getAttribute('data-label') : val;
@@ -962,7 +1047,7 @@ export const WorkflowEditorView = {
               const currentName = nameInput ? nameInput.value.trim() : friendlyName;
               if (descEl) descEl.textContent = this.describeAction({
                 ...step,
-                action: actionType,
+                action: rawAction,
                 value: valueInput.value,
                 key: step.key
               }, currentName);
@@ -976,7 +1061,7 @@ export const WorkflowEditorView = {
               const currentName = nameInput ? nameInput.value.trim() : friendlyName;
               if (descEl) descEl.textContent = this.describeAction({
                 ...step,
-                action: actionType,
+                action: rawAction,
                 isCheckbox: true,
                 desiredState: shouldBeChecked,
                 checked: shouldBeChecked
@@ -991,35 +1076,36 @@ export const WorkflowEditorView = {
               const newRole = e.target.value;
               const roleBadge = document.getElementById(`badge-role-${index}`);
               const roleHelper = nodeEl.querySelector('.df-role-helper');
-              const roleGroup = roleSelect.closest('.df-input-group');
+              const roleGroup = roleSelect.closest('.df-role-group');
+
               if (newRole === 'LOOP') {
                 if (roleBadge) {
                   roleBadge.className = 'df-role-badge role-loop';
-                  roleBadge.textContent = '🔁 LOOP';
+                  roleBadge.textContent = '🔁 Repeats';
+                  roleBadge.title = 'Repeats for each record';
                 }
                 if (roleHelper) {
-                  roleHelper.textContent = 'Repeats for all items';
-                  roleHelper.style.color = '#b45309';
+                  roleHelper.textContent = 'Repeats for each record';
                 }
                 if (roleGroup) {
-                  roleGroup.style.background = '#fef3c7';
-                  roleGroup.style.borderColor = '#fcd34d';
+                  roleGroup.className = 'df-input-group df-role-group is-loop';
                 }
-                Toast.info(`Step #${index + 1} marked as LOOP (repeats per item)`);
+                nodeEl.classList.add('is-loop-node');
+                Toast.info(`Step #${index + 1} set to repeat for each record`);
               } else {
                 if (roleBadge) {
                   roleBadge.className = 'df-role-badge role-setup';
-                  roleBadge.textContent = '⚙️ ONCE';
+                  roleBadge.textContent = '⚙️ Run once';
+                  roleBadge.title = 'Runs once during setup';
                 }
                 if (roleHelper) {
-                  roleHelper.textContent = 'Runs once (navigation / form)';
-                  roleHelper.style.color = '#64748b';
+                  roleHelper.textContent = 'Runs once';
                 }
                 if (roleGroup) {
-                  roleGroup.style.background = '#f8fafc';
-                  roleGroup.style.borderColor = '#e2e8f0';
+                  roleGroup.className = 'df-input-group df-role-group is-setup';
                 }
-                Toast.info(`Step #${index + 1} marked as SETUP (runs once)`);
+                nodeEl.classList.remove('is-loop-node', 'is-loop-anchor');
+                Toast.info(`Step #${index + 1} set to run once (setup)`);
               }
             };
           }
@@ -1043,32 +1129,85 @@ export const WorkflowEditorView = {
     });
   },
 
+  getUserActionLabel(step, rawAction, friendlyName) {
+    const isDownload = /download|export|save.*disk/i.test(friendlyName) ||
+                       /download|export/i.test(step.target?.elementName || '') ||
+                       /download|export/i.test(step.name || '');
+
+    if (rawAction === 'CLICK' && isDownload) return 'Download';
+    if (rawAction === 'CLICK') return 'Click';
+    if (rawAction === 'TYPE') return 'Type';
+    if (rawAction === 'SELECT') return 'Select';
+    if (rawAction === 'NAVIGATE') return 'Navigate';
+    if (rawAction === 'KEY_PRESS' || rawAction === 'PRESS_KEY' || rawAction === 'ENTER') return 'Press Key';
+    if (rawAction === 'WAIT' || rawAction === 'SLEEP') return 'Wait';
+    return rawAction.charAt(0) + rawAction.slice(1).toLowerCase();
+  },
+
+  getActionIcon(actionLabel) {
+    if (actionLabel === 'Click') {
+      return `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"></path><path d="M13 13l6 6"></path></svg>`;
+    }
+    if (actionLabel === 'Type') {
+      return `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"></rect><line x1="6" y1="8" x2="6.01" y2="8"></line><line x1="10" y1="8" x2="10.01" y2="8"></line><line x1="14" y1="8" x2="14.01" y2="8"></line><line x1="18" y1="8" x2="18.01" y2="8"></line><line x1="8" y1="12" x2="8.01" y2="12"></line><line x1="12" y1="12" x2="12.01" y2="12"></line><line x1="16" y1="12" x2="16.01" y2="12"></line><line x1="7" y1="16" x2="17" y2="16"></line></svg>`;
+    }
+    if (actionLabel === 'Navigate') {
+      return `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>`;
+    }
+    if (actionLabel === 'Select') {
+      return `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>`;
+    }
+    if (actionLabel === 'Download') {
+      return `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>`;
+    }
+    if (actionLabel === 'Press Key') {
+      return `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 10 4 15 9 20"></polyline><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg>`;
+    }
+    return `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>`;
+  },
+
+  getHumanNodeTitle(step, actionLabel, friendlyName) {
+    if (actionLabel === 'Navigate') {
+      return 'Open website';
+    }
+    if (actionLabel === 'Download') {
+      return 'Download document';
+    }
+    if (actionLabel === 'Type') {
+      const cleanName = friendlyName.replace(/\b(Input|Field|Text|Box)\b/gi, '').trim();
+      return cleanName ? `Enter ${cleanName}` : 'Enter text';
+    }
+    if (actionLabel === 'Select') {
+      const cleanName = friendlyName.replace(/\b(Dropdown|Select|Menu)\b/gi, '').trim();
+      return cleanName ? `Select ${cleanName}` : 'Select option';
+    }
+    if (actionLabel === 'Click') {
+      const cleanName = friendlyName.replace(/\b(Button|Btn|Link)\b/gi, '').trim();
+      return cleanName ? `Click ${cleanName}` : `Click ${friendlyName}`;
+    }
+    return `${actionLabel} ${friendlyName}`;
+  },
+
   extractAvailableOptions(step) {
     const options = [];
 
-    // 1. Explicit meta.options
     if (step.meta && Array.isArray(step.meta.options) && step.meta.options.length > 0) {
       return step.meta.options.map(opt => typeof opt === 'string' ? { value: opt, label: opt } : opt);
     }
 
-    // 2. Extract from select element fingerprint text
     const fp = step.target && step.target.fingerprint;
     if (fp && fp.text && (fp.tagName === 'select' || step.type === 'SELECT' || (step.meta && step.meta.selectedIndex !== undefined))) {
       const raw = fp.text.trim();
-      // Split by common delimiters or sequential capital letters
       const lines = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
       if (lines.length > 1) {
         return lines.map(t => ({ value: t.toLowerCase().replace(/[^a-z0-9]+/g, '_'), label: t }));
       }
-      
-      // Split by multiple spaces
       const parts = raw.split(/\s{2,}/).map(s => s.trim()).filter(Boolean);
       if (parts.length > 1) {
         return parts.map(t => ({ value: t.toLowerCase().replace(/[^a-z0-9]+/g, '_'), label: t }));
       }
     }
 
-    // 3. If meta text or value exists
     if (step.value || (step.meta && step.meta.text)) {
       const label = (step.meta && step.meta.text) || step.value;
       options.push({ value: step.value || label, label });
@@ -1091,7 +1230,6 @@ export const WorkflowEditorView = {
     const tag = (fp.tagName || '').toLowerCase();
     const actionType = (step.action || step.type || 'CLICK').toUpperCase();
 
-    // Suffix
     let suffix = 'Element';
     if (['button', 'submit'].includes(fp.type) || tag === 'button' || fp.role === 'button') suffix = 'Button';
     else if (fp.type === 'checkbox' || fp.role === 'checkbox' || tag === 'mat-pseudo-checkbox') suffix = 'Checkbox';
@@ -1125,7 +1263,7 @@ export const WorkflowEditorView = {
       return `${label} ${suffix}`;
     }
 
-    if (actionType === 'NAVIGATE') return 'Open Target Page';
+    if (actionType === 'NAVIGATE') return 'Target Page';
     return `Step #${index + 1} ${suffix}`;
   },
 
@@ -1158,22 +1296,20 @@ export const WorkflowEditorView = {
       return `Double-click "${friendlyName}"`;
     }
     if (actionType === 'TYPE') {
-      return val ? `Type "${val}" into ${friendlyName}` : `Type text into ${friendlyName}`;
+      return val ? `Enter "${val}" into ${friendlyName}` : `Enter text into ${friendlyName}`;
     }
     if (actionType === 'SELECT') {
       return val ? `Select "${val}" in ${friendlyName}` : `Pick an option from ${friendlyName}`;
     }
     if (actionType === 'NAVIGATE') {
-      const url = step.url || val || 'target URL';
+      const url = step.url || val || 'target website';
       return `Navigate to ${url}`;
     }
     if (actionType === 'KEY_PRESS' || actionType === 'PRESS_KEY' || actionType === 'ENTER') {
       return `Press key [${key || val || 'Enter'}]`;
     }
-    return `Perform ${actionType} on ${friendlyName}`;
+    return `Perform ${actionType.toLowerCase()} on ${friendlyName}`;
   },
-
-  isSaving: false,
 
   async saveWorkflow() {
     if (!this.isMounted || !this.mountedWorkflowId || !this.editor) return;
@@ -1186,7 +1322,7 @@ export const WorkflowEditorView = {
     const btn = document.getElementById('btnSaveFlow');
     const origText = btn ? btn.innerHTML : '';
     if (btn) {
-      btn.innerHTML = '<span>Saving...</span>';
+      btn.innerHTML = '<span>Saving…</span>';
       btn.disabled = true;
     }
 
@@ -1196,13 +1332,13 @@ export const WorkflowEditorView = {
       const exported = this.editor.export();
       const data = exported.drawflow.Home.data;
       const nodes = Object.values(data);
-      
+
       if (nodes.length === 0) {
-        Toast.error("Workflow is empty!");
+        Toast.error("Workflow has no steps to save.");
         return;
       }
 
-      // Find the start node (node with no input connections)
+      // Find start node (node with no input connections)
       let startNodeId = null;
       for (const node of nodes) {
         const inputConn = node.inputs?.input_1?.connections;
@@ -1213,12 +1349,10 @@ export const WorkflowEditorView = {
       }
 
       if (!startNodeId) {
-        // Fallback to leftmost node by X position
         const sorted = [...nodes].sort((a, b) => (a.pos_x || 0) - (b.pos_x || 0));
         startNodeId = sorted[0].id;
       }
 
-      // Helper to extract clean step data from a Drawflow node
       const extractStep = (node, index) => {
         const nodeElement = document.getElementById(`node-${node.id}`);
         const nameInput = nodeElement ? nodeElement.querySelector('.df-name-input') : null;
@@ -1299,7 +1433,6 @@ export const WorkflowEditorView = {
       let currentNodeId = startNodeId;
       const visited = new Set();
 
-      // 1. Follow the connected chain in order
       while (currentNodeId && !visited.has(String(currentNodeId))) {
         visited.add(String(currentNodeId));
         const node = data[currentNodeId];
@@ -1314,7 +1447,7 @@ export const WorkflowEditorView = {
         }
       }
 
-      // 2. Only if there are genuinely disconnected nodes that were NEVER visited in the chain
+      // Any unvisited nodes
       const unvisitedNodes = nodes.filter(n => !visited.has(String(n.id)));
       if (unvisitedNodes.length > 0) {
         unvisitedNodes.sort((a, b) => (a.pos_x || 0) - (b.pos_x || 0));
@@ -1324,7 +1457,6 @@ export const WorkflowEditorView = {
         }
       }
 
-      // Determine loopStepIndex as index of first step marked LOOP or dynamic loop
       const firstLoopIdx = newSteps.findIndex(s => s.role === 'LOOP' || (s.isLoop === true && s.role !== 'SETUP') || s.loopMode === 'sequential_iteration');
       const hasLoop = firstLoopIdx >= 0;
       const loopStepIndex = hasLoop ? firstLoopIdx : null;
@@ -1333,7 +1465,11 @@ export const WorkflowEditorView = {
       const targetUrlInput = document.getElementById('wfTargetUrlInput');
       const updatedTargetUrl = targetUrlInput ? targetUrlInput.value.trim() : (this.workflow?.targetUrl || '');
 
+      const nameInput = document.getElementById('wfNameInput');
+      const updatedName = nameInput ? nameInput.value.trim() : (this.workflow?.name || '');
+
       await Api.updateWorkflow(targetWorkflowId, {
+        name: updatedName || this.workflow?.name,
         steps: newSteps,
         loopStepIndex,
         isLoop: hasLoop,
@@ -1341,12 +1477,13 @@ export const WorkflowEditorView = {
         targetUrl: updatedTargetUrl
       });
 
-      // Guard: Check if still mounted and still on the same generation / workflow
+      // Guard: Check if still mounted and on same generation/workflow
       if (!this.isMounted || this.currentGeneration !== saveGeneration || this.mountedWorkflowId !== targetWorkflowId) {
         return;
       }
 
       if (this.workflow) {
+        if (updatedName) this.workflow.name = updatedName;
         this.workflow.steps = newSteps;
         this.workflow.loopStepIndex = loopStepIndex;
         this.workflow.isLoop = hasLoop;
@@ -1354,7 +1491,7 @@ export const WorkflowEditorView = {
         this.workflow.targetUrl = updatedTargetUrl;
       }
 
-      Toast.success(`Workflow saved successfully (${newSteps.length} steps updated, loop index: ${loopStepIndex != null ? loopStepIndex + 1 : 'None'})!`);
+      Toast.success(`Workflow saved successfully (${newSteps.length} steps updated)!`);
       const badge = document.getElementById('wfStepCounter');
       if (badge) badge.textContent = `${newSteps.length} Steps`;
     } catch (err) {
@@ -1362,7 +1499,7 @@ export const WorkflowEditorView = {
         return;
       }
       console.error(err);
-      Toast.error('Failed to save workflow: ' + err.message);
+      Toast.error('Failed to save workflow: ' + (err.message || 'Unknown error'));
     } finally {
       if (this.isMounted && this.currentGeneration === saveGeneration) {
         this.isSaving = false;

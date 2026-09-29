@@ -13,6 +13,9 @@ export const Modal = {
   elMeta: null,
   elTimeline: null,
   elBtnClose: null,
+  previousActiveElement: null,
+  escapeHandler: null,
+  keydownHandler: null,
 
   init() {
     this.elModal = document.getElementById('stepInspectorModal');
@@ -35,14 +38,14 @@ export const Modal = {
     if (!workflow || !this.elModal) return;
 
     if (this.elTitle) {
-      this.elTitle.textContent = `${workflow.name} (${workflow.filename})`;
+      this.elTitle.textContent = `${workflow.name || 'Workflow'} (${workflow.filename || workflow.id || 'captured'})`;
     }
 
     if (this.elMeta) {
       this.elMeta.innerHTML = `
-        <div><span style="font-size:0.68rem; color:var(--text-sub); display:block;">Total Actions</span><strong style="font-size:1.1rem; color:var(--brand-forest);">${workflow.actionCount}</strong></div>
+        <div><span style="font-size:0.68rem; color:var(--text-sub); display:block;">Total Actions</span><strong style="font-size:1.1rem; color:var(--brand-forest);">${workflow.actionCount || (workflow.actions ? workflow.actions.length : 0)}</strong></div>
         <div><span style="font-size:0.68rem; color:var(--text-sub); display:block;">Start URL</span><strong style="font-size:0.75rem; word-break:break-all;">${escapeHtml(workflow.startUrl || 'N/A')}</strong></div>
-        <div><span style="font-size:0.68rem; color:var(--text-sub); display:block;">Captured Date</span><strong style="font-size:0.75rem;">${new Date(workflow.startedAt).toLocaleString()}</strong></div>
+        <div><span style="font-size:0.68rem; color:var(--text-sub); display:block;">Captured Date</span><strong style="font-size:0.75rem;">${workflow.startedAt ? new Date(workflow.startedAt).toLocaleString() : 'N/A'}</strong></div>
       `;
     }
 
@@ -72,17 +75,17 @@ export const Modal = {
         stepRow.innerHTML = `
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <div style="display:flex; align-items:center; gap:0.5rem;">
-              <strong style="font-size:0.85rem; color:var(--text-main);">#${act.index + 1}</strong>
-              <span class="badge-tag success">${act.type}</span>
+              <strong style="font-size:0.85rem; color:var(--text-main);">#${(act.index !== undefined ? act.index : 0) + 1}</strong>
+              <span class="badge-tag success">${escapeHtml(act.type || act.action || 'ACTION')}</span>
             </div>
             ${act.value !== undefined ? `<span style="font-size:0.72rem; color:var(--text-sub); font-family:var(--font-mono);">Value: "<strong>${escapeHtml(act.value)}</strong>"</span>` : ''}
           </div>
           <div style="display:flex; flex-direction:column; gap:0.35rem; margin-top:0.25rem;">
-            <span style="font-size:0.7rem; color:var(--text-sub); font-weight:700;">Candidate Selectors:</span>
-            ${candidatesHtml}
+            <span style="font-size:0.7rem; color:var(--text-sub); font-weight:700;">Element location selectors:</span>
+            ${candidatesHtml || '<span style="font-size:0.72rem; color:var(--text-sub);">(No candidates recorded)</span>'}
           </div>
           <div style="font-size:0.68rem; color:var(--text-sub); margin-top:0.25rem; font-family:var(--font-mono); background:var(--input-bg); padding:0.35rem 0.5rem; border-radius:6px; border:1px solid var(--border-light);">
-            Tag: <code>&lt;${fp.tagName || 'elem'}&gt;</code> | Text: <em>"${escapeHtml(fp.innerText || '')}"</em> | Classes: <code>${(fp.classList || []).join(', ') || 'none'}</code>
+            Tag: <code>&lt;${escapeHtml(fp.tagName || 'elem')}&gt;</code> | Text: <em>"${escapeHtml(fp.innerText || '')}"</em> | Classes: <code>${escapeHtml((fp.classList || []).join(', ') || 'none')}</code>
           </div>
         `;
 
@@ -93,11 +96,91 @@ export const Modal = {
     this.show();
   },
 
+  getFocusableElements() {
+    if (!this.elModal) return [];
+    const selector = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    return Array.from(this.elModal.querySelectorAll(selector)).filter(el => {
+      return el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0;
+    });
+  },
+
   show() {
-    if (this.elModal) this.elModal.classList.remove('hidden');
+    if (!this.elModal) return;
+    this.previousActiveElement = document.activeElement;
+    this.elModal.classList.remove('hidden');
+
+    // Accessibility: Keydown handler for Escape and Tab focus trap
+    if (this.keydownHandler) {
+      window.removeEventListener('keydown', this.keydownHandler);
+    }
+    this.keydownHandler = (e) => {
+      if (!this.elModal || this.elModal.classList.contains('hidden')) return;
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        this.hide();
+        return;
+      }
+
+      if (e.key === 'Tab') {
+        const focusable = this.getFocusableElements();
+        if (focusable.length === 0) {
+          e.preventDefault();
+          return;
+        }
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === first || !this.elModal.contains(document.activeElement)) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (document.activeElement === last || !this.elModal.contains(document.activeElement)) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
+    };
+    this.escapeHandler = this.keydownHandler;
+    window.addEventListener('keydown', this.keydownHandler);
+
+    // Accessibility: focus first actionable element (close button or first focusable)
+    requestAnimationFrame(() => {
+      const focusable = this.getFocusableElements();
+      if (focusable.length > 0) {
+        if (this.elBtnClose && focusable.includes(this.elBtnClose)) {
+          this.elBtnClose.focus();
+        } else {
+          focusable[0].focus();
+        }
+      }
+    });
   },
 
   hide() {
-    if (this.elModal) this.elModal.classList.add('hidden');
+    if (!this.elModal) return;
+    this.elModal.classList.add('hidden');
+
+    if (this.keydownHandler) {
+      window.removeEventListener('keydown', this.keydownHandler);
+      this.keydownHandler = null;
+      this.escapeHandler = null;
+    }
+
+    // Accessibility: Return focus to triggering element
+    if (this.previousActiveElement && typeof this.previousActiveElement.focus === 'function') {
+      try {
+        this.previousActiveElement.focus();
+      } catch {}
+      this.previousActiveElement = null;
+    }
   }
 };
+
+if (typeof window !== 'undefined') {
+  window.Modal = Modal;
+}
