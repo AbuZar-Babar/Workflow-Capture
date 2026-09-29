@@ -1,5 +1,7 @@
 /**
  * Workflow Capture — Live Execution View with Embedded Console & Step Progression
+ * Modernized for UI-5: SaaS-grade clarity, accessible progress, real-time activity,
+ * human intervention handling, and seamless terminal transition to Results & Files.
  */
 
 import { Api } from '../api.js';
@@ -19,8 +21,75 @@ function escapeHtml(str) {
   }[c]));
 }
 
-function formatLabel(str) {
-  return String(str || 'UNKNOWN').replace(/_/g, ' ');
+function formatStatusLabel(status) {
+  const s = String(status || 'QUEUED').toUpperCase();
+  switch (s) {
+    case 'QUEUED':
+    case 'STARTING':
+      return 'Starting';
+    case 'RUNNING':
+    case 'PROCESSING_ITEMS':
+      return 'Running';
+    case 'PAUSED':
+    case 'WAITING_FOR_USER':
+      return 'Action needed';
+    case 'STOPPING':
+      return 'Stopping';
+    case 'COMPLETED':
+      return 'Completed';
+    case 'COMPLETED_WITH_ERRORS':
+      return 'Completed with errors';
+    case 'STOPPED':
+      return 'Stopped';
+    case 'FAILED':
+      return 'Failed';
+    default:
+      return s.replace(/_/g, ' ');
+  }
+}
+
+function formatRecordStatus(status) {
+  const s = String(status || 'REMAINING').toUpperCase();
+  switch (s) {
+    case 'SUCCESS':
+      return { label: 'Completed', cls: 'success', icon: '✓' };
+    case 'FAILED':
+      return { label: 'Failed', cls: 'failed', icon: '✗' };
+    case 'STOPPED':
+      return { label: 'Stopped', cls: 'stopped', icon: '■' };
+    case 'SKIPPED_FILTER':
+      return { label: 'Filtered out', cls: 'skipped-filter', icon: '⊘' };
+    case 'SKIPPED_LIMIT':
+      return { label: 'Limit reached', cls: 'skipped-limit', icon: '⇥' };
+    case 'SKIPPED_DUPLICATE':
+      return { label: 'Already processed', cls: 'skipped', icon: '↷' };
+    case 'PENDING':
+    case 'RUNNING':
+      return { label: 'Running', cls: 'pending', icon: '⟳' };
+    default:
+      return { label: 'Remaining', cls: 'remaining', icon: '⏱' };
+  }
+}
+
+function formatTime(isoStr) {
+  if (!isoStr) return '';
+  try {
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  } catch {
+    return '';
+  }
+}
+
+function extractDomain(url) {
+  if (!url) return '';
+  try {
+    const parsed = new URL(url.startsWith('http') ? url : `https://${url}`);
+    return parsed.hostname;
+  } catch {
+    return url;
+  }
 }
 
 export const ExecutionView = {
@@ -33,22 +102,39 @@ export const ExecutionView = {
   autoScroll: true,
   logs: [],
   unsubscribeSSE: null,
+  unsubscribeHumanIntervention: null,
   terminalEl: null,
   workflowSteps: [],
+  currentActivity: 'Initializing workflow execution…',
+  currentActivityDetail: '',
+  isStopping: false,
+  isPaused: false,
+  connectionFailed: false,
+  workflow: null,
+  lastPollData: null,
 
   async render(container, router, runId) {
     this.container = container;
     this.router = router;
     this.runId = runId || sessionStorage.getItem('workflowCaptureActiveRunId');
+    this.isStopping = false;
+    this.isPaused = false;
+    this.connectionFailed = false;
 
     if (!this.runId) {
       container.innerHTML = `
-        <section class="card execution-empty" style="text-align:center; padding:3rem 1.5rem;">
-          <h2 style="font-size:1.3rem; margin-bottom:0.5rem; color:var(--text-main);">No active execution selected</h2>
-          <p style="color:var(--text-sub); margin-bottom:1.5rem;">Select a recorded workflow to execute, or view saved workflows.</p>
-          <div style="display:flex; justify-content:center; gap:0.75rem;">
-            <button class="btn btn-primary" id="btnExecutionGoWorkflows">View Workflows</button>
-            <button class="btn btn-secondary" id="btnExecutionGoDashboard">Dashboard</button>
+        <section class="card execution-empty" style="text-align:center; padding:3.5rem 1.5rem; max-width:560px; margin:2rem auto; border-radius:var(--radius-xl);">
+          <div style="width:48px; height:48px; border-radius:50%; background:var(--brand-tint); color:var(--brand-forest); display:grid; place-items:center; margin:0 auto 1rem;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          </div>
+          <h2 style="font-size:1.35rem; font-weight:800; margin-bottom:0.5rem; color:var(--text-main);">No active run selected</h2>
+          <p style="color:var(--text-sub); font-size:0.85rem; margin-bottom:1.75rem; line-height:1.5;">Choose a workflow to execute, or inspect past results from your library.</p>
+          <div style="display:flex; justify-content:center; gap:0.75rem; flex-wrap:wrap;">
+            <button class="btn btn-primary" id="btnExecutionGoWorkflows">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+              <span>View Workflows</span>
+            </button>
+            <button class="btn btn-secondary" id="btnExecutionGoDashboard">Back to Dashboard</button>
           </div>
         </section>
       `;
@@ -64,68 +150,135 @@ export const ExecutionView = {
 
     container.innerHTML = `
       <div class="execution-shell">
+        <!-- Reconnection Alert Banner -->
+        <div class="execution-error hidden" id="connectionAlert" role="alert" style="display:flex; align-items:center; gap:0.6rem; padding:0.65rem 1rem; border-radius:var(--radius-md); background:#fffbeb; border:1px solid #fde68a; color:#92400e; font-size:0.78rem;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          <span id="connectionAlertText">Connection interrupted. Trying to reconnect…</span>
+        </div>
+
+        <!-- Human Intervention Banner (Hidden by default) -->
+        <div class="card hidden" id="humanInterventionBanner" role="alert" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; padding:1rem 1.25rem; border-left:4px solid #f59e0b; background:#fffbeb; border-radius:var(--radius-lg);">
+          <div style="display:flex; align-items:center; gap:0.75rem;">
+            <div style="width:34px; height:34px; border-radius:50%; background:#fef3c7; color:#b45309; display:grid; place-items:center; flex-shrink:0;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            </div>
+            <div>
+              <strong style="color:#92400e; font-size:0.9rem; display:block;">Action needed in browser</strong>
+              <p style="color:#78350f; font-size:0.78rem; margin:0.15rem 0 0;" id="humanInterventionText">Replay is paused awaiting your attention on the target page.</p>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm" id="btnResumeExecution" style="background:#b45309; border-color:#b45309;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            <span>Resume Run</span>
+          </button>
+        </div>
+
+        <!-- Terminal Run Outcome Card (Hidden during active run) -->
+        <div class="card hidden" id="terminalOutcomeCard" style="padding:1.15rem 1.4rem; border-radius:var(--radius-xl); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+          <div style="display:flex; align-items:center; gap:0.85rem;">
+            <div id="terminalOutcomeIcon" style="width:40px; height:40px; border-radius:50%; display:grid; place-items:center; font-size:1.1rem; flex-shrink:0;">✓</div>
+            <div>
+              <h2 id="terminalOutcomeTitle" style="margin:0; font-size:1.15rem; font-weight:800; color:var(--text-main);">Run Completed</h2>
+              <p id="terminalOutcomeSummary" style="margin:0.25rem 0 0; font-size:0.78rem; color:var(--text-sub);"></p>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+            <button class="btn btn-secondary btn-sm" id="btnTerminalFiles">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              <span>View Files</span>
+            </button>
+            <button class="btn btn-primary btn-sm" id="btnTerminalResults">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              <span>Review Results</span>
+            </button>
+          </div>
+        </div>
+
         <!-- Hero Header -->
-        <section class="card execution-hero">
+        <section class="card execution-hero" aria-labelledby="executionTitle">
           <div>
-            <span class="eyebrow" style="color:var(--brand-forest); font-weight:800; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.08em;">Live Execution Monitor</span>
-            <h1 id="executionTitle" style="font-size:1.45rem; font-weight:800; margin:0.2rem 0; color:var(--text-main);">Workflow Execution</h1>
-            <p style="margin:0.25rem 0 0; color:var(--text-sub); font-size:0.75rem;">
-              Run <span class="mono" id="executionRunId">${escapeHtml(this.runId)}</span>
-              <span id="executionWorkflowSubtitle" style="margin-left:0.5rem;"></span>
+            <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.25rem;">
+              <span class="eyebrow" style="color:var(--brand-forest); font-weight:800; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.08em;">Live Run Monitor</span>
+              <span class="badge-tag info" id="executionModeBadge" style="font-size:0.62rem; text-transform:uppercase;">BATCH RUN</span>
+              <span class="badge-tag secondary" id="executionDomainBadge" style="display:none; font-size:0.62rem;"></span>
+            </div>
+            <h1 id="executionTitle" style="font-size:1.45rem; font-weight:800; margin:0.15rem 0; color:var(--text-main);">Workflow Run</h1>
+            <p style="margin:0.25rem 0 0; color:var(--text-sub); font-size:0.75rem; display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+              <span>Run reference <strong class="mono" id="executionRunId" style="font-weight:700;">${escapeHtml(this.runId)}</strong></span>
+              <span id="executionStartedTime" style="color:var(--text-tertiary);"></span>
+              <span id="executionPhaseBadge" style="font-weight:600; color:var(--brand-forest);"></span>
             </p>
           </div>
           <div class="execution-hero-actions">
-            <button class="btn btn-secondary btn-sm" id="btnExecutionBack" title="Return to Workflows">
+            <button class="btn btn-secondary btn-sm" id="btnExecutionBack" title="Return to Workflows library">
               <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
               <span>Workflows</span>
             </button>
-            <span class="run-status-badge queued" id="executionStatusBadge">QUEUED</span>
-            <button class="btn btn-danger btn-sm" id="btnExecutionStop" title="Halt current execution">
+            <span class="run-status-badge queued" id="executionStatusBadge" aria-live="polite">Starting</span>
+            <button class="btn btn-danger btn-sm" id="btnExecutionStop" title="Stop current run">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
-              <span>Stop Execution</span>
+              <span id="btnExecutionStopText">Stop Run</span>
             </button>
-            <button class="btn btn-primary btn-sm hidden" id="btnExecutionViewResults" title="Inspect full results and artifacts">
+            <button class="btn btn-secondary btn-sm hidden" id="btnExecutionViewFiles" title="View all files produced by this run">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              <span>Files</span>
+            </button>
+            <button class="btn btn-primary btn-sm hidden" id="btnExecutionViewResults" title="Inspect full results report">
               <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-              <span>View Results</span>
+              <span>Review Results</span>
             </button>
+          </div>
+        </section>
+
+        <!-- Current Activity Card -->
+        <section class="card" style="padding:0.85rem 1.15rem; border-radius:var(--radius-lg); display:flex; align-items:center; gap:0.85rem; border:1px solid rgba(16, 185, 129, 0.2); background:linear-gradient(90deg, #f0fdf4 0%, #ffffff 100%);" aria-live="polite">
+          <div style="width:10px; height:10px; border-radius:50%; background:#10b981; box-shadow:0 0 0 4px rgba(16, 185, 129, 0.2); flex-shrink:0; animation:pulse-step 1.4s infinite ease-in-out;" id="activityPulseDot"></div>
+          <div style="min-width:0; flex:1;">
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.06em; font-weight:800; color:var(--brand-forest); margin-bottom:0.15rem;">
+              <span>Current Activity</span>
+              <span id="activityPhaseIndicator" style="font-family:var(--font-mono); color:var(--text-sub);">Processing</span>
+            </div>
+            <strong id="activityTitle" style="font-size:0.85rem; font-weight:700; color:var(--text-main); display:block; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
+              Starting run…
+            </strong>
           </div>
         </section>
 
         <!-- Summary Metric Cards (Prominently displaying REMAINING) -->
-        <section class="execution-summary-grid">
+        <section class="execution-summary-grid" aria-label="Run progress statistics">
           <article class="stat-card" style="border-color: rgba(12, 92, 63, 0.25); background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 80%);">
             <span class="stat-label" id="executionRemainingLabel" style="color:var(--brand-forest); font-weight:700;">Remaining</span>
-            <strong id="executionRemaining" style="color:var(--brand-forest); font-size:1.6rem;">—</strong>
-            <span class="stat-meta" id="executionRemainingMeta">Queued to run</span>
+            <strong id="executionRemaining" style="color:var(--brand-forest); font-size:1.6rem;" aria-live="polite">—</strong>
+            <span class="stat-meta" id="executionRemainingMeta">Queued records</span>
           </article>
           <article class="stat-card">
             <span class="stat-label">Progress</span>
-            <strong id="executionProcessed">0 / 0</strong>
-            <span class="stat-meta" id="executionProcessedMeta">Completed</span>
+            <strong id="executionProcessed" aria-live="polite">0 / 0</strong>
+            <span class="stat-meta" id="executionProcessedMeta">Records processed</span>
           </article>
           <article class="stat-card">
-            <span class="stat-label">Passed</span>
-            <strong id="executionSucceeded" style="color:#16a34a;">0</strong>
-            <span class="stat-meta">Successful</span>
+            <span class="stat-label">Completed</span>
+            <strong id="executionSucceeded" style="color:#16a34a;" aria-live="polite">0</strong>
+            <span class="stat-meta">Successful records</span>
           </article>
           <article class="stat-card">
             <span class="stat-label">Failed</span>
-            <strong id="executionFailed" style="color:#dc2626;">0</strong>
+            <strong id="executionFailed" style="color:#dc2626;" aria-live="polite">0</strong>
             <span class="stat-meta">Errors caught</span>
           </article>
           <article class="stat-card">
-            <span class="stat-label">Skipped</span>
-            <strong id="executionSkipped" style="color:#d97706;">0</strong>
+            <span class="stat-label">Excluded</span>
+            <strong id="executionSkipped" style="color:#d97706;" aria-live="polite">0</strong>
             <span class="stat-meta" id="executionSkippedMeta">Filtered / limit / dupes</span>
           </article>
           <article class="stat-card">
-            <span class="stat-label">Downloads</span>
-            <strong id="executionDownloads">0</strong>
-            <span class="stat-meta">Artifact files</span>
+            <span class="stat-label">Files</span>
+            <strong id="executionDownloads" style="color:var(--brand-forest);" aria-live="polite">0</strong>
+            <span class="stat-meta">Generated files</span>
           </article>
         </section>
 
-        <!-- Progress Track Bar -->
+        <!-- Accessible Progress Track Bar -->
         <section class="card execution-progress-card">
           <div class="execution-progress-head">
             <div>
@@ -134,7 +287,7 @@ export const ExecutionView = {
             </div>
             <strong id="executionProgressPercent" style="font-size:1rem; color:var(--brand-forest); font-family:var(--font-mono);">0%</strong>
           </div>
-          <div class="execution-progress-track">
+          <div class="execution-progress-track" role="progressbar" id="executionProgressTrack" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Workflow run completion percentage">
             <div id="executionProgressBar" style="width:0%;"></div>
           </div>
         </section>
@@ -143,17 +296,17 @@ export const ExecutionView = {
         <div class="execution-grid">
           <!-- Left Column: Step-by-step Execution Queue -->
           <section class="card execution-steps-card">
-            <div class="card-header-row" style="margin-bottom:0.75rem;">
+            <div class="card-header-row" style="margin-bottom:0.75rem; flex-wrap:wrap; gap:0.5rem;">
               <div class="card-title-wrap">
                 <div style="display:flex; align-items:center; gap:0.5rem;">
-                  <h2 id="executionStepCardTitle" style="font-size:1.05rem; font-weight:800; color:var(--text-main);">Execution Queue</h2>
-                  <span class="badge-tag info" id="executionStepCountBadge">0 steps</span>
+                  <h2 id="executionStepCardTitle" style="font-size:1.05rem; font-weight:800; color:var(--text-main);">Run Activity</h2>
+                  <span class="badge-tag info" id="executionStepCountBadge">0 records</span>
                 </div>
-                <p id="executionStepCardDesc">Live status showing completed, active, and remaining items</p>
+                <p id="executionStepCardDesc">Live status showing completed, active, and remaining records</p>
               </div>
             </div>
-            <div class="execution-items" id="executionItems" style="max-height:460px; overflow-y:auto; padding-right:0.35rem;">
-              <div class="execution-item-empty">Loading workflow steps…</div>
+            <div class="execution-items" id="executionItems" style="max-height:460px; overflow-y:auto; padding-right:0.35rem;" role="list">
+              <div class="execution-item-empty">Loading workflow records…</div>
             </div>
           </section>
 
@@ -168,7 +321,7 @@ export const ExecutionView = {
                     <span>STREAMING</span>
                   </span>
                 </div>
-                <p>Real-time Chrome DevTools Protocol logs &amp; step replay events</p>
+                <p>Real-time execution log events &amp; record status</p>
               </div>
 
               <!-- Console Filters & Controls -->
@@ -193,13 +346,13 @@ export const ExecutionView = {
             </div>
 
             <!-- Terminal Output Window -->
-            <div class="console-terminal-wrapper" id="execConsoleLogOutput" style="height:410px; max-height:460px; overflow-y:auto;">
+            <div class="console-terminal-wrapper" id="execConsoleLogOutput" style="height:410px; max-height:460px; overflow-y:auto;" role="log" aria-live="polite">
               <!-- Live logs stream here -->
             </div>
           </section>
         </div>
 
-        <div class="execution-error hidden" id="executionError"></div>
+        <div class="execution-error hidden" id="executionError" role="alert"></div>
       </div>
     `;
 
@@ -224,16 +377,58 @@ export const ExecutionView = {
       this.router.navigate(`results/${encodeURIComponent(this.runId)}`);
     });
 
-    document.getElementById('btnExecutionStop')?.addEventListener('click', async () => {
-      const btn = document.getElementById('btnExecutionStop');
+    document.getElementById('btnTerminalResults')?.addEventListener('click', () => {
+      this.router.navigate(`results/${encodeURIComponent(this.runId)}`);
+    });
+
+    document.getElementById('btnExecutionViewFiles')?.addEventListener('click', () => {
+      this.router.navigate('artifacts');
+    });
+
+    document.getElementById('btnTerminalFiles')?.addEventListener('click', () => {
+      this.router.navigate('artifacts');
+    });
+
+    // Resume execution if paused for intervention
+    document.getElementById('btnResumeExecution')?.addEventListener('click', async () => {
+      const btn = document.getElementById('btnResumeExecution');
       if (btn) btn.disabled = true;
       try {
+        // Hide banner
+        document.getElementById('humanInterventionBanner')?.classList.add('hidden');
+        Toast.info('Resuming workflow execution…');
+        this.isPaused = false;
+        await this.refresh();
+      } catch (err) {
+        Toast.error(err.message);
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    });
+
+    // Stop execution button with confirmation
+    document.getElementById('btnExecutionStop')?.addEventListener('click', async () => {
+      if (this.isStopping) return;
+
+      if (!confirm('Are you sure you want to stop this run? Active steps will be aborted.')) {
+        return;
+      }
+
+      this.isStopping = true;
+      const btn = document.getElementById('btnExecutionStop');
+      const text = document.getElementById('btnExecutionStopText');
+      if (btn) btn.disabled = true;
+      if (text) text.textContent = 'Stopping…';
+
+      try {
         await Api.stopRun(this.runId);
-        Toast.info('Execution stop signal sent.');
+        Toast.info('Stop signal sent to run runner.');
         await this.refresh();
       } catch (e) {
         Toast.error(e.message);
         if (btn) btn.disabled = false;
+        if (text) text.textContent = 'Stop Run';
+        this.isStopping = false;
       }
     });
   },
@@ -287,10 +482,54 @@ export const ExecutionView = {
       if (this.terminalEl && this.matchesFilter(log)) {
         this.appendLogEntry(log);
       }
+      this.updateActivityFromLog(log);
+    });
+
+    // Subscribe to human intervention alert
+    if (this.unsubscribeHumanIntervention) {
+      this.unsubscribeHumanIntervention();
+      this.unsubscribeHumanIntervention = null;
+    }
+
+    this.unsubscribeHumanIntervention = SSE.on('human_intervention', (data) => {
+      this.handleHumanIntervention(data);
     });
 
     // Initial render of existing logs
     this.renderLogs();
+  },
+
+  updateActivityFromLog(log) {
+    if (!log || !log.text) return;
+    const txt = String(log.text);
+
+    if (txt.includes('Processing record') || txt.includes('Processing item')) {
+      const match = txt.match(/Processing (?:record|item)\s*(?:#|\[)?(\d+)/i);
+      const num = match ? match[1] : '';
+      this.setActivity(`Processing Record ${num ? '#' + num : ''}`, txt);
+    } else if (txt.includes('Downloading') || txt.includes('Download organized')) {
+      this.setActivity('Downloading file…', txt);
+    } else if (txt.includes('Skipping')) {
+      this.setActivity('Evaluating filters…', txt);
+    } else if (txt.includes('setup step')) {
+      this.setActivity('Executing setup steps…', txt);
+    }
+  },
+
+  setActivity(title, detail = '') {
+    const elTitle = document.getElementById('activityTitle');
+    const elInd = document.getElementById('activityPhaseIndicator');
+    if (elTitle) elTitle.textContent = title;
+    if (elInd && detail) elInd.textContent = detail.slice(0, 40);
+  },
+
+  handleHumanIntervention(data) {
+    this.isPaused = true;
+    const banner = document.getElementById('humanInterventionBanner');
+    const txt = document.getElementById('humanInterventionText');
+    if (banner) banner.classList.remove('hidden');
+    if (txt) txt.textContent = data.message || `Attention needed on step ${data.stepIndex || ''}. Please check the browser window.`;
+    this.setActivity('Action needed in browser', 'Replay is paused waiting for user action');
   },
 
   matchesFilter(log) {
@@ -320,7 +559,6 @@ export const ExecutionView = {
   appendLogEntry(log, scroll = true) {
     if (!this.terminalEl) return;
 
-    // Remove empty placeholder if present
     if (this.terminalEl.children.length === 1 && this.terminalEl.firstElementChild.style.fontStyle === 'italic') {
       this.terminalEl.innerHTML = '';
     }
@@ -345,7 +583,11 @@ export const ExecutionView = {
   startPolling() {
     this.stopPolling();
     this.timer = setInterval(() => {
-      this.refresh().catch(e => this.showError(e.message));
+      this.refresh().catch(e => {
+        this.connectionFailed = true;
+        const banner = document.getElementById('connectionAlert');
+        if (banner) banner.classList.remove('hidden');
+      });
     }, 800);
   },
 
@@ -357,24 +599,37 @@ export const ExecutionView = {
   },
 
   async refresh() {
-    const data = await Api.getRunStatus(this.runId);
+    let data;
+    try {
+      data = await Api.getRunStatus(this.runId);
+      if (this.connectionFailed) {
+        this.connectionFailed = false;
+        document.getElementById('connectionAlert')?.classList.add('hidden');
+      }
+    } catch (e) {
+      this.connectionFailed = true;
+      const banner = document.getElementById('connectionAlert');
+      if (banner) banner.classList.remove('hidden');
+      throw e;
+    }
+
+    this.lastPollData = data;
     const run = data.run || {};
     const m = run.manifest || {};
     const results = Array.isArray(m.results) ? m.results : [];
 
-    // Extract workflow steps definition (from response or manifest)
+    // Extract workflow steps definition
     if (Array.isArray(run.workflowSteps) && run.workflowSteps.length > 0) {
       this.workflowSteps = run.workflowSteps;
     }
 
     // Determine mode and labels
-    const isLoopMode = (run.mode === 'LOOP') || (m.mode === 'LOOP');
-    const unitSingular = isLoopMode ? 'item' : 'step';
-    const unitPlural = isLoopMode ? 'items' : 'steps';
-    const UnitCapital = isLoopMode ? 'Item' : 'Step';
-    const UnitsCapital = isLoopMode ? 'Items' : 'Steps';
+    const isLoopMode = (run.mode === 'LOOP') || (run.mode === 'loop') || (m.mode === 'LOOP') || (m.mode === 'loop');
+    const unitSingular = isLoopMode ? 'record' : 'step';
+    const unitPlural = isLoopMode ? 'records' : 'steps';
+    const UnitCapital = isLoopMode ? 'Record' : 'Step';
 
-    // Determine counts
+    // Discovered / Total counts
     const totalCount = isLoopMode
       ? Number(m.itemsTotal ?? run.itemsTotal ?? (results.length > 0 ? results.length : this.workflowSteps.length) ?? 0)
       : (this.workflowSteps.length > 0 ? this.workflowSteps.length : Number(m.itemsTotal ?? run.itemsTotal ?? results.length ?? 0));
@@ -389,48 +644,77 @@ export const ExecutionView = {
     const status = m.status || run.status || 'QUEUED';
     const isTerminal = terminalStates.has(status);
 
-    // Update Header
+    // Update Header Elements
     const titleEl = document.getElementById('executionTitle');
     if (titleEl) {
       const name = run.workflowName || run.workflowId || 'Workflow';
-      titleEl.textContent = `Workflow: ${name}`;
+      titleEl.textContent = name;
     }
 
-    const subEl = document.getElementById('executionWorkflowSubtitle');
-    if (subEl) {
-      subEl.textContent = `· Mode: ${isLoopMode ? 'AUTO-DISCOVERY LOOP' : 'STANDARD'}`;
+    const domainBadge = document.getElementById('executionDomainBadge');
+    if (domainBadge) {
+      const domain = extractDomain(run.targetUrl || run.url);
+      if (domain) {
+        domainBadge.textContent = domain;
+        domainBadge.style.display = 'inline-block';
+      } else {
+        domainBadge.style.display = 'none';
+      }
+    }
+
+    const modeBadge = document.getElementById('executionModeBadge');
+    if (modeBadge) {
+      modeBadge.textContent = isLoopMode ? 'Batch run (Loop)' : 'Single run';
+    }
+
+    const startedTimeEl = document.getElementById('executionStartedTime');
+    if (startedTimeEl) {
+      const started = run.startedAt || m.startTime;
+      if (started) {
+        startedTimeEl.textContent = `· Started at ${formatTime(started)}`;
+      }
+    }
+
+    const phaseBadge = document.getElementById('executionPhaseBadge');
+    if (phaseBadge) {
+      if (isTerminal) {
+        phaseBadge.textContent = '· Finished';
+      } else if (isLoopMode) {
+        phaseBadge.textContent = processed > 0 ? `· Processing record ${processed + 1} of ${totalCount}` : '· Starting records scan';
+      } else {
+        phaseBadge.textContent = `· Step ${processed + 1} of ${totalCount}`;
+      }
     }
 
     // Update Status Badge
     const badge = document.getElementById('executionStatusBadge');
     if (badge) {
-      badge.textContent = formatLabel(status);
+      const label = formatStatusLabel(status);
+      badge.textContent = label;
       badge.className = `run-status-badge ${String(status).toLowerCase()}`;
     }
 
-    // Update Metrics (REMAINING prominently highlighted)
+    // Update Metrics
     const elRemLabel = document.getElementById('executionRemainingLabel');
-    if (elRemLabel) {
-      elRemLabel.textContent = `${UnitsCapital} Remaining`;
-    }
+    if (elRemLabel) elRemLabel.textContent = `${unitPlural} Remaining`;
 
     const elRem = document.getElementById('executionRemaining');
     if (elRem) {
-      elRem.textContent = isTerminal ? '0' : String(remaining);
+      elRem.textContent = isTerminal ? '0' : (totalCount > 0 ? String(remaining) : '—');
       const remMeta = document.getElementById('executionRemainingMeta');
       if (remMeta) {
-        remMeta.textContent = isTerminal ? 'Completed' : `${remaining} ${remaining === 1 ? unitSingular : unitPlural} remaining`;
+        remMeta.textContent = isTerminal ? 'Run complete' : (totalCount > 0 ? `${remaining} remaining` : 'Calculating…');
       }
     }
 
     const elProc = document.getElementById('executionProcessed');
     if (elProc) {
-      elProc.textContent = `${processed} / ${totalCount || processed}`;
+      elProc.textContent = totalCount > 0 ? `${processed} / ${totalCount}` : (processed > 0 ? `${processed} processed` : 'Processing…');
     }
 
     const elProcMeta = document.getElementById('executionProcessedMeta');
     if (elProcMeta) {
-      elProcMeta.textContent = `${UnitsCapital} completed`;
+      elProcMeta.textContent = `${unitPlural} processed`;
     }
 
     const elSucc = document.getElementById('executionSucceeded');
@@ -450,9 +734,9 @@ export const ExecutionView = {
     const elSkipMeta = document.getElementById('executionSkippedMeta');
     if (elSkipMeta) {
       const parts = [];
-      if (filterSkipped > 0) parts.push(`${filterSkipped} filtered`);
-      if (limitSkipped > 0) parts.push(`${limitSkipped} limit`);
-      if (dupSkipped > 0) parts.push(`${dupSkipped} dupes`);
+      if (filterSkipped > 0) parts.push(`${filterSkipped} filtered out`);
+      if (limitSkipped > 0) parts.push(`${limitSkipped} limit reached`);
+      if (dupSkipped > 0) parts.push(`${dupSkipped} already processed`);
       elSkipMeta.textContent = parts.length > 0 ? parts.join(' · ') : 'Filtered / limit / dupes';
     }
 
@@ -460,46 +744,81 @@ export const ExecutionView = {
     if (elDown) elDown.textContent = files;
 
     // Update Progress Bar
+    const track = document.getElementById('executionProgressTrack');
     const elPct = document.getElementById('executionProgressPercent');
-    if (elPct) elPct.textContent = isTerminal && status === 'COMPLETED' ? '100%' : `${pct}%`;
-
     const elBar = document.getElementById('executionProgressBar');
-    if (elBar) {
-      elBar.style.width = isTerminal && status === 'COMPLETED' ? '100%' : `${pct}%`;
+
+    if (track && elBar) {
+      const progressVal = isTerminal && status === 'COMPLETED' ? 100 : pct;
+      track.setAttribute('aria-valuenow', String(progressVal));
+      elBar.style.width = `${progressVal}%`;
+      if (elPct) elPct.textContent = `${progressVal}%`;
+
       if (status === 'COMPLETED') elBar.style.backgroundColor = '#16a34a';
       else if (status === 'FAILED') elBar.style.backgroundColor = '#dc2626';
+      else if (status === 'COMPLETED_WITH_ERRORS') elBar.style.backgroundColor = '#f59e0b';
       else elBar.style.backgroundColor = 'var(--brand-forest)';
     }
 
     const elProgLabel = document.getElementById('executionProgressLabel');
     if (elProgLabel) {
       if (isTerminal) {
-        elProgLabel.textContent = status === 'COMPLETED'
-          ? (isLoopMode ? 'All Discovered Items Processed Successfully!' : 'Execution Finished Successfully!')
-          : `Execution Finished: ${formatLabel(status)}`;
+        if (status === 'COMPLETED') {
+          elProgLabel.textContent = `All ${totalCount} ${unitPlural} processed successfully!`;
+        } else if (status === 'COMPLETED_WITH_ERRORS') {
+          elProgLabel.textContent = `Run completed with ${fail} error(s).`;
+        } else if (status === 'STOPPED') {
+          elProgLabel.textContent = 'Run stopped.';
+        } else {
+          elProgLabel.textContent = `Run failed: ${formatStatusLabel(status)}`;
+        }
       } else if (processed > 0) {
         elProgLabel.textContent = `Processing ${UnitCapital} ${processed + 1} of ${totalCount} (${remaining} remaining)`;
+      } else if (totalCount > 0) {
+        elProgLabel.textContent = `Starting ${isLoopMode ? 'batch run' : 'workflow'} (${totalCount} ${totalCount === 1 ? unitSingular : unitPlural} queued)…`;
       } else {
-        elProgLabel.textContent = `Starting ${isLoopMode ? 'auto-discovery loop' : 'execution'} (${totalCount} ${totalCount === 1 ? unitSingular : unitPlural} queued)…`;
+        elProgLabel.textContent = 'Processing records…';
       }
     }
 
     const elProgDetail = document.getElementById('executionProgressDetail');
     if (elProgDetail) {
-      let skipDetail = '';
-      if (skippedCount > 0) {
-        const skipParts = [];
-        if (filterSkipped > 0) skipParts.push(`${filterSkipped} filtered out`);
-        if (limitSkipped > 0) skipParts.push(`${limitSkipped} limit capped`);
-        if (dupSkipped > 0) skipParts.push(`${dupSkipped} dupes`);
-        skipDetail = skipParts.length > 0 ? ` · ${skipParts.join(', ')}` : ` · ${skippedCount} skipped`;
+      if (isTerminal) {
+        elProgDetail.textContent = `${ok} completed · ${fail} failed · ${skippedCount} excluded · ${files} file(s) generated`;
+      } else if (totalCount > 0) {
+        elProgDetail.textContent = `${ok} completed · ${fail} failed · ${remaining} remaining`;
+      } else {
+        elProgDetail.textContent = 'Running automation steps…';
       }
-      elProgDetail.textContent = totalCount > 0
-        ? `${ok} succeeded · ${fail} failed${skipDetail} · ${remaining} ${remaining === 1 ? unitSingular : unitPlural} remaining`
-        : 'Running workflow automation…';
     }
 
-    // Update Step/Item Count Badge and Titles
+    // Update Current Activity Card
+    const activityTitle = document.getElementById('activityTitle');
+    const activityIndicator = document.getElementById('activityPhaseIndicator');
+    const pulseDot = document.getElementById('activityPulseDot');
+
+    if (activityTitle) {
+      if (isTerminal) {
+        activityTitle.textContent = status === 'COMPLETED' ? 'Run finished successfully.' : `Run ended: ${formatStatusLabel(status)}`;
+        if (activityIndicator) activityIndicator.textContent = 'Completed';
+        if (pulseDot) {
+          pulseDot.style.animation = 'none';
+          pulseDot.style.backgroundColor = status === 'COMPLETED' ? '#16a34a' : (status === 'STOPPED' ? '#ea580c' : '#dc2626');
+        }
+      } else {
+        // Find current running item
+        const runningItem = results.find(r => r.status === 'RUNNING' || r.status === 'PENDING');
+        if (runningItem) {
+          activityTitle.textContent = runningItem.label ? `Processing Record ${runningItem.label}…` : `Processing Record #${runningItem.index}…`;
+          if (activityIndicator) activityIndicator.textContent = 'Active Step';
+        } else if (processed > 0 && processed < totalCount) {
+          activityTitle.textContent = `Processing Record #${processed + 1}…`;
+          if (activityIndicator) activityIndicator.textContent = 'In Progress';
+        }
+      }
+    }
+
+    // Step/Item Count Badge and Titles
     const countBadge = document.getElementById('executionStepCountBadge');
     if (countBadge) {
       countBadge.textContent = `${totalCount} ${totalCount === 1 ? unitSingular : unitPlural}`;
@@ -507,14 +826,7 @@ export const ExecutionView = {
 
     const queueTitle = document.getElementById('executionStepCardTitle');
     if (queueTitle) {
-      queueTitle.textContent = isLoopMode ? 'Collection Loop Queue' : 'Step Execution Queue';
-    }
-
-    const queueDesc = document.getElementById('executionStepCardDesc');
-    if (queueDesc) {
-      queueDesc.textContent = isLoopMode
-        ? 'Live status showing completed, active, and remaining discovered items'
-        : 'Live status showing completed, active, and remaining workflow steps';
+      queueTitle.textContent = isLoopMode ? 'Batch Record Activity' : 'Step Activity';
     }
 
     // Determine loopStepIndex
@@ -538,8 +850,59 @@ export const ExecutionView = {
     }
 
     const btnResults = document.getElementById('btnExecutionViewResults');
-    if (btnResults && isTerminal) {
-      btnResults.classList.remove('hidden');
+    const btnFiles = document.getElementById('btnExecutionViewFiles');
+    if (btnResults && isTerminal) btnResults.classList.remove('hidden');
+    if (btnFiles && isTerminal && files > 0) btnFiles.classList.remove('hidden');
+
+    // Terminal Outcome Card Display
+    const outcomeCard = document.getElementById('terminalOutcomeCard');
+    if (outcomeCard && isTerminal) {
+      outcomeCard.classList.remove('hidden');
+      const oIcon = document.getElementById('terminalOutcomeIcon');
+      const oTitle = document.getElementById('terminalOutcomeTitle');
+      const oSummary = document.getElementById('terminalOutcomeSummary');
+
+      if (status === 'COMPLETED') {
+        outcomeCard.style.borderLeft = '4px solid #16a34a';
+        outcomeCard.style.background = '#f0fdf4';
+        if (oIcon) {
+          oIcon.style.background = '#dcfce7';
+          oIcon.style.color = '#15803d';
+          oIcon.textContent = '✓';
+        }
+        if (oTitle) oTitle.textContent = 'Run completed successfully';
+        if (oSummary) oSummary.textContent = `All ${totalCount} records processed without errors. ${files} files generated.`;
+      } else if (status === 'COMPLETED_WITH_ERRORS') {
+        outcomeCard.style.borderLeft = '4px solid #f59e0b';
+        outcomeCard.style.background = '#fffbeb';
+        if (oIcon) {
+          oIcon.style.background = '#fef3c7';
+          oIcon.style.color = '#b45309';
+          oIcon.textContent = '⚠️';
+        }
+        if (oTitle) oTitle.textContent = 'Run completed with some errors';
+        if (oSummary) oSummary.textContent = `${ok} records succeeded, ${fail} failed. ${files} files were produced.`;
+      } else if (status === 'STOPPED') {
+        outcomeCard.style.borderLeft = '4px solid #ea580c';
+        outcomeCard.style.background = '#fff7ed';
+        if (oIcon) {
+          oIcon.style.background = '#ffedd5';
+          oIcon.style.color = '#c2410c';
+          oIcon.textContent = '■';
+        }
+        if (oTitle) oTitle.textContent = 'Run stopped';
+        if (oSummary) oSummary.textContent = `Halted by user. ${processed} records were processed before stopping.`;
+      } else {
+        outcomeCard.style.borderLeft = '4px solid #dc2626';
+        outcomeCard.style.background = '#fef2f2';
+        if (oIcon) {
+          oIcon.style.background = '#fee2e2';
+          oIcon.style.color = '#b91c1c';
+          oIcon.textContent = '✗';
+        }
+        if (oTitle) oTitle.textContent = 'Run failed';
+        if (oSummary) oSummary.textContent = run.error || m.error || 'Execution encountered an error and could not complete.';
+      }
     }
 
     // Handle terminal status
@@ -549,7 +912,7 @@ export const ExecutionView = {
       const liveBadge = document.getElementById('execConsoleLiveBadge');
       if (liveBadge) {
         liveBadge.className = 'badge-tag success';
-        liveBadge.innerHTML = `<span>FINISHED (${escapeHtml(status)})</span>`;
+        liveBadge.innerHTML = `<span>FINISHED</span>`;
       }
     }
   },
@@ -569,7 +932,7 @@ export const ExecutionView = {
     const count = Math.max(totalCount, results.length);
 
     if (count === 0 && (!this.workflowSteps || this.workflowSteps.length === 0)) {
-      list.innerHTML = `<div class="execution-item-empty">Waiting for runner to initialize…</div>`;
+      list.innerHTML = `<div class="execution-item-empty">Waiting for run to initialize…</div>`;
       return;
     }
 
@@ -598,8 +961,8 @@ export const ExecutionView = {
         const setupStateLabel = setupDone ? 'Completed' : (overallStatus === 'FAILED' ? 'Failed' : 'Running');
 
         rows.push(`
-          <div class="execution-item-row ${setupState}" style="border-left: 3px solid #64748b;">
-            <span class="execution-item-icon">${setupIcon}</span>
+          <div class="execution-item-row ${setupState}" style="border-left: 3px solid #64748b;" role="listitem">
+            <span class="execution-item-icon" aria-hidden="true">${setupIcon}</span>
             <div class="execution-item-copy">
               <div style="display:flex; align-items:center; gap:0.4rem;">
                 <strong>Step #${s + 1}</strong>
@@ -615,7 +978,7 @@ export const ExecutionView = {
 
       rows.push(`
         <div style="font-size:0.72rem; font-weight:800; color:var(--brand-forest); text-transform:uppercase; letter-spacing:0.06em; padding:0.75rem 0.2rem 0.2rem; display:flex; align-items:center; gap:0.4rem;">
-          <span>🔁 Collection Loop Phase (${count} discovered item${count === 1 ? '' : 's'})</span>
+          <span>🔁 Batch Run Phase (${count} record${count === 1 ? '' : 's'})</span>
         </div>
       `);
     }
@@ -623,33 +986,30 @@ export const ExecutionView = {
     for (let i = 1; i <= count; i++) {
       const res = resultMap.get(i);
       let titleLabel = '';
-      let badgeLabel = '';
       let targetDetail = '';
 
       if (isLoopMode) {
-        titleLabel = (res && res.label) ? `Item #${i} · ${escapeHtml(res.label)}` : `Item #${i}`;
-        badgeLabel = 'LOOP ROW';
+        titleLabel = (res && res.label) ? `Record #${i} · ${escapeHtml(res.label)}` : `Record #${i}`;
         if (res && res.status === 'SKIPPED_FILTER') {
-          targetDetail = res.skippedReason ? `Filter skipped: ${res.skippedReason}` : 'Skipped by record filter condition';
+          targetDetail = res.skippedReason ? `Filtered out: ${res.skippedReason}` : 'Excluded by record filter conditions';
         } else if (res && res.status === 'SKIPPED_LIMIT') {
-          targetDetail = res.skippedReason ? `Limit skipped: ${res.skippedReason}` : 'Skipped: reached maximum loop item limit';
+          targetDetail = res.skippedReason ? `Limit reached: ${res.skippedReason}` : 'Limit reached: Maximum records capped';
         } else if (res && res.status === 'SKIPPED_DUPLICATE') {
-          targetDetail = res.skippedReason || 'Skipped duplicate: already downloaded';
+          targetDetail = res.skippedReason || 'Already processed: duplicate download skipped';
         } else if (res && Array.isArray(res.downloadedFiles) && res.downloadedFiles.length > 0) {
-          targetDetail = `Downloaded: ${res.downloadedFiles.map(f => typeof f === 'string' ? f : f.filename).join(', ')}`;
+          targetDetail = `File produced: ${res.downloadedFiles.map(f => typeof f === 'string' ? f : f.filename).join(', ')}`;
         } else if (res && Array.isArray(res.actions)) {
-          targetDetail = `Executed ${res.actions.length} action(s) on row #${i}`;
+          targetDetail = `Completed ${res.actions.length} action(s) on record`;
         } else {
-          targetDetail = `Discovered repeating collection item #${i}`;
+          targetDetail = `Record #${i}`;
         }
       } else {
         const stepDef = this.workflowSteps[i - 1] || {};
         const stepFriendly = (res && (res.elementName || res.name)) || stepDef.elementName || stepDef.name || stepDef.target?.elementName || '';
         titleLabel = stepFriendly ? `Step #${i} · ${escapeHtml(stepFriendly)}` : `Step #${i}`;
-        badgeLabel = (res && res.type) || stepDef.type || stepDef.action || 'STEP';
         targetDetail = (stepDef.value)
           ? `Input: "${stepDef.value}"`
-          : (stepDef.url ? `URL: ${stepDef.url}` : (stepFriendly ? `${badgeLabel} on ${stepFriendly}` : (stepDef.selector ? `Target: ${stepDef.selector}` : '')));
+          : (stepDef.url ? `URL: ${stepDef.url}` : (stepFriendly ? `${stepDef.type || 'Action'} on ${stepFriendly}` : (stepDef.selector ? `Target: ${stepDef.selector}` : '')));
       }
 
       let state = 'remaining';
@@ -658,36 +1018,12 @@ export const ExecutionView = {
       let errorText = '';
 
       if (res) {
-        const s = String(res.status || '').toUpperCase();
-        if (s === 'SUCCESS') {
-          state = 'success';
-          icon = '✓';
-          stateLabel = 'Completed';
-        } else if (s === 'SKIPPED_FILTER') {
-          state = 'skipped-filter';
-          icon = '⊘';
-          stateLabel = 'Filtered Out';
-        } else if (s === 'SKIPPED_LIMIT') {
-          state = 'skipped-limit';
-          icon = '⇥';
-          stateLabel = 'Limit Excluded';
-        } else if (s === 'SKIPPED_DUPLICATE') {
-          state = 'skipped';
-          icon = '↷';
-          stateLabel = 'Skipped (Duplicate)';
-        } else if (s === 'FAILED') {
-          state = 'failed';
-          icon = '✗';
-          stateLabel = 'Failed';
-          errorText = res.error ? ` — ${escapeHtml(res.error)}` : '';
-        } else if (s === 'STOPPED') {
-          state = 'stopped';
-          icon = '■';
-          stateLabel = 'Stopped';
-        } else if (s === 'PENDING') {
-          state = 'pending';
-          icon = '⟳';
-          stateLabel = 'Running';
+        const formatted = formatRecordStatus(res.status);
+        state = formatted.cls;
+        icon = formatted.icon;
+        stateLabel = formatted.label;
+        if (res.status === 'FAILED' && res.error) {
+          errorText = ` — ${escapeHtml(res.error)}`;
         }
       } else if (!isTerminal && i === results.length + 1) {
         state = 'pending';
@@ -696,28 +1032,30 @@ export const ExecutionView = {
       } else if (isTerminal) {
         state = 'stopped';
         icon = '—';
-        stateLabel = 'Not Reached';
+        stateLabel = 'Not reached';
       }
 
-      let filterBadge = '';
-      if (res && res.status === 'SKIPPED_FILTER') {
-        filterBadge = `<span class="badge-tag warning" style="font-size:0.6rem; padding:1px 5px; background:#fef3c7; color:#b45309; font-weight:700;">SKIPPED FILTER</span>`;
-      } else if (res && res.status === 'SKIPPED_LIMIT') {
-        filterBadge = `<span class="badge-tag secondary" style="font-size:0.6rem; padding:1px 5px; background:#e2e8f0; color:#475569; font-weight:700;">SKIPPED LIMIT</span>`;
-      } else if (res && res.status === 'SKIPPED_DUPLICATE') {
-        filterBadge = `<span class="badge-tag warning" style="font-size:0.6rem; padding:1px 5px; background:#fef3c7; color:#b45309; font-weight:700;">DUPLICATE</span>`;
+      // Check if file was produced
+      let fileBadge = '';
+      if (res && Array.isArray(res.downloadedFiles) && res.downloadedFiles.length > 0) {
+        const firstFile = typeof res.downloadedFiles[0] === 'string' ? { filename: res.downloadedFiles[0] } : res.downloadedFiles[0];
+        fileBadge = `
+          <div style="margin-top:0.3rem; display:inline-flex; align-items:center; gap:0.4rem; padding:0.15rem 0.5rem; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:4px; font-size:0.68rem; color:#065f46;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+            <strong style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(firstFile.filename)}</strong>
+          </div>
+        `;
       }
 
       rows.push(`
-        <div class="execution-item-row ${state}">
-          <span class="execution-item-icon">${icon}</span>
+        <div class="execution-item-row ${state}" role="listitem">
+          <span class="execution-item-icon" aria-hidden="true">${icon}</span>
           <div class="execution-item-copy">
             <div style="display:flex; align-items:center; gap:0.4rem;">
               <strong>${escapeHtml(titleLabel)}</strong>
-              <span class="badge-tag info" style="font-size:0.6rem; padding:1px 5px;">${escapeHtml(badgeLabel)}</span>
-              ${filterBadge}
             </div>
-            <span>${escapeHtml(targetDetail || titleLabel)}${errorText}</span>
+            <span>${escapeHtml(targetDetail)}${errorText}</span>
+            ${fileBadge}
           </div>
           <span class="execution-item-status status-${state}">${stateLabel}</span>
         </div>
@@ -730,7 +1068,7 @@ export const ExecutionView = {
   showError(message) {
     const b = document.getElementById('executionError');
     if (b) {
-      b.textContent = message || 'Unable to load execution status.';
+      b.textContent = message || 'Unable to load run status.';
       b.classList.remove('hidden');
     }
   },
@@ -740,6 +1078,10 @@ export const ExecutionView = {
     if (this.unsubscribeSSE) {
       this.unsubscribeSSE();
       this.unsubscribeSSE = null;
+    }
+    if (this.unsubscribeHumanIntervention) {
+      this.unsubscribeHumanIntervention();
+      this.unsubscribeHumanIntervention = null;
     }
   }
 };

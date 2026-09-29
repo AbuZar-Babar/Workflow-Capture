@@ -1,5 +1,7 @@
 /**
- * Workflow Capture — Extracted Artifacts & Scraped Data Vault
+ * Workflow Capture — Generated Files Vault
+ * Modernized for UI-5: SaaS-grade file management, complete provenance & traceability
+ * (workflow, run, record origin), instant search & categorization, and robust previews.
  */
 
 import { Api } from '../api.js';
@@ -56,9 +58,11 @@ function getFileType(filename) {
 export const ArtifactsView = {
   activeFilter: 'all',
   searchQuery: '',
-  artifacts: [],
+  files: [],
   workflows: [],
   isLoading: false,
+  router: null,
+  previousActiveElement: null,
 
   async render(container, router) {
     this.router = router;
@@ -69,20 +73,20 @@ export const ArtifactsView = {
         <div class="workflows-header-controls card" style="padding:1.25rem 1.5rem; border-radius:var(--radius-xl); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
           <div>
             <div style="display:flex; align-items:center; gap:0.65rem;">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--brand-forest);"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-              <h2 style="font-size:1.25rem; font-weight:800; color:var(--text-main); letter-spacing:-0.02em;">Scraped Data & Artifacts Vault</h2>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--brand-forest);"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+              <h2 style="font-size:1.25rem; font-weight:800; color:var(--text-main); letter-spacing:-0.02em;">Generated Files</h2>
             </div>
-            <p style="font-size:0.75rem; color:var(--text-sub); margin-top:0.2rem;">Collected documents, spreadsheets, PDFs, and extraction manifests from automated loop runs</p>
+            <p style="font-size:0.75rem; color:var(--text-sub); margin-top:0.2rem;">Collected documents, spreadsheets, PDFs, and files produced by workflow runs</p>
           </div>
 
           <div style="display:flex; align-items:center; gap:0.75rem;">
-            <button class="btn btn-secondary btn-sm" id="btnExportAllArtifacts" title="Download all captured artifacts as a consolidated ZIP file">
+            <button class="btn btn-secondary btn-sm" id="btnExportAllFiles" title="Download all captured files as a consolidated ZIP package">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
               <span>Export All ZIP</span>
             </button>
-            <button class="btn btn-primary btn-sm" id="btnRefreshArtifacts" title="Reload artifacts vault from storage">
+            <button class="btn btn-primary btn-sm" id="btnRefreshFiles" title="Reload files vault from storage">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-              <span>Refresh Vault</span>
+              <span>Refresh Files</span>
             </button>
           </div>
         </div>
@@ -92,11 +96,11 @@ export const ArtifactsView = {
           
           <div class="card" style="padding:1rem 1.25rem; border-radius:var(--radius-lg);">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-size:0.72rem; font-weight:700; color:var(--text-sub); text-transform:uppercase;">Total Artifacts</span>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--brand-forest);"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+              <span style="font-size:0.72rem; font-weight:700; color:var(--text-sub); text-transform:uppercase;">Total Files</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--brand-forest);"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
             </div>
-            <p style="font-size:1.5rem; font-weight:800; color:var(--text-main); margin-top:0.35rem;" id="statTotalArtifacts">—</p>
-            <small style="font-size:0.68rem; color:var(--brand-forest); font-weight:600;">Persisted with SHA-256 integrity</small>
+            <p style="font-size:1.5rem; font-weight:800; color:var(--text-main); margin-top:0.35rem;" id="statTotalFiles">—</p>
+            <small style="font-size:0.68rem; color:var(--brand-forest); font-weight:600;">Indexed with SHA-256 integrity</small>
           </div>
 
           <div class="card" style="padding:1rem 1.25rem; border-radius:var(--radius-lg);">
@@ -110,11 +114,11 @@ export const ArtifactsView = {
 
           <div class="card" style="padding:1rem 1.25rem; border-radius:var(--radius-lg);">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-size:0.72rem; font-weight:700; color:var(--text-sub); text-transform:uppercase;">Origin Workflows</span>
+              <span style="font-size:0.72rem; font-weight:700; color:var(--text-sub); text-transform:uppercase;">Workflows</span>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--brand-forest);"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
             </div>
             <p style="font-size:1.5rem; font-weight:800; color:var(--text-main); margin-top:0.35rem;" id="statTotalWorkflows">—</p>
-            <small style="font-size:0.68rem; color:var(--brand-forest); font-weight:600;">Active automated pipelines</small>
+            <small style="font-size:0.68rem; color:var(--brand-forest); font-weight:600;">Workflows producing files</small>
           </div>
 
           <div class="card" style="padding:1rem 1.25rem; border-radius:var(--radius-lg);">
@@ -132,18 +136,18 @@ export const ArtifactsView = {
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
           
           <div class="nav-pills" style="display:flex; gap:0.35rem; padding:0.3rem; border-radius:var(--radius-pill); flex-wrap:wrap;">
-            <button class="nav-pill-link active filter-btn" data-filter="all">All Formats (<span id="countAll">0</span>)</button>
+            <button class="nav-pill-link active filter-btn" data-filter="all">All Files (<span id="countAll">0</span>)</button>
             <button class="nav-pill-link filter-btn" data-filter="document" style="display:inline-flex; align-items:center; gap:0.35rem;">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
               <span>PDFs &amp; Docs (<span id="countDocs">0</span>)</span>
             </button>
             <button class="nav-pill-link filter-btn" data-filter="dataset" style="display:inline-flex; align-items:center; gap:0.35rem;">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
-              <span>CSV &amp; Excel (<span id="countDatasets">0</span>)</span>
+              <span>Spreadsheets (<span id="countDatasets">0</span>)</span>
             </button>
             <button class="nav-pill-link filter-btn" data-filter="json" style="display:inline-flex; align-items:center; gap:0.35rem;">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>
-              <span>JSON Data (<span id="countJson">0</span>)</span>
+              <span>Data (JSON) (<span id="countJson">0</span>)</span>
             </button>
             <button class="nav-pill-link filter-btn" data-filter="media" style="display:inline-flex; align-items:center; gap:0.35rem;">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
@@ -155,31 +159,31 @@ export const ArtifactsView = {
             <span class="search-icon-pos" style="display:flex; align-items:center;">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
             </span>
-            <input type="text" id="inputSearchArtifacts" class="form-control" placeholder="Search files, workflows, item keys, hashes...">
+            <input type="text" id="inputSearchFiles" class="form-control" placeholder="Search files, records, workflows, runs…">
           </div>
 
         </div>
 
-        <!-- Artifacts Table Card -->
+        <!-- Files Table Card -->
         <div class="card" style="border-radius:var(--radius-xl); padding:1.25rem;">
           <div class="table-responsive">
-            <table class="quixotic-table">
+            <table class="quixotic-table" aria-label="Generated files vault">
               <thead>
                 <tr>
-                  <th>File Name &amp; Item</th>
-                  <th>Origin Workflow</th>
+                  <th>File Name &amp; Record</th>
+                  <th>Workflow &amp; Run</th>
                   <th>Format &amp; Size</th>
-                  <th>SHA-256 Checksum</th>
-                  <th>Extraction Time</th>
+                  <th>Checksum</th>
+                  <th>Saved Time</th>
                   <th>Status</th>
                   <th style="text-align:right;">Actions</th>
                 </tr>
               </thead>
-              <tbody id="artifactsTableBody">
+              <tbody id="filesTableBody">
                 <tr>
                   <td colspan="7" style="text-align:center; padding:2.5rem; color:var(--text-sub);">
                     <div class="discovery-spinner" style="margin:0 auto 0.75rem auto;"></div>
-                    Loading artifacts vault…
+                    Loading files vault…
                   </td>
                 </tr>
               </tbody>
@@ -189,24 +193,23 @@ export const ArtifactsView = {
 
       </div>
 
-      <!-- Preview Modal -->
-      <div id="artifactPreviewModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="previewModalTitle">
+      <!-- File Preview Modal -->
+      <div id="filePreviewModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="filePreviewModalTitle">
         <div class="modal-dialog" style="max-width:880px; width:95%; max-height:90vh; display:flex; flex-direction:column;">
           <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center;">
             <div>
-              <h3 id="previewModalTitle" style="margin:0; font-size:1.1rem; font-weight:800; color:var(--text-main);">Artifact Preview</h3>
-              <p id="previewModalSubtitle" style="margin:0.2rem 0 0 0; font-size:0.75rem; color:var(--text-sub); font-family:var(--font-mono);"></p>
+              <h3 id="filePreviewModalTitle" style="margin:0; font-size:1.1rem; font-weight:800; color:var(--text-main);">File Preview</h3>
+              <p id="filePreviewModalSubtitle" style="margin:0.2rem 0 0 0; font-size:0.75rem; color:var(--text-sub); font-family:var(--font-mono);"></p>
             </div>
             <div style="display:flex; align-items:center; gap:0.5rem;">
-              <button class="btn btn-secondary btn-sm" id="btnPreviewDownload">
+              <button class="btn btn-secondary btn-sm" id="btnFilePreviewDownload">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                 <span>Download</span>
               </button>
-              <button class="btn btn-secondary btn-sm" id="btnPreviewClose">✕</button>
+              <button class="btn btn-secondary btn-sm" id="btnFilePreviewClose">✕</button>
             </div>
           </div>
-          <div class="modal-body" id="previewModalBody" style="padding:1.25rem; overflow-y:auto; flex:1; min-height:300px; max-height:calc(90vh - 120px);">
-            <!-- Dynamic Preview Content -->
+          <div class="modal-body" id="filePreviewModalBody" style="padding:1.25rem; overflow-y:auto; flex:1; min-height:300px; max-height:calc(90vh - 120px);">
           </div>
         </div>
       </div>
@@ -217,7 +220,7 @@ export const ArtifactsView = {
   },
 
   bindEvents(router) {
-    const inputSearch = document.getElementById('inputSearchArtifacts');
+    const inputSearch = document.getElementById('inputSearchFiles');
     if (inputSearch) {
       inputSearch.oninput = (e) => {
         this.searchQuery = e.target.value.toLowerCase().trim();
@@ -235,31 +238,31 @@ export const ArtifactsView = {
       };
     });
 
-    const btnRefresh = document.getElementById('btnRefreshArtifacts');
+    const btnRefresh = document.getElementById('btnRefreshFiles');
     if (btnRefresh) {
       btnRefresh.onclick = async () => {
         btnRefresh.classList.add('btn-loading');
-        Toast.info('Refreshing artifacts vault...');
+        Toast.info('Refreshing files vault…');
         await this.loadData();
         btnRefresh.classList.remove('btn-loading');
-        Toast.success('Artifacts vault is up-to-date!');
+        Toast.success('Files vault is up-to-date!');
       };
     }
 
-    const btnExport = document.getElementById('btnExportAllArtifacts');
+    const btnExport = document.getElementById('btnExportAllFiles');
     if (btnExport) {
       btnExport.onclick = async () => {
-        if (!this.artifacts.length) {
-          Toast.warning('No artifacts available to export.');
+        if (!this.files.length) {
+          Toast.warning('No files available to export.');
           return;
         }
         try {
           btnExport.classList.add('btn-loading');
-          Toast.info('Preparing consolidated ZIP package...');
+          Toast.info('Preparing consolidated ZIP package…');
           await Api.exportDownloads();
           Toast.success('Consolidated archive downloaded successfully!');
         } catch (err) {
-          Toast.error(err.message || 'Failed to export artifacts');
+          Toast.error(err.message || 'Failed to export files');
         } finally {
           btnExport.classList.remove('btn-loading');
         }
@@ -274,15 +277,31 @@ export const ArtifactsView = {
       };
     }
 
-    // Modal close events
-    const modal = document.getElementById('artifactPreviewModal');
-    const btnClose = document.getElementById('btnPreviewClose');
-    if (btnClose && modal) {
-      btnClose.onclick = () => modal.classList.add('hidden');
+    // Modal close events with focus restoration
+    const modal = document.getElementById('filePreviewModal');
+    const btnClose = document.getElementById('btnFilePreviewClose');
+    const closeModal = () => {
+      if (!modal) return;
+      modal.classList.add('hidden');
+      if (this.previousActiveElement && typeof this.previousActiveElement.focus === 'function') {
+        this.previousActiveElement.focus();
+        this.previousActiveElement = null;
+      }
+    };
+
+    if (btnClose) btnClose.onclick = closeModal;
+    if (modal) {
       modal.onclick = (e) => {
-        if (e.target === modal) modal.classList.add('hidden');
+        if (e.target === modal) closeModal();
       };
     }
+
+    // Escape key closes modal
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modal && !modal.classList.contains('hidden')) {
+        closeModal();
+      }
+    });
   },
 
   async loadData() {
@@ -302,8 +321,8 @@ export const ArtifactsView = {
         if (r.name) wfMap.set(r.name, r.name);
       });
 
-      this.artifacts = rawDownloads.map(d => {
-        const fname = d.filename || d.originalFilename || 'artifact';
+      this.files = rawDownloads.map(d => {
+        const fname = d.filename || d.originalFilename || 'file';
         const type = getFileType(fname);
         const category = getFileCategory(fname);
         return {
@@ -320,7 +339,7 @@ export const ArtifactsView = {
           runId: d.runId || '—',
           itemKey: d.itemKey || '',
           itemLabel: d.itemLabel || '',
-          sha256: d.sha256 || '',
+          sha256: d.sha256 || d.fileHash || '',
           downloadedAt: d.downloadedAt || '',
           formattedDate: formatDate(d.downloadedAt),
           fileExists: d.fileExists !== false
@@ -331,20 +350,20 @@ export const ArtifactsView = {
       this.updateCounts();
       this.renderTable();
     } catch (err) {
-      console.error('[Artifacts] Load error:', err);
-      Toast.error('Failed to load artifacts: ' + err.message);
-      const tbody = document.getElementById('artifactsTableBody');
+      console.error('[Files] Load error:', err);
+      Toast.error('Failed to load files: ' + err.message);
+      const tbody = document.getElementById('filesTableBody');
       if (tbody) {
         tbody.innerHTML = `
           <tr>
             <td colspan="7" style="text-align:center; padding:2.5rem; color:var(--text-sub);">
-              <p style="color:#ef4444; font-weight:700;">Unable to load artifacts</p>
+              <p style="color:#ef4444; font-weight:700;">Unable to load files</p>
               <p style="font-size:0.75rem; color:var(--text-sub); margin-top:0.25rem;">${esc(err.message)}</p>
-              <button class="btn btn-secondary btn-sm" id="btnRetryArtifacts" style="margin-top:0.75rem;">Retry</button>
+              <button class="btn btn-secondary btn-sm" id="btnRetryFiles" style="margin-top:0.75rem;">Retry</button>
             </td>
           </tr>
         `;
-        document.getElementById('btnRetryArtifacts')?.addEventListener('click', () => this.loadData());
+        document.getElementById('btnRetryFiles')?.addEventListener('click', () => this.loadData());
       }
     } finally {
       this.isLoading = false;
@@ -352,15 +371,15 @@ export const ArtifactsView = {
   },
 
   updateMetrics() {
-    const elTotal = document.getElementById('statTotalArtifacts');
+    const elTotal = document.getElementById('statTotalFiles');
     const elSize = document.getElementById('statTotalSize');
     const elWf = document.getElementById('statTotalWorkflows');
 
     if (!elTotal) return;
 
-    const totalCount = this.artifacts.length;
-    const totalBytes = this.artifacts.reduce((acc, a) => acc + (a.sizeBytes || 0), 0);
-    const uniqueWfs = new Set(this.artifacts.map(a => a.workflowName).filter(Boolean)).size;
+    const totalCount = this.files.length;
+    const totalBytes = this.files.reduce((acc, a) => acc + (a.sizeBytes || 0), 0);
+    const uniqueWfs = new Set(this.files.map(a => a.workflowName).filter(Boolean)).size;
 
     elTotal.textContent = `${totalCount} ${totalCount === 1 ? 'File' : 'Files'}`;
     elSize.textContent = formatBytes(totalBytes);
@@ -376,42 +395,42 @@ export const ArtifactsView = {
 
     if (!countAll) return;
 
-    countAll.textContent = this.artifacts.length;
-    countDocs.textContent = this.artifacts.filter(a => a.category === 'document').length;
-    countDatasets.textContent = this.artifacts.filter(a => a.category === 'dataset').length;
-    countJson.textContent = this.artifacts.filter(a => a.category === 'json').length;
-    countMedia.textContent = this.artifacts.filter(a => a.category === 'media').length;
+    countAll.textContent = this.files.length;
+    countDocs.textContent = this.files.filter(a => a.category === 'document').length;
+    countDatasets.textContent = this.files.filter(a => a.category === 'dataset').length;
+    countJson.textContent = this.files.filter(a => a.category === 'json').length;
+    countMedia.textContent = this.files.filter(a => a.category === 'media').length;
   },
 
   renderTable() {
-    const tbody = document.getElementById('artifactsTableBody');
+    const tbody = document.getElementById('filesTableBody');
     if (!tbody) return;
 
-    let filtered = this.artifacts.filter(art => {
-      const matchesFilter = this.activeFilter === 'all' || art.category === this.activeFilter;
+    let filtered = this.files.filter(f => {
+      const matchesFilter = this.activeFilter === 'all' || f.category === this.activeFilter;
       const matchesSearch = !this.searchQuery || 
-        art.name.toLowerCase().includes(this.searchQuery) ||
-        art.originalName.toLowerCase().includes(this.searchQuery) ||
-        art.workflowName.toLowerCase().includes(this.searchQuery) ||
-        art.itemKey.toLowerCase().includes(this.searchQuery) ||
-        art.itemLabel.toLowerCase().includes(this.searchQuery) ||
-        art.sha256.toLowerCase().includes(this.searchQuery) ||
-        art.runId.toLowerCase().includes(this.searchQuery) ||
-        art.type.toLowerCase().includes(this.searchQuery);
+        f.name.toLowerCase().includes(this.searchQuery) ||
+        f.originalName.toLowerCase().includes(this.searchQuery) ||
+        f.workflowName.toLowerCase().includes(this.searchQuery) ||
+        f.itemKey.toLowerCase().includes(this.searchQuery) ||
+        f.itemLabel.toLowerCase().includes(this.searchQuery) ||
+        f.sha256.toLowerCase().includes(this.searchQuery) ||
+        f.runId.toLowerCase().includes(this.searchQuery) ||
+        f.type.toLowerCase().includes(this.searchQuery);
       return matchesFilter && matchesSearch;
     });
 
     if (filtered.length === 0) {
-      if (this.artifacts.length === 0) {
+      if (this.files.length === 0) {
         tbody.innerHTML = `
           <tr>
             <td colspan="7" style="text-align:center; padding:3.5rem 1.5rem; color:var(--text-sub);">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text-tertiary); display:block; margin:0 auto 1rem auto;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-              <h4 style="font-size:1rem; font-weight:800; color:var(--text-main); margin-bottom:0.35rem;">No artifacts extracted yet</h4>
+              <h4 style="font-size:1rem; font-weight:800; color:var(--text-main); margin-bottom:0.35rem;">No files yet</h4>
               <p style="font-size:0.75rem; color:var(--text-sub); max-width:420px; margin:0 auto 1.25rem auto;">
-                When you run a workflow with repetitive loop iterations (such as downloading monthly invoices or exporting tables), all files and metadata will be indexed here automatically.
+                Files generated by your workflow runs will appear here automatically with full provenance and download history.
               </p>
-              <button class="btn btn-primary btn-sm" id="btnEmptyExploreWorkflows">Explore Workflows</button>
+              <button class="btn btn-primary btn-sm" id="btnEmptyExploreWorkflows">View Workflows</button>
             </td>
           </tr>
         `;
@@ -423,7 +442,7 @@ export const ArtifactsView = {
           <tr>
             <td colspan="7" style="text-align:center; padding:2.5rem; color:var(--text-sub);">
               <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text-tertiary); display:block; margin:0 auto 0.75rem auto;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-              No artifacts match your filter or search query.
+              No files match your search or filter criteria.
               <div style="margin-top:0.75rem;">
                 <button class="btn btn-secondary btn-xs" id="btnResetFilters">Reset Filters</button>
               </div>
@@ -433,7 +452,7 @@ export const ArtifactsView = {
         document.getElementById('btnResetFilters')?.addEventListener('click', () => {
           this.activeFilter = 'all';
           this.searchQuery = '';
-          const searchInput = document.getElementById('inputSearchArtifacts');
+          const searchInput = document.getElementById('inputSearchFiles');
           if (searchInput) searchInput.value = '';
           document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
           document.querySelector('.filter-btn[data-filter="all"]')?.classList.add('active');
@@ -467,8 +486,8 @@ export const ArtifactsView = {
         iconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>`;
       }
 
-      const shortSha = art.sha256 ? `${art.sha256.substring(0, 6)}...${art.sha256.substring(art.sha256.length - 4)}` : '—';
-      const itemSubLabel = art.itemLabel || art.itemKey || art.originalName;
+      const shortSha = art.sha256 ? `${art.sha256.substring(0, 6)}…${art.sha256.substring(art.sha256.length - 4)}` : '—';
+      const recordOrigin = art.itemLabel || art.itemKey ? `Record: ${art.itemLabel || art.itemKey}` : '';
 
       tr.innerHTML = `
         <td>
@@ -478,15 +497,21 @@ export const ArtifactsView = {
               <strong style="font-size:0.8rem; color:var(--text-main); display:block; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:260px;" title="${esc(art.name)}">
                 ${esc(art.name)}
               </strong>
-              <small style="font-size:0.68rem; color:var(--text-sub); display:block; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:260px;" title="${esc(itemSubLabel)}">
-                ${esc(itemSubLabel)}
-              </small>
+              ${recordOrigin ? `
+                <small style="font-size:0.68rem; color:var(--text-sub); display:block; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:260px;" title="${esc(recordOrigin)}">
+                  ${esc(recordOrigin)}
+                </small>
+              ` : ''}
             </div>
           </div>
         </td>
         <td>
           <span style="font-size:0.75rem; font-weight:700; color:var(--text-main); display:block;">${esc(art.workflowName)}</span>
-          <small style="font-size:0.65rem; color:var(--text-sub); font-family:var(--font-mono);">${esc(art.runId)}</small>
+          ${art.runId && art.runId !== '—' ? `
+            <a href="#results/${encodeURIComponent(art.runId)}" class="mono" style="font-size:0.65rem; color:var(--brand-forest); text-decoration:none;" title="View results for this run">
+              #${esc(art.runId)}
+            </a>
+          ` : '<small style="font-size:0.65rem; color:var(--text-sub);">—</small>'}
         </td>
         <td>
           <div style="display:flex; align-items:center; gap:0.4rem;">
@@ -497,7 +522,7 @@ export const ArtifactsView = {
         <td>
           <div style="display:inline-flex; align-items:center; gap:0.35rem;">
             <span style="font-size:0.72rem; font-family:var(--font-mono); color:var(--text-sub);" title="Full SHA-256: ${esc(art.sha256)}">${shortSha}</span>
-            ${art.sha256 ? `<button class="btn btn-xs btn-secondary btn-copy-hash" data-hash="${esc(art.sha256)}" title="Copy full SHA-256 hash" style="padding:0.1rem 0.35rem; font-size:0.62rem;">Copy</button>` : ''}
+            ${art.sha256 ? `<button class="btn btn-xs btn-secondary btn-copy-hash" data-hash="${esc(art.sha256)}" title="Copy full SHA-256 checksum" style="padding:0.1rem 0.35rem; font-size:0.62rem;">Copy</button>` : ''}
           </div>
         </td>
         <td>
@@ -510,13 +535,13 @@ export const ArtifactsView = {
         </td>
         <td style="text-align:right;">
           <div style="display:inline-flex; gap:0.35rem;">
-            <button class="btn btn-sm btn-secondary btn-action-preview" data-id="${art.id}" title="Preview content">
+            <button class="btn btn-sm btn-secondary btn-action-preview" data-id="${art.id}" title="Preview file">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
             </button>
             <button class="btn btn-sm btn-primary btn-action-download" data-id="${art.id}" title="Download file">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
             </button>
-            <button class="btn btn-sm btn-secondary btn-action-delete" data-id="${art.id}" title="Delete artifact" style="color:#ef4444;">
+            <button class="btn btn-sm btn-secondary btn-action-delete" data-id="${art.id}" title="Delete file" style="color:#ef4444;">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
             </button>
           </div>
@@ -539,8 +564,9 @@ export const ArtifactsView = {
 
     // Wire Preview Buttons
     tbody.querySelectorAll('.btn-action-preview').forEach(btn => {
-      btn.onclick = () => {
-        const item = this.artifacts.find(a => a.id === btn.dataset.id);
+      btn.onclick = (e) => {
+        this.previousActiveElement = e.currentTarget;
+        const item = this.files.find(a => a.id === btn.dataset.id);
         if (item) this.openPreview(item);
       };
     });
@@ -548,34 +574,34 @@ export const ArtifactsView = {
     // Wire Download Buttons
     tbody.querySelectorAll('.btn-action-download').forEach(btn => {
       btn.onclick = () => {
-        const item = this.artifacts.find(a => a.id === btn.dataset.id);
-        if (item) this.downloadArtifact(item);
+        const item = this.files.find(a => a.id === btn.dataset.id);
+        if (item) this.downloadFile(item);
       };
     });
 
     // Wire Delete Buttons
     tbody.querySelectorAll('.btn-action-delete').forEach(btn => {
       btn.onclick = async () => {
-        const item = this.artifacts.find(a => a.id === btn.dataset.id);
+        const item = this.files.find(a => a.id === btn.dataset.id);
         if (!item) return;
-        if (!confirm(`Are you sure you want to delete artifact "${item.name}" from disk and database?`)) {
+        if (!confirm(`Are you sure you want to delete file "${item.name}" from disk and records?`)) {
           return;
         }
         try {
           await Api.deleteDownload(item.id);
-          this.artifacts = this.artifacts.filter(a => a.id !== item.id);
+          this.files = this.files.filter(a => a.id !== item.id);
           this.updateMetrics();
           this.updateCounts();
           this.renderTable();
           Toast.success(`Deleted ${item.name}`);
         } catch (err) {
-          Toast.error(err.message || 'Failed to delete artifact');
+          Toast.error(err.message || 'Failed to delete file');
         }
       };
     });
   },
 
-  downloadArtifact(art) {
+  downloadFile(art) {
     if (!art.fileExists) {
       Toast.warning('File is no longer present on disk at ' + art.relativeFilePath);
       return;
@@ -591,19 +617,20 @@ export const ArtifactsView = {
   },
 
   async openPreview(art) {
-    const modal = document.getElementById('artifactPreviewModal');
-    const titleEl = document.getElementById('previewModalTitle');
-    const subEl = document.getElementById('previewModalSubtitle');
-    const bodyEl = document.getElementById('previewModalBody');
-    const btnDownload = document.getElementById('btnPreviewDownload');
+    const modal = document.getElementById('filePreviewModal');
+    const titleEl = document.getElementById('filePreviewModalTitle');
+    const subEl = document.getElementById('filePreviewModalSubtitle');
+    const bodyEl = document.getElementById('filePreviewModalBody');
+    const btnDownload = document.getElementById('btnFilePreviewDownload');
 
     if (!modal || !bodyEl) return;
 
+    this.previousActiveElement = document.activeElement;
     titleEl.textContent = art.name;
     subEl.textContent = `${art.workflowName} · ${art.formattedSize} · ${art.relativeFilePath}`;
 
     if (btnDownload) {
-      btnDownload.onclick = () => this.downloadArtifact(art);
+      btnDownload.onclick = () => this.downloadFile(art);
     }
 
     bodyEl.innerHTML = `
@@ -612,6 +639,10 @@ export const ArtifactsView = {
       </div>
     `;
     modal.classList.remove('hidden');
+    const btnClose = document.getElementById('btnFilePreviewClose');
+    if (btnClose) {
+      btnClose.focus();
+    }
 
     const fileUrl = `/${art.relativeFilePath}`;
 
@@ -619,13 +650,14 @@ export const ArtifactsView = {
       if (art.type === 'pdf') {
         bodyEl.innerHTML = `
           <div style="height:100%; min-height:550px;">
-            <iframe src="${fileUrl}" style="width:100%; height:550px; border:none; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.08);" title="${esc(art.name)}"></iframe>
+            <iframe src="${fileUrl}" style="width:100%; height:550px; border:none; border-radius:8px;" title="${esc(art.name)}" tabindex="-1"></iframe>
           </div>
         `;
+        if (btnClose) btnClose.focus();
       } else if (['png', 'jpg', 'jpeg', 'webp', 'svg', 'gif'].includes(art.type)) {
         bodyEl.innerHTML = `
-          <div style="text-align:center; padding:1rem; background:var(--input-bg); border:1px solid var(--border-light); border-radius:8px;">
-            <img src="${fileUrl}" alt="${esc(art.name)}" style="max-width:100%; max-height:550px; border-radius:6px; object-fit:contain; box-shadow:0 4px 14px rgba(0,0,0,0.08);">
+          <div style="text-align:center; padding:1rem; background:var(--input-bg); border-radius:8px;">
+            <img src="${fileUrl}" alt="${esc(art.name)}" style="max-width:100%; max-height:550px; border-radius:6px; object-fit:contain;">
           </div>
         `;
       } else if (art.type === 'csv' || art.type === 'tsv') {
@@ -633,7 +665,6 @@ export const ArtifactsView = {
         if (!textRes.ok) throw new Error(`HTTP ${textRes.status}: Unable to load CSV content`);
         const csvText = await textRes.text();
         const rows = csvText.trim().split(/\r?\n/).map(r => {
-          // Basic CSV quote-safe splitter
           const cols = [];
           let cur = '';
           let inQuotes = false;
@@ -657,7 +688,7 @@ export const ArtifactsView = {
         }
 
         const headerRow = rows[0];
-        const dataRows = rows.slice(1, 100); // Preview up to 100 rows
+        const dataRows = rows.slice(1, 100);
 
         bodyEl.innerHTML = `
           <div style="display:flex; flex-direction:column; gap:0.75rem;">
@@ -703,7 +734,6 @@ export const ArtifactsView = {
           Toast.info('JSON content copied to clipboard');
         });
       } else {
-        // Plain text or fallback
         const textRes = await fetch(fileUrl);
         if (!textRes.ok) throw new Error(`HTTP ${textRes.status}: Unable to preview file content`);
         const text = await textRes.text();
@@ -722,13 +752,12 @@ export const ArtifactsView = {
     } catch (err) {
       bodyEl.innerHTML = `
         <div style="text-align:center; padding:3rem; color:var(--text-sub);">
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" style="display:block; margin:0 auto 0.75rem auto;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
           <p style="font-weight:700; color:var(--text-main); margin-bottom:0.25rem;">Preview unavailable</p>
           <p style="font-size:0.75rem;">${esc(err.message)}</p>
-          <button class="btn btn-primary btn-sm" id="btnFallbackDownload" style="margin-top:1rem;">Download Instead</button>
+          <button class="btn btn-primary btn-sm" id="btnFallbackDownload" style="margin-top:1rem;">Download File</button>
         </div>
       `;
-      document.getElementById('btnFallbackDownload')?.addEventListener('click', () => this.downloadArtifact(art));
+      document.getElementById('btnFallbackDownload')?.addEventListener('click', () => this.downloadFile(art));
     }
   }
 };
