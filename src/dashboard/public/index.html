@@ -3,12 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Workflow Capture: Visual Automation Dashboard</title>
+  <title>Workflow Capture</title>
   
   <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%232563eb%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><rect x=%222%22 y=%223%22 width=%2220%22 height=%2214%22 rx=%222%22 ry=%222%22/><line x1=%228%22 y1=%2221%22 x2=%2216%22 y2=%2221%22/><line x1=%2212%22 y1=%2217%22 x2=%2212%22 y2=%2221%22/><circle cx=%2212%22 cy=%2210%22 r=%223%22/></svg>">
   
   <!-- Modular Stylesheets -->
   <link rel="stylesheet" href="/css/variables.css">
@@ -25,7 +26,7 @@
   <!-- Global Active Recording Banner (Visible across all tabs when recording) -->
   <div class="global-recording-banner hidden" id="globalRecordingBanner" role="region" aria-label="Active Recording Session">
     <div class="global-recording-badge">
-      <span class="recording-pulse-dot"></span>
+      <span class="recording-pulse-dot" aria-hidden="true"></span>
       <span class="global-recording-tag">RECORDING ACTIVE</span>
     </div>
     <div class="global-recording-info">
@@ -33,60 +34,42 @@
       <span class="global-rec-meta" id="globalRecMeta">00:00 · 0 actions</span>
     </div>
     <div class="global-recording-actions">
-      <button class="btn btn-danger btn-sm" id="btnGlobalStopRec" title="Stop recording and save workflow">
+      <button class="btn btn-danger btn-sm" id="btnGlobalStopRec" title="Stop recording and save workflow" aria-label="Stop recording and save workflow">
         <span>■</span> <span>Stop &amp; Save</span>
       </button>
     </div>
   </div>
 
-  <!-- Main FlowMind Dashboard Shell Container -->
+  <!-- Main Workflow Capture Dashboard Shell Container -->
   <main class="dashboard-wrapper">
 
-    <!-- FlowMind Brand Header with Mascot (Visible on all dashboard pages) -->
-    <header class="flowmind-app-topbar">
-      <div class="flowmind-topbar-left">
-        <a href="#overview" class="flowmind-topbar-brand" title="FlowMind Dashboard Overview">
-          <div class="flowmind-robot-avatar">
-            <svg viewBox="0 0 320 360" width="30" height="34" fill="none">
-              <defs>
-                <linearGradient id="tbBodyGrad" x1="60" y1="40" x2="260" y2="340" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stop-color="#ffffff"/>
-                  <stop offset="65%" stop-color="#ede9fe"/>
-                  <stop offset="100%" stop-color="#c7d2fe"/>
-                </linearGradient>
-                <linearGradient id="tbVisorGrad" x1="100" y1="90" x2="220" y2="180" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stop-color="#0f172a"/>
-                  <stop offset="100%" stop-color="#1e1b4b"/>
-                </linearGradient>
-                <filter id="tbGlow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="3" result="blur"/>
-                  <feComposite in="SourceGraphic" in2="blur" operator="over"/>
-                </filter>
-              </defs>
-              <rect x="74" y="60" width="172" height="142" rx="71" fill="url(#tbBodyGrad)" stroke="#6366f1" stroke-width="3"/>
-              <rect x="92" y="86" width="136" height="88" rx="44" fill="url(#tbVisorGrad)"/>
-              <circle cx="124" cy="128" r="8" fill="#38bdf8" filter="url(#tbGlow)"/>
-              <circle cx="196" cy="128" r="8" fill="#38bdf8" filter="url(#tbGlow)"/>
-              <path d="M116 200 C116 200 102 216 102 260 C102 295 125 305 160 305 C195 305 218 295 218 260 C218 216 204 200 204 200 Z" fill="url(#tbBodyGrad)" stroke="#6366f1" stroke-width="3"/>
-              <circle cx="160" cy="245" r="9" fill="#4f46e5"/>
+    <!-- Application Header -->
+    <header class="app-header flowmind-app-topbar">
+      <div class="header-left flowmind-topbar-left">
+        <a href="#overview" class="header-brand flowmind-topbar-brand" title="Workflow Capture Dashboard">
+          <div class="header-logo-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+              <circle cx="12" cy="10" r="3"></circle>
             </svg>
           </div>
           <div class="flowmind-brand-text">
-            <span class="flowmind-brand-title">FlowMind</span>
-            <span class="flowmind-brand-pill">Studio</span>
+            <span class="header-brand-title">Workflow Capture</span>
           </div>
         </a>
       </div>
-      <div class="flowmind-topbar-center">
-        <div class="flowmind-engine-pill" id="headerStatusPill" title="Browser Automation Engine Status">
-          <span class="status-dot offline" id="cdpDot"></span>
-          <span id="cdpText">CDP Standby (Port 9222)</span>
+      <div class="header-center flowmind-topbar-center">
+        <div class="status-indicator-pill flowmind-engine-pill" id="headerStatusPill" role="status" aria-live="polite" title="Browser Automation Status">
+          <span class="status-dot offline" id="cdpDot" aria-hidden="true"></span>
+          <span id="cdpText">Browser Not Connected</span>
         </div>
       </div>
-      <div class="flowmind-topbar-right">
+      <div class="header-right flowmind-topbar-right">
         <!-- Theme Switcher Button -->
-        <button class="btn-topbar-nav theme-toggle-btn" id="btnThemeToggle" title="Switch to Dark Mode" aria-label="Toggle theme">
-          <svg class="theme-icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <button class="btn-topbar-nav theme-toggle-btn" id="btnThemeToggle" title="Toggle color theme" aria-label="Toggle theme">
+          <svg class="theme-icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <circle cx="12" cy="12" r="5"></circle>
             <line x1="12" y1="1" x2="12" y2="3"></line>
             <line x1="12" y1="21" x2="12" y2="23"></line>
@@ -97,89 +80,98 @@
             <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
             <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
           </svg>
-          <svg class="theme-icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg class="theme-icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
           </svg>
           <span class="theme-toggle-label">Theme</span>
         </button>
 
-        <a href="/" class="btn-topbar-nav" title="Return to Landing Page">
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+        <a href="/" class="btn-topbar-nav" title="Home" aria-label="Home">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
           <span>Home</span>
         </a>
+
+        <button class="btn-topbar-nav btn-logout" id="btnLogout" title="Log out" aria-label="Log out" style="display:none;">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+          <span>Log out</span>
+        </button>
       </div>
     </header>
 
-    <!-- Main Body Layout with Floating Left Sidebar -->
+    <!-- Main Body Layout with Sidebar -->
     <div class="dashboard-body">
 
-      <!-- Floating Left Icon Sidebar -->
-      <aside class="floating-sidebar">
-        <div style="display:flex; flex-direction:column; align-items:center; gap:1.25rem; width:100%;">
-          <!-- Brand Logo Icon (Brand Emblem) -->
-          <div class="sidebar-brand-mark" title="FlowMind AI" style="width:38px; height:38px; border-radius:12px; background:linear-gradient(135deg, #4f46e5, #6366f1); display:flex; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(79, 110, 247, 0.35);">
-            <svg viewBox="0 0 320 360" width="22" height="24" fill="none">
-              <rect x="74" y="60" width="172" height="142" rx="71" fill="#ffffff" stroke="#c7d2fe" stroke-width="6"/>
-              <rect x="92" y="86" width="136" height="88" rx="44" fill="#0f172a"/>
-              <circle cx="124" cy="128" r="10" fill="#38bdf8"/>
-              <circle cx="196" cy="128" r="10" fill="#38bdf8"/>
-              <circle cx="160" cy="245" r="12" fill="#4F6EF7"/>
-            </svg>
-          </div>
-          
-          <nav class="sidebar-nav-icons">
-            <button class="sidebar-icon-btn active" data-route="overview" data-tooltip="Overview" title="Overview Dashboard">
-              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+      <!-- Sidebar Navigation Shell -->
+      <aside class="app-sidebar floating-sidebar" id="appSidebar" aria-label="Main navigation">
+        <div class="sidebar-top-section">
+          <nav class="sidebar-nav-list sidebar-nav-icons" aria-label="Navigation Links">
+            <button class="sidebar-icon-btn sidebar-nav-item active" data-route="overview" data-tooltip="Dashboard" aria-label="Dashboard" title="Dashboard">
+              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+                <rect x="3" y="14" width="7" height="7" rx="1"></rect>
               </svg>
+              <span class="sidebar-nav-label">Dashboard</span>
             </button>
-            <button class="sidebar-icon-btn" data-route="workflows" data-tooltip="Workflows Archive" title="Recorded Workflows Archive">
-              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            <button class="sidebar-icon-btn sidebar-nav-item" data-route="workflows" data-tooltip="Workflows" aria-label="Workflows" title="Workflows">
+              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 6h16M4 12h16M4 18h16"></path>
               </svg>
+              <span class="sidebar-nav-label">Workflows</span>
             </button>
-            <button class="sidebar-icon-btn" data-route="console" data-tooltip="Live Console" title="Live Streaming Console">
-              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            <button class="sidebar-icon-btn sidebar-nav-item" data-route="console" data-tooltip="Activity" aria-label="Activity" title="Activity">
+              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
               </svg>
+              <span class="sidebar-nav-label">Activity</span>
             </button>
-            <button class="sidebar-icon-btn" data-route="secrets" data-tooltip="Credential Vault" title="Credential Vault">
-              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+            <button class="sidebar-icon-btn sidebar-nav-item" data-route="artifacts" data-tooltip="Files" aria-label="Files" title="Files">
+              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
               </svg>
+              <span class="sidebar-nav-label">Files</span>
             </button>
-            <button class="sidebar-icon-btn" data-route="artifacts" data-tooltip="Artifacts & Data" title="Extracted Artifacts & Scraped Data">
-              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+            <button class="sidebar-icon-btn sidebar-nav-item" data-route="bot-config" data-tooltip="Settings" aria-label="Settings" title="Settings">
+              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
               </svg>
+              <span class="sidebar-nav-label">Settings</span>
             </button>
-            <button class="sidebar-icon-btn" data-route="bot-config" data-tooltip="Bot Settings" title="Bot Profile & Anti-Captcha Stealth">
-              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
+            <button class="sidebar-icon-btn sidebar-nav-item" data-route="secrets" data-tooltip="Secrets" aria-label="Secrets Vault" title="Secrets Vault">
+              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
               </svg>
+              <span class="sidebar-nav-label">Secrets</span>
             </button>
           </nav>
         </div>
 
-        <div style="display:flex; flex-direction:column; align-items:center; gap:0.75rem;">
-          <button class="sidebar-icon-btn sidebar-stop-execution" id="btnSidebarStopExecution" data-tooltip="Stop Active Execution" title="Stop Active Execution" aria-label="Stop active execution" disabled>
-            <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
+        <div class="sidebar-bottom-section">
+          <button class="sidebar-icon-btn sidebar-nav-item sidebar-stop-execution" id="btnSidebarStopExecution" data-tooltip="Stop Active Execution" title="Stop Active Execution" aria-label="Stop active execution" disabled>
+            <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <rect x="5" y="5" width="14" height="14" rx="2"/>
             </svg>
+            <span class="sidebar-nav-label">Stop Run</span>
           </button>
-          <button class="sidebar-icon-btn" data-tooltip="Reload Dashboard" title="Reload Dashboard" onclick="location.reload()">
-            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <button class="sidebar-icon-btn sidebar-nav-item" id="btnSidebarReload" data-tooltip="Reload Dashboard" title="Reload Dashboard" aria-label="Reload Dashboard" onclick="location.reload()">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
             </svg>
+            <span class="sidebar-nav-label">Reload</span>
           </button>
-          <button class="sidebar-icon-btn" id="btnLogout" data-tooltip="Logout" title="Logout" style="display:none;">
-            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+          <button class="sidebar-icon-btn sidebar-nav-item sidebar-collapse-btn" id="btnSidebarCollapse" data-tooltip="Toggle Sidebar" title="Toggle Sidebar" aria-label="Toggle sidebar expansion">
+            <svg class="sidebar-collapse-icon" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <polyline points="15 18 9 12 15 6"></polyline>
             </svg>
+            <span class="sidebar-nav-label">Collapse</span>
           </button>
         </div>
       </aside>
-      <!-- END: Floating Left Sidebar -->
+      <!-- END: Sidebar Navigation Shell -->
 
       <!-- Dynamic SPA View Mount Point -->
       <section class="app-view-container" id="appViewContainer">
@@ -193,22 +185,22 @@
   <!-- END: Main Dashboard Container -->
 
   <!-- BEGIN: Step Inspector Modal -->
-  <div class="modal-overlay hidden" id="stepInspectorModal">
+  <div class="modal-overlay hidden" id="stepInspectorModal" role="dialog" aria-modal="true" aria-labelledby="modalWorkflowTitle">
     <div class="modal-dialog">
       <div class="modal-header">
         <div style="display:flex; align-items:center; gap:0.5rem;">
-          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
           </svg>
           <h3 id="modalWorkflowTitle">Workflow Step Inspector</h3>
         </div>
-        <button class="btn-icon" id="btnCloseModal" title="Close Modal">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        <button class="btn-icon" id="btnCloseModal" title="Close" aria-label="Close dialog">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
       </div>
       <div class="modal-body">
         <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:0.75rem; background:var(--card-bg); padding:0.85rem; border-radius:var(--radius-md); border:1px solid var(--border-light);" id="modalMetaGrid"></div>
-        <h4 style="font-size:0.85rem; font-weight:800; margin-top:0.5rem; color:var(--text-main);">Recorded Action Fingerprints</h4>
+        <h4 style="font-size:var(--text-sm); font-weight:700; margin-top:0.5rem; color:var(--text-primary);">Recorded Action Fingerprints</h4>
         <div style="display:flex; flex-direction:column; gap:0.75rem;" id="modalStepsTimeline"></div>
       </div>
     </div>
@@ -216,33 +208,33 @@
   <!-- END: Step Inspector Modal -->
 
   <!-- BEGIN: Delete Step Confirmation Modal -->
-  <div class="modal-overlay hidden" id="deleteNodeModal" style="z-index: 9999;">
+  <div class="modal-overlay hidden" id="deleteNodeModal" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle" style="z-index: 9999;">
     <div class="modal-dialog" style="max-width: 440px;">
       <div class="modal-header" style="border-bottom: 1px solid var(--border-light);">
         <div style="display:flex; align-items:center; gap:0.5rem; color:var(--color-danger);">
-          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
             <polyline points="3 6 5 6 21 6"></polyline>
             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
           </svg>
-          <h3 style="color:var(--color-danger); font-size:1.05rem;">Delete Workflow Step</h3>
+          <h3 id="deleteModalTitle" style="color:var(--color-danger); font-size:1.05rem;">Delete Workflow Step</h3>
         </div>
-        <button class="btn-icon" id="btnCloseDeleteModal" title="Cancel">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        <button class="btn-icon" id="btnCloseDeleteModal" title="Cancel" aria-label="Close dialog">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
       </div>
       <div class="modal-body" style="padding: 1.25rem;">
-        <p style="font-size:0.9rem; color:var(--text-main); margin-bottom:0.75rem;">
+        <p style="font-size:var(--text-sm); color:var(--text-primary); margin-bottom:0.75rem;">
           Are you sure you want to remove <strong id="deleteStepTargetName" style="color:var(--color-danger);">this step</strong> from the workflow?
         </p>
-        <div style="background:var(--color-danger-bg); border:1px solid var(--color-danger-border); border-radius:8px; padding:0.75rem; margin-bottom:1.25rem;">
-          <span style="font-size:0.75rem; color:var(--color-danger); display:flex; align-items:flex-start; gap:0.4rem; line-height:1.4;">
+        <div style="background:var(--color-danger-bg); border:1px solid var(--color-danger-border); border-radius:var(--radius-md); padding:0.75rem; margin-bottom:1.25rem;">
+          <span style="font-size:var(--text-xs); color:var(--color-danger); display:flex; align-items:flex-start; gap:0.4rem; line-height:1.4;">
             <span style="font-size:0.9rem;">ℹ️</span>
             <span>Surrounding steps will be automatically reconnected. You can also connect nodes manually on the visual canvas.</span>
           </span>
         </div>
         <div style="display:flex; justify-content:flex-end; gap:0.75rem;">
-          <button class="btn btn-secondary" id="btnCancelDeleteStep" type="button" style="padding:0.45rem 1rem; font-size:0.82rem;">Cancel</button>
-          <button class="btn" id="btnConfirmDeleteStep" type="button" style="background:var(--color-danger); color:#ffffff; border-color:var(--color-danger); padding:0.45rem 1.1rem; font-size:0.82rem; font-weight:700;">Delete Step</button>
+          <button class="btn btn-secondary" id="btnCancelDeleteStep" type="button">Cancel</button>
+          <button class="btn btn-danger" id="btnConfirmDeleteStep" type="button">Delete Step</button>
         </div>
       </div>
     </div>
@@ -250,44 +242,45 @@
   <!-- END: Delete Step Confirmation Modal -->
 
   <!-- Toast Container -->
-  <div class="toast-container" id="toastContainer"></div>
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
   <!-- BEGIN: Auth Overlay -->
-  <div class="modal-overlay" id="authOverlay" style="z-index: 10000;">
-    <div style="background: var(--modal-bg); color: var(--text-main); padding: 2.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-light); box-shadow: 0 10px 30px rgba(0,0,0,0.25); width: 100%; max-width: 400px;">
-      <div style="text-align:center; margin-bottom: 2rem;">
-        <div style="display:inline-flex; align-items:center; justify-content:center; width:56px; height:56px; background:var(--brand-tint); color:var(--brand-forest); border-radius:var(--radius-lg); margin-bottom:1rem;">
-          <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+  <div class="modal-overlay" id="authOverlay" role="dialog" aria-modal="true" aria-labelledby="authTitle" style="z-index: 10000;">
+    <div style="background: var(--modal-bg); color: var(--text-primary); padding: 2.25rem; border-radius: var(--radius-xl); border: 1px solid var(--border-light); box-shadow: var(--shadow-xl); width: 100%; max-width: 400px;">
+      <div style="text-align:center; margin-bottom: 1.75rem;">
+        <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; background:var(--accent-subtle); color:var(--accent-primary); border-radius:var(--radius-lg); margin-bottom:0.75rem; border:1px solid rgba(37, 99, 235, 0.2);">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+            <line x1="8" y1="21" x2="16" y2="21"></line>
+            <line x1="12" y1="17" x2="12" y2="21"></line>
+            <circle cx="12" cy="10" r="3"></circle>
           </svg>
         </div>
-        <h2 style="font-size:1.5rem; margin-bottom:0.5rem; color:var(--text-primary);">Workflow Capture</h2>
-        <p style="color:var(--text-secondary); font-size:0.9rem;" id="authSubtitle">Log in to your account</p>
+        <h2 id="authTitle" style="font-size:1.35rem; font-weight:700; margin-bottom:0.25rem; color:var(--text-primary);">Workflow Capture</h2>
+        <p style="color:var(--text-sub); font-size:var(--text-xs);" id="authSubtitle">Log in to your account</p>
       </div>
       
-      <form id="authForm" style="display:flex; flex-direction:column; gap:1.25rem;">
-        <div id="usernameGroup" style="display:none; flex-direction:column; gap:0.5rem;">
-          <label style="font-size:0.85rem; font-weight:600; color:var(--text-secondary);">Username</label>
-          <input type="text" id="authUsername" placeholder="e.g. jdoe" style="padding:0.75rem; border:1px solid var(--border-light); border-radius:var(--radius-sm); outline:none; font-family:inherit;">
+      <form id="authForm" style="display:flex; flex-direction:column; gap:1rem;">
+        <div id="usernameGroup" class="form-group" style="display:none; flex-direction:column; gap:0.35rem; margin-bottom:0;">
+          <label for="authUsername" style="font-size:var(--text-xs); font-weight:600; color:var(--text-secondary);">Username</label>
+          <input type="text" id="authUsername" class="form-control" placeholder="e.g. jdoe" autocomplete="username">
         </div>
-        <div style="display:flex; flex-direction:column; gap:0.5rem;">
-          <label style="font-size:0.85rem; font-weight:600; color:var(--text-secondary);">Email</label>
-          <input type="email" id="authEmail" placeholder="name@example.com" style="padding:0.75rem; border:1px solid var(--border-light); border-radius:var(--radius-sm); outline:none; font-family:inherit;">
+        <div class="form-group" style="display:flex; flex-direction:column; gap:0.35rem; margin-bottom:0;">
+          <label for="authEmail" style="font-size:var(--text-xs); font-weight:600; color:var(--text-secondary);">Email</label>
+          <input type="email" id="authEmail" class="form-control" placeholder="name@example.com" autocomplete="email" required>
         </div>
-        <div style="display:flex; flex-direction:column; gap:0.5rem;">
-          <label style="font-size:0.85rem; font-weight:600; color:var(--text-secondary);">Password</label>
-          <input type="password" id="authPassword" placeholder="••••••••" style="padding:0.75rem; border:1px solid var(--border-light); border-radius:var(--radius-sm); outline:none; font-family:inherit;">
+        <div class="form-group" style="display:flex; flex-direction:column; gap:0.35rem; margin-bottom:0;">
+          <label for="authPassword" style="font-size:var(--text-xs); font-weight:600; color:var(--text-secondary);">Password</label>
+          <input type="password" id="authPassword" class="form-control" placeholder="••••••••" autocomplete="current-password" required>
         </div>
-        <button type="submit" style="background:var(--brand-accent); color:white; border:none; border-radius:var(--radius-md); padding:0.85rem; font-weight:600; cursor:pointer; margin-top:0.5rem; transition: background 0.2s;" onmouseover="this.style.background='var(--brand-accent-hover)'" onmouseout="this.style.background='var(--brand-accent)'" id="authSubmitBtn">Log In</button>
-        <button type="button" id="btnDummyLogin" style="background:var(--brand-forest); color:#ffffff; border:none; border-radius:var(--radius-md); padding:0.85rem; font-weight:700; cursor:pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);" onmouseover="this.style.background='var(--brand-dark)'" onmouseout="this.style.background='var(--brand-forest)'">
-          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-          <span>Developer Bypass</span>
-        </button>
+        <button type="submit" class="btn btn-primary" style="width:100%; height:40px; margin-top:0.25rem;" id="authSubmitBtn">Log In</button>
+        <!-- Developer bypass preserved for testing/headless automation outside normal UX -->
+        <button type="button" id="btnDummyLogin" style="display:none;" aria-hidden="true">Developer Bypass</button>
       </form>
       
-      <div style="text-align:center; margin-top:1.5rem; font-size:0.85rem; color:var(--text-secondary);">
+      <div style="text-align:center; margin-top:1.25rem; font-size:var(--text-xs); color:var(--text-sub);">
         <span id="authToggleText">Don't have an account? </span>
-        <button type="button" id="authToggleMode" style="background:none; border:none; color:var(--brand-accent); font-weight:600; cursor:pointer; font-family:inherit; font-size:0.85rem; padding:0; text-decoration:underline;">Sign up</button>
+        <button type="button" id="authToggleMode" style="background:none; border:none; color:var(--accent-primary); font-weight:600; cursor:pointer; font-family:inherit; font-size:var(--text-xs); padding:0; text-decoration:underline;">Sign up</button>
       </div>
     </div>
   </div>
@@ -295,8 +288,5 @@
 
   <!-- Main ES Module Initializer -->
   <script type="module" src="/js/main.js?v=11"></script>
-
-  <!-- FlowMind Floating Bot Assistant -->
-  <script src="/js/floating-bot.js"></script>
 </body>
 </html>

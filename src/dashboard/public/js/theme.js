@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — FlowMind Global Theme Manager (Light / Dark Mode)
+ * Workflow Capture — Global Theme Manager (Light / Dark Mode)
  */
 
 export const Theme = {
@@ -7,7 +7,7 @@ export const Theme = {
   transitionTimeout: null,
 
   init() {
-    const saved = localStorage.getItem('flowmind_theme');
+    const saved = localStorage.getItem('workflow_capture_theme') || localStorage.getItem('flowmind_theme');
     let initial = 'light';
 
     if (saved === 'dark' || saved === 'light') {
@@ -21,10 +21,10 @@ export const Theme = {
     // Bind all theme toggles
     this.bindButtons();
 
-    // Listen to OS system theme changes if user hasn't overridden
+    // Listen to OS system theme changes if user hasn't explicitly overridden
     if (window.matchMedia) {
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-        if (!localStorage.getItem('flowmind_theme')) {
+        if (!localStorage.getItem('workflow_capture_theme') && !localStorage.getItem('flowmind_theme')) {
           this.setTheme(e.matches ? 'dark' : 'light', false);
         }
       });
@@ -56,7 +56,7 @@ export const Theme = {
     if (this.transitionTimeout) clearTimeout(this.transitionTimeout);
     this.transitionTimeout = setTimeout(() => {
       root.classList.remove('theme-transition');
-    }, 320);
+    }, 250);
 
     if (theme === 'dark') {
       root.setAttribute('data-theme', 'dark');
@@ -66,6 +66,7 @@ export const Theme = {
 
     if (save) {
       try {
+        localStorage.setItem('workflow_capture_theme', theme);
         localStorage.setItem('flowmind_theme', theme);
       } catch (e) {
         // Storage might be restricted
@@ -75,6 +76,7 @@ export const Theme = {
     this.updateUI();
 
     // Notify listeners (e.g. Drawflow canvas redraw if needed)
+    window.dispatchEvent(new CustomEvent('workflow-capture-theme-change', { detail: { theme } }));
     window.dispatchEvent(new CustomEvent('flowmind-theme-change', { detail: { theme } }));
   },
 

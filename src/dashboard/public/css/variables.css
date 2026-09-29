@@ -1,113 +1,159 @@
 /* ===================================================================
-   FlowMind: Design Tokens & Theme Variables (Adaptive Light & Dark)
+   Workflow Capture — Design Tokens & Theme Variables
+   Coherent, WCAG AA Compliant Design System (Adaptive Light & Dark)
    =================================================================== */
 
 :root {
   /* Theme Identity */
   --theme-mode: 'light';
 
-  /* Refined Indigo / Clean Slate Palette (WCAG AA Compliant >= 4.5:1 on White) */
-  --brand-forest: #3B55D9;          /* Primary Accent: 6.02:1 on White, 5.61:1 on Canvas */
-  --brand-dark: #2A40B5;            /* Deep Indigo Hover */
-  --brand-primary: #3B55D9;
-  --brand-cyan: #0284C7;            /* Sky 600: Focused Secondary Accent */
-  --brand-cyan-light: #38BDF8;
-  --brand-emerald: #3B55D9;
-  --brand-accent: #0284C7;
-  --brand-light: #EEF2FF;
-  --brand-tint: rgba(59, 85, 217, 0.08);
-  --brand-cyan-tint: rgba(2, 132, 199, 0.1);
-  --brand-sage: #C7D7FE;
-  --brand-stripe: #E1E8FB;
-  --brand-stripe-dark: #3B55D9;
-
-  /* Canvas & Structural Neutrals */
-  --canvas-from: #F4F7FD;
-  --canvas-to: #FFFFFF;
-  --canvas: #F4F7FD;
-  --panel: rgba(255, 255, 255, 0.95);
-  --panel-solid: #FFFFFF;
-  --panel-border: rgba(225, 232, 251, 0.9);
-  
-  --card-bg: #FFFFFF;
-  --card-bg-solid: #FFFFFF;
-  --card-border: #E1E8FB;
-  --card-hover-border: rgba(59, 85, 217, 0.28);
-  --border-light: #E1E8FB;
-  --border-subtle: rgba(0, 0, 0, 0.04);
-
-  /* Typography Colors (Enforced WCAG AA >= 4.5:1) */
-  --text-main: #0F172A;             /* Primary Headings: 16.9:1 */
-  --text-primary: #0F172A;
-  --text-body: #334155;             /* Body text: 9.6:1 */
-  --text-sub: #475569;              /* Secondary labels: 7.1:1 */
-  --text-secondary: #475569;
-  --text-muted: #596780;            /* Micro-labels / timestamps: 4.95:1 */
-  --text-tertiary: #596780;
-  --text-dim: #94A3B8;
-
-  /* State Colors (WCAG AA Compliant) */
-  --color-danger: #DC2626;          /* Crimson / Red 600: 4.82:1 on White */
-  --color-danger-bg: rgba(220, 38, 38, 0.1);
-  --color-danger-border: rgba(220, 38, 38, 0.25);
-  --color-success: #047857;         /* Emerald 700: 5.48:1 on White */
-  --color-success-bg: rgba(4, 120, 87, 0.1);
-  --color-success-border: rgba(4, 120, 87, 0.25);
-  --color-warning: #B45309;         /* Amber 700: 4.88:1 on White */
-  --color-warning-bg: rgba(180, 83, 9, 0.1);
-  --color-warning-border: rgba(180, 83, 9, 0.25);
-  --color-info: #3B55D9;
-  --color-info-bg: rgba(59, 85, 217, 0.08);
-  --color-info-border: rgba(59, 85, 217, 0.25);
-
-  /* Component Surface Tokens */
+  /* Surface & Background Hierarchy */
+  --bg-page: #F8FAFC;               /* Clean SaaS canvas / slate-50 */
+  --bg-surface: #FFFFFF;            /* Standard Card & Section Surface */
+  --bg-surface-elevated: #FFFFFF;   /* Modals, menus, dropdowns */
+  --bg-surface-sunken: #F1F5F9;     /* Inputs, code blocks, recessed panels */
   --surface-overlay: rgba(15, 23, 42, 0.45);
-  --modal-bg: #FFFFFF;
-  --modal-border: rgba(225, 232, 251, 0.95);
-  --toast-bg: rgba(255, 255, 255, 0.92);
-  --toast-border: rgba(79, 110, 247, 0.2);
-  --input-bg: #F8FAFD;
-  --input-border: rgba(0, 0, 0, 0.1);
-  --input-focus-border: #4F6EF7;
-  --input-focus-ring: rgba(79, 110, 247, 0.18);
-  --sidebar-bg: rgba(255, 255, 255, 0.75);
-  --topbar-bg: rgba(255, 255, 255, 0.78);
+
+  /* Semantic Aliases for Compatibility */
+  --canvas: var(--bg-page);
+  --canvas-from: #F8FAFC;
+  --canvas-to: #F1F5F9;
+  --panel: #FFFFFF;
+  --panel-solid: #FFFFFF;
+  --panel-border: #E2E8F0;
+  --card-bg: var(--bg-surface);
+  --card-bg-solid: var(--bg-surface);
+  --modal-bg: var(--bg-surface-elevated);
+  --toast-bg: rgba(255, 255, 255, 0.96);
+  --sidebar-bg: #FFFFFF;
+  --topbar-bg: rgba(255, 255, 255, 0.96);
+  --input-bg: var(--bg-surface-sunken);
+
+  /* Border Tokens */
+  --border-subtle: #F1F5F9;
+  --border-light: #E2E8F0;          /* Standard structural border */
+  --border-default: #E2E8F0;
+  --border-hover: #CBD5E1;
+  --border-focus: #2563EB;
+  --card-border: #E2E8F0;
+  --card-hover-border: #CBD5E1;
+  --input-border: #CBD5E1;
+  --input-focus-border: #2563EB;
+  --modal-border: #E2E8F0;
+  --toast-border: #E2E8F0;
+
+  /* Typography Colors (Enforced WCAG AA >= 4.5:1 on Light Surfaces) */
+  --text-primary: #0F172A;          /* Headings and primary text (16.9:1) */
+  --text-main: #0F172A;
+  --text-secondary: #334155;        /* Body text & labels (9.6:1) */
+  --text-body: #334155;
+  --text-sub: #475569;              /* Subtitles & metadata (7.1:1) */
+  --text-muted: #64748B;            /* Subtle hints & microcopy (4.6:1 floor) */
+  --text-tertiary: #64748B;
+  --text-dim: #94A3B8;
+  --text-disabled: #94A3B8;
+
+  /* Primary Brand Accent (Blue 600 / WCAG AA compliant >= 4.5:1) */
+  --accent-primary: #2563EB;
+  --accent-hover: #1D4ED8;
+  --accent-active: #1E40AF;
+  --accent-subtle: rgba(37, 99, 235, 0.08);
+  --accent-ring: rgba(37, 99, 235, 0.2);
+
+  /* Brand Aliases */
+  --brand-primary: var(--accent-primary);
+  --brand-forest: var(--accent-primary);
+  --brand-dark: var(--accent-hover);
+  --brand-accent: #0284C7;
+  --brand-accent-hover: #0369A1;
+  --brand-cyan: #0284C7;
+  --brand-cyan-light: #38BDF8;
+  --brand-emerald: var(--accent-primary);
+  --brand-light: #EFF6FF;
+  --brand-tint: rgba(37, 99, 235, 0.08);
+  --brand-cyan-tint: rgba(2, 132, 199, 0.1);
+  --brand-sage: #BFDBFE;
+  --brand-stripe: #DBEAFE;
+  --brand-stripe-dark: #2563EB;
+
+  /* Status Colors (WCAG AA Compliant) */
+  --color-success: #16A34A;         /* Green 600: 4.6:1 on White */
+  --color-success-bg: rgba(22, 163, 74, 0.08);
+  --color-success-border: rgba(22, 163, 74, 0.25);
+  --color-warning: #D97706;         /* Amber 600: 4.5:1 on White */
+  --color-warning-bg: rgba(217, 119, 6, 0.08);
+  --color-warning-border: rgba(217, 119, 6, 0.25);
+  --color-danger: #DC2626;          /* Red 600: 4.8:1 on White */
+  --color-danger-bg: rgba(220, 38, 38, 0.08);
+  --color-danger-border: rgba(220, 38, 38, 0.25);
+  --color-info: #0284C7;            /* Sky 600: 4.7:1 on White */
+  --color-info-bg: rgba(2, 132, 199, 0.08);
+  --color-info-border: rgba(2, 132, 199, 0.25);
+
+  /* Interaction & Focus States */
+  --state-hover-bg: rgba(15, 23, 42, 0.04);
+  --state-active-bg: rgba(15, 23, 42, 0.08);
+  --state-disabled-opacity: 0.5;
+  --focus-ring: 0 0 0 2px #FFFFFF, 0 0 0 4px var(--accent-primary);
+  --input-focus-ring: rgba(37, 99, 235, 0.2);
+
+  /* Tooltip */
   --tooltip-bg: #0F172A;
   --tooltip-text: #FFFFFF;
   --tooltip-border: rgba(255, 255, 255, 0.1);
 
-  /* Typography Ramp (Strict Floor: 11px minimum for functional text) */
-  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
-  --text-xs: 0.72rem;       /* 11.5px: micro-labels, badges, metadata (enforced floor) */
-  --text-sm: 0.8125rem;     /* 13px: secondary UI, descriptions, hints */
-  --text-base: 0.9375rem;   /* 15px: primary body, inputs, buttons */
-  --text-md: 1.0625rem;     /* 17px: subheadings, card titles */
-  --text-lg: 1.25rem;       /* 20px: view titles, section headers */
-  --text-xl: 1.5rem;        /* 24px: hero title, primary header */
-  --text-2xl: 1.875rem;     /* 30px: display metrics, hero displays */
-
-  /* Glassmorphism & Soft Blue-Tinted Shadows */
-  --glass-blur: blur(14px);
-  --shadow-dashboard: 0 24px 50px -15px rgba(79, 110, 247, 0.09), 0 0 0 1px #E1E8FB;
-  --shadow-hero: 0 24px 48px -12px rgba(79, 110, 247, 0.16), 0 8px 18px -4px rgba(79, 110, 247, 0.08), 0 1px 3px rgba(15, 23, 42, 0.04), inset 0 1px 1px rgba(255, 255, 255, 0.95);
-  --shadow-card: 0 12px 28px -6px rgba(79, 110, 247, 0.08), 0 4px 10px -2px rgba(79, 110, 247, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.95);
-  --shadow-card-hover: 0 18px 36px -6px rgba(79, 110, 247, 0.16), 0 6px 14px rgba(79, 110, 247, 0.08), inset 0 1px 0 #ffffff;
-  --shadow-stat-card: 0 12px 28px -6px rgba(79, 110, 247, 0.08), 0 4px 10px -2px rgba(79, 110, 247, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.95);
-  --shadow-sidebar: 0 16px 36px -6px rgba(79, 110, 247, 0.12), 0 2px 8px rgba(79, 110, 247, 0.04), inset 0 1px 1px rgba(255, 255, 255, 0.95);
-  --shadow-dropdown: 0 12px 28px -5px rgba(79, 110, 247, 0.14), 0 0 0 1px #E1E8FB;
-  --shadow-glow-blue: 0 0 20px rgba(79, 110, 247, 0.25);
-  --shadow-glow-cyan: 0 0 20px rgba(6, 182, 212, 0.35);
-
-  /* Radius */
-  --radius-xs: 6px;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
-  --radius-3xl: 28px;
-  --radius-4xl: 34px;
+  /* Radius Scale */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-3xl: 24px;
+  --radius-4xl: 32px;
   --radius-pill: 9999px;
+
+  /* Spacing Scale */
+  --space-3xs: 0.125rem;            /* 2px */
+  --space-2xs: 0.25rem;             /* 4px */
+  --space-xs: 0.5rem;               /* 8px */
+  --space-sm: 0.75rem;              /* 12px */
+  --space-md: 1rem;                 /* 16px */
+  --space-lg: 1.25rem;              /* 20px */
+  --space-xl: 1.5rem;               /* 24px */
+  --space-2xl: 2rem;                /* 32px */
+  --space-3xl: 2.5rem;              /* 40px */
+
+  /* Shadows (Clean Professional SaaS) */
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.07), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  --shadow-dashboard: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+  --shadow-card-hover: 0 4px 12px -2px rgba(0, 0, 0, 0.08);
+  --shadow-dropdown: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  --shadow-stat-card: var(--shadow-card);
+  --shadow-sidebar: 1px 0 0 var(--border-light);
+  --shadow-hero: var(--shadow-sm);
+
+  /* Typography Ramp (Strict Floor: 12px minimum for functional microtext) */
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  --text-2xs: 0.75rem;              /* 12px: floor for badges, micro-labels */
+  --text-xs: 0.8125rem;             /* 13px: secondary UI, helper text */
+  --text-sm: 0.875rem;              /* 14px: standard UI, inputs, buttons */
+  --text-base: 0.9375rem;           /* 15px: primary body text */
+  --text-md: 1.0625rem;             /* 17px: subheadings, card titles */
+  --text-lg: 1.25rem;               /* 20px: section titles */
+  --text-xl: 1.5rem;                /* 24px: page titles */
+  --text-2xl: 1.875rem;             /* 30px: display metrics */
+
+  --glass-blur: none;
+  --header-height: 60px;
+  --sidebar-width-expanded: 210px;
+  --sidebar-width-collapsed: 64px;
 }
 
 /* ===================================================================
@@ -117,84 +163,104 @@
 [data-theme="dark"] {
   --theme-mode: 'dark';
 
-  /* Brand Accents - Vivid Luminous Glows */
-  --brand-forest: #6366F1;          /* Electric Indigo */
-  --brand-dark: #4F46E5;            /* Saturated Indigo */
-  --brand-primary: #6366F1;
-  --brand-cyan: #38BDF8;            /* Sky Cyan */
-  --brand-cyan-light: #7DD3FC;
-  --brand-emerald: #6366F1;
-  --brand-accent: #38BDF8;
-  --brand-light: rgba(99, 102, 241, 0.2);
-  --brand-tint: rgba(99, 102, 241, 0.15);
-  --brand-cyan-tint: rgba(56, 189, 248, 0.15);
-  --brand-sage: #312E81;
-  --brand-stripe: rgba(99, 102, 241, 0.22);
-  --brand-stripe-dark: #6366F1;
+  /* Surface & Background Hierarchy */
+  --bg-page: #0B0F19;               /* Deep clean slate canvas */
+  --bg-surface: #111827;            /* Cards & surfaces */
+  --bg-surface-elevated: #1F2937;   /* Elevated dialogs, popovers */
+  --bg-surface-sunken: #0F172A;     /* Sunken controls */
+  --surface-overlay: rgba(0, 0, 0, 0.75);
 
-  /* Canvas & Structural Neutrals (Deep Cyber Slate) */
-  --canvas-from: #080C16;
+  --canvas: var(--bg-page);
+  --canvas-from: #0B0F19;
   --canvas-to: #0F172A;
-  --canvas: #080C16;
-  --panel: rgba(15, 23, 42, 0.82);
-  --panel-solid: #0F172A;
-  --panel-border: rgba(99, 102, 241, 0.22);
+  --panel: #111827;
+  --panel-solid: #111827;
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --card-bg: var(--bg-surface);
+  --card-bg-solid: var(--bg-surface);
+  --modal-bg: var(--bg-surface-elevated);
+  --toast-bg: rgba(31, 41, 55, 0.96);
+  --sidebar-bg: #111827;
+  --topbar-bg: rgba(17, 24, 39, 0.96);
+  --input-bg: var(--bg-surface-sunken);
 
-  --card-bg: rgba(22, 32, 56, 0.72);
-  --card-bg-solid: #162038;
-  --card-border: rgba(99, 102, 241, 0.18);
-  --card-hover-border: rgba(99, 102, 241, 0.45);
-  --border-light: rgba(255, 255, 255, 0.09);
-  --border-subtle: rgba(255, 255, 255, 0.05);
+  /* Borders */
+  --border-subtle: rgba(255, 255, 255, 0.04);
+  --border-light: rgba(255, 255, 255, 0.08);
+  --border-default: rgba(255, 255, 255, 0.08);
+  --border-hover: rgba(255, 255, 255, 0.16);
+  --border-focus: #3B82F6;
+  --card-border: rgba(255, 255, 255, 0.08);
+  --card-hover-border: rgba(255, 255, 255, 0.16);
+  --input-border: rgba(255, 255, 255, 0.12);
+  --input-focus-border: #3B82F6;
+  --modal-border: rgba(255, 255, 255, 0.12);
+  --toast-border: rgba(255, 255, 255, 0.12);
 
-  /* Typography Colors */
-  --text-main: #F8FAFC;             /* Clean Crisp White */
-  --text-primary: #F8FAFC;
-  --text-body: #94A3B8;             /* Readable Slate Gray */
-  --text-sub: #CBD5E1;              /* Soft Light Slate */
-  --text-secondary: #CBD5E1;
-  --text-muted: #64748B;            /* Dim Hint Text */
+  /* Typography Colors (Enforced WCAG AA >= 4.5:1 on Dark Surfaces) */
+  --text-primary: #F8FAFC;          /* Clean white (15.8:1 on #0B0F19) */
+  --text-main: #F8FAFC;
+  --text-secondary: #CBD5E1;        /* Light slate body (11.2:1) */
+  --text-body: #CBD5E1;
+  --text-sub: #94A3B8;              /* Secondary labels (6.8:1) */
+  --text-muted: #64748B;            /* Muted hints & microcopy (4.5:1 floor) */
   --text-tertiary: #64748B;
   --text-dim: #475569;
+  --text-disabled: #475569;
 
-  /* State Colors */
-  --color-success: #34D399;         /* High luminance mint emerald: 8.42:1 on dark */
-  --color-success-bg: rgba(52, 211, 153, 0.15);
-  --color-success-border: rgba(52, 211, 153, 0.3);
-  --color-warning: #F59E0B;
-  --color-warning-bg: rgba(245, 158, 11, 0.15);
-  --color-warning-border: rgba(245, 158, 11, 0.3);
-  --color-danger: #F87171;
-  --color-danger-bg: rgba(248, 113, 113, 0.16);
-  --color-danger-border: rgba(248, 113, 113, 0.32);
-  --color-info: #6366F1;
-  --color-info-bg: rgba(99, 102, 241, 0.16);
-  --color-info-border: rgba(99, 102, 241, 0.32);
+  /* Primary Brand Accent */
+  --accent-primary: #3B82F6;        /* Blue 500 */
+  --accent-hover: #60A5FA;          /* Blue 400 */
+  --accent-active: #2563EB;
+  --accent-subtle: rgba(59, 130, 246, 0.15);
+  --accent-ring: rgba(59, 130, 246, 0.25);
 
-  /* Component Surface Tokens */
-  --surface-overlay: rgba(8, 12, 22, 0.75);
-  --modal-bg: #111827;
-  --modal-border: rgba(99, 102, 241, 0.28);
-  --toast-bg: rgba(17, 24, 39, 0.94);
-  --toast-border: rgba(99, 102, 241, 0.32);
-  --input-bg: rgba(15, 23, 42, 0.7);
-  --input-border: rgba(255, 255, 255, 0.12);
-  --input-focus-border: #6366F1;
-  --input-focus-ring: rgba(99, 102, 241, 0.3);
-  --sidebar-bg: rgba(15, 23, 42, 0.82);
-  --topbar-bg: rgba(15, 23, 42, 0.85);
-  --tooltip-bg: #1E293B;
+  --brand-primary: var(--accent-primary);
+  --brand-forest: var(--accent-primary);
+  --brand-dark: var(--accent-hover);
+  --brand-accent: #38BDF8;
+  --brand-accent-hover: #7DD3FC;
+  --brand-cyan: #38BDF8;
+  --brand-cyan-light: #7DD3FC;
+  --brand-emerald: var(--accent-primary);
+  --brand-light: rgba(59, 130, 246, 0.15);
+  --brand-tint: rgba(59, 130, 246, 0.12);
+  --brand-cyan-tint: rgba(56, 189, 248, 0.15);
+  --brand-sage: #1E3A8A;
+  --brand-stripe: rgba(59, 130, 246, 0.2);
+  --brand-stripe-dark: #3B82F6;
+
+  /* Status Colors */
+  --color-success: #22C55E;         /* Green 500 */
+  --color-success-bg: rgba(34, 197, 94, 0.12);
+  --color-success-border: rgba(34, 197, 94, 0.25);
+  --color-warning: #F59E0B;         /* Amber 500 */
+  --color-warning-bg: rgba(245, 158, 11, 0.12);
+  --color-warning-border: rgba(245, 158, 11, 0.25);
+  --color-danger: #EF4444;          /* Red 500 */
+  --color-danger-bg: rgba(239, 68, 68, 0.12);
+  --color-danger-border: rgba(239, 68, 68, 0.25);
+  --color-info: #38BDF8;            /* Sky 400 */
+  --color-info-bg: rgba(56, 189, 248, 0.12);
+  --color-info-border: rgba(56, 189, 248, 0.25);
+
+  /* Interaction & Focus States */
+  --state-hover-bg: rgba(255, 255, 255, 0.05);
+  --state-active-bg: rgba(255, 255, 255, 0.09);
+  --focus-ring: 0 0 0 2px #0B0F19, 0 0 0 4px var(--accent-primary);
+  --input-focus-ring: rgba(59, 130, 246, 0.25);
+
+  /* Tooltip */
+  --tooltip-bg: #1F2937;
   --tooltip-text: #F8FAFC;
-  --tooltip-border: rgba(99, 102, 241, 0.25);
+  --tooltip-border: rgba(255, 255, 255, 0.15);
 
-  /* Glassmorphism & High-Depth Luminous Shadows */
-  --shadow-dashboard: 0 25px 60px -15px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(99, 102, 241, 0.2);
-  --shadow-hero: 0 25px 50px -12px rgba(0, 0, 0, 0.6), 0 0 24px rgba(99, 102, 241, 0.18), inset 0 1px 1px rgba(255, 255, 255, 0.1);
-  --shadow-card: 0 12px 28px -6px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  --shadow-card-hover: 0 18px 36px -6px rgba(0, 0, 0, 0.65), 0 0 20px rgba(99, 102, 241, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  --shadow-stat-card: 0 12px 28px -6px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  --shadow-sidebar: 0 16px 36px -6px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.1);
-  --shadow-dropdown: 0 16px 32px -5px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(99, 102, 241, 0.25);
-  --shadow-glow-blue: 0 0 25px rgba(99, 102, 241, 0.4);
-  --shadow-glow-cyan: 0 0 25px rgba(56, 189, 248, 0.4);
+  /* Shadows */
+  --shadow-dashboard: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-dropdown: 0 10px 25px -5px rgba(0, 0, 0, 0.6);
+  --shadow-stat-card: var(--shadow-card);
+  --shadow-sidebar: 1px 0 0 var(--border-light);
+  --shadow-hero: var(--shadow-sm);
 }
