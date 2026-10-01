@@ -127,6 +127,7 @@ class LoopDetector {
   static isNavigationOrChrome(cssPath = '', fingerprint = {}) {
     const combined = [
       cssPath,
+      fingerprint.id,
       fingerprint.tagName,
       fingerprint.parentTag,
       fingerprint.role,
@@ -146,7 +147,9 @@ class LoopDetector {
     }
 
     // 3. Navigation class names & UI patterns
-    if (/\b(navbar|nav-tabs|nav-item|nav-link|top-bar|app-bar|sidebar-nav|site-header|main-nav|page-header|pager|header-nav|menu-item)\b/i.test(combined)) {
+    if (/\b(navbar|nav-tabs|nav-item|nav-link|top-bar|app-bar|sidebar-nav|sidebar|site-header|main-nav|page-header|pager|header-nav|menu-item|menu-link|i21-menu-link|x-menu|x-tree|mat-list-item)\b/i.test(combined) ||
+        /(#menu-|\.x-menu|\.menu\b|nav\s*>\s*ul|sidebar\s*>\s*ul|\/menu-|\bmenu-\d+)/i.test(cssPath) ||
+        /(^|#|\b)menu-\d+/i.test(fingerprint.id || '')) {
       return true;
     }
 
@@ -166,6 +169,8 @@ class LoopDetector {
   /**
    * Automatically finds the best starting loopStepIndex from a workflow's steps.
    * Skips all navigation, header, and toolbar controls.
+   * Prioritizes data table rows and dropdown options over generic list items.
+   * 
    * @param {Array<object>} steps
    * @returns {number} Index of the first repeating loop candidate step, or -1 if none found.
    */
@@ -179,11 +184,23 @@ class LoopDetector {
       }
     }
 
-    // 2. Next, analyze each step: skip anything that is marked SETUP or is navigation chrome
+    // 2. Prioritize Data Table Rows and Dropdown Options (Primary batch processing targets)
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
-      if (!step) continue;
-      if (step.role === 'SETUP') continue;
+      if (!step || step.role === 'SETUP') continue;
+
+      const analysis = this.analyzeStep(step);
+      if (analysis && analysis.isLoopCandidate && !analysis.isNavigationOrChrome) {
+        if (analysis.patternType === 'table-row' || analysis.patternType === 'dropdown-option') {
+          return i;
+        }
+      }
+    }
+
+    // 3. Fallback to generic card-grid or content list items
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
+      if (!step || step.role === 'SETUP') continue;
 
       const analysis = this.analyzeStep(step);
       if (analysis && analysis.isLoopCandidate && !analysis.isNavigationOrChrome) {

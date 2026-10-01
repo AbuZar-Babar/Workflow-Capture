@@ -37,7 +37,7 @@
       CLASSES: 0.10
     },
     MIN_CONFIDENCE_THRESHOLD: 0.70,
-    UNSTABLE_ID_PATTERN: /(:r[0-9a-z_-]+:|^ng-|^__|^ember|^\d+$|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}|_[0-9a-zA-Z]{5,}|^gridview-\d+|^record-\d+|^tableview-\d+|^ext-gen|^ext-comp|^panel-\d+|^menuitem-\d+|^button-\d+|ext-element-\d+|^mat-select-value-\d+|^mat-option-\d+|^mat-select-\d+|^mat-checkbox-\d+|^mat-input-\d+|^mat-form-field-|^mat-mdc-|^cdk-overlay-|^cdk-describedby-)/i,
+    UNSTABLE_ID_PATTERN: /(:r[0-9a-z_-]+:|^ng-|^__|^ember|^\d+$|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}|_[0-9a-zA-Z]{5,}|^gridview-\d+|^record-\d+|^tableview-\d+|^ext-gen|^ext-comp|^panel-\d+|^menuitem-\d+|^button-\d+|ext-element-\d+|^toolbar-\d+|^container-\d+|^headercontainer-\d+|^box-\d+|^form-\d+|^tabbar-\d+|^splitbar-\d+|^window-\d+|^field-\d+|^component-\d+|^view-\d+|-[0-9]{3,}(-[a-zA-Z0-9_-]+)?$|^mat-select-value-\d+|^mat-option-\d+|^mat-select-\d+|^mat-checkbox-\d+|^mat-input-\d+|^mat-form-field-|^mat-mdc-|^cdk-overlay-|^cdk-describedby-)/i,
     TRANSIENT_CLASS_PATTERN: /^(active|hover|focus|focus-visible|disabled|selected|open|closed|show|hide|entering|leaving|animate-|transition-|css-[a-z0-9]+$)/i,
     PREFERRED_DATA_ATTRIBUTES: [
       'data-testid',
@@ -155,7 +155,7 @@
       }
     }
     const rect = element.getBoundingClientRect ? element.getBoundingClientRect() : null;
-    if (rect && (rect.width <= 0 || rect.height <= 0)) {
+    if (rect && (rect.width <= 0 || rect.height <= 0 || rect.top < -5000 || rect.left < -5000)) {
       return false;
     }
     return true;
@@ -729,8 +729,8 @@
       idNameScore = 1.0;
     } else if (targetName && elemName && targetName === elemName) {
       idNameScore = 0.9;
-    } else if (!targetId && !targetName) {
-      // Element originally had neither id nor name, neutral full score
+    } else if (!isStableId(targetId) || (!targetId && !targetName)) {
+      // Element originally had an unstable or missing ID/name, neutral full score
       idNameScore = 1.0;
     }
     score += idNameScore * weights.ID_OR_NAME;
@@ -821,6 +821,62 @@
   }
 
   /**
+   * Find the topmost visible active dialog / modal / window / overlay in the document.
+   * Supports standard HTML5 dialogs, ARIA dialogs, ExtJS windows, Bootstrap modals,
+   * Angular CDK overlays, and generic fixed/absolute high z-index containers.
+   */
+  function getTopmostActiveModal(doc) {
+    const d = doc || (typeof document !== 'undefined' ? document : null);
+    if (!d || typeof d.querySelectorAll !== 'function') return null;
+
+    const modalSelectors = [
+      '[role="dialog"]:not([aria-hidden="true"])',
+      '[role="alertdialog"]:not([aria-hidden="true"])',
+      'dialog[open]',
+      '.modal.show',
+      '.modal.in',
+      '.x-window:not(.x-hidden):not(.x-hidden-offsets)',
+      '.cdk-overlay-pane:not([aria-hidden="true"])',
+      '.mat-mdc-dialog-container',
+      '.ant-modal:not(.ant-modal-hidden)'
+    ];
+
+    try {
+      const candidates = Array.from(d.querySelectorAll(modalSelectors.join(', '))).filter(el => {
+        if (!isElementVisible(el)) return false;
+        const rect = el.getBoundingClientRect();
+        return rect.width > 40 && rect.height > 40;
+      });
+
+      if (candidates.length === 0) return null;
+      if (candidates.length === 1) return candidates[0];
+
+      candidates.sort((a, b) => {
+        const getZ = (elem) => {
+          const cs = (typeof window !== 'undefined' && window.getComputedStyle)
+            ? window.getComputedStyle(elem)
+            : (typeof getComputedStyle === 'function' ? getComputedStyle(elem) : null);
+          const z = cs ? cs.zIndex : 0;
+          const parsed = parseInt(z, 10);
+          return isNaN(parsed) ? 0 : parsed;
+        };
+        const za = getZ(a);
+        const zb = getZ(b);
+        if (za !== zb) return zb - za;
+        if (typeof a.compareDocumentPosition === 'function') {
+          const followingMask = typeof Node !== 'undefined' ? Node.DOCUMENT_POSITION_FOLLOWING : 4;
+          return (a.compareDocumentPosition(b) & followingMask) ? -1 : 1;
+        }
+        return 0;
+      });
+
+      return candidates[0];
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Resolve an element target using candidate priority and weighted fingerprint scoring
    */
   function resolveElement(target, options, doc) {
@@ -839,6 +895,7 @@
       ? options.minScore
       : CONSTANTS.MIN_CONFIDENCE_THRESHOLD;
 
+    const topModal = (options && options.activeModal) || getTopmostActiveModal(d);
     const attempts = [];
 
     // Evaluate candidates in ranked order
@@ -870,6 +927,53 @@
       }
 
       const requireVisible = !options || options.requireVisible !== false;
+
+      // When multiple nodes match and an active modal exists:
+      // Prioritize matches that are inside the topmost active modal
+      if (matchedNodes.length > 1 && topModal) {
+        const inModalNodes = matchedNodes.filter(n => topModal.contains(n));
+        if (inModalNodes.length === 1) {
+          const candidateElem = inModalNodes[0];
+          const { score, passed } = scoreFingerprint(candidateElem, target.fingerprint);
+          if (passed && score >= minScore) {
+            if (!requireVisible || isElementVisible(candidateElem)) {
+              return {
+                element: candidateElem,
+                resolvedCandidate: candidate,
+                confidenceScore: score,
+                success: true,
+                attempts
+              };
+            }
+          }
+        } else if (inModalNodes.length > 1) {
+          // Disambiguate among nodes within the top modal
+          let bestInModal = null;
+          let highestInModalScore = 0;
+          let inModalPassing = 0;
+          for (const elem of inModalNodes) {
+            const { score, passed } = scoreFingerprint(elem, target.fingerprint);
+            if (passed && score >= 0.85) {
+              if (!requireVisible || isElementVisible(elem)) {
+                inModalPassing++;
+                if (score > highestInModalScore) {
+                  highestInModalScore = score;
+                  bestInModal = elem;
+                }
+              }
+            }
+          }
+          if (inModalPassing === 1 && bestInModal) {
+            return {
+              element: bestInModal,
+              resolvedCandidate: candidate,
+              confidenceScore: highestInModalScore,
+              success: true,
+              attempts
+            };
+          }
+        }
+      }
 
       // Case 1: Exactly one element matched
       if (matchedNodes.length === 1) {
@@ -905,40 +1009,63 @@
         continue;
       }
 
-      // Case 2: Multiple elements matched - score all of them
-      let bestElem = null;
-      let highestScore = 0;
-      let passingCount = 0;
+      // Case 2: Multiple elements matched - score all of them and disambiguate
+      const scoredPassing = [];
 
       for (const elem of matchedNodes) {
         const { score, passed } = scoreFingerprint(elem, target.fingerprint);
         if (passed && score >= 0.85) {
           if (!requireVisible || isElementVisible(elem)) {
-            passingCount++;
-            if (score > highestScore) {
-              highestScore = score;
-              bestElem = elem;
+            const insideModal = Boolean(topModal && topModal.contains(elem));
+            let z = 0;
+            if (typeof window !== 'undefined') {
+              const modalParent = elem.closest('.x-window, [role="dialog"], .modal, .cdk-overlay-pane');
+              const zStr = window.getComputedStyle(modalParent || elem).zIndex;
+              z = parseInt(zStr, 10) || 0;
             }
+            scoredPassing.push({ elem, score, insideModal, z });
           }
         }
       }
 
-      // If exactly ONE element scored highly (>= 0.85) among multiple matches, resolve it disambiguated
-      if (passingCount === 1 && bestElem) {
+      // If exactly ONE element scored highly (>= 0.85), resolve it
+      if (scoredPassing.length === 1) {
         return {
-          element: bestElem,
+          element: scoredPassing[0].elem,
           resolvedCandidate: candidate,
-          confidenceScore: highestScore,
+          confidenceScore: scoredPassing[0].score,
           success: true,
           attempts
         };
       }
 
+      // If multiple passed, disambiguate by modal containment, z-index, and score
+      if (scoredPassing.length > 1) {
+        scoredPassing.sort((a, b) => {
+          if (a.insideModal !== b.insideModal) return a.insideModal ? -1 : 1;
+          if (a.z !== b.z) return b.z - a.z;
+          return b.score - a.score;
+        });
+
+        const topRanked = scoredPassing[0];
+        const runnerUp = scoredPassing[1];
+
+        if ((topRanked.insideModal && !runnerUp.insideModal) || topRanked.z > runnerUp.z || topRanked.score > runnerUp.score) {
+          return {
+            element: topRanked.elem,
+            resolvedCandidate: candidate,
+            confidenceScore: topRanked.score,
+            success: true,
+            attempts
+          };
+        }
+      }
+
       attempts.push({
         candidate,
         matchCount: matchedNodes.length,
-        score: highestScore,
-        reason: `Ambiguous match: ${matchedNodes.length} elements matched selector and ${passingCount} passed fingerprint validation`
+        score: scoredPassing.length ? scoredPassing[0].score : 0,
+        reason: `Ambiguous match: ${matchedNodes.length} elements matched selector and ${scoredPassing.length} passed fingerprint validation`
       });
     }
 
@@ -981,33 +1108,54 @@
       }
 
       // 3. Score fallback candidate elements against fingerprint
-      let bestFallbackElem = null;
-      let highestFallbackScore = 0;
-      let passingCount = 0;
-
+      const scoredFallbackPassing = [];
       for (const elem of fallbackNodes) {
         const { score, passed } = scoreFingerprint(elem, fingerprint);
         if (passed && score >= minScore) {
           if (!requireVisible || isElementVisible(elem)) {
-            passingCount++;
-            if (score > highestFallbackScore) {
-              highestFallbackScore = score;
-              bestFallbackElem = elem;
+            const insideModal = Boolean(topModal && topModal.contains(elem));
+            let z = 0;
+            if (typeof window !== 'undefined') {
+              const modalParent = elem.closest('.x-window, [role="dialog"], .modal, .cdk-overlay-pane');
+              const zStr = window.getComputedStyle(modalParent || elem).zIndex;
+              z = parseInt(zStr, 10) || 0;
             }
+            scoredFallbackPassing.push({ elem, score, insideModal, z });
           }
         }
       }
 
-      if (bestFallbackElem && highestFallbackScore >= minScore) {
+      if (scoredFallbackPassing.length === 1) {
         return {
-          element: bestFallbackElem,
+          element: scoredFallbackPassing[0].elem,
           resolvedCandidate: {
             strategy: 'fingerprint-fallback',
             value: targetText ? `fallback:text="${targetText}"` : `fallback:tag=${tag}`,
-            uniqueness: passingCount,
+            uniqueness: 1,
             priority: 99
           },
-          confidenceScore: highestFallbackScore,
+          confidenceScore: scoredFallbackPassing[0].score,
+          success: true,
+          attempts
+        };
+      }
+
+      if (scoredFallbackPassing.length > 1) {
+        scoredFallbackPassing.sort((a, b) => {
+          if (a.insideModal !== b.insideModal) return a.insideModal ? -1 : 1;
+          if (a.z !== b.z) return b.z - a.z;
+          return b.score - a.score;
+        });
+        const topFallback = scoredFallbackPassing[0];
+        return {
+          element: topFallback.elem,
+          resolvedCandidate: {
+            strategy: 'fingerprint-fallback',
+            value: targetText ? `fallback:text="${targetText}"` : `fallback:tag=${tag}`,
+            uniqueness: scoredFallbackPassing.length,
+            priority: 99
+          },
+          confidenceScore: topFallback.score,
           success: true,
           attempts
         };
@@ -1038,6 +1186,7 @@
     generateFriendlyName,
     captureTarget,
     scoreFingerprint,
+    getTopmostActiveModal,
     resolveElement
   };
 });

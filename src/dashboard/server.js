@@ -43,10 +43,11 @@ const { spawn } = require('child_process');
 const RecorderBridge = require('../recorder/recorder-bridge');
 const ReplayEngine = require('../replay/replay-engine');
 const LoopDetector = require('../shared/loop-detector');
-const ItemDiscovery = require('../shared/item-discovery');
 const LoopReplayRunner = require('../replay/loop-replay-runner');
 const { extractAvailableFields, evaluateFilterPreview } = require('../shared/item-filter');
+const { PageInspector } = require('../shared/page-inspector');
 const { connectToBrowser } = require('../utils/cdp-connector');
+const { extractWorkflowStartUrl } = require('../utils/url-helper');
 const logger = require('../utils/logger');
 const authController = require('../auth/auth-controller');
 const workflowController = require('../api/workflow-controller');
@@ -446,7 +447,7 @@ const server = http.createServer(async (req, res) => {
         try {
           await page.bringToFront().catch(() => {});
           const currentUrl = page.url();
-          const targetUrl = workflow.targetUrl || (workflow.recordingData?.metadata?.startUrl) || targetStep.url;
+          const targetUrl = extractWorkflowStartUrl(workflow) || targetStep.url;
           let shouldNavigate = false;
           if (targetUrl) {
             try {
@@ -468,50 +469,163 @@ const server = http.createServer(async (req, res) => {
           const engine = new ReplayEngine({ cdpPort: 9222 });
           engine.page = page;
           await engine._ensureSelectorResolverInFrame(page.mainFrame());
+
+          // 1. If setup steps are defined (e.g. opening a search modal or navigation), execute them to reveal the data table
+          if (partition.setupSteps.length > 0) {
+            try {
+              for (let i = 0; i < partition.setupSteps.length; i++) {
+                await engine.executeAction(partition.setupSteps[i], i);
+                await new Promise(resolve => setTimeout(resolve, 800));
+              }
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            } catch (setupErr) {
+              logger.warn(`[Discovery] Setup execution note: ${setupErr.message}`);
+            }
+          }
+
+          // 2. Perform element-level item discovery on target step
           let discovery = await ItemDiscovery.discover(page, targetStep.target || targetStep.fingerprint, {
             minItems: 2,
             minScore: 0.55
           });
 
-          if (!discovery.success && discovery.reason?.includes('could not be resolved') && partition.setupSteps.length > 0) {
-            logger.info(`[Discovery] Target not immediately visible in DOM. Running ${partition.setupSteps.length} setup steps to reveal it...`);
-            try {
-              for (let i = 0; i < partition.setupSteps.length; i++) {
-                await engine.executeAction(partition.setupSteps[i], i);
-                await new Promise(resolve => setTimeout(resolve, 500));
-              }
-              discovery = await ItemDiscovery.discover(page, targetStep.target || targetStep.fingerprint, {
-                minItems: 2,
-                minScore: 0.55
-              });
-            } catch (setupErr) {
-              logger.warn(`[Discovery] Setup execution encountered warning: ${setupErr.message}`);
+          // 3. Autonomous Full-Page Inspection
+          const pageInspection = await PageInspector.inspectPage(page).catch(() => ({ success: false }));
+          const pageSummary = pageInspection.summary || null;
+
+          // 4. If element discovery missed the table or locked onto sidebar <li> tags, elevate the PageInspector table
+          if ((!discovery.success || discovery.collection?.itemTag === 'li') && pageSummary?.entities?.length > 0) {
+            const tableEntity = pageSummary.entities.find(e => e.type === 'table_grid' && e.itemCount >= 2);
+            if (tableEntity) {
+              discovery = {
+                success: true,
+                confidence: 0.95,
+                itemCount: tableEntity.itemCount,
+                collection: {
+                  itemTag: 'tr',
+                  ancestorTag: 'tbody',
+                  ancestorSelector: 'table tbody'
+                },
+                items: (tableEntity.rows || tableEntity.sampleRows).map((row, idx) => ({
+                  index: idx,
+                  text: Object.values(row).filter(Boolean).join(' '),
+                  fields: row,
+                  tagName: 'tr'
+                })),
+                availableFields: tableEntity.columns
+              };
             }
           }
 
           let availableFields = [];
           let filterPreview = null;
 
+          // Scan workflow downloads folder and database to identify which items are already downloaded (old) vs new
+          const workflowSlug = (workflow.name || workflowId).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'workflow';
+          const workflowDlDir = path.join(process.cwd(), 'downloads', workflowSlug);
+          let existingFiles = [];
+          if (fs.existsSync(workflowDlDir)) {
+            try {
+              existingFiles = fs.readdirSync(workflowDlDir, { recursive: true }).filter(f => typeof f === 'string');
+            } catch {}
+          }
+          const dbRecords = db.find('downloads', d => d.workflowId === workflowId) || [];
+
+          // Extract distinct values and enrich items with download / old data status
+          const fieldValues = {};
+          const items = Array.isArray(discovery.items) ? discovery.items : [];
+
           if (discovery.success) {
-            const itemsWithFields = await LoopReplayRunner.extractDiscoveredItems(page, discovery);
-            if (Array.isArray(discovery.items)) {
-              discovery.items.forEach((item, idx) => {
-                if (itemsWithFields[idx]) {
-                  item.fields = itemsWithFields[idx].fields || {};
+            let itemsWithFields = items;
+            try {
+              if (page && typeof LoopReplayRunner.extractDiscoveredItems === 'function') {
+                const extracted = await LoopReplayRunner.extractDiscoveredItems(page, discovery);
+                if (Array.isArray(extracted) && extracted.length > 0) {
+                  itemsWithFields = extracted;
+                  if (Array.isArray(discovery.items)) {
+                    discovery.items.forEach((item, idx) => {
+                      if (itemsWithFields[idx]) {
+                        item.fields = itemsWithFields[idx].fields || item.fields || {};
+                      }
+                    });
+                  }
                 }
-              });
+              }
+            } catch (err) {
+              logger.warn(`[Preflight] Could not extract live fields: ${err.message}`);
             }
-            availableFields = extractAvailableFields(itemsWithFields);
-            discovery.availableFields = availableFields;
+
+            for (const item of items) {
+              const f = item.fields || {};
+              const invNum = f['Invoice Number'] || f['Invoice No'] || f['Invoice #'] ||
+                (item.text && item.text.match(/\b((?:SI|INV|DR|TX|CM)-\d+(?:[-_]\w+)*|\b\d{5,10}\b)/i)?.[1]) || null;
+
+              let isDownloaded = false;
+              let downloadedFile = null;
+              if (invNum) {
+                const fileMatch = existingFiles.find(ef => path.basename(ef).toLowerCase().includes(invNum.toLowerCase()));
+                if (fileMatch) {
+                  isDownloaded = true;
+                  downloadedFile = path.basename(fileMatch);
+                } else {
+                  const dbMatch = dbRecords.find(d =>
+                    (d.filename && d.filename.toLowerCase().includes(invNum.toLowerCase())) ||
+                    (d.itemKey && d.itemKey.toLowerCase().includes(invNum.toLowerCase())) ||
+                    (d.itemLabel && d.itemLabel.toLowerCase().includes(invNum.toLowerCase()))
+                  );
+                  if (dbMatch) {
+                    isDownloaded = true;
+                    downloadedFile = dbMatch.filename || 'database record';
+                  }
+                }
+              }
+
+              let isOldData = isDownloaded;
+              if (!isOldData) {
+                if (f['Days Old'] && parseInt(f['Days Old'], 10) > 0) {
+                  isOldData = true;
+                } else if (f['Due Date']) {
+                  const parsedDue = new Date(f['Due Date']);
+                  if (!isNaN(parsedDue.getTime()) && parsedDue.getTime() <= Date.now()) {
+                    isOldData = true;
+                  }
+                }
+              }
+
+              item.isDownloaded = isDownloaded;
+              item.downloadedFile = downloadedFile;
+              item.isOldData = isOldData;
+
+              if (item && item.fields && typeof item.fields === 'object') {
+                for (const [k, v] of Object.entries(item.fields)) {
+                  if (v == null || v === '') continue;
+                  const key = String(k).trim();
+                  const val = String(v).trim();
+                  if (!fieldValues[key]) fieldValues[key] = new Set();
+                  fieldValues[key].add(val);
+                }
+              }
+              if (item && item.text) {
+                const textVal = String(item.text).trim();
+                if (textVal) {
+                  if (!fieldValues['Text']) fieldValues['Text'] = new Set();
+                  fieldValues['Text'].add(textVal);
+                }
+              }
+            }
 
             const effectiveFilter = body.itemFilter !== undefined
               ? body.itemFilter
               : (body.rowFilter || (body.filterValue ? { column: body.filterColumn || 'Type', value: body.filterValue } : null));
 
-            filterPreview = evaluateFilterPreview(effectiveFilter, itemsWithFields, {
-              loopLimit: body.loopLimit !== undefined ? body.loopLimit : null,
-              previewLimit: 10
-            });
+            try {
+              filterPreview = evaluateFilterPreview(effectiveFilter, itemsWithFields, {
+                loopLimit: body.loopLimit !== undefined ? body.loopLimit : null,
+                previewLimit: 10
+              });
+            } catch (err) {
+              logger.warn(`[Preflight] evaluateFilterPreview error: ${err.message}`);
+            }
           } else {
             filterPreview = {
               totalCount: 0,
@@ -529,6 +643,42 @@ const server = http.createServer(async (req, res) => {
             };
           }
 
+          const fieldValuesJson = {};
+          for (const [k, vSet] of Object.entries(fieldValues)) {
+            fieldValuesJson[k] = Array.from(vSet).slice(0, 30);
+          }
+
+          const stepsSummary = steps.map((s, idx) => ({
+            index: idx,
+            type: s.type || s.action || 'CLICK',
+            target: s.target?.fingerprint?.text || s.target?.fingerprint?.title || s.target?.fingerprint?.tagName || s.role || `Step #${idx + 1}`,
+            selector: s.target?.candidates?.[0]?.value || '',
+            isLoopCandidate: idx === loopStepIndex || s.isLoop || s.role === 'LOOP_TARGET'
+          }));
+
+          const availableFieldsSet = new Set(discovery.availableFields || []);
+          for (const k of Object.keys(fieldValuesJson)) {
+            availableFieldsSet.add(k);
+          }
+          if (pageSummary?.entities?.length > 0) {
+            for (const entity of pageSummary.entities) {
+              if (Array.isArray(entity.columns)) {
+                for (const c of entity.columns) {
+                  if (c && !c.startsWith('_')) availableFieldsSet.add(c);
+                }
+              }
+            }
+          }
+          for (const item of items) {
+            if (item && item.fields) {
+              for (const k of Object.keys(item.fields)) {
+                if (k && !['fullText', 'label', 'isSelectAll'].includes(k)) availableFieldsSet.add(k);
+              }
+            }
+          }
+          availableFields = Array.from(availableFieldsSet);
+          if (discovery) discovery.availableFields = availableFields;
+
           return sendJson(res, discovery.success ? 200 : 422, {
             success: discovery.success,
             workflowId,
@@ -540,7 +690,10 @@ const server = http.createServer(async (req, res) => {
             targetUrl: page.url(),
             discovery,
             availableFields,
-            filterPreview
+            filterPreview,
+            fieldValues: fieldValuesJson,
+            steps: stepsSummary,
+            pageSummary
           });
         } finally {
           await browser.disconnect().catch(() => {});

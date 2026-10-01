@@ -250,6 +250,7 @@
       delete cleanExtra.canvasCoords;
       delete cleanExtra.captureTimestamp;
       const actionTimestamp = Date.now();
+      const pageUrl = (typeof window !== 'undefined' && window.location && window.location.href) ? window.location.href : null;
 
       const payload = {
         uid: actionUid,
@@ -259,6 +260,7 @@
         timestamp: actionTimestamp,
         captureTimestamp: Number(extra.captureTimestamp) || actionTimestamp,
         target,
+        ...(pageUrl ? { url: pageUrl } : {}),
         ...(frameInfo ? { frame: frameInfo } : {}),
         ...cleanExtra
       };

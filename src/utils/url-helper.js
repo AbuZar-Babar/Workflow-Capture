@@ -6,6 +6,27 @@ const fs = require('fs');
 const path = require('path');
 
 /**
+ * Checks if a given URL is an internal browser URL (not a navigable web/file page)
+ * @param {string} url
+ * @returns {boolean}
+ */
+function isInternalBrowserUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim().toLowerCase();
+  return (
+    trimmed === 'about:blank' ||
+    trimmed === 'about:newtab' ||
+    trimmed.startsWith('chrome://') ||
+    trimmed.startsWith('chrome-search://') ||
+    trimmed.startsWith('chrome-extension://') ||
+    trimmed.startsWith('about:') ||
+    trimmed.startsWith('edge://') ||
+    trimmed.startsWith('brave://') ||
+    trimmed.startsWith('devtools://')
+  );
+}
+
+/**
  * Resolves a workflow target URL to a valid navigable browser URL
  * @param {string} targetUrl - Raw target URL or file path from workflow metadata
  * @returns {string|null} Resolved navigable URL
@@ -13,7 +34,7 @@ const path = require('path');
 function resolveTargetUrl(targetUrl) {
   if (!targetUrl || typeof targetUrl !== 'string') return null;
   targetUrl = targetUrl.trim();
-  if (!targetUrl || targetUrl === 'about:blank') return null;
+  if (!targetUrl || isInternalBrowserUrl(targetUrl)) return null;
 
   // Handle local mock test files with file: protocol
   if (targetUrl.startsWith('file:')) {
@@ -56,6 +77,49 @@ function resolveTargetUrl(targetUrl) {
   return targetUrl;
 }
 
+/**
+ * Robustly extracts the best starting URL from a workflow, recording, or action list
+ * @param {Object} workflow
+ * @returns {string|null}
+ */
+function extractWorkflowStartUrl(workflow) {
+  if (!workflow) return null;
+
+  const directCandidates = [
+    workflow.targetUrl,
+    workflow.recordingData?.metadata?.startUrl,
+    workflow.metadata?.startUrl,
+    workflow.startUrl
+  ];
+
+  for (const candidate of directCandidates) {
+    if (candidate && typeof candidate === 'string' && !isInternalBrowserUrl(candidate)) {
+      const resolved = resolveTargetUrl(candidate);
+      if (resolved) return resolved;
+    }
+  }
+
+  // Fall back to scanning actions/steps for a valid URL or href attribute
+  const actions = workflow.actions || workflow.steps || workflow.recordingData?.actions || [];
+  for (const act of actions) {
+    if (!act) continue;
+    const actionUrl = act.url || act.pageUrl || act.frame?.location;
+    if (actionUrl && typeof actionUrl === 'string' && !isInternalBrowserUrl(actionUrl)) {
+      const resolved = resolveTargetUrl(actionUrl);
+      if (resolved) return resolved;
+    }
+    const href = act.target?.fingerprint?.attributes?.href;
+    if (href && typeof href === 'string' && (href.startsWith('http://') || href.startsWith('https://'))) {
+      const resolved = resolveTargetUrl(href);
+      if (resolved) return resolved;
+    }
+  }
+
+  return null;
+}
+
 module.exports = {
-  resolveTargetUrl
+  isInternalBrowserUrl,
+  resolveTargetUrl,
+  extractWorkflowStartUrl
 };

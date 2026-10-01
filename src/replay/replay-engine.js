@@ -19,7 +19,7 @@ const {
 const { dispatchAction } = require('./action-executors');
 const { calculateDelay } = require('./human-mouse');
 const { getActiveBotConfig } = require('../api/bot-config-controller');
-const { resolveTargetUrl } = require('../utils/url-helper');
+const { resolveTargetUrl, extractWorkflowStartUrl, isInternalBrowserUrl } = require('../utils/url-helper');
 const logger = require('../utils/logger');
 
 class ReplayEngine extends EventEmitter {
@@ -40,6 +40,7 @@ class ReplayEngine extends EventEmitter {
     this.lastIntervention = null;
     this.isPaused = false;
     this.isLocked = false;
+    this.enableDisturbanceDetection = options.enableDisturbanceDetection === true;
     this._guardPages = new Set();
     this._guardScriptIds = new Map();
   }
@@ -79,11 +80,35 @@ class ReplayEngine extends EventEmitter {
   }
 
   /**
-   * Safely dismiss open popups, overlays, or dropdowns via Escape key without triggering disturbance detection
+   * Safely dismiss open popups, overlays, or dropdowns via Escape key without triggering disturbance detection.
+   * Only presses Escape if an actual ephemeral backdrop, dropdown, or context menu is present in the DOM.
    */
   async dismissOverlays() {
     if (!this.page || this.page.isClosed()) return;
     try {
+      const hasDismissibleOverlay = await this.page.evaluate(() => {
+        const overlaySelectors = [
+          '.cdk-overlay-backdrop',
+          '.modal-backdrop',
+          '.mat-select-panel',
+          '[role="listbox"]',
+          '.x-menu:not(.x-hidden)',
+          '.dropdown-menu.show',
+          '.ant-select-dropdown:not(.ant-select-dropdown-hidden)',
+          '.dx-overlay-content:not([style*="display: none"])'
+        ];
+        return overlaySelectors.some(sel => {
+          const els = Array.from(document.querySelectorAll(sel));
+          return els.some(el => {
+            if (el.offsetParent === null && el.tagName.toLowerCase() !== 'body') return false;
+            const style = window.getComputedStyle(el);
+            return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+          });
+        });
+      }).catch(() => false);
+
+      if (!hasDismissibleOverlay) return;
+
       await this._setAutomatedAction(true, { key: 'Escape' });
       await this.page.keyboard.press('Escape').catch(() => {});
       await new Promise(r => setTimeout(r, 200));
@@ -218,9 +243,32 @@ class ReplayEngine extends EventEmitter {
       });
     } catch {}
 
-    await this._initHumanDisturbanceDetection(this.page);
+    if (this.enableDisturbanceDetection) {
+      await this._initHumanDisturbanceDetection(this.page);
+    } else {
+      await this._cleanupLingeringReplayGuard(this.page);
+    }
 
     return this.browser;
+  }
+
+  /**
+   * Helper to cleanup lingering replay guard UI and attached handlers from a page.
+   */
+  async _cleanupLingeringReplayGuard(page) {
+    if (!page || page.isClosed()) return;
+    try {
+      await page.evaluate(() => {
+        if (typeof window.__flowmindStopReplayGuard === 'function') {
+          window.__flowmindStopReplayGuard();
+        }
+        const host = document.getElementById('__flowmind-replay-guard');
+        if (host) host.remove();
+        window.__flowmindInterventionAttached = false;
+        window.__flowmindReplayPaused = false;
+        window.__flowmindReplayLocked = false;
+      }).catch(() => {});
+    } catch {}
   }
 
   /**
@@ -228,6 +276,10 @@ class ReplayEngine extends EventEmitter {
    * Tracks manual user mouse clicks, keystrokes, and touch events when automated replay is idle.
    */
   async _initHumanDisturbanceDetection(page) {
+    if (!this.enableDisturbanceDetection) {
+      await this._cleanupLingeringReplayGuard(page);
+      return;
+    }
     if (!page || page.isClosed() || this._guardPages.has(page)) return;
 
     try {
@@ -341,25 +393,35 @@ class ReplayEngine extends EventEmitter {
       const script = await page.evaluateOnNewDocument(injectionScript);
       this._guardScriptIds.set(page, script.identifier);
       this._guardPages.add(page);
-      for (const frame of page.frames()) await frame.evaluate(injectionScript).catch(() => {});
+      for (const frame of page.frames()) {
+        if (!frame || (typeof frame.isDetached === 'function' && frame.isDetached())) continue;
+        await frame.evaluate(injectionScript).catch(() => {});
+      }
     } catch {}
   }
 
   async _syncReplayGuard() {
+    if (!this.enableDisturbanceDetection) return;
     for (const page of this._guardPages) {
       if (page.isClosed()) continue;
-      for (const frame of page.frames()) await frame.evaluate((state) => {
-        window.__flowmindReplayPaused=state.paused;
-        window.__flowmindReplayLocked=state.locked;
-        window.__flowmindUpdateReplayGuard && window.__flowmindUpdateReplayGuard();
-      }, { paused: this.isPaused, locked: this.isLocked }).catch(() => {});
+      for (const frame of page.frames()) {
+        if (!frame || (typeof frame.isDetached === 'function' && frame.isDetached())) continue;
+        await frame.evaluate((state) => {
+          window.__flowmindReplayPaused=state.paused;
+          window.__flowmindReplayLocked=state.locked;
+          window.__flowmindUpdateReplayGuard && window.__flowmindUpdateReplayGuard();
+        }, { paused: this.isPaused, locked: this.isLocked }).catch(() => {});
+      }
     }
   }
 
   async _teardownReplayGuard() {
     for (const page of this._guardPages) {
       if (page.isClosed()) continue;
-      for (const frame of page.frames()) await frame.evaluate(() => window.__flowmindStopReplayGuard && window.__flowmindStopReplayGuard()).catch(() => {});
+      for (const frame of page.frames()) {
+        if (!frame || (typeof frame.isDetached === 'function' && frame.isDetached())) continue;
+        await frame.evaluate(() => window.__flowmindStopReplayGuard && window.__flowmindStopReplayGuard()).catch(() => {});
+      }
       const identifier = this._guardScriptIds.get(page);
       if (identifier) await page.removeScriptToEvaluateOnNewDocument(identifier).catch(() => {});
     }
@@ -372,6 +434,7 @@ class ReplayEngine extends EventEmitter {
    */
   async _setAutomatedAction(isActive, targetOrOptions = null) {
     this.isAutomatedActionActive = !!isActive;
+    if (!this.enableDisturbanceDetection) return;
     if (this.page && !this.page.isClosed()) {
       try {
         let targetHandle = null;
@@ -435,6 +498,7 @@ class ReplayEngine extends EventEmitter {
    * Handle human disturbance reported from target page
    */
   _handleHumanIntervention(eventDetail) {
+    if (!this.enableDisturbanceDetection) return;
     if (this.isPaused || this.isAborted) return;
     this.isPaused = true;
     this._syncReplayGuard();
@@ -638,13 +702,19 @@ class ReplayEngine extends EventEmitter {
       }
 
       const targetText = normalize(fingerprint.text);
-      if (targetText) {
+      if (targetText && !target?.scope) {
         const textMatches = pool.filter(el => normalize(el.textContent) === targetText);
         if (textMatches.length) pool = textMatches;
       }
 
       pool.sort((a, b) => score(b) - score(a));
-      return pool[0] || null;
+      if (pool[0]) return pool[0];
+
+      // Fallback: If no candidate matched, find the primary clickable link/button or return item
+      const fallbackClickable = item.querySelector('a[href], button, [role="button"]');
+      if (fallbackClickable && visible(fallbackClickable)) return fallbackClickable;
+
+      return visible(item) ? item : null;
     }, action.target || action.fingerprint);
 
     const elementHandle = targetHandle.asElement();
@@ -697,9 +767,11 @@ class ReplayEngine extends EventEmitter {
   async _ensureSelectorResolverInFrame(frame) {
     try {
       const targetFrame = frame || this.page;
+      if (!targetFrame || (typeof targetFrame.isDetached === 'function' && targetFrame.isDetached())) return;
       const isResolverLoaded = await targetFrame.evaluate(() => typeof window.SelectorResolver !== 'undefined').catch(() => false);
 
       if (!isResolverLoaded) {
+        if (typeof targetFrame.isDetached === 'function' && targetFrame.isDetached()) return;
         const resolverPath = path.resolve(__dirname, '../shared/selector-resolver.js');
         const resolverCode = fs.readFileSync(resolverPath, 'utf8');
         await targetFrame.evaluate(resolverCode).catch(() => {});
@@ -736,6 +808,7 @@ class ReplayEngine extends EventEmitter {
           const frames = [candidatePage.mainFrame(), ...candidatePage.frames().filter(f => f !== candidatePage.mainFrame())];
 
           for (const frame of frames) {
+            if (!frame || (typeof frame.isDetached === 'function' && frame.isDetached())) continue;
             try {
               await this._ensureSelectorResolverInFrame(frame);
 
@@ -752,7 +825,7 @@ class ReplayEngine extends EventEmitter {
                 return window.SelectorResolver.resolveElement(targetData);
               }, target).catch(() => null);
 
-              if (report && report.success) {
+              if (report) {
                 lastResolutionResult = report;
               }
 
@@ -763,13 +836,19 @@ class ReplayEngine extends EventEmitter {
                   const isAttached = await element.evaluate(el => el.isConnected && el.ownerDocument.contains(el)).catch(() => false);
 
                   if (isAttached) {
-                    const matchedCandidate = (report && report.candidate) ? report.candidate : (target.candidates && target.candidates[0]) || { strategy: 'css_id', value: target.targetId || 'unknown' };
+                    const matchedCandidate = (report && (report.resolvedCandidate || report.candidate))
+                      ? (report.resolvedCandidate || report.candidate)
+                      : (target.candidates && target.candidates[0]) || { strategy: 'css_id', value: target.targetId || 'unknown' };
                     const confidenceScore = (report && report.confidenceScore) || 1.0;
 
                     if (candidatePage !== this.page) {
                       await candidatePage.bringToFront().catch(() => {});
                       this.page = candidatePage;
-                      await this._initHumanDisturbanceDetection(candidatePage);
+                      if (this.enableDisturbanceDetection) {
+                        await this._initHumanDisturbanceDetection(candidatePage);
+                      } else {
+                        await this._cleanupLingeringReplayGuard(candidatePage);
+                      }
                       logger.info(`[ReplayEngine] Switched active tab/window to: ${candidatePage.url()}`);
                     }
 
@@ -798,10 +877,17 @@ class ReplayEngine extends EventEmitter {
     }
 
     // Timeout exceeded
-    const failureReport = lastResolutionResult || {
+    const detailedReason = lastResolutionResult?.reason ||
+      lastResolutionResult?.attempts?.find(a => a.reason)?.reason ||
+      'No candidate matched within timeout';
+
+    const failureReport = lastResolutionResult ? {
+      ...lastResolutionResult,
+      reason: detailedReason
+    } : {
       bestScore: 0,
       candidatesTried: (target && target.candidates) ? target.candidates.length : 0,
-      reason: 'No candidate matched within timeout'
+      reason: detailedReason
     };
 
     throw new ElementResolutionTimeoutError(
@@ -844,8 +930,7 @@ class ReplayEngine extends EventEmitter {
     this.recording = recording;
 
     // Resolve cross-platform file:/// URLs or web URLs
-    let rawStartUrl = (recording.metadata && recording.metadata.startUrl) || recording.targetUrl || (recording.actions && recording.actions[0] && recording.actions[0].url) || null;
-    let targetStartUrl = resolveTargetUrl(rawStartUrl);
+    let targetStartUrl = extractWorkflowStartUrl(recording);
 
     // Connect to Chrome via CDP
     const { browser, page } = await connectToBrowser({
@@ -856,7 +941,11 @@ class ReplayEngine extends EventEmitter {
 
     // Apply anti-bot stealth scripts
     await this._applyStealthEvasion();
-    await this._initHumanDisturbanceDetection(this.page);
+    if (this.enableDisturbanceDetection) {
+      await this._initHumanDisturbanceDetection(this.page);
+    } else {
+      await this._cleanupLingeringReplayGuard(this.page);
+    }
 
     // 1. Auto-handle browser dialogs
     this.page.on('dialog', async (dialog) => {

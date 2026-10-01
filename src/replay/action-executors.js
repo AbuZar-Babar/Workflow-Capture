@@ -289,14 +289,20 @@ async function executeClick(elementHandle, action, options = {}) {
       ]);
     } catch (err) {
       try {
-        // Fallback: Clean DOM click with DevExpress item support
+        // Fallback: Clean DOM click with DevExpress, ExtJS, and framework button support
         await clickTarget.evaluate((el) => {
           el.focus?.();
           el.click?.();
-          const parentItem = el.closest && el.closest('.dxm-item');
-          if (parentItem && parentItem !== el) {
-            parentItem.click?.();
+          const parentBtn = el.closest && el.closest('button, a, [role="button"], .x-btn, .dxm-item');
+          if (parentBtn && parentBtn !== el) {
+            parentBtn.focus?.();
+            parentBtn.click?.();
           }
+          try {
+            el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+            el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+            el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+          } catch {}
         });
       } catch (fallbackErr) {
         throw new ActionExecutionError(`Failed to click element: ${err.message}`, {

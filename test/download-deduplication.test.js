@@ -178,19 +178,17 @@ async function runTests() {
     console.log('🔹 Test 7: exportAllDownloadsZip creates and streams ZIP archive');
     let zipStatus = 0;
     let zipHeaders = {};
-    const mockResZip = {
-      writeHead: (s, h) => { zipStatus = s; zipHeaders = h; },
-      on: () => {},
-      once: () => {},
-      emit: () => {},
-      write: () => {},
-      end: () => {}
-    };
     await new Promise((resolve, reject) => {
-      mockResZip.end = () => resolve();
+      const mockResZip = {
+        writeHead: (s, h) => { zipStatus = s; zipHeaders = h; },
+        on: () => mockResZip,
+        once: () => mockResZip,
+        emit: () => {},
+        write: () => true,
+        end: () => resolve()
+      };
       try {
         runController.exportAllDownloadsZip({ user: { id: 'user_tester' } }, mockResZip);
-        setTimeout(resolve, 1500);
       } catch (err) {
         reject(err);
       }

@@ -1,15 +1,13 @@
 /**
  * Workflow Capture — Workflow Execution & Loop Review Modal
  * 
- * Unifies execution preflight, record discovery, record filtering, and launch review.
- * Conforms strictly to the Shared Filter Contract:
- *  - Multiple filter conditions (field, operator: contains | equals | dateBetween, value / from-to dates)
- *  - Match mode: 'all' | 'any' (default: 'all')
- *  - Loop item limit: positive integer or null (unlimited)
- *  - Preflight counts: totalCount, matchingCount, selectedCount, skippedFilterCount, skippedLimitCount
- *  - Representative samples for selected, filter-skipped, and limit-skipped records
- *  - Blocks execution on preview errors, invalid limit, or zero-selected runs
- *  - Passes exact itemFilter and loopLimit payload to API client
+ * Unifies execution preflight, item discovery, record filtering, and launch review.
+ * Conforms to the Shared Filter Contract from MULTI-AGENT-WORK-PLAN.md:
+ *  - itemFilter: { field, operator, value }
+ *  - Operators: 'contains' | 'equals' (case-insensitive, whitespace trimmed)
+ *  - Preflight counts: totalCount, selectedCount, skippedCount, representative samples
+ *  - Blocks execution on preview errors or zero-match filtered runs
+ *  - Passes itemFilter unchanged to API client
  */
 
 import { Api } from '../api.js';
@@ -28,101 +26,6 @@ function escapeHtml(str) {
   }[c]));
 }
 
-/**
- * Validates strict YYYY-MM-DD date-only strings with real calendar boundaries.
- */
-function isValidIsoDate(str) {
-  if (typeof str !== 'string') return false;
-  const trimmed = str.trim();
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
-  if (!match) return false;
-  const year = parseInt(match[1], 10);
-  const month = parseInt(match[2], 10);
-  const day = parseInt(match[3], 10);
-  if (month < 1 || month > 12) return false;
-  if (day < 1 || day > 31) return false;
-  const d = new Date(year, month - 1, day);
-  return d.getFullYear() === year && d.getMonth() === month - 1 && d.getDate() === day;
-}
-
-/**
- * Parses a record's date value deterministically without locale dependence,
- * matching the shared evaluator contract from src/shared/item-filter.js.
- * Accepts:
- *  - Strict YYYY-MM-DD
- *  - YYYY-MM-DD... ISO timestamps
- *  - YYYY/MM/DD
- *  - YYYY/MM/DD... timestamps
- *  - Valid JavaScript Date objects
- * Rejects:
- *  - MM/DD/YYYY, M/D/YYYY
- *  - Textual dates
- *  - Locale-dependent Date.parse() fallback
- *
- * @param {any} val
- * @returns {string|null} - YYYY-MM-DD date string, or null if missing or unparseable.
- */
-function parseItemDate(val) {
-  if (val === null || val === undefined) {
-    return null;
-  }
-
-  if (val instanceof Date) {
-    if (isNaN(val.getTime())) {
-      return null;
-    }
-    return val.toISOString().slice(0, 10);
-  }
-
-  const str = String(val).trim();
-  if (!str) {
-    return null;
-  }
-
-  // Accept strict YYYY-MM-DD or standard ISO timestamp beginning with YYYY-MM-DD
-  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/.exec(str);
-  if (isoMatch) {
-    const yStr = isoMatch[1];
-    const mStr = isoMatch[2];
-    const dStr = isoMatch[3];
-    const y = parseInt(yStr, 10);
-    const m = parseInt(mStr, 10);
-    const d = parseInt(dStr, 10);
-
-    if (m >= 1 && m <= 12) {
-      const isLeap = (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
-      const daysInMonth = [31, isLeap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-      if (d >= 1 && d <= daysInMonth[m - 1]) {
-        return `${yStr}-${mStr}-${dStr}`;
-      }
-    }
-    return null;
-  }
-
-  // Accept YYYY/MM/DD or timestamp beginning with YYYY/MM/DD
-  const slashMatch = /^(\d{4})\/(\d{2})\/(\d{2})(?:[T\s].*)?$/.exec(str);
-  if (slashMatch) {
-    const yStr = slashMatch[1];
-    const mStr = slashMatch[2];
-    const dStr = slashMatch[3];
-    const y = parseInt(yStr, 10);
-    const m = parseInt(mStr, 10);
-    const d = parseInt(dStr, 10);
-
-    if (m >= 1 && m <= 12) {
-      const isLeap = (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
-      const daysInMonth = [31, isLeap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-      if (d >= 1 && d <= daysInMonth[m - 1]) {
-        return `${yStr}-${mStr}-${dStr}`;
-      }
-    }
-    return null;
-  }
-
-  // All other formats (e.g. MM/DD/YYYY, DD/MM/YYYY, or textual dates) are ambiguous without locale
-  return null;
-}
-
 export const ExecutionModal = {
   container: null,
   currentWorkflowId: null,
@@ -132,68 +35,27 @@ export const ExecutionModal = {
   isLoopConfigured: false,
   selectedMode: 'single', // 'single' | 'loop'
   onExecuted: null,
-  previousActiveElement: null,
+  workflowSteps: [],
+  fieldValues: {},
+  itemMode: 'new', // 'new' | 'all' | 'old'
 
-  // Preflight and filter state (v2 contract)
+  // Preflight and filter state
   preflightStatus: 'idle', // 'idle' | 'loading' | 'success' | 'error'
   preflightError: '',
   discoveryData: null,
   availableFields: [],
   filterEnabled: true,
-  matchMode: 'all', // 'all' | 'any'
-  conditions: [
-    {
-      id: 'cond_1',
-      field: 'Type',
-      customField: '',
-      operator: 'contains',
-      value: 'Invoice',
-      dateFrom: '',
-      dateTo: ''
-    }
-  ],
-  loopLimit: null, // positive integer or null (unlimited)
-  loopLimitInput: '', // raw input string
-
+  filterField: 'Type',
+  customFieldName: '',
+  filterOperator: 'contains', // 'contains' | 'equals'
+  filterValue: 'Invoice',
   filterPreview: {
     totalCount: 0,
-    matchingCount: 0,
     selectedCount: 0,
-    skippedFilterCount: 0,
-    skippedLimitCount: 0,
+    skippedCount: 0,
     selectedPreview: [],
-    skippedFilterPreview: [],
-    skippedLimitPreview: [],
+    skippedPreview: [],
     errors: []
-  },
-
-  // Deterministic date parser matching shared evaluator contract
-  parseItemDate,
-
-  // Backwards compatibility accessors for v1 callers
-  get filterField() {
-    return this.conditions[0]?.field || 'Type';
-  },
-  set filterField(val) {
-    if (this.conditions[0]) this.conditions[0].field = val;
-  },
-  get filterOperator() {
-    return this.conditions[0]?.operator || 'contains';
-  },
-  set filterOperator(val) {
-    if (this.conditions[0]) this.conditions[0].operator = val;
-  },
-  get filterValue() {
-    return this.conditions[0]?.value || '';
-  },
-  set filterValue(val) {
-    if (this.conditions[0]) this.conditions[0].value = val;
-  },
-  get customFieldName() {
-    return this.conditions[0]?.customField || '';
-  },
-  set customFieldName(val) {
-    if (this.conditions[0]) this.conditions[0].customField = val;
   },
 
   init() {
@@ -214,88 +76,79 @@ export const ExecutionModal = {
     });
 
     this.handleKeyDown = (e) => {
-      if (!this.container || this.container.classList.contains('hidden')) return;
-
-      if (e.key === 'Escape') {
-        e.preventDefault();
+      if (e.key === 'Escape' && this.container && !this.container.classList.contains('hidden')) {
         this.close();
-        return;
-      }
-
-      if (e.key === 'Tab') {
-        const focusable = this.getFocusableElements();
-        if (focusable.length === 0) {
-          e.preventDefault();
-          return;
-        }
-
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-
-        if (e.shiftKey) {
-          if (document.activeElement === first || !this.container.contains(document.activeElement)) {
-            e.preventDefault();
-            last.focus();
-          }
-        } else {
-          if (document.activeElement === last || !this.container.contains(document.activeElement)) {
-            e.preventDefault();
-            first.focus();
-          }
-        }
       }
     };
   },
 
-  getFocusableElements() {
-    if (!this.container) return [];
-    const selector = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
-    return Array.from(this.container.querySelectorAll(selector)).filter(el => {
-      return el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0;
-    });
+  findBestLoopStepIndex(steps) {
+    if (!Array.isArray(steps) || !steps.length) return 0;
+    // 1. Explicit loop candidate or sequential iteration
+    for (let i = 0; i < steps.length; i++) {
+      const s = steps[i];
+      if (s && (s.isLoopCandidate || s.isLoop || s.role === 'LOOP' || s.role === 'LOOP_TARGET' || s.loopMode === 'sequential_iteration')) {
+        return i;
+      }
+    }
+    // 2. Look for table row, grid cell, or dropdown options
+    for (let i = 0; i < steps.length; i++) {
+      const s = steps[i];
+      if (!s) continue;
+      const id = s.target?.fingerprint?.id || '';
+      const name = (s.name || '').toLowerCase();
+      const cssPath = s.target?.candidates?.find(c => c && c.strategy === 'css-path')?.value || '';
+      // Skip navigation or chrome
+      if (/menu-|navbar|nav-|toolbar/i.test(id) || /(^|\s|#)menu-|\bnavbar\b|\bnav-/i.test(cssPath) || /i21-menu/i.test(name)) {
+        continue;
+      }
+      if (/table|tbody|tr|td|gridcell|x-grid-cell|mat-option|\[role="option"\]/i.test(cssPath)) {
+        return i;
+      }
+    }
+    // 3. If step 0 is navigation / menu link, skip to step 1
+    if (steps.length > 1) {
+      const s0 = steps[0];
+      const s0Id = s0?.target?.fingerprint?.id || '';
+      const s0Name = (s0?.name || '').toLowerCase();
+      if (/menu/i.test(s0Id) || /menu|link/i.test(s0Name)) {
+        return 1;
+      }
+    }
+    return 0;
   },
 
-  open({ workflowId, workflowName = 'Workflow', stepCount = 0, loopStepIndex = null, isLoop = false, onExecuted = null }) {
+  open({ workflowId, workflowName = 'Workflow', stepCount = 0, loopStepIndex = null, isLoop = false, steps = [], onExecuted = null }) {
     if (!this.container) this.init();
 
-    this.previousActiveElement = document.activeElement;
     this.currentWorkflowId = workflowId;
     this.workflowName = workflowName || 'Workflow';
     this.stepCount = stepCount || 0;
-    this.loopStepIndex = Number.isInteger(loopStepIndex) && loopStepIndex >= 0 ? loopStepIndex : 0;
-    this.isLoopConfigured = isLoop === true || (Number.isInteger(loopStepIndex) && loopStepIndex >= 0);
+    const hasExplicitLoopStep = Number.isInteger(loopStepIndex) && loopStepIndex >= 0;
+    this.workflowSteps = Array.isArray(steps) ? steps : [];
+    this.loopStepIndex = hasExplicitLoopStep ? loopStepIndex : this.findBestLoopStepIndex(this.workflowSteps);
+    this.isLoopConfigured = isLoop === true || hasExplicitLoopStep;
     this.selectedMode = this.isLoopConfigured ? 'loop' : 'single';
+    this.fieldValues = {};
+    this.itemMode = 'new';
     this.onExecuted = onExecuted;
 
-    // Reset preflight & filter state
+    // Reset preflight state
     this.preflightStatus = 'idle';
     this.preflightError = '';
     this.discoveryData = null;
     this.availableFields = [];
     this.filterEnabled = true;
-    this.matchMode = 'all';
-    this.loopLimit = null;
-    this.loopLimitInput = '';
-    this.conditions = [
-      {
-        id: 'cond_1',
-        field: 'Type',
-        customField: '',
-        operator: 'contains',
-        value: 'Invoice',
-        dateFrom: '',
-        dateTo: ''
-      }
-    ];
+    this.filterField = 'Type';
+    this.customFieldName = '';
+    this.filterOperator = 'contains';
+    this.filterValue = 'Invoice';
     this.filterPreview = {
       totalCount: 0,
-      matchingCount: 0,
       selectedCount: 0,
-      skippedFilterCount: 0,
-      skippedLimitCount: 0,
+      skippedCount: 0,
       selectedPreview: [],
-      skippedFilterPreview: [],
-      skippedLimitPreview: [],
+      skippedPreview: [],
       errors: []
     };
 
@@ -303,19 +156,50 @@ export const ExecutionModal = {
 
     this.render();
 
-    // Accessibility: auto-focus initial actionable element
-    requestAnimationFrame(() => {
-      const closeBtn = this.container.querySelector('#btnCloseExecModal');
-      if (closeBtn && typeof closeBtn.focus === 'function') {
-        closeBtn.focus();
-      } else {
-        const focusables = this.getFocusableElements();
-        if (focusables.length > 0) focusables[0].focus();
-      }
-    });
+    // If steps not provided, fetch them in background so step selector is populated
+    if (!this.workflowSteps.length && typeof Api.getWorkflow === 'function') {
+      Api.getWorkflow(this.currentWorkflowId).then(wf => {
+        if (wf && Array.isArray(wf.steps) && wf.steps.length) {
+          this.workflowSteps = wf.steps;
+          if (!hasExplicitLoopStep) {
+            const cand = this.findBestLoopStepIndex(wf.steps);
+            if (cand !== this.loopStepIndex) {
+              this.loopStepIndex = cand;
+              if (this.selectedMode === 'loop') {
+                this.runPreflight();
+              }
+            }
+          }
+          this.updateStepSelectorUI();
+        }
+      }).catch(() => {});
+    }
 
     if (this.selectedMode === 'loop') {
       this.runPreflight();
+    }
+  },
+
+  renderStepOptions() {
+    if (!this.workflowSteps || !this.workflowSteps.length) {
+      return `<option value="${this.loopStepIndex}" selected>Step #${this.loopStepIndex + 1} (Auto-detect repeating target)</option>`;
+    }
+    return this.workflowSteps.map((step, idx) => {
+      const type = step.type || step.action || 'ACTION';
+      const targetText = step.target?.fingerprint?.text || step.target?.fingerprint?.title || (typeof step.target === 'string' ? step.target : '') || step.role || '';
+      const label = targetText ? `${type}: ${targetText.slice(0, 45)}` : `${type} action`;
+      const isCandidate = step.isLoopCandidate || step.isLoop || step.role === 'LOOP_TARGET';
+      const isSelected = idx === this.loopStepIndex;
+      return `<option value="${idx}" ${isSelected ? 'selected' : ''}>
+        Step #${idx + 1}: [${type}] ${escapeHtml(label)} ${isCandidate ? '⭐ (Recommended loop candidate)' : ''}
+      </option>`;
+    }).join('');
+  },
+
+  updateStepSelectorUI() {
+    const sel = this.container?.querySelector('#selExecLoopStep');
+    if (sel) {
+      sel.innerHTML = this.renderStepOptions();
     }
   },
 
@@ -324,52 +208,6 @@ export const ExecutionModal = {
       this.container.classList.add('hidden');
     }
     document.removeEventListener('keydown', this.handleKeyDown);
-
-    // Accessibility: restore focus to triggering element
-    if (this.previousActiveElement && typeof this.previousActiveElement.focus === 'function') {
-      try {
-        this.previousActiveElement.focus();
-      } catch {}
-      this.previousActiveElement = null;
-    }
-  },
-
-  isLimitInvalid() {
-    const raw = String(this.loopLimitInput || '').trim();
-    if (raw === '') return false;
-    if (!/^\d+$/.test(raw)) return true;
-    const n = parseInt(raw, 10);
-    return n <= 0;
-  },
-
-  addCondition() {
-    const id = 'cond_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-    const defaultField = this.availableFields.length > 0 ? this.availableFields[0] : 'Type';
-    this.conditions.push({
-      id,
-      field: defaultField,
-      customField: '',
-      operator: 'contains',
-      value: '',
-      dateFrom: '',
-      dateTo: ''
-    });
-    this.refreshConditionsUI();
-  },
-
-  removeCondition(condId) {
-    if (this.conditions.length <= 1) return;
-    this.conditions = this.conditions.filter(c => c.id !== condId);
-    this.refreshConditionsUI();
-  },
-
-  refreshConditionsUI() {
-    const container = this.container?.querySelector('#execConditionsContainer');
-    if (container) {
-      container.innerHTML = this.renderConditionRows();
-      this.bindConditionEvents();
-    }
-    this.evaluateFilterPreview();
   },
 
   render() {
@@ -377,9 +215,8 @@ export const ExecutionModal = {
     const isLoopSelected = this.selectedMode === 'loop';
 
     this.container.innerHTML = `
-      <div class="modal-dialog exec-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="execModalTitle" style="max-height:88vh; display:flex; flex-direction:column; overflow:hidden;">
-        <!-- Modal Header -->
-        <div class="modal-header" style="padding:1.1rem 1.4rem; flex-shrink:0; border-bottom:1px solid var(--border-light); background:var(--card-bg);">
+      <div class="modal-dialog exec-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="execModalTitle">
+        <div class="modal-header" style="padding: 1.25rem 1.5rem;">
           <div style="display:flex; align-items:center; gap:0.6rem;">
             <div style="width:34px; height:34px; border-radius:10px; background:var(--brand-tint); color:var(--brand-forest); display:flex; align-items:center; justify-content:center;">
               <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
@@ -389,64 +226,122 @@ export const ExecutionModal = {
               <span style="font-size:0.75rem; color:var(--text-sub);">${this.stepCount > 0 ? `${this.stepCount} steps recorded` : 'Workflow Execution'}</span>
             </div>
           </div>
-          <button class="btn-icon" id="btnCloseExecModal" title="Close dialog" aria-label="Close dialog" style="background:transparent; border:none; cursor:pointer;">
+          <button class="btn-icon" id="btnCloseExecModal" title="Close" aria-label="Close execution dialog" style="background:transparent; border:none; cursor:pointer;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
         </div>
 
-        <!-- Scrollable Modal Body -->
-        <div class="modal-body" style="padding:1.2rem 1.4rem; gap:1rem; overflow-y:auto; flex:1; min-height:0;">
-          <p style="font-size:0.8rem; color:var(--text-sub); margin:0;">Select how you want to run this workflow:</p>
+        <div class="modal-body" style="padding: 1.4rem 1.5rem; gap: 1.1rem; max-height: 80vh; overflow-y: auto;">
+          <p style="font-size: 0.82rem; color: var(--text-sub); margin: 0;">Select how you want to execute this workflow:</p>
 
           <!-- Execution Mode Options -->
-          <div style="display:flex; flex-direction:column; gap:0.6rem;">
-            <!-- Option 1: Run once (Single) -->
+          <div style="display:flex; flex-direction:column; gap:0.65rem;">
+            <!-- Option 1: Macro Execution (Single) -->
             <label class="exec-option-label ${!isLoopSelected ? 'active' : ''}" id="labelExecSingle">
-              <input type="radio" name="execModeRadio" value="single" ${!isLoopSelected ? 'checked' : ''} style="margin-top:0.25rem; accent-color:var(--brand-forest);" aria-label="Run once (Standard)">
+              <input type="radio" name="execModeRadio" value="single" ${!isLoopSelected ? 'checked' : ''} style="margin-top:0.25rem; accent-color:var(--brand-forest);">
               <div style="display:flex; flex-direction:column; gap:0.2rem;">
                 <div style="display:flex; align-items:center; gap:0.5rem;">
-                  <strong style="font-size:0.88rem; color:var(--text-main);">⚡ Run once (Standard)</strong>
+                  <strong style="font-size:0.9rem; color:var(--text-main);">⚡ Run as Macro (Single Execution)</strong>
                   <span class="badge-tag success" style="font-size:0.65rem; padding:0.12rem 0.4rem;">Standard</span>
                 </div>
-                <span style="font-size:0.75rem; color:var(--text-sub);">Runs the recorded workflow once from start to finish. Does not iterate through table records.</span>
+                <span style="font-size:0.76rem; color:var(--text-sub);">Replays the exact recorded workflow once from start to finish. Does not iterate through other rows.</span>
               </div>
             </label>
 
-            <!-- Option 2: Run for multiple records (Batch / Loop) -->
+            <!-- Option 2: Loop Execution (Batch) -->
             <label class="exec-option-label ${isLoopSelected ? 'active' : ''}" id="labelExecLoop">
-              <input type="radio" name="execModeRadio" value="loop" ${isLoopSelected ? 'checked' : ''} style="margin-top:0.25rem; accent-color:var(--brand-forest);" aria-label="Run for multiple records (Batch run)">
+              <input type="radio" name="execModeRadio" value="loop" ${isLoopSelected ? 'checked' : ''} style="margin-top:0.25rem; accent-color:var(--brand-forest);">
               <div style="display:flex; flex-direction:column; gap:0.2rem;">
                 <div style="display:flex; align-items:center; gap:0.5rem;">
-                  <strong style="font-size:0.88rem; color:var(--text-main);">🔁 Run for multiple records (Batch run)</strong>
-                  ${hasLoopConfigured ? '<span class="badge-tag success" style="font-size:0.65rem; padding:0.12rem 0.4rem;">Configured</span>' : '<span class="badge-tag primary" style="font-size:0.65rem; padding:0.12rem 0.4rem;">Find records</span>'}
+                  <strong style="font-size:0.9rem; color:var(--text-main);">🔁 Run as Loop (Batch / Filtered Items)</strong>
+                  ${hasLoopConfigured ? '<span class="badge-tag success" style="font-size:0.65rem; padding:0.12rem 0.4rem;">Configured</span>' : '<span class="badge-tag primary" style="font-size:0.65rem; padding:0.12rem 0.4rem;">Auto-Discovery</span>'}
                 </div>
-                <span style="font-size:0.75rem; color:var(--text-sub);">Scans the target page for repeated records and iterates across matching records with filter and limit controls.</span>
+                <span style="font-size:0.76rem; color:var(--text-sub);">Discovers repeated records on the target page and iterates across matching items using the preflight filter guard.</span>
               </div>
             </label>
           </div>
 
-          <!-- Loop Discovery, Filter & Limit Section -->
-          <div id="execLoopSection" style="display:${isLoopSelected ? 'flex' : 'none'}; flex-direction:column; gap:0.85rem;">
+          <!-- Loop Discovery & Preflight Section -->
+          <div id="execLoopSection" style="display: ${isLoopSelected ? 'flex' : 'none'}; flex-direction:column; gap:0.85rem;">
+
+            <!-- Step 1: Where to implement loop? -->
+            <div class="exec-loop-step-picker-box" style="padding:0.75rem 0.85rem; background:var(--bg-surface-secondary, rgba(0,0,0,0.02)); border-radius:6px; border:1px solid var(--border-light, #e2e8f0);">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.35rem;">
+                <label for="selExecLoopStep" style="font-size:0.8rem; font-weight:700; color:var(--text-main); display:flex; align-items:center; gap:0.4rem;">
+                  <span>📍 Where to implement loop?</span>
+                  <span style="font-size:0.72rem; font-weight:normal; color:var(--text-sub);">(Action that repeats for each item)</span>
+                </label>
+                <span class="badge-tag primary" style="font-size:0.65rem;">Loop Target Step</span>
+              </div>
+              <select id="selExecLoopStep" class="exec-control-select" style="font-size:0.8rem; font-weight:600;">
+                ${this.renderStepOptions()}
+              </select>
+            </div>
+
             <!-- Preflight Container (Mount point for Loading / Error / Preflight Review) -->
             <div id="execPreflightContainer" class="exec-preflight-container">
               ${this.renderPreflightContent()}
             </div>
 
-            <!-- Deduplication Option -->
-            <div style="display:flex; align-items:center; gap:0.5rem; padding:0.2rem 0.1rem;">
-              <input type="checkbox" id="chkExecForceRedownload" style="accent-color:var(--brand-forest); cursor:pointer;">
-              <label for="chkExecForceRedownload" style="font-size:0.76rem; color:var(--text-body); cursor:pointer; user-select:none;">Force re-download (re-process records even if already downloaded)</label>
+            <!-- Section 3: Which data is required? (New vs Old vs All) -->
+            <div class="exec-data-requirement-box" style="padding:0.75rem 0.85rem; background:var(--bg-surface-secondary, rgba(0,0,0,0.02)); border-radius:6px; border:1px solid var(--border-light, #e2e8f0);">
+              <label style="font-size:0.8rem; font-weight:700; color:var(--text-main); display:block; margin-bottom:0.45rem;">
+                📦 Which data is required?
+              </label>
+              <div class="exec-data-mode-radios" style="display:flex; flex-direction:column; gap:0.4rem;">
+                <label class="exec-data-radio-label ${this.itemMode === 'new' ? 'active' : ''}">
+                  <input type="radio" name="execDataModeRadio" value="new" ${this.itemMode === 'new' ? 'checked' : ''} style="accent-color:var(--brand-forest); margin-top:0.15rem;">
+                  <div>
+                    <strong style="font-size:0.82rem; color:var(--text-main);">New data only <span class="badge-tag success" style="font-size:0.62rem; padding:0.05rem 0.35rem;">Recommended</span></strong>
+                    <span style="font-size:0.74rem; color:var(--text-sub); display:block;">Automatically skip items already downloaded or processed in prior runs</span>
+                  </div>
+                </label>
+
+                <label class="exec-data-radio-label ${this.itemMode === 'all' ? 'active' : ''}">
+                  <input type="radio" name="execDataModeRadio" value="all" ${this.itemMode === 'all' ? 'checked' : ''} style="accent-color:var(--brand-forest); margin-top:0.15rem;">
+                  <div>
+                    <strong style="font-size:0.82rem; color:var(--text-main);">All data</strong>
+                    <span style="font-size:0.74rem; color:var(--text-sub); display:block;">Fetch and process all matching items, even if already downloaded</span>
+                  </div>
+                </label>
+
+                <label class="exec-data-radio-label ${this.itemMode === 'old' ? 'active' : ''}">
+                  <input type="radio" name="execDataModeRadio" value="old" ${this.itemMode === 'old' ? 'checked' : ''} style="accent-color:var(--brand-forest); margin-top:0.15rem;">
+                  <div>
+                    <strong style="font-size:0.82rem; color:var(--text-main);">Old data only</strong>
+                    <span style="font-size:0.74rem; color:var(--text-sub); display:block;">Only re-download or inspect items downloaded in prior runs</span>
+                  </div>
+                </label>
+              </div>
+
+              <!-- Limit and pagination options -->
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-top:0.65rem; padding-top:0.65rem; border-top:1px solid var(--border-light, #e2e8f0);">
+                <div style="display:flex; flex-direction:column; gap:0.25rem;">
+                  <label for="inpExecMaxItems" style="font-size:0.75rem; font-weight:600; color:var(--text-main);">Max items: <span style="font-weight:normal; color:var(--text-sub);">(blank = all)</span></label>
+                  <input type="number" id="inpExecMaxItems" class="exec-control-input" min="1" placeholder="All matching" style="font-size:0.78rem;">
+                </div>
+                <div style="display:flex; flex-direction:column; justify-content:center; gap:0.35rem; margin-top:0.4rem;">
+                  <div style="display:flex; align-items:center; gap:0.4rem;">
+                    <input type="checkbox" id="chkExecPaginate" style="accent-color:var(--brand-forest); cursor:pointer;">
+                    <label for="chkExecPaginate" style="font-size:0.76rem; color:var(--text-body); cursor:pointer; user-select:none;">Go through all pages?</label>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:0.4rem;">
+                    <input type="checkbox" id="chkExecForceRedownload" style="accent-color:var(--brand-forest); cursor:pointer;">
+                    <label for="chkExecForceRedownload" style="font-size:0.76rem; color:var(--text-body); cursor:pointer; user-select:none;">Force re-download</label>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- Sticky Modal Footer -->
-        <div class="modal-footer" style="display:flex; justify-content:flex-end; align-items:center; gap:0.65rem; padding:0.85rem 1.4rem; border-top:1px solid var(--border-light); background:var(--card-bg); flex-shrink:0;">
-          <button type="button" class="btn btn-secondary btn-sm" id="btnCancelExecModal">Cancel</button>
-          <button type="button" class="btn btn-primary btn-sm" id="btnConfirmExecModal" style="display:inline-flex; align-items:center; gap:0.4rem; padding:0.55rem 1.25rem;">
-            <svg width="13" height="13" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-            <span id="btnConfirmExecText">Run Workflow</span>
-          </button>
+          <!-- Action Buttons -->
+          <div style="display:flex; justify-content:flex-end; align-items:center; gap:0.65rem; margin-top:0.25rem; padding-top:1rem; border-top:1px solid var(--border-light);">
+            <button type="button" class="btn btn-secondary btn-sm" id="btnCancelExecModal">Cancel</button>
+            <button type="button" class="btn btn-primary btn-sm" id="btnConfirmExecModal" style="display:inline-flex; align-items:center; gap:0.4rem; padding:0.55rem 1.25rem;">
+              <svg width="13" height="13" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              <span id="btnConfirmExecText">Start Execution</span>
+            </button>
+          </div>
         </div>
       </div>
     `;
@@ -456,100 +351,14 @@ export const ExecutionModal = {
     this.updateExecuteButton();
   },
 
-  renderConditionRows() {
-    const hasFields = this.availableFields.length > 0;
-
-    return this.conditions.map((cond, idx) => {
-      const isCustomField = cond.field === '__custom__' || (!hasFields && !!cond.field);
-      const currentField = isCustomField ? (cond.customField || cond.field || 'Type') : (cond.field || 'Type');
-      const isDateOp = cond.operator === 'dateBetween';
-
-      return `
-        <div class="exec-condition-row" data-cond-id="${escapeHtml(cond.id)}">
-          <div class="exec-condition-main-grid">
-            <!-- Field Selector -->
-            <div class="exec-field-group">
-              <label for="execCondField_${cond.id}">Field</label>
-              ${hasFields ? `
-                <select id="execCondField_${cond.id}" class="exec-control-select exec-cond-field" data-cond-id="${escapeHtml(cond.id)}" aria-label="Condition ${idx + 1} Field">
-                  ${this.availableFields.map(f => `<option value="${escapeHtml(f)}" ${f.toLowerCase() === currentField.toLowerCase() ? 'selected' : ''}>${escapeHtml(f)}</option>`).join('')}
-                  <option value="__custom__" ${cond.field === '__custom__' ? 'selected' : ''}>Custom field…</option>
-                </select>
-              ` : `
-                <input type="text" id="execCondField_${cond.id}" class="exec-control-input exec-cond-field-input" data-cond-id="${escapeHtml(cond.id)}" value="${escapeHtml(currentField)}" placeholder="e.g. Type, Status…" aria-label="Condition ${idx + 1} Field">
-              `}
-            </div>
-
-            <!-- Operator Selector -->
-            <div class="exec-field-group">
-              <label for="execCondOp_${cond.id}">Operator</label>
-              <select id="execCondOp_${cond.id}" class="exec-control-select exec-cond-operator" data-cond-id="${escapeHtml(cond.id)}" aria-label="Condition ${idx + 1} Operator">
-                <option value="contains" ${cond.operator === 'contains' ? 'selected' : ''}>Contains</option>
-                <option value="equals" ${cond.operator === 'equals' ? 'selected' : ''}>Equals</option>
-                <option value="dateBetween" ${cond.operator === 'dateBetween' ? 'selected' : ''}>Between dates</option>
-              </select>
-            </div>
-
-            <!-- Value / Date Range Inputs -->
-            <div class="exec-field-group exec-value-group">
-              <label for="${isDateOp ? `execCondDateFrom_${cond.id}` : `execCondVal_${cond.id}`}">${isDateOp ? 'Date range (YYYY-MM-DD)' : 'Match value'}</label>
-              ${isDateOp ? `
-                <div class="exec-date-range-row">
-                  <input type="date" id="execCondDateFrom_${cond.id}" class="exec-control-input exec-date-input exec-cond-date-from" data-cond-id="${escapeHtml(cond.id)}" value="${escapeHtml(cond.dateFrom || '')}" placeholder="YYYY-MM-DD" aria-label="Condition ${idx + 1} from date">
-                  <span class="exec-date-sep">to</span>
-                  <input type="date" id="execCondDateTo_${cond.id}" class="exec-control-input exec-date-input exec-cond-date-to" data-cond-id="${escapeHtml(cond.id)}" value="${escapeHtml(cond.dateTo || '')}" placeholder="YYYY-MM-DD" aria-label="Condition ${idx + 1} to date">
-                </div>
-              ` : `
-                <input type="text" id="execCondVal_${cond.id}" class="exec-control-input exec-cond-value" data-cond-id="${escapeHtml(cond.id)}" value="${escapeHtml(cond.value || '')}" placeholder="e.g. Invoice" aria-label="Condition ${idx + 1} value">
-              `}
-            </div>
-
-            <!-- Remove Condition Button -->
-            <div class="exec-field-group exec-remove-group">
-              <label>&nbsp;</label>
-              <button type="button" class="btn-icon exec-btn-remove-cond" data-cond-id="${escapeHtml(cond.id)}" title="Remove this condition" aria-label="Remove condition ${idx + 1}" ${this.conditions.length <= 1 ? 'disabled' : ''}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-              </button>
-            </div>
-          </div>
-
-          <!-- Custom Field Sub-Input if __custom__ selected -->
-          ${cond.field === '__custom__' ? `
-            <div class="exec-custom-field-row" style="margin-top:0.35rem;">
-              <label for="execCondCustomField_${cond.id}" style="font-size:0.68rem; font-weight:700; color:var(--text-sub);">Custom Column / Field Name</label>
-              <input type="text" id="execCondCustomField_${cond.id}" class="exec-control-input exec-cond-custom-field" data-cond-id="${escapeHtml(cond.id)}" value="${escapeHtml(cond.customField || '')}" placeholder="Enter exact column name..." aria-label="Condition ${idx + 1} Custom Field Name">
-            </div>
-          ` : ''}
-        </div>
-      `;
-    }).join('');
-  },
-
-  renderFilterExplanation() {
-    if (!this.filterEnabled) {
-      return '⚡ <strong>Process all records:</strong> No filter conditions applied. All discovered records will be processed sequentially.';
-    }
-
-    const opWord = this.matchMode === 'any' ? 'ANY' : 'ALL';
-    const condDescs = this.conditions.map(c => {
-      const field = (c.field === '__custom__' ? c.customField : c.field).trim() || 'Field';
-      if (c.operator === 'dateBetween') {
-        return `<code>${escapeHtml(field)}</code> between "${escapeHtml(c.dateFrom || 'YYYY-MM-DD')}" and "${escapeHtml(c.dateTo || 'YYYY-MM-DD')}"`;
-      }
-      return `<code>${escapeHtml(field)}</code> ${escapeHtml(c.operator)} "${escapeHtml(c.value || '...')}"`;
-    });
-
-    return `⚡ Records matching <strong style="color:var(--brand-forest);">${opWord}</strong> of [ ${condDescs.join(', ')} ] will be selected. Other records are filtered out.`;
-  },
-
   renderPreflightContent() {
     if (this.preflightStatus === 'loading') {
       return `
-        <div class="exec-preflight-loading" role="status" aria-live="polite">
-          <div class="exec-preflight-spinner" aria-hidden="true"></div>
+        <div class="exec-preflight-loading">
+          <div class="exec-preflight-spinner"></div>
           <div>
-            <strong style="display:block; font-size:0.84rem; color:var(--text-main);">Scanning page for records…</strong>
-            <span style="display:block; margin-top:0.2rem; font-size:0.72rem; color:var(--text-sub);">Checking the page for repeating records and table fields.</span>
+            <strong style="display:block; font-size:0.82rem; color:var(--text-main);">Inspecting page and discovering repeatable items…</strong>
+            <span style="display:block; margin-top:0.2rem; font-size:0.72rem; color:var(--text-sub);">Connecting via CDP to evaluate repeating DOM elements and schema fields.</span>
           </div>
         </div>
       `;
@@ -557,17 +366,17 @@ export const ExecutionModal = {
 
     if (this.preflightStatus === 'error') {
       return `
-        <div class="exec-preflight-error" role="alert">
+        <div class="exec-preflight-error">
           <div style="display:flex; align-items:flex-start; gap:0.5rem;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0; margin-top:2px;" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0; margin-top:2px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
             <div style="flex:1;">
-              <strong>Couldn't scan records on this page</strong>
-              <p style="margin:0.2rem 0 0; font-size:0.72rem; line-height:1.4;">${escapeHtml(this.preflightError || 'Target page not available or no repeating records could be found.')}</p>
+              <strong>Preflight Discovery Failed</strong>
+              <p style="margin:0.2rem 0 0; font-size:0.72rem; line-height:1.4;">${escapeHtml(this.preflightError || 'Target page not available or no repeating items could be found.')}</p>
             </div>
           </div>
           <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:0.35rem;">
             <button type="button" class="btn btn-secondary btn-sm" id="btnRetryPreflight" style="font-size:0.72rem; padding:0.25rem 0.65rem;">
-              <span>Scan again</span>
+              <span>Retry Preflight Check</span>
             </button>
           </div>
         </div>
@@ -578,36 +387,24 @@ export const ExecutionModal = {
       const discovery = this.discoveryData?.discovery || {};
       const totalDiscovered = Number(this.filterPreview.totalCount ?? discovery.itemCount ?? 0);
       const confidencePct = Math.round((discovery.confidence || 0.95) * 100);
-      const collectionName = discovery.collection ? `${discovery.collection.itemTag || 'Table'} rows` : 'Table / Grid';
+      const collectionName = discovery.collection ? `${discovery.collection.itemTag || 'Item'} rows` : 'Table / Grid';
       const actionsPerItem = this.discoveryData?.actionsPerItem ?? 1;
 
-      // Handle 0 records discovered empty state cleanly
-      if (totalDiscovered === 0) {
-        return `
-          <div class="exec-alert-banner warning" role="alert">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0; margin-top:2px;" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-            <div>
-              <strong>No repeating records found on this page</strong>
-              <p style="margin:0.2rem 0 0; font-size:0.74rem; line-height:1.4;">The scan did not detect any repeated table rows or records. Make sure the portal is open to a page with data rows, then scan again.</p>
-            </div>
-          </div>
-          <div style="display:flex; justify-content:flex-end; margin-top:0.4rem;">
-            <button type="button" class="btn btn-secondary btn-sm" id="btnRetryPreflight" style="font-size:0.72rem;">
-              <span>Scan again</span>
-            </button>
-          </div>
-        `;
-      }
+      const hasFields = this.availableFields.length > 0;
+      const isCustomField = this.filterField === '__custom__' || (!hasFields && !!this.filterField);
+      const currentField = isCustomField ? (this.customFieldName || this.filterField || 'Type') : (this.filterField || 'Type');
+      const detectedValues = this.getValuesForField(currentField);
+      const isDateField = this.isDateField(currentField, detectedValues);
 
       return `
         <!-- Preflight Metrics Bar -->
         <div class="exec-preflight-grid">
           <div class="exec-preflight-metric">
-            <span>Records found</span>
+            <span>Discovered</span>
             <strong id="metricDiscoveredCount">${totalDiscovered}</strong>
           </div>
           <div class="exec-preflight-metric">
-            <span>Scan confidence</span>
+            <span>Confidence</span>
             <strong>${confidencePct}%</strong>
           </div>
           <div class="exec-preflight-metric">
@@ -615,120 +412,180 @@ export const ExecutionModal = {
             <strong style="font-size:0.8rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(collectionName)}">${escapeHtml(collectionName)}</strong>
           </div>
           <div class="exec-preflight-metric">
-            <span>Actions / record</span>
+            <span>Actions / item</span>
             <strong>${actionsPerItem}</strong>
           </div>
         </div>
 
-        <!-- Available Discovered Fields Overview -->
-        ${this.availableFields.length > 0 ? `
-          <div style="background:var(--card-bg); border:1px solid var(--border-light); border-radius:var(--radius-md); padding:0.55rem 0.75rem; display:flex; flex-direction:column; gap:0.3rem;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-size:0.68rem; font-weight:700; color:var(--text-sub); text-transform:uppercase; letter-spacing:0.04em;">Available fields (${this.availableFields.length})</span>
-              <span style="font-size:0.68rem; color:var(--text-sub);">Selectable in filters below</span>
-            </div>
-            <div style="display:flex; flex-wrap:wrap; gap:0.3rem;">
-              ${this.availableFields.map(f => `<span class="badge-tag secondary" style="font-size:0.68rem; padding:0.12rem 0.45rem;">${escapeHtml(f)}</span>`).join('')}
-            </div>
-          </div>
-        ` : ''}
-
-        <!-- Filter Section -->
-        <div style="display:flex; flex-direction:column; gap:0.65rem; padding-top:0.25rem;">
+        <!-- Filter Guard Section -->
+        <div style="display:flex; flex-direction:column; gap:0.6rem; padding-top:0.25rem;">
           <div style="display:flex; align-items:center; justify-content:space-between;">
             <div style="display:flex; align-items:center; gap:0.45rem;">
-              <span style="font-size:0.82rem; font-weight:800; color:var(--text-main);">🎯 Filter records</span>
-              <span class="badge-tag primary" style="font-size:0.65rem; padding:0.1rem 0.4rem;">Smart Filter</span>
+              <span style="font-size:0.82rem; font-weight:800; color:var(--text-main);">🎯 Target Filter Guard</span>
+              <span class="badge-tag primary" style="font-size:0.65rem; padding:0.1rem 0.4rem;">Shared Filter Contract</span>
             </div>
-            <span style="font-size:0.72rem; color:var(--text-sub);">Choose conditions to select matching records</span>
+            <span style="font-size:0.72rem; color:var(--text-sub);">Generic field-level preflight</span>
           </div>
 
-          <!-- Filter Mode Toggle -->
+          <!-- Explicit Filter Mode Toggle -->
           <div class="exec-filter-mode-row">
             <label class="exec-filter-mode-label">
               <input type="radio" name="execFilterModeToggle" value="all" ${!this.filterEnabled ? 'checked' : ''} style="accent-color:var(--brand-forest);">
-              <span>Process all records (No filter)</span>
+              <span>Process all items (No filter)</span>
             </label>
             <label class="exec-filter-mode-label" style="margin-left:0.5rem;">
               <input type="radio" name="execFilterModeToggle" value="filter" ${this.filterEnabled ? 'checked' : ''} style="accent-color:var(--brand-forest);">
-              <span>Filter records by condition</span>
+              <span>Filter items by field condition</span>
             </label>
           </div>
 
           <!-- Filter Condition Controls (visible when filter is enabled) -->
           <div id="execFilterControlsWrapper" style="display:${this.filterEnabled ? 'flex' : 'none'}; flex-direction:column; gap:0.65rem;">
 
-            <!-- Match Mode Row -->
-            <div class="exec-match-mode-row">
-              <label for="execFilterMatchMode" class="exec-match-mode-label">Match</label>
-              <select id="execFilterMatchMode" class="exec-control-select exec-match-select" aria-label="Condition match mode">
-                <option value="all" ${this.matchMode === 'all' ? 'selected' : ''}>All conditions (AND)</option>
-                <option value="any" ${this.matchMode === 'any' ? 'selected' : ''}>Any condition (OR)</option>
-              </select>
-              <span class="exec-match-mode-suffix">of the following:</span>
+            <!-- Section 2a: Which column or field to fetch? -->
+            <div style="display:flex; flex-direction:column; gap:0.25rem;">
+              <div style="display:flex; align-items:center; justify-content:space-between;">
+                <label style="font-size:0.75rem; font-weight:700; color:var(--text-main);">
+                  📋 Which column or field to fetch / filter on?
+                </label>
+                <span style="font-size:0.68rem; color:var(--text-sub);">${this.availableFields.length} detected</span>
+              </div>
+              ${hasFields ? `
+                <div class="exec-pill-group" id="execFieldPills">
+                  ${this.availableFields.map(f => `
+                    <button type="button" class="exec-pill exec-pill-field ${f.toLowerCase() === currentField.toLowerCase() ? 'active' : ''}" data-field="${escapeHtml(f)}">
+                      ${escapeHtml(f)}
+                    </button>
+                  `).join('')}
+                  <button type="button" class="exec-pill exec-pill-field ${this.filterField === '__custom__' ? 'active' : ''}" data-field="__custom__">
+                    Custom…
+                  </button>
+                </div>
+              ` : ''}
             </div>
 
-            <!-- Conditions List -->
-            <div id="execConditionsContainer" class="exec-conditions-container">
-              ${this.renderConditionRows()}
+            <!-- Section 2b: Smart Date & Lifecycle Logic (When Date field detected) -->
+            ${isDateField ? `
+              <div class="exec-smart-date-box" style="margin-top:0.15rem;">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.35rem;">
+                  <span style="font-size:0.75rem; font-weight:800; color:var(--text-main); display:flex; align-items:center; gap:0.35rem;">
+                    <span>📅 Smart Date &amp; Lifecycle Logic for &ldquo;${escapeHtml(currentField)}&rdquo;:</span>
+                  </span>
+                  <span style="font-size:0.68rem; color:var(--brand-forest); font-weight:700;">Live Runtime Filtering</span>
+                </div>
+                <div class="exec-pill-group" id="execSmartDatePills">
+                  <button type="button" class="exec-pill exec-pill-smart-date ${this.filterEnabled && this.filterOperator === '<=' && (this.filterValue === 'today' || this.isTodayValue(this.filterValue)) ? 'active' : ''}" data-action="overdue" title="Due date has passed (Due Date <= Today)">
+                    🔴 Overdue (Due date is over)
+                  </button>
+                  <button type="button" class="exec-pill exec-pill-smart-date ${this.filterEnabled && this.filterOperator === '>=' && (this.filterValue === 'today' || this.isTodayValue(this.filterValue)) ? 'active' : ''}" data-action="upcoming" title="Due date has not arrived yet (Due Date >= Today)">
+                    🟢 Upcoming (Due date not met)
+                  </button>
+                  <button type="button" class="exec-pill exec-pill-smart-date ${this.itemMode === 'old' ? 'active' : ''}" data-action="in_folder" title="Process only items already downloaded in folder">
+                    📁 Already in Folder (${this.getDownloadedCount()})
+                  </button>
+                  <button type="button" class="exec-pill exec-pill-smart-date ${this.itemMode === 'new' ? 'active' : ''}" data-action="not_in_folder" title="Skip items already in folder, process new only">
+                    ✨ New (Not in folder)
+                  </button>
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- Section 2c: Which value or option to fetch? -->
+            ${detectedValues.length > 0 ? `
+              <div style="display:flex; flex-direction:column; gap:0.25rem; margin-top:0.15rem;">
+                <div style="display:flex; align-items:center; justify-content:space-between;">
+                  <span style="font-size:0.72rem; font-weight:700; color:var(--text-sub);">
+                    🔍 Detected Options for &ldquo;${escapeHtml(currentField)}&rdquo;:
+                  </span>
+                  <span style="font-size:0.68rem; color:var(--text-sub);">${detectedValues.length} option(s)</span>
+                </div>
+                <div class="exec-pill-group" id="execValuePills">
+                  ${detectedValues.map(v => `
+                    <button type="button" class="exec-pill exec-pill-val ${this.filterEnabled && this.filterValue.toLowerCase() === v.toLowerCase() ? 'active' : ''}" data-value="${escapeHtml(v)}" title="Filter by '${escapeHtml(v)}'">
+                      ${escapeHtml(v)}
+                    </button>
+                  `).join('')}
+                  <button type="button" class="exec-pill exec-pill-val ${!this.filterEnabled ? 'active' : ''}" data-value="__all__" title="Fetch all without filtering">
+                    Fetch All
+                  </button>
+                </div>
+                ${isDateField && this.filterEnabled && this.filterValue && this.filterValue !== 'today' && this.isDateString(this.filterValue) ? `
+                  <div style="display:flex; align-items:center; flex-wrap:wrap; gap:0.4rem; padding:0.35rem 0.6rem; background:rgba(0,0,0,0.03); border-radius:6px; font-size:0.72rem; margin-top:0.25rem;">
+                    <span style="color:var(--text-sub); font-weight:700;">Condition for &ldquo;${escapeHtml(this.filterValue)}&rdquo;:</span>
+                    <button type="button" class="exec-pill exec-pill-date-op ${this.filterOperator === '<=' ? 'active' : ''}" data-op="<=" title="Due date is on or before ${escapeHtml(this.filterValue)} (Due date is over)">
+                      📅 Due date is over (&le; ${escapeHtml(this.filterValue)})
+                    </button>
+                    <button type="button" class="exec-pill exec-pill-date-op ${this.filterOperator === '>=' ? 'active' : ''}" data-op=">=" title="Due date not met / on or after ${escapeHtml(this.filterValue)}">
+                      📅 Due date not met (&ge; ${escapeHtml(this.filterValue)})
+                    </button>
+                    <button type="button" class="exec-pill exec-pill-date-op ${this.filterOperator === 'equals' ? 'active' : ''}" data-op="equals" title="Exact match on ${escapeHtml(this.filterValue)}">
+                      🎯 Exact (= ${escapeHtml(this.filterValue)})
+                    </button>
+                  </div>
+                ` : ''}
+              </div>
+            ` : ''}
+
+            <div class="exec-filter-inputs-grid">
+
+              <!-- Field Selector -->
+              <div class="exec-field-group">
+                <label for="execFilterFieldSelect">Target Field</label>
+                ${hasFields ? `
+                  <select id="execFilterFieldSelect" class="exec-control-select">
+                    ${this.availableFields.map(f => `<option value="${escapeHtml(f)}" ${f.toLowerCase() === currentField.toLowerCase() ? 'selected' : ''}>${escapeHtml(f)}</option>`).join('')}
+                    <option value="__custom__" ${this.filterField === '__custom__' ? 'selected' : ''}>Custom field…</option>
+                  </select>
+                ` : `
+                  <input type="text" id="execFilterCustomField" class="exec-control-input" value="${escapeHtml(currentField)}" placeholder="e.g. Type, Status…">
+                `}
+              </div>
+
+              <!-- Operator Selector -->
+              <div class="exec-field-group">
+                <label for="execFilterOperatorSelect">Operator</label>
+                <select id="execFilterOperatorSelect" class="exec-control-select">
+                  <option value="contains" ${this.filterOperator === 'contains' ? 'selected' : ''}>contains</option>
+                  <option value="equals" ${this.filterOperator === 'equals' ? 'selected' : ''}>equals</option>
+                  <option value="<=" ${this.filterOperator === '<=' ? 'selected' : ''}>&lt;= (Due date is over / on or before)</option>
+                  <option value=">=" ${this.filterOperator === '>=' ? 'selected' : ''}>&gt;= (Due date not met / on or after)</option>
+                  <option value="<" ${this.filterOperator === '<' ? 'selected' : ''}>&lt; (before or &lt;)</option>
+                  <option value=">" ${this.filterOperator === '>' ? 'selected' : ''}>&gt; (after or &gt;)</option>
+                </select>
+              </div>
+
+              <!-- Value Input -->
+              <div class="exec-field-group">
+                <label for="execFilterValueInput">Match Value</label>
+                <input type="text" id="execFilterValueInput" class="exec-control-input" value="${escapeHtml(this.filterValue)}" placeholder="e.g. Invoice, today, 9/12/2026">
+              </div>
             </div>
 
-            <!-- Add Condition Button -->
-            <div style="display:flex; justify-content:flex-start; margin-top:0.15rem;">
-              <button type="button" class="btn btn-secondary btn-sm" id="btnAddConditionBtn" style="font-size:0.73rem; padding:0.3rem 0.75rem; display:inline-flex; align-items:center; gap:0.35rem;">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                <span>Add Condition</span>
-              </button>
+            <!-- Custom field name input if '__custom__' selected with available fields -->
+            <div id="execCustomFieldContainer" style="display:${this.filterField === '__custom__' ? 'flex' : 'none'}; flex-direction:column; gap:0.25rem;">
+              <label for="execFilterCustomFieldInput" style="font-size:0.7rem; font-weight:700; color:var(--text-sub);">Custom Column / Field Name</label>
+              <input type="text" id="execFilterCustomFieldInput" class="exec-control-input" value="${escapeHtml(this.customFieldName)}" placeholder="Enter exact column name...">
             </div>
 
             <!-- Explanatory rule text -->
             <p class="exec-filter-rule-explainer" id="execFilterExplanation">
-              ${this.renderFilterExplanation()}
+              ${this.renderFilterExplanation(currentField, isDateField)}
             </p>
           </div>
 
-          <!-- Limit Section ("How many should run?") -->
-          <div class="exec-limit-container">
-            <div class="exec-field-group">
-              <div style="display:flex; align-items:center; justify-content:space-between;">
-                <label for="execLoopLimitInput" style="font-size:0.75rem; font-weight:700; color:var(--text-main);">How many should run?</label>
-                <span style="font-size:0.68rem; color:var(--text-sub);">Leave empty to process all</span>
-              </div>
-              <div style="display:flex; align-items:center; gap:0.5rem;">
-                <input type="number" id="execLoopLimitInput" class="exec-control-input ${this.isLimitInvalid() ? 'invalid' : ''}" value="${escapeHtml(this.loopLimitInput)}" min="1" step="1" placeholder="Unlimited (all matching records)" aria-describedby="execLimitHelp">
-                <span class="badge-tag info" style="font-size:0.68rem; padding:0.2rem 0.5rem; white-space:nowrap;" id="execLimitBadge">${this.loopLimit ? `${this.loopLimit} records max` : 'Unlimited'}</span>
-              </div>
-              <span id="execLimitHelp" style="font-size:0.69rem; color:var(--text-sub); line-height:1.35;">
-                Leave empty to process every matching record. Enter a positive number to cap the run.
-              </span>
-            </div>
-          </div>
-
           <!-- Live Preview Summary Counts -->
-          <div class="exec-preview-counts-bar" id="execPreviewCountsBar" aria-live="polite">
+          <div class="exec-preview-counts-bar" id="execPreviewCountsBar">
             <div class="exec-preview-count-item">
-              <span style="color:var(--text-sub);">Found:</span>
+              <span style="color:var(--text-sub);">Total:</span>
               <strong style="color:var(--text-main);" id="prevTotalCount">${this.filterPreview.totalCount}</strong>
-            </div>
-            <div class="exec-preview-count-item">
-              <span style="color:var(--text-sub);">Matching:</span>
-              <span class="badge-tag info" style="font-size:0.72rem; padding:0.1rem 0.5rem; font-weight:800;" id="prevMatchingCount">${this.filterPreview.matchingCount ?? this.filterPreview.selectedCount}</span>
             </div>
             <div class="exec-preview-count-item">
               <span style="color:var(--text-sub);">Selected:</span>
               <span class="badge-tag success" style="font-size:0.72rem; padding:0.1rem 0.5rem; font-weight:800;" id="prevSelectedCount">${this.filterPreview.selectedCount}</span>
             </div>
             <div class="exec-preview-count-item">
-              <span style="color:var(--text-sub);">Filtered out:</span>
-              <span class="badge-tag warning" style="font-size:0.72rem; padding:0.1rem 0.5rem; font-weight:800;" id="prevSkippedFilterCount">${this.filterPreview.skippedFilterCount ?? this.filterPreview.skippedCount}</span>
-            </div>
-            <div class="exec-preview-count-item">
-              <span style="color:var(--text-sub);">Limit reached:</span>
-              <span class="badge-tag secondary" style="font-size:0.72rem; padding:0.1rem 0.5rem; font-weight:800;" id="prevSkippedLimitCount">${this.filterPreview.skippedLimitCount ?? 0}</span>
-            </div>
-            <div class="exec-preview-count-item">
-              <span style="color:var(--text-sub);">Errors:</span>
-              <span class="badge-tag ${this.filterPreview.errors.length > 0 ? 'warning' : 'secondary'}" style="font-size:0.72rem; padding:0.1rem 0.5rem; font-weight:800;" id="prevErrorsCount">${this.filterPreview.errors.length}</span>
+              <span style="color:var(--text-sub);">Skipped:</span>
+              <span class="badge-tag warning" style="font-size:0.72rem; padding:0.1rem 0.5rem; font-weight:800;" id="prevSkippedCount">${this.filterPreview.skippedCount}</span>
             </div>
           </div>
 
@@ -738,7 +595,7 @@ export const ExecutionModal = {
           </div>
 
           <!-- Preview Validation & Zero-Match Blocking Banners -->
-          <div id="execAlertContainer" aria-live="polite">
+          <div id="execAlertContainer">
             ${this.renderAlertBanner()}
           </div>
         </div>
@@ -748,20 +605,17 @@ export const ExecutionModal = {
     // Default fallback: preflight standby
     return `
       <div style="display:flex; align-items:center; justify-content:space-between; padding:0.5rem 0;">
-        <span style="font-size:0.76rem; color:var(--text-sub);">Scan page to find repeating records before running.</span>
-        <button type="button" class="btn btn-secondary btn-sm" id="btnStartPreflightCheck" style="font-size:0.72rem;">Scan for records</button>
+        <span style="font-size:0.78rem; color:var(--text-sub);">Preflight discovery inspects target items before execution.</span>
+        <button type="button" class="btn btn-secondary btn-sm" id="btnStartPreflightCheck" style="font-size:0.72rem;">Run Preflight Check</button>
       </div>
     `;
   },
 
   renderRepresentativeSamples() {
     const selected = Array.isArray(this.filterPreview.selectedPreview) ? this.filterPreview.selectedPreview : [];
-    const filterSkipped = Array.isArray(this.filterPreview.skippedFilterPreview)
-      ? this.filterPreview.skippedFilterPreview
-      : (Array.isArray(this.filterPreview.skippedPreview) ? this.filterPreview.skippedPreview : []);
-    const limitSkipped = Array.isArray(this.filterPreview.skippedLimitPreview) ? this.filterPreview.skippedLimitPreview : [];
+    const skipped = Array.isArray(this.filterPreview.skippedPreview) ? this.filterPreview.skippedPreview : [];
 
-    if (selected.length === 0 && filterSkipped.length === 0 && limitSkipped.length === 0) {
+    if (selected.length === 0 && skipped.length === 0) {
       return '';
     }
 
@@ -770,12 +624,12 @@ export const ExecutionModal = {
     if (selected.length > 0) {
       html += `
         <div class="exec-sample-section">
-          <span class="exec-sample-title">Selected sample records (First ${selected.length} of ${this.filterPreview.selectedCount}):</span>
+          <span class="exec-sample-title">Selected Sample Items (First ${selected.length} of ${this.filterPreview.selectedCount}):</span>
           <div class="exec-sample-chips">
             ${selected.map(item => `
-              <span class="exec-sample-chip selected" title="${escapeHtml(item.label || item.text || item.id || 'Selected record')}">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span>${escapeHtml(item.label || item.text || item.id || `Record #${item.index || ''}`)}</span>
+              <span class="exec-sample-chip selected" title="${escapeHtml(item.label || item.text || item.id || 'Selected item')}">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>${escapeHtml(item.label || item.text || item.id || `Item #${item.index || ''}`)}</span>
               </span>
             `).join('')}
           </div>
@@ -783,33 +637,15 @@ export const ExecutionModal = {
       `;
     }
 
-    if (filterSkipped.length > 0) {
-      const totalFilterSkipped = this.filterPreview.skippedFilterCount ?? this.filterPreview.skippedCount ?? filterSkipped.length;
+    if (skipped.length > 0) {
       html += `
         <div class="exec-sample-section">
-          <span class="exec-sample-title">Filtered out sample records (First ${filterSkipped.length} of ${totalFilterSkipped}):</span>
+          <span class="exec-sample-title">Skipped Sample Items (First ${skipped.length} of ${this.filterPreview.skippedCount}):</span>
           <div class="exec-sample-chips">
-            ${filterSkipped.map(item => `
-              <span class="exec-sample-chip skipped" title="${escapeHtml(item.reason || 'Filtered out')}">
-                <span>⊘ ${escapeHtml(item.label || item.text || item.id || `Record #${item.index || ''}`)}</span>
-                <span style="opacity:0.8; font-size:0.65rem;">(${escapeHtml(item.reason || 'filter mismatch')})</span>
-              </span>
-            `).join('')}
-          </div>
-        </div>
-      `;
-    }
-
-    if (limitSkipped.length > 0) {
-      const totalLimitSkipped = this.filterPreview.skippedLimitCount ?? limitSkipped.length;
-      html += `
-        <div class="exec-sample-section">
-          <span class="exec-sample-title">Limit reached sample records (First ${limitSkipped.length} of ${totalLimitSkipped}):</span>
-          <div class="exec-sample-chips">
-            ${limitSkipped.map(item => `
-              <span class="exec-sample-chip skipped-limit" title="${escapeHtml(item.reason || 'Limit reached')}">
-                <span>⇥ ${escapeHtml(item.label || item.text || item.id || `Record #${item.index || ''}`)}</span>
-                <span style="opacity:0.8; font-size:0.65rem;">(${escapeHtml(item.reason || 'limit reached')})</span>
+            ${skipped.map(item => `
+              <span class="exec-sample-chip skipped" title="${escapeHtml(item.reason || 'Skipped by filter')}">
+                <span>↷ ${escapeHtml(item.label || item.text || item.id || `Item #${item.index || ''}`)}</span>
+                <span style="opacity:0.8; font-size:0.65rem;">(${escapeHtml(item.reason || 'skipped')})</span>
               </span>
             `).join('')}
           </div>
@@ -821,25 +657,48 @@ export const ExecutionModal = {
   },
 
   renderAlertBanner() {
-    if (Array.isArray(this.filterPreview.errors) && this.filterPreview.errors.length > 0) {
+    if (this.filterEnabled && Array.isArray(this.filterPreview.errors) && this.filterPreview.errors.length > 0) {
       return `
-        <div class="exec-alert-banner error" role="alert">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0; margin-top:2px;" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-          <div>
-            <strong>Check your filter configuration:</strong>
-            <div style="margin-top:0.15rem;">${this.filterPreview.errors.map(e => escapeHtml(e)).join(' · ')}</div>
+        <div class="exec-alert-banner error" role="alert" style="overflow-wrap:anywhere; word-break:break-word; max-height:160px; overflow-y:auto;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0; margin-top:2px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          <div style="flex:1; min-width:0; overflow-wrap:anywhere; word-break:break-word;">
+            <strong>Filter Configuration Error:</strong>
+            <div style="margin-top:0.15rem; font-size:0.75rem; line-height:1.4;">${this.filterPreview.errors.slice(0, 3).map(e => escapeHtml(e)).join(' · ')}</div>
           </div>
         </div>
       `;
     }
 
-    if (this.filterPreview.totalCount > 0 && this.filterPreview.selectedCount === 0) {
+    if (this.filterEnabled && this.filterPreview.totalCount > 0 && this.filterPreview.selectedCount === 0) {
+      const hasDownloadedMatches = Array.isArray(this.filterPreview.skippedPreview) &&
+        this.filterPreview.skippedPreview.some(s => s.reason && s.reason.includes('Already downloaded'));
+
+      if (hasDownloadedMatches) {
+        return `
+          <div class="exec-alert-banner warning" role="alert" style="overflow-wrap:anywhere; word-break:break-word;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0; margin-top:2px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            <div style="flex:1;">
+              <strong>Item Already Downloaded in Previous Run:</strong>
+              <p style="margin:0.15rem 0 0.4rem; font-size:0.75rem;">The selected item was already downloaded. To process it again, enable Force Re-download or switch to All Data.</p>
+              <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.35rem;">
+                <button type="button" class="btn btn-secondary btn-sm" id="btnBannerForceRedownload" style="font-size:0.72rem; padding:0.25rem 0.65rem;">
+                  ⚡ Force Re-download
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btnBannerAllData" style="font-size:0.72rem; padding:0.25rem 0.65rem;">
+                  📦 Switch to All Data
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
       return `
-        <div class="exec-alert-banner warning" role="alert">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0; margin-top:2px;" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+        <div class="exec-alert-banner warning" role="alert" style="overflow-wrap:anywhere; word-break:break-word;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0; margin-top:2px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
           <div>
-            <strong>No records selected:</strong>
-            <p style="margin:0.15rem 0 0;">Out of ${this.filterPreview.totalCount} discovered records, 0 are selected. Execution is paused to prevent running an empty batch. Adjust your filter conditions, maximum records, or choose &ldquo;Process all records&rdquo; to continue.</p>
+            <strong>Zero Items Match Filter:</strong>
+            <p style="margin:0.15rem 0 0;">Out of ${this.filterPreview.totalCount} discovered items, 0 match the criteria. Filtered execution is blocked to prevent running an empty batch. Adjust the match value or select &ldquo;Process all items&rdquo; to proceed.</p>
           </div>
         </div>
       `;
@@ -881,6 +740,45 @@ export const ExecutionModal = {
       };
     });
 
+    // Step Selector: Where to implement loop?
+    const loopStepSelect = this.container.querySelector('#selExecLoopStep');
+    if (loopStepSelect) {
+      loopStepSelect.onchange = () => {
+        const newIdx = parseInt(loopStepSelect.value, 10);
+        if (Number.isInteger(newIdx) && newIdx >= 0) {
+          this.loopStepIndex = newIdx;
+          this.runPreflight();
+        }
+      };
+    }
+
+    // Data Requirement Mode Radios (New vs All vs Old)
+    const dataModeRadios = this.container.querySelectorAll('input[name="execDataModeRadio"]');
+    dataModeRadios.forEach(radio => {
+      radio.onchange = () => {
+        this.itemMode = radio.value;
+        const labels = this.container.querySelectorAll('.exec-data-radio-label');
+        labels.forEach(lbl => {
+          const r = lbl.querySelector('input[type="radio"]');
+          if (r && r.value === this.itemMode) {
+            lbl.classList.add('active');
+          } else {
+            lbl.classList.remove('active');
+          }
+        });
+        this.evaluateFilterPreview();
+      };
+    });
+
+    // Force Redownload Checkbox
+    const chkRedownload = this.container.querySelector('#chkExecForceRedownload');
+    if (chkRedownload) {
+      chkRedownload.onchange = () => {
+        this.forceRedownload = !!chkRedownload.checked;
+        this.evaluateFilterPreview();
+      };
+    }
+
     this.bindPreflightEvents();
 
     if (confirmBtn) {
@@ -903,6 +801,159 @@ export const ExecutionModal = {
       btnStartCheck.onclick = () => this.runPreflight();
     }
 
+    // Action buttons inside downloaded-item warning banner
+    const btnBannerForce = preflightContainer.querySelector('#btnBannerForceRedownload');
+    if (btnBannerForce) {
+      btnBannerForce.onclick = () => {
+        this.forceRedownload = true;
+        const chk = this.container.querySelector('#chkExecForceRedownload');
+        if (chk) chk.checked = true;
+        this.evaluateFilterPreview();
+      };
+    }
+
+    const btnBannerAll = preflightContainer.querySelector('#btnBannerAllData');
+    if (btnBannerAll) {
+      btnBannerAll.onclick = () => {
+        this.itemMode = 'all';
+        const radio = this.container.querySelector('input[name="execDataModeRadio"][value="all"]');
+        if (radio) {
+          radio.checked = true;
+          const labels = this.container.querySelectorAll('.exec-data-radio-label');
+          labels.forEach(lbl => {
+            const r = lbl.querySelector('input[type="radio"]');
+            lbl.classList.toggle('active', r && r.value === 'all');
+          });
+        }
+        this.evaluateFilterPreview();
+      };
+    }
+
+    // Interactive Column / Field Pills
+    const fieldPills = preflightContainer.querySelectorAll('.exec-pill-field');
+    fieldPills.forEach(pill => {
+      pill.onclick = () => {
+        const fieldName = pill.dataset.field;
+        this.filterField = fieldName;
+        const customWrapper = preflightContainer.querySelector('#execCustomFieldContainer');
+        const customInput = preflightContainer.querySelector('#execFilterCustomFieldInput');
+        if (fieldName === '__custom__') {
+          if (customWrapper) customWrapper.style.display = 'flex';
+          this.customFieldName = customInput?.value.trim() || '';
+        } else {
+          if (customWrapper) customWrapper.style.display = 'none';
+        }
+
+        const activeFieldName = fieldName === '__custom__' ? this.customFieldName : fieldName;
+        const values = this.getValuesForField(activeFieldName);
+        if (values && values.length > 0) {
+          this.filterValue = values[0];
+          this.filterEnabled = true;
+        }
+
+        if (this.discoveryData) {
+          this.discoveryData.filterPreview = null;
+        }
+
+        preflightContainer.innerHTML = this.renderPreflightContent();
+        this.bindPreflightEvents();
+        this.evaluateFilterPreview();
+      };
+    });
+
+    // Smart Date & Lifecycle Logic Pills
+    const smartDatePills = preflightContainer.querySelectorAll('.exec-pill-smart-date');
+    smartDatePills.forEach(pill => {
+      pill.onclick = () => {
+        const action = pill.dataset.action;
+        const hasFields = this.availableFields.length > 0;
+        const isCustomField = this.filterField === '__custom__' || (!hasFields && !!this.filterField);
+        const currentField = isCustomField ? (this.customFieldName || this.filterField || 'Type') : (this.filterField || 'Type');
+
+        if (action === 'overdue') {
+          this.filterEnabled = true;
+          this.filterField = currentField;
+          this.filterOperator = '<=';
+          this.filterValue = 'today';
+        } else if (action === 'upcoming') {
+          this.filterEnabled = true;
+          this.filterField = currentField;
+          this.filterOperator = '>=';
+          this.filterValue = 'today';
+        } else if (action === 'in_folder') {
+          this.itemMode = 'old';
+          const r = this.container.querySelector('input[name="execDataModeRadio"][value="old"]');
+          if (r) r.checked = true;
+          this.updateDataModeStyles();
+        } else if (action === 'not_in_folder') {
+          this.itemMode = 'new';
+          const r = this.container.querySelector('input[name="execDataModeRadio"][value="new"]');
+          if (r) r.checked = true;
+          this.updateDataModeStyles();
+        }
+
+        if (this.discoveryData) {
+          this.discoveryData.filterPreview = null;
+        }
+
+        preflightContainer.innerHTML = this.renderPreflightContent();
+        this.bindPreflightEvents();
+        this.evaluateFilterPreview();
+      };
+    });
+
+    // Quick Date Operator Pills (<=, >=, equals)
+    const dateOpPills = preflightContainer.querySelectorAll('.exec-pill-date-op');
+    dateOpPills.forEach(pill => {
+      pill.onclick = () => {
+        this.filterOperator = pill.dataset.op;
+        preflightContainer.innerHTML = this.renderPreflightContent();
+        this.bindPreflightEvents();
+        this.evaluateFilterPreview();
+      };
+    });
+
+    // Interactive Option / Value Pills
+    const valPills = preflightContainer.querySelectorAll('.exec-pill-val');
+    valPills.forEach(pill => {
+      pill.onclick = () => {
+        const val = pill.dataset.value;
+        if (val === '__all__') {
+          this.filterEnabled = false;
+        } else {
+          this.filterEnabled = true;
+          this.filterValue = val;
+          const hasFields = this.availableFields.length > 0;
+          const isCustomField = this.filterField === '__custom__' || (!hasFields && !!this.filterField);
+          const currentField = isCustomField ? (this.customFieldName || this.filterField || 'Type') : (this.filterField || 'Type');
+          const isDate = this.isDateField(currentField, this.getValuesForField(currentField));
+          if (isDate && (this.filterOperator === 'contains' || !this.filterOperator)) {
+            this.filterOperator = '<=';
+          }
+          // If specific clicked item is already downloaded and itemMode is 'new', auto-enable forceRedownload
+          const items = Array.isArray(this.discoveryData?.discovery?.items) ? this.discoveryData.discovery.items : [];
+          const activeField = (this.filterField === '__custom__' ? this.customFieldName : this.filterField).trim();
+          const targetItem = items.find(it => {
+            const ext = this.extractFieldValue(it, activeField);
+            return ext.found && String(ext.value).toLowerCase() === val.toLowerCase();
+          });
+          if (targetItem?.isDownloaded && this.itemMode === 'new') {
+            this.forceRedownload = true;
+            const chk = this.container.querySelector('#chkExecForceRedownload');
+            if (chk) chk.checked = true;
+          }
+        }
+
+        if (this.discoveryData) {
+          this.discoveryData.filterPreview = null;
+        }
+
+        preflightContainer.innerHTML = this.renderPreflightContent();
+        this.bindPreflightEvents();
+        this.evaluateFilterPreview();
+      };
+    });
+
     // Filter Mode Radios ('all' vs 'filter')
     const modeRadios = preflightContainer.querySelectorAll('input[name="execFilterModeToggle"]');
     modeRadios.forEach(r => {
@@ -914,139 +965,78 @@ export const ExecutionModal = {
       };
     });
 
-    // Match Mode Select ('all' vs 'any')
-    const matchSelect = preflightContainer.querySelector('#execFilterMatchMode');
-    if (matchSelect) {
-      matchSelect.onchange = () => {
-        this.matchMode = matchSelect.value === 'any' ? 'any' : 'all';
-        this.evaluateFilterPreview();
-      };
-    }
+    // Field Selector
+    const fieldSelect = preflightContainer.querySelector('#execFilterFieldSelect');
+    const customFieldWrapper = preflightContainer.querySelector('#execCustomFieldContainer');
+    const customFieldInput = preflightContainer.querySelector('#execFilterCustomFieldInput');
+    const standaloneCustomField = preflightContainer.querySelector('#execFilterCustomField');
 
-    // Add Condition Button
-    const btnAdd = preflightContainer.querySelector('#btnAddConditionBtn');
-    if (btnAdd) {
-      btnAdd.onclick = () => this.addCondition();
-    }
-
-    // Item Limit Input
-    const limitInput = preflightContainer.querySelector('#execLoopLimitInput');
-    if (limitInput) {
-      limitInput.oninput = () => {
-        this.loopLimitInput = limitInput.value;
-        const badge = preflightContainer.querySelector('#execLimitBadge');
-        if (badge) {
-          if (this.isLimitInvalid()) {
-            badge.className = 'badge-tag warning';
-            badge.textContent = 'Invalid limit';
-          } else {
-            const raw = this.loopLimitInput.trim();
-            badge.className = 'badge-tag info';
-            badge.textContent = raw ? `${raw} records max` : 'Unlimited';
-          }
-        }
-        this.evaluateFilterPreview();
-      };
-    }
-
-    this.bindConditionEvents();
-  },
-
-  bindConditionEvents() {
-    const preflightContainer = this.container.querySelector('#execPreflightContainer');
-    if (!preflightContainer) return;
-
-    // Condition Field Selects
-    preflightContainer.querySelectorAll('.exec-cond-field').forEach(fieldSelect => {
+    if (fieldSelect) {
       fieldSelect.onchange = () => {
-        const condId = fieldSelect.getAttribute('data-cond-id');
-        const cond = this.conditions.find(c => c.id === condId);
-        if (cond) {
-          cond.field = fieldSelect.value;
-          this.refreshConditionsUI();
+        this.filterField = fieldSelect.value;
+        if (this.discoveryData) {
+          this.discoveryData.filterPreview = null;
         }
-      };
-    });
-
-    // Standalone Custom Field Inputs (when no schema fields available)
-    preflightContainer.querySelectorAll('.exec-cond-field-input').forEach(fieldInput => {
-      fieldInput.oninput = () => {
-        const condId = fieldInput.getAttribute('data-cond-id');
-        const cond = this.conditions.find(c => c.id === condId);
-        if (cond) {
-          cond.field = fieldInput.value;
-          this.evaluateFilterPreview();
+        if (this.filterField === '__custom__') {
+          if (customFieldWrapper) customFieldWrapper.style.display = 'flex';
+          this.customFieldName = customFieldInput?.value.trim() || '';
+        } else {
+          if (customFieldWrapper) customFieldWrapper.style.display = 'none';
         }
-      };
-    });
-
-    // Custom Field Sub-Inputs (when '__custom__' selected)
-    preflightContainer.querySelectorAll('.exec-cond-custom-field').forEach(customInput => {
-      customInput.oninput = () => {
-        const condId = customInput.getAttribute('data-cond-id');
-        const cond = this.conditions.find(c => c.id === condId);
-        if (cond) {
-          cond.customField = customInput.value;
-          this.evaluateFilterPreview();
+        const activeFieldName = this.filterField === '__custom__' ? this.customFieldName : this.filterField;
+        const values = this.getValuesForField(activeFieldName);
+        if (values && values.length > 0) {
+          this.filterValue = values[0];
+          this.filterEnabled = true;
         }
+        preflightContainer.innerHTML = this.renderPreflightContent();
+        this.bindPreflightEvents();
+        this.evaluateFilterPreview();
       };
-    });
+    }
 
-    // Operator Selects
-    preflightContainer.querySelectorAll('.exec-cond-operator').forEach(opSelect => {
-      opSelect.onchange = () => {
-        const condId = opSelect.getAttribute('data-cond-id');
-        const cond = this.conditions.find(c => c.id === condId);
-        if (cond) {
-          cond.operator = opSelect.value;
-          this.refreshConditionsUI();
-        }
+    if (customFieldInput) {
+      customFieldInput.oninput = () => {
+        this.customFieldName = customFieldInput.value;
+        if (this.discoveryData) this.discoveryData.filterPreview = null;
+        this.evaluateFilterPreview();
       };
-    });
+    }
 
-    // Text Value Inputs
-    preflightContainer.querySelectorAll('.exec-cond-value').forEach(valInput => {
+    if (standaloneCustomField) {
+      standaloneCustomField.oninput = () => {
+        this.filterField = standaloneCustomField.value;
+        if (this.discoveryData) this.discoveryData.filterPreview = null;
+        this.evaluateFilterPreview();
+      };
+    }
+
+    // Operator Selector
+    const operatorSelect = preflightContainer.querySelector('#execFilterOperatorSelect');
+    if (operatorSelect) {
+      operatorSelect.onchange = () => {
+        this.filterOperator = operatorSelect.value;
+        if (this.discoveryData) this.discoveryData.filterPreview = null;
+        this.evaluateFilterPreview();
+      };
+    }
+
+    // Value Input
+    const valInput = preflightContainer.querySelector('#execFilterValueInput');
+    if (valInput) {
       valInput.oninput = () => {
-        const condId = valInput.getAttribute('data-cond-id');
-        const cond = this.conditions.find(c => c.id === condId);
-        if (cond) {
-          cond.value = valInput.value;
-          this.evaluateFilterPreview();
-        }
+        this.filterValue = valInput.value;
+        if (this.discoveryData) this.discoveryData.filterPreview = null;
+        const pills = preflightContainer.querySelectorAll('.exec-pill-val');
+        pills.forEach(p => {
+          const pVal = p.dataset.value;
+          if (pVal !== '__all__') {
+            p.classList.toggle('active', pVal.toLowerCase() === this.filterValue.trim().toLowerCase());
+          }
+        });
+        this.evaluateFilterPreview();
       };
-    });
-
-    // Date From Inputs
-    preflightContainer.querySelectorAll('.exec-cond-date-from').forEach(dateInput => {
-      dateInput.oninput = () => {
-        const condId = dateInput.getAttribute('data-cond-id');
-        const cond = this.conditions.find(c => c.id === condId);
-        if (cond) {
-          cond.dateFrom = dateInput.value;
-          this.evaluateFilterPreview();
-        }
-      };
-    });
-
-    // Date To Inputs
-    preflightContainer.querySelectorAll('.exec-cond-date-to').forEach(dateInput => {
-      dateInput.oninput = () => {
-        const condId = dateInput.getAttribute('data-cond-id');
-        const cond = this.conditions.find(c => c.id === condId);
-        if (cond) {
-          cond.dateTo = dateInput.value;
-          this.evaluateFilterPreview();
-        }
-      };
-    });
-
-    // Remove Condition Buttons
-    preflightContainer.querySelectorAll('.exec-btn-remove-cond').forEach(btn => {
-      btn.onclick = () => {
-        const condId = btn.getAttribute('data-cond-id');
-        this.removeCondition(condId);
-      };
-    });
+    }
   },
 
   async runPreflight() {
@@ -1059,38 +1049,15 @@ export const ExecutionModal = {
     this.updateExecuteButton();
 
     try {
-      // Build request body according to preview contract: { loopStepIndex, itemFilter, loopLimit }
-      const conditions = this.conditions.map(c => {
-        const field = (c.field === '__custom__' ? c.customField : c.field).trim();
-        if (c.operator === 'dateBetween') {
-          return {
-            field,
-            operator: 'dateBetween',
-            value: {
-              from: (c.dateFrom || '').trim(),
-              to: (c.dateTo || '').trim()
-            }
-          };
-        }
-        return {
-          field,
-          operator: c.operator || 'contains',
-          value: (c.value || '').trim()
-        };
-      });
-
-      const itemFilterPayload = this.filterEnabled ? {
-        matchMode: this.matchMode,
-        conditions
+      // Build request body according to preview contract: { loopStepIndex, itemFilter }
+      const itemFilterPayload = (this.filterEnabled && this.filterField && this.filterValue) ? {
+        field: (this.filterField === '__custom__' ? this.customFieldName : this.filterField).trim(),
+        operator: this.filterOperator,
+        value: this.filterValue.trim()
       } : null;
 
-      let loopLimitPayload = null;
-      if (this.loopLimitInput && this.loopLimitInput.trim()) {
-        const raw = this.loopLimitInput.trim();
-        if (/^\d+$/.test(raw) && parseInt(raw, 10) > 0) {
-          loopLimitPayload = parseInt(raw, 10);
-        }
-      }
+      const requestedField = itemFilterPayload ? itemFilterPayload.field : null;
+      const fieldBeforeDiscovery = (this.filterField === '__custom__' ? this.customFieldName : this.filterField).trim();
 
       let data;
       try {
@@ -1099,12 +1066,11 @@ export const ExecutionModal = {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             loopStepIndex: this.loopStepIndex,
-            itemFilter: itemFilterPayload,
-            loopLimit: loopLimitPayload
+            itemFilter: itemFilterPayload
           })
         });
         data = await res.json();
-        if (!res.ok) throw new Error(data.error || data.discovery?.reason || 'Discovery scan failed');
+        if (!res.ok) throw new Error(data.error || data.discovery?.reason || 'Discovery preflight failed');
       } catch (authErr) {
         // Fallback to Api.discoverWorkflow if available
         if (typeof Api.discoverWorkflow === 'function') {
@@ -1117,38 +1083,63 @@ export const ExecutionModal = {
       this.preflightStatus = 'success';
       this.discoveryData = data;
       this.availableFields = this.extractAvailableFields(data);
+      this.fieldValues = (data.fieldValues && Object.keys(data.fieldValues).length > 0)
+        ? data.fieldValues
+        : this.extractFieldValues(data);
 
-      // If condition field not in availableFields, default to first available field if available
-      if (this.availableFields.length > 0 && this.conditions.length === 1 && this.conditions[0].field === 'Type' && !this.availableFields.some(f => f.toLowerCase() === 'type')) {
-        this.conditions[0].field = this.availableFields[0];
+      if (Array.isArray(data.steps) && data.steps.length) {
+        this.workflowSteps = data.steps;
+        this.updateStepSelectorUI();
       }
 
-      // Check if server returned a filterPreview that confirms filter and limit
+      // If filterField is not set or not in availableFields, pick the best discovered field
+      if (this.availableFields.length > 0) {
+        const hasField = this.availableFields.some(f => f.toLowerCase() === (this.filterField || '').toLowerCase());
+        if (!hasField || !this.filterField) {
+          const hasType = this.availableFields.some(f => f.toLowerCase() === 'type');
+          const hasInv = this.availableFields.find(f => f.toLowerCase().includes('invoice'));
+          this.filterField = hasType ? 'Type' : (hasInv || this.availableFields[0]);
+        }
+      }
+
+      const activeField = (this.filterField === '__custom__' ? this.customFieldName : this.filterField).trim();
+      const detectedVals = this.getValuesForField(activeField);
+      if (detectedVals && detectedVals.length > 0) {
+        const hasCurrentVal = detectedVals.some(v => v.toLowerCase() === (this.filterValue || '').toLowerCase());
+        if (!hasCurrentVal || !this.filterValue) {
+          const hasInvoice = detectedVals.some(v => v.toLowerCase() === 'invoice');
+          this.filterValue = hasInvoice ? 'Invoice' : detectedVals[0];
+        }
+      }
+
+      // Check if server returned a filterPreview that matches the currently selected field and filter
       const serverPreview = data.filterPreview;
-      const serverConfirmsLimit = (loopLimitPayload === null) ||
-        (serverPreview && (serverPreview.skippedLimitCount !== undefined || (typeof serverPreview.selectedCount === 'number' && serverPreview.selectedCount <= loopLimitPayload)));
+      const serverField = (serverPreview?.field || serverPreview?.itemFilter?.field || '').trim();
+      const isFieldUnchanged = fieldBeforeDiscovery && activeField.toLowerCase() === fieldBeforeDiscovery.toLowerCase();
+      const isServerFieldMatching = !serverField || serverField.toLowerCase() === activeField.toLowerCase();
+      const isRequestedFieldMatching = !requestedField || requestedField.toLowerCase() === activeField.toLowerCase();
 
       const canUseServerPreview = serverPreview &&
         typeof serverPreview.selectedCount === 'number' &&
         this.filterEnabled &&
-        serverConfirmsLimit;
+        isFieldUnchanged &&
+        isServerFieldMatching &&
+        isRequestedFieldMatching;
 
       if (canUseServerPreview) {
         this.filterPreview = {
           totalCount: Number(serverPreview.totalCount ?? data.discovery?.itemCount ?? 0),
-          matchingCount: Number(serverPreview.matchingCount ?? serverPreview.selectedCount ?? 0),
           selectedCount: Number(serverPreview.selectedCount ?? 0),
-          skippedFilterCount: Number(serverPreview.skippedFilterCount ?? serverPreview.skippedCount ?? 0),
-          skippedLimitCount: Number(serverPreview.skippedLimitCount ?? 0),
+          skippedCount: Number(serverPreview.skippedCount ?? 0),
           selectedPreview: Array.isArray(serverPreview.selectedPreview) ? serverPreview.selectedPreview : [],
-          skippedFilterPreview: Array.isArray(serverPreview.skippedFilterPreview)
-            ? serverPreview.skippedFilterPreview
-            : (Array.isArray(serverPreview.skippedPreview) ? serverPreview.skippedPreview : []),
-          skippedLimitPreview: Array.isArray(serverPreview.skippedLimitPreview) ? serverPreview.skippedLimitPreview : [],
+          skippedPreview: Array.isArray(serverPreview.skippedPreview) ? serverPreview.skippedPreview : [],
           errors: Array.isArray(serverPreview.errors) ? serverPreview.errors : []
         };
       } else {
-        // Evaluate client-side using discovered records
+        // Discard stale or mismatched server preview; evaluate client-side for the current field and filter
+        if (data.filterPreview) {
+          data.filterPreview = null;
+        }
         this.evaluateFilterPreview();
       }
 
@@ -1159,7 +1150,7 @@ export const ExecutionModal = {
       this.updateExecuteButton();
     } catch (err) {
       this.preflightStatus = 'error';
-      this.preflightError = err.message || 'Discovery scan failed';
+      this.preflightError = err.message || 'Discovery preflight failed';
       if (preflightContainer) {
         preflightContainer.innerHTML = this.renderPreflightContent();
         this.bindPreflightEvents();
@@ -1178,18 +1169,22 @@ export const ExecutionModal = {
       data.discovery.availableFields.forEach(f => f && fields.add(String(f).trim()));
     }
 
+    if (data.pageSummary && Array.isArray(data.pageSummary.entities)) {
+      data.pageSummary.entities.forEach(entity => {
+        if (Array.isArray(entity.columns)) {
+          entity.columns.forEach(c => c && fields.add(String(c).trim()));
+        }
+      });
+    }
+
     const items = Array.isArray(data.discovery?.items) ? data.discovery.items : [];
     items.forEach(item => {
       if (item && item.fields && typeof item.fields === 'object') {
-        if (item.fields instanceof Map) {
-          for (const k of item.fields.keys()) if (k) fields.add(String(k).trim());
-        } else {
-          Object.keys(item.fields).forEach(k => k && fields.add(k.trim()));
-        }
+        Object.keys(item.fields).forEach(k => k && fields.add(k.trim()));
       } else if (item && typeof item === 'object') {
         Object.keys(item).forEach(k => {
           const lower = k.toLowerCase();
-          if (!['index', 'text', 'id', 'element', 'selector', 'target', 'fingerprint', 'itemkey', 'itemlabel'].includes(lower)) {
+          if (!['index', 'text', 'id', 'element', 'selector', 'target', 'fingerprint', 'itemkey', 'itemlabel', 'tagname', 'hascheckbox', 'childrencount'].includes(lower)) {
             fields.add(k.trim());
           }
         });
@@ -1199,254 +1194,349 @@ export const ExecutionModal = {
     return Array.from(fields);
   },
 
+  extractFieldValues(data) {
+    if (data.fieldValues && typeof data.fieldValues === 'object' && Object.keys(data.fieldValues).length > 0) {
+      return data.fieldValues;
+    }
+    const fieldValues = {};
+    const items = Array.isArray(data.discovery?.items) ? data.discovery.items : [];
+    items.forEach(item => {
+      if (item && item.fields && typeof item.fields === 'object') {
+        Object.entries(item.fields).forEach(([k, v]) => {
+          if (v == null || v === '') return;
+          const key = String(k).trim();
+          const val = String(v).trim();
+          if (!fieldValues[key]) fieldValues[key] = new Set();
+          fieldValues[key].add(val);
+        });
+      }
+      if (item && item.text) {
+        const textVal = String(item.text).trim();
+        if (textVal) {
+          if (!fieldValues['Text']) fieldValues['Text'] = new Set();
+          fieldValues['Text'].add(textVal);
+        }
+      }
+    });
+    const result = {};
+    Object.entries(fieldValues).forEach(([k, vSet]) => {
+      result[k] = Array.from(vSet).slice(0, 30);
+    });
+    return result;
+  },
+
+  getValuesForField(fieldName) {
+    if (!fieldName) return [];
+    const norm = String(fieldName).trim().toLowerCase();
+    for (const [k, vals] of Object.entries(this.fieldValues || {})) {
+      if (String(k).trim().toLowerCase() === norm && Array.isArray(vals)) {
+        return vals;
+      }
+    }
+    // Fallback: extract directly from discovered items
+    const items = Array.isArray(this.discoveryData?.discovery?.items) ? this.discoveryData.discovery.items : [];
+    const foundVals = new Set();
+    items.forEach(item => {
+      const extracted = this.extractFieldValue(item, fieldName);
+      if (extracted.found && extracted.value != null && extracted.value !== '') {
+        foundVals.add(String(extracted.value).trim());
+      }
+    });
+    return Array.from(foundVals).slice(0, 30);
+  },
+
+  isDateField(fieldName, sampleValues = []) {
+    if (!fieldName) return false;
+    const name = String(fieldName).toLowerCase().trim();
+    if (name.includes('date') || name.includes('due') || name.includes('created') || name.includes('posted') || name.includes('time') || name.includes('expire')) {
+      return true;
+    }
+    if (Array.isArray(sampleValues) && sampleValues.length > 0) {
+      const dateCount = sampleValues.filter(v => this.isDateString(v)).length;
+      return dateCount >= Math.min(2, sampleValues.length);
+    }
+    return false;
+  },
+
+  isDateString(val) {
+    if (val instanceof Date) return true;
+    if (!val || typeof val !== 'string') return false;
+    const trimmed = val.trim().toLowerCase();
+    if (trimmed === 'today' || trimmed === 'now' || trimmed === 'yesterday' || trimmed === 'tomorrow') return true;
+    if (/^[0-9]+(\.[0-9]+)?$/.test(trimmed)) return false;
+    if (!/[/\-.]|[a-zA-Z]/.test(trimmed)) return false;
+    const parsed = Date.parse(trimmed);
+    return !isNaN(parsed);
+  },
+
+  isTodayValue(val) {
+    if (!val || typeof val !== 'string') return false;
+    const trimmed = val.trim().toLowerCase();
+    if (trimmed === 'today' || trimmed === 'now') return true;
+    const d = new Date(Date.parse(trimmed));
+    if (isNaN(d.getTime())) return false;
+    const now = new Date();
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  },
+
+  getDownloadedCount() {
+    const items = Array.isArray(this.discoveryData?.discovery?.items) ? this.discoveryData.discovery.items : [];
+    return items.filter(it => it.isDownloaded).length;
+  },
+
+  renderFilterExplanation(currentField, isDateField) {
+    if (!this.filterEnabled) {
+      return `⚡ All discovered items will be processed sequentially (no filter).`;
+    }
+    const op = this.filterOperator;
+    const val = this.filterValue;
+    if (isDateField) {
+      if (op === '<=') {
+        const desc = val === 'today' ? 'today (due date is over)' : `"${val}" (due date is over / on or before)`;
+        return `⚡ Loop will inspect each item: only rows where <strong style="color:var(--brand-forest);">${escapeHtml(currentField)} &le; ${escapeHtml(desc)}</strong> will execute. Other rows are skipped as <code>SKIPPED_FILTER</code>.`;
+      }
+      if (op === '>=') {
+        const desc = val === 'today' ? 'today (due date not met / upcoming)' : `"${val}" (due date not met / on or after)`;
+        return `⚡ Loop will inspect each item: only rows where <strong style="color:var(--brand-forest);">${escapeHtml(currentField)} &ge; ${escapeHtml(desc)}</strong> will execute. Other rows are skipped as <code>SKIPPED_FILTER</code>.`;
+      }
+    }
+    return `⚡ Loop will inspect each item: only rows where <strong style="color:var(--brand-forest);">${escapeHtml(currentField)} ${escapeHtml(this.filterOperator)} "${escapeHtml(this.filterValue)}"</strong> will execute. Other rows are skipped as <code>SKIPPED_FILTER</code>.`;
+  },
+
+  updateDataModeStyles() {
+    const labels = this.container?.querySelectorAll('.exec-data-radio-label') || [];
+    labels.forEach(lbl => {
+      const r = lbl.querySelector('input[type="radio"]');
+      if (r && r.value === this.itemMode) {
+        lbl.classList.add('active');
+      } else {
+        lbl.classList.remove('active');
+      }
+    });
+  },
+
   evaluateFilterPreview() {
     const discovery = this.discoveryData?.discovery || {};
     const items = Array.isArray(discovery.items) ? discovery.items : [];
     const totalCount = Number(discovery.itemCount ?? items.length);
 
-    // 1. Validate Loop Limit
-    let parsedLimit = null;
-    let limitError = null;
-    const rawLimit = String(this.loopLimitInput || '').trim();
-
-    if (rawLimit !== '') {
-      if (!/^\d+$/.test(rawLimit)) {
-        limitError = 'Enter a valid positive number of records';
-      } else {
-        const n = parseInt(rawLimit, 10);
-        if (n <= 0) {
-          limitError = 'Maximum records must be greater than zero';
-        } else {
-          parsedLimit = n;
-        }
-      }
-    }
-    this.loopLimit = parsedLimit;
-
-    // 2. If filter is disabled (Process all records / No filter)
     if (!this.filterEnabled) {
-      const errors = limitError ? [limitError] : [];
-      let selectedItems = items;
-      let limitSkippedItems = [];
+      const selectedList = [];
+      const skippedList = [];
 
-      if (parsedLimit !== null && items.length > 0) {
-        selectedItems = items.slice(0, parsedLimit);
-        limitSkippedItems = items.slice(parsedLimit);
-      }
+      items.forEach((item, idx) => {
+        const itemIndex = idx + 1;
+        const label = this.getItemLabel(item, itemIndex);
+        let matches = true;
+        let reason = '';
 
-      const selectedCount = errors.length > 0 ? 0 : (parsedLimit !== null ? Math.min(totalCount, parsedLimit) : totalCount);
-      const skippedLimitCount = errors.length > 0 ? 0 : (parsedLimit !== null ? Math.max(0, totalCount - parsedLimit) : 0);
+        if (this.itemMode === 'new' && item.isDownloaded && !this.forceRedownload) {
+          matches = false;
+          reason = `Already downloaded in folder (${item.downloadedFile || 'file'})`;
+        } else if (this.itemMode === 'old' && !item.isDownloaded && !item.isOldData) {
+          matches = false;
+          reason = 'New item (mode is "Old data only")';
+        }
+
+        if (matches) {
+          selectedList.push({
+            index: itemIndex,
+            label,
+            raw: item
+          });
+        } else {
+          skippedList.push({
+            index: itemIndex,
+            label,
+            reason,
+            raw: item
+          });
+        }
+      });
 
       this.filterPreview = {
-        totalCount,
-        matchingCount: totalCount,
-        selectedCount,
-        skippedFilterCount: 0,
-        skippedLimitCount,
-        selectedPreview: selectedItems.slice(0, 5).map((item, idx) => ({
-          index: idx + 1,
-          label: this.getItemLabel(item, idx + 1),
-          raw: item
-        })),
-        skippedFilterPreview: [],
-        skippedLimitPreview: limitSkippedItems.slice(0, 5).map((item, idx) => ({
-          index: (parsedLimit || 0) + idx + 1,
-          label: this.getItemLabel(item, (parsedLimit || 0) + idx + 1),
-          reason: `Limit reached (capped at ${parsedLimit})`,
-          raw: item
-        })),
-        errors
+        totalCount: items.length || totalCount,
+        selectedCount: selectedList.length,
+        skippedCount: skippedList.length,
+        selectedPreview: selectedList.slice(0, 5),
+        skippedPreview: skippedList.slice(0, 5),
+        errors: []
       };
       this.updateFilterPreviewUI();
       return;
     }
 
-    // 3. Filter is enabled: Validate matchMode and conditions
+    const field = (this.filterField === '__custom__' ? this.customFieldName : this.filterField).trim();
+    const value = this.filterValue.trim();
+    const operator = this.filterOperator || 'contains';
     const errors = [];
-    if (limitError) {
-      errors.push(limitError);
+
+    if (!field) {
+      errors.push('Filter field is required');
     }
-
-    if (this.matchMode !== 'all' && this.matchMode !== 'any') {
-      errors.push('Match mode must be "all" or "any"');
+    if (!value && value !== '0') {
+      errors.push('Filter value is required');
     }
-
-    if (!Array.isArray(this.conditions) || this.conditions.length === 0) {
-      errors.push('At least one filter condition is required');
+    if (this.availableFields.length > 0 && field && !this.availableFields.some(f => f.toLowerCase() === field.toLowerCase())) {
+      errors.push(`Field "${field}" not found in discovered fields (${this.availableFields.join(', ')})`);
     }
-
-    const validatedConditions = [];
-
-    this.conditions.forEach((c, idx) => {
-      const rowNum = idx + 1;
-      const field = (c.field === '__custom__' ? c.customField : c.field).trim();
-      const op = c.operator || 'contains';
-
-      if (!field) {
-        errors.push(`Condition #${rowNum}: Field name is required`);
-      } else if (this.availableFields.length > 0 && !this.availableFields.some(f => f.toLowerCase() === field.toLowerCase())) {
-        errors.push(`Condition #${rowNum}: Field "${field}" not found in discovered fields (${this.availableFields.join(', ')})`);
-      }
-
-      if (!['contains', 'equals', 'dateBetween'].includes(op)) {
-        errors.push(`Condition #${rowNum}: Unsupported operator "${op}". Use contains, equals, or dateBetween.`);
-      }
-
-      if (op === 'contains' || op === 'equals') {
-        const val = String(c.value ?? '').trim();
-        if (!val && val !== '0') {
-          errors.push(`Condition #${rowNum}: Match value is required`);
-        } else {
-          validatedConditions.push({ index: rowNum, field, operator: op, value: val });
-        }
-      } else if (op === 'dateBetween') {
-        const from = String(c.dateFrom ?? '').trim();
-        const to = String(c.dateTo ?? '').trim();
-
-        if (!from) {
-          errors.push(`Condition #${rowNum}: "From" date is required`);
-        } else if (!isValidIsoDate(from)) {
-          errors.push(`Condition #${rowNum}: "From" date must use YYYY-MM-DD format`);
-        }
-
-        if (!to) {
-          errors.push(`Condition #${rowNum}: "To" date is required`);
-        } else if (!isValidIsoDate(to)) {
-          errors.push(`Condition #${rowNum}: "To" date must use YYYY-MM-DD format`);
-        }
-
-        if (isValidIsoDate(from) && isValidIsoDate(to)) {
-          if (from > to) {
-            errors.push(`Condition #${rowNum}: "From" date (${from}) must not be after "To" date (${to})`);
-          } else {
-            validatedConditions.push({ index: rowNum, field, operator: op, dateFrom: from, dateTo: to });
-          }
-        }
-      }
-    });
+    const validOps = ['contains', 'equals', '<=', '>=', '<', '>', 'before', 'after', 'starts_with', 'ends_with'];
+    if (!validOps.includes(operator)) {
+      errors.push(`Unsupported operator "${operator}". Use contains, equals, <=, >=, <, or >.`);
+    }
 
     if (errors.length > 0) {
       this.filterPreview = {
-        totalCount,
-        matchingCount: 0,
+        totalCount: items.length || totalCount,
         selectedCount: 0,
-        skippedFilterCount: 0,
-        skippedLimitCount: 0,
+        skippedCount: 0,
         selectedPreview: [],
-        skippedFilterPreview: [],
-        skippedLimitPreview: [],
+        skippedPreview: [],
         errors
       };
       this.updateFilterPreviewUI();
       return;
     }
 
-    // 4. Evaluate each item against conditions
-    const matchingList = [];
-    const filterSkippedList = [];
+    // Client-side pure evaluation across discovered items matching shared filter contract
+    const selectedList = [];
+    const skippedList = [];
+    const normTargetVal = value.toLowerCase();
+
+    // Check if at least one item provides the configured field
+    const anyItemHasField = items.some(it => this.extractFieldValue(it, field).found);
+    if (items.length > 0 && !anyItemHasField) {
+      errors.push(`Configured field "${field}" was not found on any discovered items.`);
+    }
 
     items.forEach((item, idx) => {
       const itemIndex = idx + 1;
       const label = this.getItemLabel(item, itemIndex);
+      const extracted = this.extractFieldValue(item, field);
 
-      let itemMatches = false;
-      const conditionResults = [];
-
-      for (const cond of validatedConditions) {
-        const extracted = this.extractFieldValue(item, cond.field);
-
-        if (!extracted.found) {
-          conditionResults.push({
-            matches: false,
-            reason: `Field "${cond.field}" not found on record`
-          });
-          continue;
-        }
-
-        const rawVal = extracted.value;
-        const actualStr = rawVal !== undefined && rawVal !== null ? String(rawVal).trim() : '';
-
-        if (cond.operator === 'contains') {
-          const m = actualStr.toLowerCase().includes(cond.value.toLowerCase());
-          conditionResults.push({
-            matches: m,
-            reason: m
-              ? `Field "${cond.field}" contains "${cond.value}"`
-              : `Field "${cond.field}" ("${actualStr}") does not contain "${cond.value}"`
-          });
-        } else if (cond.operator === 'equals') {
-          const m = actualStr.toLowerCase() === cond.value.toLowerCase();
-          conditionResults.push({
-            matches: m,
-            reason: m
-              ? `Field "${cond.field}" equals "${cond.value}"`
-              : `Field "${cond.field}" ("${actualStr}") does not equal "${cond.value}"`
-          });
-        } else if (cond.operator === 'dateBetween') {
-          const itemCalDate = parseItemDate(rawVal !== undefined && rawVal !== null ? rawVal : actualStr);
-          if (!itemCalDate) {
-            conditionResults.push({
-              matches: false,
-              reason: !actualStr
-                ? `Field "${cond.field}" has missing or empty date value`
-                : `Field "${cond.field}" value "${actualStr}" cannot be parsed as a calendar date`
-            });
-          } else {
-            const m = itemCalDate >= cond.dateFrom && itemCalDate <= cond.dateTo;
-            conditionResults.push({
-              matches: m,
-              reason: m
-                ? `Field "${cond.field}" date (${itemCalDate}) is between ${cond.dateFrom} and ${cond.dateTo}`
-                : `Field "${cond.field}" date (${itemCalDate}) is outside ${cond.dateFrom} to ${cond.dateTo}`
-            });
-          }
-        }
-      }
-
-      if (this.matchMode === 'all') {
-        itemMatches = conditionResults.length > 0 && conditionResults.every(r => r.matches);
-      } else {
-        itemMatches = conditionResults.length > 0 && conditionResults.some(r => r.matches);
-      }
-
-      if (itemMatches) {
-        matchingList.push({
+      if (!extracted.found) {
+        // Individual item lacking the configured field (e.g. summary or footer row) simply does not match
+        skippedList.push({
           index: itemIndex,
           label,
+          field,
+          fieldValue: undefined,
+          reason: `Field "${field}" not found on item`,
+          raw: item
+        });
+        return;
+      }
+
+      const itemVal = String(extracted.value ?? '').trim().toLowerCase();
+      let matches = false;
+      let reason = '';
+
+      const isDateOrNumOp = ['<=', '>=', '<', '>', 'before', 'after'].includes(operator);
+      if (isDateOrNumOp) {
+        let isDateComp = false;
+        let itemDate = null;
+        let targetDate = null;
+
+        if (this.isDateString(extracted.value) || this.isDateString(value)) {
+          const rawItem = Date.parse(extracted.value);
+          if (!isNaN(rawItem)) {
+            itemDate = new Date(rawItem);
+            if (value.toLowerCase() === 'today' || value.toLowerCase() === 'now') {
+              targetDate = new Date();
+            } else if (value.toLowerCase() === 'yesterday') {
+              targetDate = new Date();
+              targetDate.setDate(targetDate.getDate() - 1);
+            } else if (value.toLowerCase() === 'tomorrow') {
+              targetDate = new Date();
+              targetDate.setDate(targetDate.getDate() + 1);
+            } else {
+              const rawTarget = Date.parse(value);
+              if (!isNaN(rawTarget)) targetDate = new Date(rawTarget);
+            }
+            if (itemDate && targetDate) {
+              isDateComp = true;
+            }
+          }
+        }
+
+        if (isDateComp) {
+          if (operator === '<' || operator === 'before') {
+            targetDate.setHours(0, 0, 0, 0);
+            itemDate.setHours(0, 0, 0, 0);
+            matches = itemDate.getTime() < targetDate.getTime();
+          } else if (operator === '<=') {
+            targetDate.setHours(23, 59, 59, 999);
+            itemDate.setHours(23, 59, 59, 999);
+            matches = itemDate.getTime() <= targetDate.getTime();
+          } else if (operator === '>' || operator === 'after') {
+            targetDate.setHours(23, 59, 59, 999);
+            itemDate.setHours(23, 59, 59, 999);
+            matches = itemDate.getTime() > targetDate.getTime();
+          } else if (operator === '>=') {
+            targetDate.setHours(0, 0, 0, 0);
+            itemDate.setHours(0, 0, 0, 0);
+            matches = itemDate.getTime() >= targetDate.getTime();
+          }
+          reason = matches ? 'Matches date filter' : `Date "${extracted.value}" does not satisfy ${operator} "${value}"`;
+        } else {
+          const itemNum = parseFloat(String(extracted.value).replace(/[^0-9.-]/g, ''));
+          const targetNum = parseFloat(String(value).replace(/[^0-9.-]/g, ''));
+          if (!isNaN(itemNum) && !isNaN(targetNum)) {
+            if (operator === '<') matches = itemNum < targetNum;
+            else if (operator === '<=') matches = itemNum <= targetNum;
+            else if (operator === '>') matches = itemNum > targetNum;
+            else if (operator === '>=') matches = itemNum >= targetNum;
+            reason = matches ? 'Matches numeric filter' : `Value "${extracted.value}" does not satisfy ${operator} "${value}"`;
+          } else {
+            matches = itemVal === normTargetVal;
+            reason = matches ? 'Matches filter' : `Cannot compare "${extracted.value}" with "${value}"`;
+          }
+        }
+      } else if (operator === 'contains') {
+        matches = itemVal.includes(normTargetVal);
+        reason = matches ? 'Matches filter' : `Field "${field}" ("${extracted.value}") does not contain "${value}"`;
+      } else if (operator === 'equals') {
+        matches = itemVal === normTargetVal;
+        reason = matches ? 'Matches filter' : `Field "${field}" ("${extracted.value}") does not equal "${value}"`;
+      }
+
+      // Check itemMode requirement (New data only vs Old data only)
+      if (matches) {
+        if (this.itemMode === 'new' && item.isDownloaded && !this.forceRedownload) {
+          matches = false;
+          reason = `Already downloaded in folder (${item.downloadedFile || 'file'})`;
+        } else if (this.itemMode === 'old' && !item.isDownloaded && !item.isOldData) {
+          matches = false;
+          reason = 'New item (mode is "Old data only")';
+        }
+      }
+
+      if (matches) {
+        selectedList.push({
+          index: itemIndex,
+          label,
+          field,
+          fieldValue: extracted.value,
           raw: item
         });
       } else {
-        const failReasons = conditionResults.filter(r => !r.matches).map(r => r.reason);
-        filterSkippedList.push({
+        skippedList.push({
           index: itemIndex,
           label,
-          reason: failReasons.join('; ') || 'Filtered out by criteria',
+          field,
+          fieldValue: extracted.value,
+          reason,
           raw: item
         });
       }
     });
 
-    // 5. Apply loop limit to matching items
-    let selectedList = matchingList;
-    let limitSkippedList = [];
-
-    if (parsedLimit !== null && parsedLimit > 0) {
-      selectedList = matchingList.slice(0, parsedLimit);
-      limitSkippedList = matchingList.slice(parsedLimit).map(item => ({
-        ...item,
-        reason: `Limit reached (capped at ${parsedLimit})`
-      }));
-    }
-
     this.filterPreview = {
       totalCount: items.length || totalCount,
-      matchingCount: matchingList.length,
-      selectedCount: selectedList.length,
-      skippedFilterCount: filterSkippedList.length,
-      skippedLimitCount: limitSkippedList.length,
-      selectedPreview: selectedList.slice(0, 5),
-      skippedFilterPreview: filterSkippedList.slice(0, 5),
-      skippedLimitPreview: limitSkippedList.slice(0, 5),
+      selectedCount: errors.length > 0 ? 0 : selectedList.length,
+      skippedCount: skippedList.length,
+      selectedPreview: errors.length > 0 ? [] : selectedList.slice(0, 5),
+      skippedPreview: skippedList.slice(0, 5),
       errors
     };
 
@@ -1454,35 +1544,42 @@ export const ExecutionModal = {
   },
 
   getItemLabel(item, fallbackIndex = 1) {
-    if (!item) return `Record #${fallbackIndex}`;
-    if (typeof item === 'string') return item;
-    if (item.label) return String(item.label);
-    if (item.text) return String(item.text);
-    if (item.id) return String(item.id);
+    if (!item) return `Item #${fallbackIndex}`;
+    let label = '';
+    // First, check for clean key identifying fields
     if (item.fields && typeof item.fields === 'object') {
-      const vals = Object.values(item.fields).filter(Boolean);
-      if (vals.length > 0) return vals.join(' · ');
+      const idFields = ['Invoice Number', 'Invoice No', 'Type', 'Option', 'Document Type', 'Status', 'Due Date', 'Customer Name', 'Label'];
+      const picked = [];
+      for (const k of idFields) {
+        if (item.fields[k] && typeof item.fields[k] === 'string' && item.fields[k].length < 40) {
+          picked.push(item.fields[k]);
+        }
+      }
+      if (picked.length > 0) {
+        label = picked.slice(0, 3).join(' · ');
+      }
     }
-    return `Record #${fallbackIndex}`;
+    if (!label) {
+      const raw = typeof item === 'string' ? item : (item.label || item.text || item.id || `Item #${fallbackIndex}`);
+      const clean = String(raw).replace(/\s+/g, ' ').trim();
+      label = clean.length > 60 ? clean.slice(0, 57) + '…' : (clean || `Item #${fallbackIndex}`);
+    }
+
+    if (item.isDownloaded) {
+      label += ' 📁(In Folder)';
+    }
+    return label;
   },
 
   extractFieldValue(item, fieldName) {
     if (!item || !fieldName) return { found: false, value: undefined };
     const targetKey = fieldName.trim().toLowerCase();
 
-    // Check item.fields Map or Object
+    // Check item.fields object
     if (item.fields && typeof item.fields === 'object') {
-      if (item.fields instanceof Map) {
-        for (const [k, v] of item.fields.entries()) {
-          if (k.trim().toLowerCase() === targetKey) {
-            return { found: true, value: v };
-          }
-        }
-      } else {
-        for (const [k, v] of Object.entries(item.fields)) {
-          if (k.trim().toLowerCase() === targetKey) {
-            return { found: true, value: v };
-          }
+      for (const [k, v] of Object.entries(item.fields)) {
+        if (k.trim().toLowerCase() === targetKey) {
+          return { found: true, value: v };
         }
       }
     }
@@ -1496,7 +1593,21 @@ export const ExecutionModal = {
       }
     }
 
-    // Check text / label / name properties
+    // Fallback derivation for Document Type
+    if ((targetKey === 'type' || targetKey === 'document type') && item.text) {
+      if (/\bcredit\s*memo\b/i.test(item.text)) return { found: true, value: 'Credit Memo' };
+      if (/\binvoice\b/i.test(item.text)) return { found: true, value: 'Invoice' };
+      if (/\border\b/i.test(item.text)) return { found: true, value: 'Order' };
+      if (/\bstatement\b/i.test(item.text)) return { found: true, value: 'Statement' };
+    }
+
+    // Fallback derivation for Invoice / Record Number
+    if ((targetKey === 'invoice number' || targetKey === 'invoice no' || targetKey === 'invoice') && item.text) {
+      const match = item.text.match(/\b((?:SI|INV|DR|TX|CM)-\d+(?:[-_]\w+)*|\b\d{5,10}\b)/i);
+      if (match) return { found: true, value: match[1] };
+    }
+
+    // If targetKey is 'text' or 'label'
     if (['text', 'label', 'name'].includes(targetKey)) {
       const v = item.text || item.label || (typeof item === 'string' ? item : undefined);
       if (v !== undefined) return { found: true, value: v };
@@ -1512,44 +1623,24 @@ export const ExecutionModal = {
     // Update explanation
     const expText = preflightContainer.querySelector('#execFilterExplanation');
     if (expText) {
-      expText.innerHTML = this.renderFilterExplanation();
+      if (!this.filterEnabled) {
+        expText.innerHTML = `⚡ <strong>No filter applied:</strong> All discovered items in the grid will be processed sequentially.`;
+      } else {
+        const field = (this.filterField === '__custom__' ? this.customFieldName : this.filterField).trim() || 'Field';
+        const op = this.filterOperator || 'contains';
+        const val = this.filterValue.trim() || '...';
+        expText.innerHTML = `⚡ Loop will inspect each item: only rows where <strong style="color:var(--brand-forest);">${escapeHtml(field)} ${escapeHtml(op)} "${escapeHtml(val)}"</strong> will execute. Other rows are skipped as <code>SKIPPED_FILTER</code>.`;
+      }
     }
 
     // Update Counts Bar
     const totalEl = preflightContainer.querySelector('#prevTotalCount');
-    const matchEl = preflightContainer.querySelector('#prevMatchingCount');
     const selEl = preflightContainer.querySelector('#prevSelectedCount');
-    const skipFilterEl = preflightContainer.querySelector('#prevSkippedFilterCount');
-    const skipLimitEl = preflightContainer.querySelector('#prevSkippedLimitCount');
-    const errorsEl = preflightContainer.querySelector('#prevErrorsCount');
-    const metricTotalEl = preflightContainer.querySelector('#metricDiscoveredCount');
+    const skipEl = preflightContainer.querySelector('#prevSkippedCount');
 
     if (totalEl) totalEl.textContent = this.filterPreview.totalCount;
-    if (metricTotalEl) metricTotalEl.textContent = this.filterPreview.totalCount;
-    if (matchEl) matchEl.textContent = this.filterPreview.matchingCount ?? this.filterPreview.selectedCount;
     if (selEl) selEl.textContent = this.filterPreview.selectedCount;
-    if (skipFilterEl) skipFilterEl.textContent = this.filterPreview.skippedFilterCount;
-    if (skipLimitEl) skipLimitEl.textContent = this.filterPreview.skippedLimitCount;
-    if (errorsEl) {
-      errorsEl.textContent = this.filterPreview.errors.length;
-      errorsEl.className = `badge-tag ${this.filterPreview.errors.length > 0 ? 'warning' : 'secondary'}`;
-    }
-
-    // Update Limit Badge & Input state
-    const limitBadge = preflightContainer.querySelector('#execLimitBadge');
-    const limitInput = preflightContainer.querySelector('#execLoopLimitInput');
-    if (limitBadge) {
-      if (this.isLimitInvalid()) {
-        limitBadge.className = 'badge-tag warning';
-        limitBadge.textContent = 'Invalid limit';
-        if (limitInput) limitInput.classList.add('invalid');
-      } else {
-        const raw = this.loopLimitInput.trim();
-        limitBadge.className = 'badge-tag info';
-        limitBadge.textContent = raw ? `${raw} records max` : 'Unlimited';
-        if (limitInput) limitInput.classList.remove('invalid');
-      }
-    }
+    if (skipEl) skipEl.textContent = this.filterPreview.skippedCount;
 
     // Update Representative Samples
     const samplesContainer = preflightContainer.querySelector('#execRepresentativeSamplesContainer');
@@ -1573,56 +1664,56 @@ export const ExecutionModal = {
 
     if (this.selectedMode === 'single') {
       confirmBtn.disabled = false;
-      confirmBtn.title = 'Run workflow once';
-      if (confirmText) confirmText.textContent = 'Run Workflow';
+      confirmBtn.title = 'Start single workflow execution';
+      if (confirmText) confirmText.textContent = 'Continue (Single Macro Replay)';
       return;
     }
 
     // In Loop Mode: check preflight status and filter constraints
     if (this.preflightStatus === 'loading') {
       confirmBtn.disabled = true;
-      confirmBtn.title = 'Scanning page for records…';
-      if (confirmText) confirmText.textContent = 'Scanning records…';
+      confirmBtn.title = 'Preflight discovery in progress…';
+      if (confirmText) confirmText.textContent = 'Discovering items…';
       return;
     }
 
     if (this.preflightStatus === 'error') {
       confirmBtn.disabled = true;
-      confirmBtn.title = 'Scanning failed. Please scan again before running.';
-      if (confirmText) confirmText.textContent = 'Scan Failed';
+      confirmBtn.title = 'Preflight check failed. Please resolve the error before executing.';
+      if (confirmText) confirmText.textContent = 'Preflight Error';
       return;
     }
 
     if (this.preflightStatus === 'success') {
-      const hasErrors = Array.isArray(this.filterPreview.errors) && this.filterPreview.errors.length > 0;
-      const isZeroSelected = this.filterPreview.selectedCount === 0;
+      const hasErrors = this.filterEnabled && Array.isArray(this.filterPreview.errors) && this.filterPreview.errors.length > 0;
+      const isZeroMatch = this.filterEnabled && this.filterPreview.selectedCount === 0;
 
       if (hasErrors) {
         confirmBtn.disabled = true;
-        confirmBtn.title = 'Check configuration: ' + (this.filterPreview.errors[0] || '');
-        if (confirmText) confirmText.textContent = 'Check Configuration';
+        confirmBtn.title = 'Fix filter configuration error: ' + (this.filterPreview.errors[0] || '');
+        if (confirmText) confirmText.textContent = 'Invalid Filter';
         return;
       }
 
-      if (isZeroSelected) {
+      if (isZeroMatch) {
         confirmBtn.disabled = true;
-        confirmBtn.title = '0 records selected. Execution is paused because no records match your filter.';
-        if (confirmText) confirmText.textContent = '0 Records Selected';
+        confirmBtn.title = 'Zero items match your filter. Filtered runs with 0 items are blocked.';
+        if (confirmText) confirmText.textContent = '0 Matching Items';
         return;
       }
 
-      const count = this.filterPreview.selectedCount;
+      const count = this.filterEnabled ? this.filterPreview.selectedCount : this.filterPreview.totalCount;
       confirmBtn.disabled = count <= 0;
-      confirmBtn.title = `Run workflow on ${count} record${count === 1 ? '' : 's'}`;
+      confirmBtn.title = `Continue and execute loop on ${count} item${count === 1 ? '' : 's'}`;
       if (confirmText) {
-        confirmText.textContent = `Run ${count} Record${count === 1 ? '' : 's'}`;
+        confirmText.textContent = `Continue (Execute Loop on ${count} item${count === 1 ? '' : 's'})`;
       }
       return;
     }
 
     // Preflight not yet run
     confirmBtn.disabled = true;
-    if (confirmText) confirmText.textContent = 'Scan for Records First';
+    if (confirmText) confirmText.textContent = 'Run Preflight First';
   },
 
   async execute() {
@@ -1633,98 +1724,62 @@ export const ExecutionModal = {
     const isLoopMode = this.selectedMode === 'loop';
     const forceRedownload = !!chkRedownload?.checked;
 
+    // Execution options
+    const itemMode = this.itemMode || 'new';
+    const maxItemsRaw = parseInt(this.container.querySelector('#inpExecMaxItems')?.value, 10);
+    const maxItems = Number.isInteger(maxItemsRaw) && maxItemsRaw > 0 ? maxItemsRaw : null;
+    const chkPaginate = this.container.querySelector('#chkExecPaginate');
+    const paginate = chkPaginate ? !!chkPaginate.checked : undefined;
+
+    // Build itemFilter payload according to shared filter contract
     let itemFilter = null;
-    let loopLimit = null;
     let rowFilter = null;
 
-    if (isLoopMode) {
-      // 1. Validate Loop Limit
-      const rawLimit = String(this.loopLimitInput || '').trim();
-      if (rawLimit !== '') {
-        if (!/^\d+$/.test(rawLimit) || parseInt(rawLimit, 10) <= 0) {
-          Toast.error('Cannot execute: maximum records must be a positive integer.');
-          return;
-        }
-        loopLimit = parseInt(rawLimit, 10);
+    if (isLoopMode && this.filterEnabled) {
+      const field = (this.filterField === '__custom__' ? this.customFieldName : this.filterField).trim();
+      const operator = this.filterOperator || 'contains';
+      const value = this.filterValue.trim();
+
+      // Guard against zero-match or invalid filter execution
+      if (!field || (!value && value !== '0') || this.filterPreview.selectedCount === 0 || (Array.isArray(this.filterPreview.errors) && this.filterPreview.errors.length > 0)) {
+        Toast.error('Cannot execute: filter has errors, zero matches, or invalid field.');
+        return;
       }
 
-      // 2. Validate filter if enabled
-      if (this.filterEnabled) {
-        if (Array.isArray(this.filterPreview.errors) && this.filterPreview.errors.length > 0) {
-          Toast.error('Cannot execute: ' + this.filterPreview.errors[0]);
-          return;
-        }
+      // Agreed itemFilter contract shape
+      itemFilter = {
+        field,
+        operator,
+        value
+      };
 
-        if (this.filterPreview.selectedCount === 0) {
-          Toast.error('Cannot execute: 0 records selected for execution.');
-          return;
-        }
-
-        const conditions = this.conditions.map(c => {
-          const field = (c.field === '__custom__' ? c.customField : c.field).trim();
-          if (c.operator === 'dateBetween') {
-            return {
-              field,
-              operator: 'dateBetween',
-              value: {
-                from: (c.dateFrom || '').trim(),
-                to: (c.dateTo || '').trim()
-              }
-            };
-          }
-          return {
-            field,
-            operator: c.operator || 'contains',
-            value: String(c.value ?? '').trim()
-          };
-        });
-
-        itemFilter = {
-          matchMode: this.matchMode || 'all',
-          conditions
-        };
-
-        // Legacy rowFilter compatibility for single condition text filter
-        if (conditions.length === 1 && (conditions[0].operator === 'contains' || conditions[0].operator === 'equals')) {
-          rowFilter = {
-            column: conditions[0].field,
-            value: conditions[0].value,
-            operator: conditions[0].operator
-          };
-        }
-      } else {
-        // Filter disabled: check if zero records exist
-        if (this.filterPreview.totalCount === 0) {
-          Toast.error('Cannot execute: no discovered records found.');
-          return;
-        }
-        if (this.filterPreview.selectedCount === 0) {
-          Toast.error('Cannot execute: 0 records selected for execution.');
-          return;
-        }
-      }
+      // Legacy rowFilter shape for backward compatibility
+      rowFilter = {
+        column: field,
+        value
+      };
     }
 
     if (confirmBtn) confirmBtn.disabled = true;
     if (confirmText) confirmText.textContent = 'Launching…';
 
     const launchDesc = isLoopMode
-      ? (itemFilter ? `batch run (${itemFilter.conditions.length} condition(s), limit: ${loopLimit ?? 'unlimited'})` : `batch run (all records, limit: ${loopLimit ?? 'unlimited'})`)
-      : 'single run';
-    Toast.info(`Starting ${launchDesc}…`);
+      ? (itemFilter ? `loop (${itemFilter.field} ${itemFilter.operator} "${itemFilter.value}")` : 'batch loop (all items)')
+      : 'single macro';
+    Toast.info(`Starting ${launchDesc} execution…`);
 
     try {
-      const executeOptions = {
+      const res = await Api.executeWorkflow(this.currentWorkflowId, {
         mode: this.selectedMode,
         isLoop: isLoopMode,
         loopStepIndex: isLoopMode ? this.loopStepIndex : null,
         forceRedownload,
+        itemMode,
+        maxItems,
+        paginate,
         itemFilter,
-        loopLimit,
         rowFilter
-      };
-
-      const res = await Api.executeWorkflow(this.currentWorkflowId, executeOptions);
+      });
 
       this.close();
       Toast.success('Workflow execution dispatched!');
@@ -1744,7 +1799,3 @@ export const ExecutionModal = {
     }
   }
 };
-
-if (typeof window !== 'undefined') {
-  window.ExecutionModal = ExecutionModal;
-}

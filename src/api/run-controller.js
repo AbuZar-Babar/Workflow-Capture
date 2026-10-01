@@ -14,6 +14,7 @@ const LoopReplayRunner = require('../replay/loop-replay-runner');
 const LoopDetector = require('../shared/loop-detector');
 const { normalizeItemFilter, validateItemFilter } = require('../shared/item-filter');
 const logger = require('../utils/logger');
+const { extractWorkflowStartUrl } = require('../utils/url-helper');
 
 // In-memory active runners map: runId -> { runner, userId, workflowId, startedAt }
 const activeRunners = new Map();
@@ -58,11 +59,11 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
           userId,
           isGlobal: true,
           name: (content.metadata && content.metadata.name) || workflowId,
-          targetUrl: (content.metadata && content.metadata.startUrl) || (actions[0] && actions[0].url) || '',
+          targetUrl: extractWorkflowStartUrl(content) || '',
           steps: actions,
           recordingData: content
         });
-      } catch {}
+      } catch { }
     }
   }
 
@@ -77,7 +78,12 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
 
   const steps = workflow.steps || [];
 
-  const { loopStepIndex: requestedLoopIdx, forceRedownload, mode, isLoop: requestedIsLoop } = body || {};
+  const {
+    loopStepIndex: requestedLoopIdx, forceRedownload, mode, isLoop: requestedIsLoop,
+    itemMode = 'new',     // 'new' | 'old' | 'all'
+    maxItems = null,      // e.g. 100
+    paginate              // true / false
+  } = body || {};
 
   // Validate loopLimit if provided
   let validatedLoopLimit = null;
@@ -139,7 +145,17 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
     // Explicitly requested loop execution or filter/limit active
     isLoop = true;
     if (Number.isInteger(requestedLoopIdx) && requestedLoopIdx >= 0) {
-      loopStepIndex = requestedLoopIdx;
+      const reqStep = steps[requestedLoopIdx];
+      const isNav = reqStep && LoopDetector.isNavigationOrChrome(
+        reqStep.target?.candidates?.find(c => c && c.strategy === 'css-path')?.value || '',
+        reqStep.target?.fingerprint || reqStep.fingerprint || {}
+      );
+      if (isNav) {
+        const autoIdx = LoopDetector.findLoopCandidateIndex(steps);
+        loopStepIndex = autoIdx >= 0 ? autoIdx : requestedLoopIdx;
+      } else {
+        loopStepIndex = requestedLoopIdx;
+      }
     } else if (Number.isInteger(workflow.loopStepIndex) && workflow.loopStepIndex >= 0) {
       loopStepIndex = workflow.loopStepIndex;
     } else {
@@ -156,6 +172,8 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
     isLoop = false;
     loopStepIndex = null;
   }
+  const rawFilter = body.itemFilter || body.rowFilter || (body.filterValue ? { column: body.filterColumn || 'Type', value: body.filterValue } : null);
+  const rowFilter = (rawFilter && (rawFilter.value || rawFilter.text) && rawFilter.value !== '__any__' && rawFilter.value !== 'all') ? rawFilter : legacyRowFilter;
 
   const totalSteps = steps.length;
   const runId = `run_${Date.now()}`;
@@ -174,23 +192,28 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
     skippedLimitCount: 0,
     skippedDuplicateCount: 0,
     forceRedownload: !!forceRedownload,
-    itemFilter: normalizedFilter,
+    itemFilter: normalizedFilter || body.itemFilter || null,
     loopLimit: validatedLoopLimit,
-    rowFilter: legacyRowFilter,
+    rowFilter: rowFilter || legacyRowFilter,
     mode: isLoop ? 'LOOP' : 'STANDARD',
     loopStepIndex: isLoop ? loopStepIndex : null,
     startedAt: new Date().toISOString()
   });
-
+  // Runtime choice: go through pages or not
+  if (typeof paginate === 'boolean') {
+    workflow.pagination = { ...(workflow.pagination || {}), enabled: paginate };
+  }
   const runner = new LoopReplayRunner({
     runId,
     workflowId: workflow.id,
     workflowName: workflow.name || workflow.id,
     userId,
-    forceRedownload: !!forceRedownload,
-    itemFilter: normalizedFilter,
+    forceRedownload: itemMode === 'all' || !!forceRedownload,
+    itemMode,
+    maxItems: Number.isInteger(maxItems) && maxItems > 0 ? maxItems : validatedLoopLimit,
+    itemFilter: normalizedFilter || body.itemFilter || null,
     loopLimit: validatedLoopLimit,
-    rowFilter: legacyRowFilter
+    rowFilter: rowFilter || legacyRowFilter
   });
   activeRunners.set(runId, {
     runner,
@@ -419,7 +442,7 @@ function getRunStatus(req, res, runId) {
     if (fs.existsSync(manifestPath)) {
       try {
         manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-      } catch {}
+      } catch { }
     }
   }
 
@@ -435,7 +458,7 @@ function getRunStatus(req, res, runId) {
           name: (content.metadata && content.metadata.name) || run.workflowId,
           steps: Array.isArray(content.actions) ? content.actions : []
         };
-      } catch {}
+      } catch { }
     }
   }
 
@@ -487,7 +510,7 @@ function listDownloads(req, res) {
     const exists = fs.existsSync(fullPath);
     let size = d.fileSizeBytes || 0;
     if (exists && !size) {
-      try { size = fs.statSync(fullPath).size; } catch {}
+      try { size = fs.statSync(fullPath).size; } catch { }
     }
     return {
       ...d,
@@ -515,7 +538,7 @@ function listDownloads(req, res) {
  */
 function getWorkflowDownloads(req, res, workflowId) {
   const userId = req.user ? req.user.id : null;
-  const rawDownloads = db.find('downloads', d => 
+  const rawDownloads = db.find('downloads', d =>
     d.workflowId === workflowId && (!userId || d.userId === userId || !d.userId)
   );
 
@@ -550,7 +573,7 @@ function deleteDownload(req, res, downloadId) {
   const userId = req.user ? req.user.id : null;
   const isAdmin = req.user ? req.user.role === 'admin' : true;
   const record = db.findOne('downloads', d => d.id === downloadId && (!userId || d.userId === userId || isAdmin || !d.userId));
-  
+
   if (!record) {
     return sendJson(res, 404, { error: 'Download artifact not found' });
   }
@@ -612,12 +635,12 @@ function exportAllDownloadsZip(req, res) {
       const stream = fs.createReadStream(tempZipPath);
       stream.pipe(res);
       const cleanUp = () => {
-        try { if (fs.existsSync(tempZipPath)) fs.unlinkSync(tempZipPath); } catch {}
+        try { if (fs.existsSync(tempZipPath)) fs.unlinkSync(tempZipPath); } catch { }
       };
       stream.on('close', cleanUp);
       stream.on('error', cleanUp);
     } catch (streamErr) {
-      try { if (fs.existsSync(tempZipPath)) fs.unlinkSync(tempZipPath); } catch {}
+      try { if (fs.existsSync(tempZipPath)) fs.unlinkSync(tempZipPath); } catch { }
       return sendJson(res, 500, { error: streamErr.message });
     }
   });

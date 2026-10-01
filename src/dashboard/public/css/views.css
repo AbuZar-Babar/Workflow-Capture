@@ -2341,6 +2341,17 @@
   border-radius: var(--radius-md);
   font-size: 0.74rem;
   line-height: 1.4;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.exec-sample-chip {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .exec-alert-banner.warning {
@@ -2495,3 +2506,112 @@
   color: #cbd5e1;
 }
 
+.exec-pill-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.3rem;
+}
+
+.exec-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.73rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--bg-surface-secondary, #f1f5f9);
+  border: 1px solid var(--border-light, #cbd5e1);
+  color: var(--text-main, #1e293b);
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.exec-pill:hover {
+  background: var(--bg-surface-hover, #e2e8f0);
+  border-color: var(--border-main, #94a3b8);
+}
+
+.exec-pill.active {
+  background: var(--brand-forest, #059669);
+  border-color: var(--brand-forest, #059669);
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(5, 150, 105, 0.3);
+}
+
+.exec-data-radio-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-light, #e2e8f0);
+  cursor: pointer;
+  background: var(--bg-surface, #ffffff);
+  transition: all 0.15s ease;
+}
+
+.exec-data-radio-label:hover {
+  border-color: var(--brand-forest, #059669);
+}
+
+.exec-data-radio-label.active {
+  border-color: var(--brand-forest, #059669);
+  background: rgba(5, 150, 105, 0.05);
+}
+
+[data-theme="dark"] .exec-pill {
+  background: rgba(30, 41, 59, 0.8);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--text-main);
+}
+
+[data-theme="dark"] .exec-pill.active {
+  background: var(--brand-forest, #059669);
+  border-color: var(--brand-forest, #059669);
+  color: #ffffff;
+}
+
+[data-theme="dark"] .exec-data-radio-label {
+  background: rgba(30, 41, 59, 0.5);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .exec-data-radio-label.active {
+  background: rgba(5, 150, 105, 0.15);
+  border-color: var(--brand-forest, #059669);
+}
+
+.exec-smart-date-box {
+  background: rgba(79, 110, 247, 0.04);
+  border: 1px solid rgba(79, 110, 247, 0.15);
+  border-radius: 8px;
+  padding: 0.65rem 0.8rem;
+  transition: all 0.2s ease;
+}
+
+[data-theme="dark"] .exec-smart-date-box {
+  background: rgba(79, 110, 247, 0.08);
+  border-color: rgba(79, 110, 247, 0.25);
+}
+
+.exec-pill-smart-date {
+  font-size: 0.72rem;
+  padding: 0.22rem 0.6rem;
+  font-weight: 700;
+  border-radius: 9999px;
+  transition: all 0.15s ease;
+}
+
+.exec-pill-smart-date:hover {
+  transform: translateY(-1px);
+}
+
+.exec-pill-date-op {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.55rem;
+  font-weight: 700;
+  border-radius: 6px;
+}

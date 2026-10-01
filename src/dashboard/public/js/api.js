@@ -242,8 +242,20 @@ export const Api = {
           bodyPayload.mode = 'loop';
         }
       }
+      if (loopStepIndexOrOptions.itemMode) {
+        bodyPayload.itemMode = loopStepIndexOrOptions.itemMode;
+      }
+      if (loopStepIndexOrOptions.maxItems) {
+        bodyPayload.maxItems = loopStepIndexOrOptions.maxItems;
+      }
+      if (loopStepIndexOrOptions.paginate !== undefined) {
+        bodyPayload.paginate = loopStepIndexOrOptions.paginate;
+      }
       if (loopStepIndexOrOptions.forceRedownload) {
         bodyPayload.forceRedownload = true;
+      }
+      if (loopStepIndexOrOptions.itemFilter) {
+        bodyPayload.itemFilter = loopStepIndexOrOptions.itemFilter;
       }
       if (loopStepIndexOrOptions.rowFilter) {
         bodyPayload.rowFilter = loopStepIndexOrOptions.rowFilter;
