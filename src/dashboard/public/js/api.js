@@ -208,6 +208,18 @@ export const Api = {
     return data;
   },
 
+  async getLoopData(workflowId, options = {}) {
+    const params = new URLSearchParams();
+    if (options.field) params.set('field', options.field);
+    if (options.operator) params.set('operator', options.operator);
+    if (options.value) params.set('value', options.value);
+    const suffix = params.toString() ? `?${params.toString()}` : '';
+    const res = await Auth.authenticatedFetch(`/api/workflows/${encodeURIComponent(workflowId)}/loop-data${suffix}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Saved loop data is unavailable');
+    return data;
+  },
+
   async discoverWorkflow(workflowId, loopStepIndexOrOptions = null) {
     let body = {};
     if (typeof loopStepIndexOrOptions === 'object' && loopStepIndexOrOptions !== null) {
