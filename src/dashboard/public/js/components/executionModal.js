@@ -424,7 +424,10 @@ export const ExecutionModal = {
               <span style="font-size:0.82rem; font-weight:800; color:var(--text-main);">🎯 Target Filter Guard</span>
               <span class="badge-tag primary" style="font-size:0.65rem; padding:0.1rem 0.4rem;">Shared Filter Contract</span>
             </div>
-            <span style="font-size:0.72rem; color:var(--text-sub);">Generic field-level preflight</span>
+            <div style="display:flex; align-items:center; gap:0.5rem;">
+              <span style="font-size:0.72rem; color:var(--text-sub);">${this.discoveryData?.source === 'recorded' ? 'Recorded snapshot' : 'Live discovery'}</span>
+              <button type="button" class="btn btn-secondary btn-sm" id="btnRefreshLoopData" style="font-size:0.7rem; padding:0.25rem 0.6rem;" title="Visit the portal and capture the latest items and fields">↻ Refresh data</button>
+            </div>
           </div>
 
           <!-- Explicit Filter Mode Toggle -->
@@ -790,6 +793,10 @@ export const ExecutionModal = {
     const preflightContainer = this.container.querySelector('#execPreflightContainer');
     if (!preflightContainer) return;
 
+    // Explicit refresh: this is the only action that intentionally revisits the portal.
+    const btnRefresh = preflightContainer.querySelector('#btnRefreshLoopData');
+    if (btnRefresh) btnRefresh.onclick = () => this.runPreflight(true);
+
     // Retry button if preflight errored
     const btnRetry = preflightContainer.querySelector('#btnRetryPreflight');
     if (btnRetry) {
@@ -1039,7 +1046,7 @@ export const ExecutionModal = {
     }
   },
 
-  async runPreflight() {
+  async runPreflight(forceRefresh = false) {
     this.preflightStatus = 'loading';
     this.preflightError = '';
     const preflightContainer = this.container.querySelector('#execPreflightContainer');
@@ -1060,24 +1067,33 @@ export const ExecutionModal = {
       const fieldBeforeDiscovery = (this.filterField === '__custom__' ? this.customFieldName : this.filterField).trim();
 
       let data;
-      try {
-        const res = await Auth.authenticatedFetch(`/api/workflows/${encodeURIComponent(this.currentWorkflowId)}/discover`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+      if (!forceRefresh) {
+        // Normal preflight reads the recorded snapshot. This does not open Chrome.
+        try {
+          data = await Api.getLoopData(this.currentWorkflowId, {
+            field: itemFilterPayload?.field,
+            operator: itemFilterPayload?.operator,
+            value: itemFilterPayload?.value
+          });
+        } catch (savedErr) {
+          // Upgrade older workflows without snapshots through one live discovery.
+          if (typeof Api.discoverWorkflow !== 'function') throw savedErr;
+          data = await Api.discoverWorkflow(this.currentWorkflowId, {
             loopStepIndex: this.loopStepIndex,
-            itemFilter: itemFilterPayload
-          })
-        });
-        data = await res.json();
-        if (!res.ok) throw new Error(data.error || data.discovery?.reason || 'Discovery preflight failed');
-      } catch (authErr) {
-        // Fallback to Api.discoverWorkflow if available
-        if (typeof Api.discoverWorkflow === 'function') {
-          data = await Api.discoverWorkflow(this.currentWorkflowId, this.loopStepIndex);
-        } else {
-          throw authErr;
+            itemFilter: itemFilterPayload,
+            refresh: true
+          });
         }
+      } else {
+        // Explicit Refresh is the only normal path that revisits the portal.
+        if (typeof Api.discoverWorkflow !== 'function') {
+          throw new Error('Live refresh is unavailable');
+        }
+        data = await Api.discoverWorkflow(this.currentWorkflowId, {
+          loopStepIndex: this.loopStepIndex,
+          itemFilter: itemFilterPayload,
+          refresh: true
+        });
       }
 
       this.preflightStatus = 'success';
