@@ -10,7 +10,7 @@
     "replay": "node src/replay/index.js",
     "test": "npm run test:fast",
     "test:fast": "npm run test:unit && npm run test:api",
-    "test:unit": "node --test --test-concurrency=1 test/action-generalizer.test.js test/bot-config.test.js test/checkbox-idempotency.test.js test/devexpress-iframe-capture.test.js test/download-deduplication.test.js test/dropdown-loop.test.js test/item-discovery.test.js test/item-filter.test.js test/loop-engine.test.js test/secret-vault.test.js test/selector-resolver.test.js",
+    "test:unit": "node --test --test-concurrency=1 test/action-generalizer.test.js test/bot-config.test.js test/checkbox-idempotency.test.js test/devexpress-iframe-capture.test.js test/download-deduplication.test.js test/dropdown-loop.test.js test/item-discovery.test.js test/item-filter.test.js test/loop-data.test.js test/loop-engine.test.js test/secret-vault.test.js test/selector-resolver.test.js",
     "test:api": "node --test --test-concurrency=1 test/auth.test.js test/backend-api.test.js test/dashboard-security.test.js test/execution-mode.test.js test/filter-api-runtime.test.js test/row-filter-discrimination.test.js",
     "test:integration": "npm run test:api",
     "test:browser": "node test/loop-e2e.test.js && node test/e2e-smoke.js && node test/loop-reliability.test.js",
@@ -38,7 +38,13 @@
     "test:selector": "node test/selector-resolver.test.js",
     "test:iframe-robustness": "node test/iframe-click-capture-robustness.test.js"
   },
-  "keywords": ["browser-automation", "cdp", "puppeteer", "macro-recorder", "workflow-capture"],
+  "keywords": [
+    "browser-automation",
+    "cdp",
+    "puppeteer",
+    "macro-recorder",
+    "workflow-capture"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
