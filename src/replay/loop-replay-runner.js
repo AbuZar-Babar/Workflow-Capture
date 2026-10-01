@@ -51,7 +51,7 @@ class LoopReplayRunner {
       ? options.itemFilter
       : (options.rowFilter || (options.filterValue ? { column: options.filterColumn || 'Type', value: options.filterValue } : null));
     const filterValidation = validateItemFilter(rawFilter);
-    this.itemFilter = options.itemFilter || (filterValidation.valid ? filterValidation.filter : null);
+    this.itemFilter = filterValidation.valid ? filterValidation.filter : (options.itemFilter || null);
     this.filterValidationError = filterValidation.valid ? null : filterValidation.error;
 
     let validatedLimit = null;
@@ -869,7 +869,6 @@ class LoopReplayRunner {
     } finally {
       if (itemHandle) await itemHandle.dispose().catch(() => { });
     }
-    }
   }
 
   /**
@@ -878,9 +877,11 @@ class LoopReplayRunner {
    * Runs in a single pass instead of per-item RPC roundtrips.
    */
   async detectAndFilterItems(page, discovery, isDropdown, rowFilter) {
-    const rawVal = rowFilter ? (rowFilter.value || rowFilter.text) : null;
-    const isFilterActive = Boolean(rowFilter && rawVal && rawVal !== '__any__' && rawVal !== 'all');
-    const targetCol = rowFilter ? String(rowFilter.column || rowFilter.field || 'type').toLowerCase() : 'type';
+    const filter = rowFilter || this.itemFilter || this.rowFilter || null;
+    const rawVal = filter ? (filter.value || filter.text) : null;
+    const hasConditions = Boolean(filter && Array.isArray(filter.conditions) && filter.conditions.length > 0);
+    const isFilterActive = Boolean(filter && (hasConditions || (rawVal && rawVal !== '__any__' && rawVal !== 'all')));
+    const targetCol = filter ? String(filter.column || filter.field || filter.conditions?.[0]?.field || 'type').toLowerCase() : 'type';
 
     let itemsData = [];
 
@@ -985,7 +986,7 @@ class LoopReplayRunner {
         matches = false;
         reason = 'Dropdown "Select All" control excluded from data items';
       } else if (isFilterActive) {
-        const evalResult = ConditionEvaluator.evaluate(item.fields, rowFilter);
+        const evalResult = ConditionEvaluator.evaluate(item.fields, filter);
         matches = evalResult.matches;
         reason = evalResult.reason || (matches ? 'Matches configured condition' : `Filtered out by "${targetCol}"`);
       }
@@ -2078,10 +2079,13 @@ class LoopReplayRunner {
         }
 
         // 1. Efficiently identify and filter available items on current page
-        const evaluatedItems = await this.detectAndFilterItems(page, discovery, isDropdown, this.rowFilter);
+        const evaluatedItems = await this.detectAndFilterItems(page, discovery, isDropdown, this.itemFilter || this.rowFilter);
 
         const matchingItems = evaluatedItems.filter(it => it.matches);
         const skippedItems = evaluatedItems.filter(it => !it.matches);
+
+        manifest.matchingCount = (manifest.matchingCount || 0) + matchingItems.length;
+        manifest.matching = manifest.matchingCount;
 
         // Record all filtered-out items in manifest and progress immediately
         for (const skipped of skippedItems) {
@@ -2099,6 +2103,8 @@ class LoopReplayRunner {
             timestamp: new Date().toISOString()
           };
           manifest.results.push(skippedResult);
+          manifest.skippedFilterCount = (manifest.skippedFilterCount || 0) + 1;
+          manifest.skippedFilter = manifest.skippedFilterCount;
           manifest.itemsSkipped = (manifest.itemsSkipped || 0) + 1;
         }
 
