@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { db } = require('../database/db');
 const { sendJson } = require('../auth/auth-controller');
+const { extractWorkflowStartUrl } = require('../utils/url-helper');
 
 const RECORDINGS_DIR = path.resolve(process.cwd(), 'recordings');
 
@@ -40,7 +41,7 @@ function syncWorkflowsFromDisk(currentUserId, force = false) {
         const wfId = file.replace('.json', '');
         const wfName = (content.metadata && content.metadata.name) || wfId;
         const actions = Array.isArray(content.actions) ? content.actions : [];
-        const startUrl = (content.metadata && content.metadata.startUrl) || (actions[0] && actions[0].url) || '';
+        const startUrl = extractWorkflowStartUrl(content) || '';
 
         const existing = db.findOne('workflows', wf => wf.id === wfId || wf.name === wfName);
 
@@ -73,7 +74,7 @@ function syncWorkflowsFromDisk(currentUserId, force = false) {
               stepCount: actions.length,
               updatedAt: new Date(fileTime).toISOString()
             };
-            if (!existing.targetUrl && startUrl) {
+            if ((!existing.targetUrl || existing.targetUrl.startsWith('chrome://')) && startUrl) {
               updates.targetUrl = startUrl;
             }
             if (!existing.name && wfName) {
@@ -162,7 +163,7 @@ function getWorkflowById(req, res, workflowId) {
           isGlobal: true,
           name: (content.metadata && content.metadata.name) || workflowId,
           description: (content.metadata && content.metadata.description) || 'Captured workflow recording',
-          targetUrl: (content.metadata && content.metadata.startUrl) || (actions[0] && actions[0].url) || '',
+          targetUrl: extractWorkflowStartUrl(content) || '',
           steps: actions,
           recordingData: content,
           stepCount: actions.length

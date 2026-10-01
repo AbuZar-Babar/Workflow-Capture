@@ -459,7 +459,12 @@ function evaluateFilterPreview(filterInput, items = [], options = {}) {
     const result = evaluateItemFilter(filterInput, fieldsMap);
 
     if (result.error) {
-      errorsSet.add(result.error);
+      const isMissingFieldErr = typeof result.error === 'string' && result.error.includes('is not available on item');
+      const normField = String(filterInput?.field || filterInput?.column || '').trim().toLowerCase();
+      const isFieldPresentInCollection = Boolean(normField && availableFields.some(f => f.toLowerCase() === normField));
+      if (!isMissingFieldErr || !isFieldPresentInCollection) {
+        errorsSet.add(result.error);
+      }
     }
 
     const previewEntry = {

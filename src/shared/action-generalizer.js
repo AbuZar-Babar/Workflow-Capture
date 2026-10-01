@@ -35,7 +35,26 @@ class ActionGeneralizer {
     if (!Array.isArray(actions)) {
       throw new Error('ActionGeneralizer requires an action array.');
     }
-    return actions.map(action => this.generalizeAction(action, collection));
+    const targetUrl = actions[0]?.url;
+    return actions.map((action, idx) => {
+      // The 1st action in the loop partition is always the item-scoped trigger
+      if (idx === 0) {
+        const target = action.target || action;
+        return {
+          ...action,
+          target: this.generalizeTarget(target, collection),
+          scope: 'item'
+        };
+      }
+      // If subsequent action is recorded on a distinct URL (e.g. details page), it is page-scoped
+      if (action.url && targetUrl && action.url !== targetUrl) {
+        return {
+          ...action,
+          scope: 'page'
+        };
+      }
+      return this.generalizeAction(action, collection);
+    });
   }
 
   static isItemRelative(action, collection) {
@@ -120,10 +139,16 @@ class ActionGeneralizer {
       .map(segment => segment.trim())
       .filter(Boolean);
 
-    const itemIndex = segments.findIndex(segment => {
-      const match = segment.match(/^([a-z][a-z0-9-]*)/i);
-      return match && match[1].toLowerCase() === tag;
-    });
+    // If itemTag appears multiple times (e.g. body > div > div > ... > div.card > a),
+    // find the last segment matching itemTag that has child segments
+    let itemIndex = -1;
+    for (let i = segments.length - 1; i >= 0; i--) {
+      const match = segments[i].match(/^([a-z][a-z0-9-]*)/i);
+      if (match && match[1].toLowerCase() === tag) {
+        itemIndex = i;
+        break;
+      }
+    }
 
     if (itemIndex >= 0) {
       const remainder = segments.slice(itemIndex + 1);
@@ -132,10 +157,14 @@ class ActionGeneralizer {
 
     // Check if path uses descendant spaces: "table.data-table tr td a"
     const spaceTokens = cleanPath.split(/\s+/);
-    const tokenIdx = spaceTokens.findIndex(token => {
-      const match = token.match(/^([a-z][a-z0-9-]*)/i);
-      return match && match[1].toLowerCase() === tag;
-    });
+    let tokenIdx = -1;
+    for (let i = spaceTokens.length - 1; i >= 0; i--) {
+      const match = spaceTokens[i].match(/^([a-z][a-z0-9-]*)/i);
+      if (match && match[1].toLowerCase() === tag) {
+        tokenIdx = i;
+        break;
+      }
+    }
 
     if (tokenIdx >= 0) {
       const remainder = spaceTokens.slice(tokenIdx + 1);

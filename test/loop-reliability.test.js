@@ -251,7 +251,9 @@ async function runTests() {
 
     const runner = new LoopReplayRunner({ cdpPort: 9666, runId: 'test_port_check' });
     assert.strictEqual(runner.replayEngine.browserURL, 'http://127.0.0.1:9666');
-    console.log('  ✅ cdpPort correctly configures ReplayEngine browserURL\n');
+    assert.strictEqual(engine1.enableDisturbanceDetection, false, 'Disturbance detection should be disabled by default');
+    assert.strictEqual(runner.replayEngine.enableDisturbanceDetection, false, 'Disturbance detection should be disabled by default');
+    console.log('  ✅ cdpPort correctly configures ReplayEngine browserURL and disturbance detection is disabled by default\n');
   }
 
   // --------------------------------------------------------------------------
@@ -264,7 +266,7 @@ async function runTests() {
       console.log('  ⚠️ Google Chrome executable not found; skipping live guard tests.\n');
     } else {
       await withTestChrome({ args: [PORTAL_URL] }, async ({ port }) => {
-        const engine = new ReplayEngine({ browserURL: `http://127.0.0.1:${port}` });
+        const engine = new ReplayEngine({ browserURL: `http://127.0.0.1:${port}`, enableDisturbanceDetection: true });
         await engine.connect();
         const page = engine.page;
         assert(page, 'Engine must connect to page');
@@ -856,7 +858,7 @@ async function runTests() {
         ]
       };
 
-      const runner = new LoopReplayRunner({ cdpPort: port, runId });
+      const runner = new LoopReplayRunner({ cdpPort: port, runId, forceRedownload: true });
       const manifest = await runner.executeLoop(mockWorkflow, 1);
 
       // Verify all acceptance criteria
@@ -889,7 +891,11 @@ async function runTests() {
   console.log('🎉 ALL LOOP RELIABILITY TESTS PASSED SUCCESSFULLY!\n');
 }
 
-runTests().catch(err => {
-  console.error('\n❌ Loop reliability test suite failed:', err);
-  process.exit(1);
-});
+runTests()
+  .then(() => {
+    process.exit(0);
+  })
+  .catch(err => {
+    console.error('\n❌ Loop reliability test suite failed:', err);
+    process.exit(1);
+  });

@@ -10,6 +10,7 @@ const path = require('path');
 const { connectToBrowser } = require('../utils/cdp-connector');
 const SelectorResolver = require('../shared/selector-resolver');
 const logger = require('../utils/logger');
+const { isInternalBrowserUrl, extractWorkflowStartUrl } = require('../utils/url-helper');
 
 /**
  * Recursively collect all frames within a page or frame hierarchy at any nesting depth
@@ -444,7 +445,16 @@ class RecorderBridge {
     };
 
     const onFrameAttached = (frame) => scheduleFrameInjection(frame);
-    const onFrameNavigated = (frame) => scheduleFrameInjection(frame);
+    const onFrameNavigated = (frame) => {
+      if (isInternalBrowserUrl(this.startUrl) && frame && typeof frame.url === 'function') {
+        const navigatedUrl = frame.url();
+        if (navigatedUrl && !isInternalBrowserUrl(navigatedUrl)) {
+          this.startUrl = navigatedUrl;
+          logger.info(`[Recorder] Updated workflow startUrl to navigated URL: ${this.startUrl}`);
+        }
+      }
+      scheduleFrameInjection(frame);
+    };
     page.on('frameattached', onFrameAttached);
     page.on('framenavigated', onFrameNavigated);
 
@@ -541,6 +551,13 @@ class RecorderBridge {
       ? rawAction.desiredState
       : (rawAction.checked !== undefined ? rawAction.checked : (rawAction.target?.checked));
 
+    // Update startUrl if currently internal/blank and action is from a real page
+    const actionUrl = rawAction.url || rawAction.frame?.location || (rawAction.target?.fingerprint?.attributes?.href?.startsWith('http') ? rawAction.target.fingerprint.attributes.href : null);
+    if (isInternalBrowserUrl(this.startUrl) && actionUrl && !isInternalBrowserUrl(actionUrl)) {
+      this.startUrl = actionUrl;
+      logger.info(`[Recorder] Updated workflow startUrl from action location: ${this.startUrl}`);
+    }
+
     const action = {
       id: `act_${actionIndex + 1}_${Date.now().toString(36)}`,
       index: actionIndex,
@@ -550,6 +567,8 @@ class RecorderBridge {
       timestamp: rawAction.timestamp,
       timeDeltaMs,
       target: rawAction.target,
+      ...(rawAction.url ? { url: rawAction.url } : {}),
+      ...(rawAction.frame ? { frame: rawAction.frame } : {}),
       ...(isCheckbox ? { isCheckbox: true } : {}),
       ...(desiredState !== undefined ? { desiredState: Boolean(desiredState), checked: Boolean(desiredState) } : {}),
       ...(rawAction.key ? { key: rawAction.key } : {}),
@@ -641,6 +660,14 @@ class RecorderBridge {
       }
     }
 
+    let finalStartUrl = this.startUrl;
+    if (isInternalBrowserUrl(finalStartUrl)) {
+      const extracted = extractWorkflowStartUrl({ actions: this.actions, metadata: { startUrl: this.startUrl } });
+      if (extracted) {
+        finalStartUrl = extracted;
+      }
+    }
+
     const recording = {
       metadata: {
         recordingId: `rec_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -648,7 +675,7 @@ class RecorderBridge {
         name: this.name,
         startedAt: this.startedAt,
         completedAt,
-        startUrl: this.startUrl,
+        startUrl: finalStartUrl,
         userAgent,
         viewport
       },

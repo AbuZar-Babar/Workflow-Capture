@@ -16,7 +16,11 @@ const ActionGeneralizer = require('../shared/action-generalizer');
 const logger = require('../utils/logger');
 const { db } = require('../database/db');
 const { decryptSecret } = require('../auth/secret-util');
-const { resolveTargetUrl } = require('../utils/url-helper');
+const { resolveTargetUrl, extractWorkflowStartUrl } = require('../utils/url-helper');
+const { ConditionEvaluator } = require('../shared/condition-evaluator');
+const { PageInspector } = require('../shared/page-inspector');
+const { IntentCompiler } = require('../engine/intent-compiler');
+const { SemanticResolver } = require('./semantic-resolver');
 
 class LoopReplayRunner {
   constructor(options = {}) {
@@ -24,16 +28,17 @@ class LoopReplayRunner {
     this.runId = options.runId || `run_${Date.now()}`;
     this.workflowId = options.workflowId || null;
     this.workflowName = options.workflowName || 'workflow';
-    this.userId = options.userId || null;
     this.forceRedownload = options.forceRedownload === true;
+    this.itemMode = ['new', 'old', 'all'].includes(options.itemMode) ? options.itemMode : 'new';
+    this.maxItems = Number.isInteger(options.maxItems) && options.maxItems > 0 ? options.maxItems : null;
 
     this.runsDir = path.resolve(process.cwd(), 'recordings', 'runs', this.runId);
     this.downloadsDir = path.join(this.runsDir, 'downloads');
     this.replayEngine = new ReplayEngine({ cdpPort: this.cdpPort });
     this.maxItemRetries = Number.isInteger(options.maxItemRetries) ? Math.max(0, options.maxItemRetries) : 1;
     this.resumeFromCheckpoint = options.resumeFromCheckpoint === true;
-    this.isAborted = false;
-    this.rowFilter = options.rowFilter || null;
+    this.rowFilter = options.itemFilter || options.rowFilter || null;
+    this.itemFilter = options.itemFilter || null;
 
     // Structured downloads hierarchy: downloads/<workflow-slug>/<YYYY-MM-DD>/
     const rawSlug = (this.workflowName || this.workflowId || 'workflow').toLowerCase();
@@ -50,7 +55,7 @@ class LoopReplayRunner {
     this.isAborted = true;
     logger.warn(`[Runner] Stop signal triggered for run: ${this.runId}`);
     if (this.replayEngine && typeof this.replayEngine.abort === 'function') {
-      await this.replayEngine.abort().catch(() => {});
+      await this.replayEngine.abort().catch(() => { });
     }
   }
 
@@ -150,7 +155,7 @@ class LoopReplayRunner {
       return {
         filename,
         path: sourcePath,
-        sizeBytes: fs.statSync(sourcePath).size
+        sizeBytes: fs.existsSync(sourcePath) ? fs.statSync(sourcePath).size : 0
       };
     }
   }
@@ -175,7 +180,7 @@ class LoopReplayRunner {
       if (fs.existsSync(manifestPath)) {
         try {
           manifestData = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-        } catch {}
+        } catch { }
       }
 
       manifestData.lastUpdated = new Date().toISOString();
@@ -200,28 +205,290 @@ class LoopReplayRunner {
 
   /**
    * Checks whether an item has already been downloaded for this workflow.
-   * Verifies both database record and physical presence on disk.
+   * Verifies database records, physical presence on disk, and file names in workflow downloads folder.
+   * Also evaluates Due Date / Days Old if itemFields are provided.
    */
-  checkIfAlreadyDownloaded(itemKey) {
-    if (!itemKey || !this.workflowId) return { isDuplicate: false };
+  checkIfAlreadyDownloaded(itemKey, invoiceNumber = null, itemFields = {}) {
+    if (!itemKey && !invoiceNumber) return { isDuplicate: false };
 
-    const records = db.find('downloads', d =>
-      d.workflowId === this.workflowId && (d.itemKey === itemKey || (d.itemLabel && d.itemLabel === itemKey))
-    );
+    // 1. Database check
+    if (this.workflowId) {
+      const records = db.find('downloads', d =>
+        d.workflowId === this.workflowId && (
+          (itemKey && d.itemKey === itemKey) ||
+          (d.itemLabel && d.itemLabel === itemKey) ||
+          (invoiceNumber && (
+            (d.filename && d.filename.toLowerCase().includes(invoiceNumber.toLowerCase())) ||
+            (d.itemLabel && d.itemLabel.toLowerCase().includes(invoiceNumber.toLowerCase())) ||
+            (d.itemKey && d.itemKey.toLowerCase().includes(invoiceNumber.toLowerCase()))
+          ))
+        )
+      );
 
-    if (!records || records.length === 0) return { isDuplicate: false };
-
-    // Verify at least one file actually exists on disk
-    for (const rec of records) {
-      if (rec.filePath) {
-        const fullPath = path.resolve(process.cwd(), rec.filePath);
-        if (fs.existsSync(fullPath)) {
-          return { isDuplicate: true, record: rec };
+      if (records && records.length > 0) {
+        for (const rec of records) {
+          if (rec.filePath) {
+            const fullPath = path.resolve(process.cwd(), rec.filePath);
+            if (fs.existsSync(fullPath)) {
+              return { isDuplicate: true, inFolder: true, record: rec };
+            }
+          }
         }
       }
     }
 
-    return { isDuplicate: false };
+    // 2. Physical disk scan in workflow downloads folder, run folder
+    const targetInv = (invoiceNumber || (typeof itemKey === 'string' && itemKey.startsWith('invoice:') ? itemKey.replace(/^invoice:/, '') : null))?.trim();
+    if (targetInv && targetInv.length >= 3 && this.workflowSlug && this.workflowSlug !== 'workflow') {
+      const candidateDirs = [
+        this.structuredDownloadsDir,
+        this.workflowDownloadsBaseDir,
+        this.downloadsDir
+      ].filter(Boolean);
+
+      for (const dir of candidateDirs) {
+        if (!fs.existsSync(dir)) continue;
+        try {
+          const files = fs.readdirSync(dir, { recursive: true });
+          for (const file of files) {
+            const fileName = typeof file === 'string' ? path.basename(file) : file;
+            if (fileName && typeof fileName === 'string' && fileName.toLowerCase().includes(targetInv.toLowerCase()) && !fileName.endsWith('.crdownload') && !fileName.endsWith('.tmp')) {
+              const fullPath = path.join(dir, fileName);
+              return {
+                isDuplicate: true,
+                inFolder: true,
+                record: {
+                  filename: fileName,
+                  filePath: path.relative(process.cwd(), fullPath)
+                }
+              };
+            }
+          }
+        } catch {}
+      }
+    }
+
+    // 3. Due Date / Days Old evaluation for "old" data categorization
+    const isOldData = (() => {
+      if (itemFields && itemFields['Days Old'] && parseInt(itemFields['Days Old'], 10) > 0) {
+        return true;
+      }
+      if (itemFields && itemFields['Due Date']) {
+        const parsedDue = new Date(itemFields['Due Date']);
+        if (!isNaN(parsedDue.getTime()) && parsedDue.getTime() <= Date.now()) {
+          return true;
+        }
+      }
+      return false;
+    })();
+
+    return { isDuplicate: false, isOldData };
+  }
+
+  /**
+   * Checks whether the discovered collection/table is still present and accessible in the DOM.
+   */
+  async isCollectionPresent(page, discovery) {
+    if (!page || !discovery || !discovery.collection) return false;
+    try {
+      if (typeof page.isClosed === 'function' && page.isClosed()) return false;
+
+      // 1. In ExtJS, check if any rendered/visible grid exists with rows
+      const hasExtGrid = await page.evaluate(() => {
+        if (window.Ext && window.Ext.ComponentQuery) {
+          try {
+            const grids = window.Ext.ComponentQuery.query('grid, gridpanel');
+            return grids.some(g => {
+              if (!g.rendered || !g.isVisible || !g.isVisible()) return false;
+              const el = g.getEl && g.getEl().dom;
+              if (!el) return false;
+              const rect = el.getBoundingClientRect();
+              const style = window.getComputedStyle(el);
+              return style.display !== 'none' && style.visibility !== 'hidden' &&
+                rect.width > 50 && rect.height > 50 && rect.top > -500 && rect.left > -500 &&
+                g.getStore && g.getStore() && g.getStore().getCount() > 0;
+            });
+          } catch (e) {
+            return false;
+          }
+        }
+        return false;
+      }).catch(() => false);
+      if (hasExtGrid) return true;
+
+      // 2. Direct page check: see if collection container exists and is visible in main page DOM without traversing child frames
+      const selector = discovery.collection.ancestorSelector || discovery.collection.containerSelector || '.x-grid, [role="grid"], table tbody';
+      const existsInMainPage = await page.evaluate((sel) => {
+        const el = document.querySelector(sel);
+        if (!el || !el.isConnected) return false;
+        const style = window.getComputedStyle(el);
+        if (style.display === 'none' || style.visibility === 'hidden') return false;
+        const rect = el.getBoundingClientRect();
+        return rect.width > 20 && rect.height > 20 && rect.top > -500 && rect.left > -500;
+      }, selector).catch(() => false);
+      if (existsInMainPage) return true;
+
+      // 3. Safe handle fallback across frames
+      const handle = await ItemDiscovery.getItemHandle(page, discovery, 0).catch(() => null);
+      const el = handle ? handle.asElement() : null;
+      if (el) {
+        const isElVisible = await el.evaluate(node => {
+          if (!node || !node.isConnected) return false;
+          const s = window.getComputedStyle(node);
+          if (s.display === 'none' || s.visibility === 'hidden') return false;
+          const r = node.getBoundingClientRect();
+          return r.width > 5 && r.height > 5 && r.top > -500 && r.left > -500;
+        }).catch(() => false);
+        if (typeof el.dispose === 'function') await el.dispose().catch(() => { });
+        if (isElVisible) return true;
+      }
+      if (handle && typeof handle.dispose === 'function') await handle.dispose().catch(() => { });
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Clears any active row selections in ExtJS, AG-Grid, or standard HTML tables
+   * to ensure sequential 1-by-1 iteration without multi-selection accumulation.
+   */
+  async clearGridSelections(page, discovery) {
+    if (!page) return;
+    try {
+      if (typeof page.isClosed === 'function' && page.isClosed()) return;
+      await page.evaluate(() => {
+        // 1. ExtJS Component API: deselectAll on all rendered/visible grids
+        if (window.Ext && window.Ext.ComponentQuery) {
+          try {
+            const grids = window.Ext.ComponentQuery.query('grid, gridpanel');
+            for (const grid of grids) {
+              const sm = grid.getSelectionModel && grid.getSelectionModel();
+              if (sm && typeof sm.deselectAll === 'function') {
+                sm.deselectAll();
+              }
+            }
+          } catch (e) {}
+        }
+
+        // 2. DOM-based deselect: find all selected rows
+        const selectedRows = Array.from(document.querySelectorAll(
+          '.x-grid-item-selected, .x-grid-row-selected, tr.selected, [aria-selected="true"]'
+        ));
+
+        for (const row of selectedRows) {
+          const checker = row.querySelector('input[type="checkbox"]:checked, [role="checkbox"][aria-checked="true"]');
+          if (checker) {
+            checker.click();
+          } else {
+            row.classList.remove('x-grid-item-selected', 'x-grid-row-selected');
+            row.removeAttribute('aria-selected');
+          }
+        }
+
+        // 3. Uncheck any checked checkboxes in the grid body
+        const checkedBoxes = Array.from(document.querySelectorAll(
+          '.x-grid-body input[type="checkbox"]:checked, [role="grid"] input[type="checkbox"]:checked, table tbody input[type="checkbox"]:checked'
+        ));
+        for (const cb of checkedBoxes) {
+          cb.click();
+        }
+
+        // 4. Header select-all checker deselect if checked
+        const headerChecker = document.querySelector('.x-grid-hd-checker-on, .x-column-header-checkbox.x-grid-hd-checker-on');
+        if (headerChecker) {
+          headerChecker.click();
+        }
+      });
+      await new Promise(r => setTimeout(r, 100));
+    } catch (err) {
+      logger.warn(`[Loop Runner] clearGridSelections note: ${err.message}`);
+    }
+  }
+
+  /**
+   * Enforces that ONLY the target row index is selected, and all other rows are deselected.
+   */
+  async enforceGridRowSingleSelection(page, discovery, targetIndex) {
+    if (!page) return;
+    try {
+      if (typeof page.isClosed === 'function' && page.isClosed()) return;
+      await page.evaluate((targetIdx) => {
+        // 1. ExtJS Component API: select targetIdx on the active/visible grid
+        if (window.Ext && window.Ext.ComponentQuery) {
+          try {
+            const grids = window.Ext.ComponentQuery.query('grid, gridpanel');
+            const visibleGrids = grids.filter(g => {
+              if (!g.rendered || !g.isVisible || !g.isVisible()) return false;
+              const el = g.getEl && g.getEl().dom;
+              if (!el) return false;
+              const rect = el.getBoundingClientRect();
+              const style = window.getComputedStyle(el);
+              return style.display !== 'none' && style.visibility !== 'hidden' &&
+                rect.width > 50 && rect.height > 50 && rect.top > -500 && rect.left > -500;
+            });
+
+            for (const grid of visibleGrids) {
+              const sm = grid.getSelectionModel && grid.getSelectionModel();
+              if (sm && typeof sm.select === 'function') {
+                sm.deselectAll();
+                sm.select(targetIdx);
+                return;
+              }
+            }
+          } catch (e) {}
+        }
+
+        // 2. DOM-based selection for standard HTML tables / ARIA grids:
+        const gridBody = document.querySelector('.x-grid-body, [role="grid"], table tbody') || document;
+        // Collect DISTINCT row elements (do not mix table.x-grid-item and tr.x-grid-row)
+        let rows = Array.from(gridBody.querySelectorAll('table.x-grid-item')).filter(r => {
+          const rect = r.getBoundingClientRect();
+          const style = window.getComputedStyle(r);
+          return style.display !== 'none' && style.visibility !== 'hidden' && rect.top > -500;
+        });
+        if (!rows.length) {
+          rows = Array.from(gridBody.querySelectorAll('tbody > tr:not(.x-grid-row-before), [role="row"]')).filter(r => {
+            if (r.closest('thead, .x-grid-header-ct')) return false;
+            const rect = r.getBoundingClientRect();
+            const style = window.getComputedStyle(r);
+            return style.display !== 'none' && style.visibility !== 'hidden' && rect.top > -500;
+          });
+        }
+
+        const targetRow = rows[targetIdx];
+        if (targetRow) {
+          const isSelected = targetRow.classList.contains('x-grid-item-selected') ||
+            targetRow.classList.contains('x-grid-row-selected') ||
+            targetRow.getAttribute('aria-selected') === 'true' ||
+            targetRow.querySelector('input[type="checkbox"]:checked, [role="checkbox"][aria-checked="true"]');
+
+          if (!isSelected) {
+            const checker = targetRow.querySelector('.x-grid-row-checker, input[type="checkbox"], [role="checkbox"]');
+            if (checker) checker.click();
+            else targetRow.click();
+          }
+        }
+
+        // Deselect any other row
+        rows.forEach((r, idx) => {
+          if (idx !== targetIdx) {
+            const isSelected = r.classList.contains('x-grid-item-selected') ||
+              r.classList.contains('x-grid-row-selected') ||
+              r.getAttribute('aria-selected') === 'true';
+            if (isSelected) {
+              const checker = r.querySelector('input[type="checkbox"]:checked, [role="checkbox"][aria-checked="true"]');
+              if (checker) checker.click();
+              r.classList.remove('x-grid-item-selected', 'x-grid-row-selected');
+              r.removeAttribute('aria-selected');
+            }
+          }
+        });
+      }, targetIndex);
+      await new Promise(r => setTimeout(r, 100));
+    } catch (err) {
+      logger.warn(`[Loop Runner] enforceGridRowSingleSelection note: ${err.message}`);
+    }
   }
 
   /**
@@ -238,6 +505,16 @@ class LoopReplayRunner {
       return { itemKey: `dropdown:${label}`, itemLabel: label };
     }
 
+    // Check pre-discovered item fields first
+    if (discovery && Array.isArray(discovery.items) && discovery.items[index]?.fields) {
+      const fields = discovery.items[index].fields;
+      const invNo = fields['Invoice Number'] || fields['Invoice No'] || fields['Invoice'];
+      if (invNo) {
+        const label = fields.Type ? `${invNo} (${fields.Type})` : invNo;
+        return { itemKey: `invoice:${invNo}`, itemLabel: label, invoiceNumber: invNo };
+      }
+    }
+
     let itemHandle = null;
     try {
       itemHandle = await ItemDiscovery.getItemHandle(page, discovery, index);
@@ -248,23 +525,28 @@ class LoopReplayRunner {
           const firstLine = text.split(/[\n\r]/)[0].trim();
           const link = el.querySelector('a[href]')?.getAttribute('href') || el.getAttribute('href') || '';
           const dataId = el.getAttribute('data-id') || el.getAttribute('data-testid') || el.getAttribute('id') || '';
+          const invMatch = text.match(/\b((?:SI|INV|DR|TX|CM)-\d+(?:[-_]\w+)*|\b\d{5,10}\b)/i);
           return {
             text: firstLine ? firstLine.slice(0, 100) : text.slice(0, 100),
             link,
-            dataId
+            dataId,
+            invoiceNo: invMatch ? invMatch[1] : null
           };
         });
 
-        const label = info.text || info.dataId || `Item #${index + 1}`;
-        const key = info.dataId
-          ? `id:${info.dataId}`
-          : (info.link ? `link:${info.link}` : `text:${label}`);
-        return { itemKey: key, itemLabel: label };
+        const invoiceNo = info.invoiceNo;
+        const label = invoiceNo || info.text || info.dataId || `Item #${index + 1}`;
+        const key = invoiceNo
+          ? `invoice:${invoiceNo}`
+          : (info.dataId
+            ? `id:${info.dataId}`
+            : (info.link ? `link:${info.link}` : `text:${label}`));
+        return { itemKey: key, itemLabel: label, invoiceNumber: invoiceNo };
       }
     } catch (err) {
       logger.warn(`[Runner] Note extracting item identifier for item #${index + 1}: ${err.message}`);
     } finally {
-      if (itemHandle) await itemHandle.dispose().catch(() => {});
+      if (itemHandle) await itemHandle.dispose().catch(() => { });
     }
 
     return { itemKey: `item_${index + 1}`, itemLabel: `Item #${index + 1}` };
@@ -274,85 +556,239 @@ class LoopReplayRunner {
    * Evaluates if a loop item matches the configured row filter criteria (e.g. Type = "Invoice" vs "Credit Memo")
    */
   async evaluateItemFilter(page, discovery, index, rowFilter) {
-    if (!rowFilter || (!rowFilter.value && !rowFilter.text)) {
-      return { matches: true, reason: 'No filter configured' };
+    const targetCol = rowFilter ? String(rowFilter.column || rowFilter.field || 'type').toLowerCase() : 'type';
+    if (!rowFilter || (!rowFilter.value && !rowFilter.text && !rowFilter.conditions && !rowFilter.field)) {
+      return { matches: true, reason: 'No filter configured', column: targetCol, actualValue: 'All' };
     }
 
-    const rawVal = rowFilter.value || rowFilter.text || '';
-    const targetVal = String(rawVal).trim().toLowerCase();
-    if (!targetVal || targetVal === '__any__' || targetVal === 'all') {
-      return { matches: true, reason: 'All items accepted (no filter)' };
+    const rawVal = rowFilter.value || rowFilter.text;
+    if (rawVal === '__any__' || rawVal === 'all') {
+      return { matches: true, reason: 'All items accepted (no filter)', column: targetCol, actualValue: 'All' };
     }
 
-    const targetCol = rowFilter.column ? String(rowFilter.column).trim().toLowerCase() : null;
+    // 1. Fast evaluation from discovery item fields if available
+    if (discovery && Array.isArray(discovery.items) && discovery.items[index]?.fields) {
+      const itemRecord = discovery.items[index].fields;
+      const actualVal = itemRecord[rowFilter.column] || itemRecord[rowFilter.field] || itemRecord.Type || itemRecord.label || itemRecord.fullText || '';
+      const evalResult = ConditionEvaluator.evaluate(itemRecord, rowFilter);
+      return {
+        matches: evalResult.matches,
+        reason: evalResult.reason || 'Matches configured condition',
+        column: targetCol,
+        actualValue: actualVal
+      };
+    }
 
     let itemHandle = null;
     try {
       itemHandle = await ItemDiscovery.getItemHandle(page, discovery, index);
       const itemEl = itemHandle ? itemHandle.asElement() : null;
       if (!itemEl) {
-        return { matches: true, reason: 'Could not resolve element for filter' };
+        return { matches: true, reason: 'Could not resolve element for filter', column: targetCol, actualValue: null };
       }
 
-      const rowData = await itemEl.evaluate((el) => {
+      const itemRecord = await itemEl.evaluate((el) => {
         const fullText = (el.innerText || el.textContent || '').trim().replace(/\s+/g, ' ');
-        const cellEls = Array.from(el.querySelectorAll('td, [role="gridcell"], .dxgv, .cell'));
-        const cells = cellEls.map(c => (c.innerText || c.textContent || '').trim());
+        let cellEls = Array.from(el.querySelectorAll('td, [role="gridcell"]'));
+        if (cellEls.length === 0) {
+          cellEls = Array.from(el.querySelectorAll('.x-grid-cell, .dxgv, .cell'));
+        }
 
-        const table = el.closest('table, [role="grid"], .dxgvTable') || document.querySelector('table, [role="grid"], .dxgvTable');
-        let headerMap = {};
-        if (table) {
-          const headerEls = Array.from(table.querySelectorAll('th, [role="columnheader"], .dxgvHeader'));
-          headerEls.forEach((h, idx) => {
-            const hText = (h.innerText || h.textContent || '').trim().toLowerCase();
-            if (hText) headerMap[hText] = idx;
+        // Account for checkbox selection column
+        const isFirstCellChecker = cellEls.length > 0 && Boolean(
+          cellEls[0].classList?.contains('x-grid-cell-special') ||
+          cellEls[0].classList?.contains('x-grid-cell-row-checker') ||
+          cellEls[0].querySelector?.('.x-grid-row-checker, input[type="checkbox"]')
+        );
+        const dataCellEls = isFirstCellChecker ? cellEls.slice(1) : cellEls;
+        const cells = dataCellEls.map(c => (c.innerText || c.textContent || '').trim());
+
+        const gridContainer = el.closest('.x-grid, table, [role="grid"], .dxgvTable') || document.querySelector('.x-grid, table, [role="grid"]');
+        const record = {
+          fullText,
+          label: fullText.slice(0, 100),
+          _cells: cells,
+          Option: fullText,
+          'Document Type': fullText,
+          Text: fullText
+        };
+
+        if (gridContainer) {
+          const headerCt = (typeof gridContainer.querySelector === 'function' ? gridContainer.querySelector('.x-grid-header-ct, thead, .x-grid-header-row') : null) || gridContainer;
+          const headerEls = Array.from(typeof headerCt.querySelectorAll === 'function' ? headerCt.querySelectorAll('.x-column-header, th, [role="columnheader"]') : [])
+            .filter(h => !h.parentElement?.closest?.('.x-column-header'));
+          const colTexts = headerEls.map(h => {
+            const inner = (typeof h.querySelector === 'function' ? h.querySelector('.x-column-header-text') : null) || h;
+            return (inner.innerText || inner.textContent || '').trim();
+          }).filter(t => t.length > 0);
+
+          colTexts.forEach((hText, idx) => {
+            if (hText && cells[idx] !== undefined) {
+              record[hText] = cells[idx];
+            }
           });
         }
-        return { fullText, cells, headerMap };
+
+        // Invoice Number fallback
+        if (!record['Invoice Number']) {
+          const invMatch = fullText.match(/\b((?:SI|INV|DR|TX|CM)-\d+(?:[-_]\w+)*|\b\d{5,10}\b)/i);
+          if (invMatch) record['Invoice Number'] = invMatch[1];
+        }
+
+        // Type fallback
+        if (!record['Type'] || record['Type'] === fullText || /^(SI|INV|DR|TX|CM)-\d+/i.test(record['Type'])) {
+          if (/\bcredit\s*memo\b/i.test(fullText)) record['Type'] = 'Credit Memo';
+          else if (/\binvoice\b/i.test(fullText)) record['Type'] = 'Invoice';
+          else record['Type'] = fullText;
+        }
+
+        return record;
       });
 
-      // 1. Column header match
-      if (targetCol && rowData.headerMap) {
-        const matchedKey = Object.keys(rowData.headerMap).find(k => k === targetCol || k.includes(targetCol));
-        if (matchedKey !== undefined) {
-          const colIdx = rowData.headerMap[matchedKey];
-          if (rowData.cells && colIdx < rowData.cells.length) {
-            const cellVal = rowData.cells[colIdx].toLowerCase();
-            const matches = cellVal.includes(targetVal);
-            return {
-              matches,
-              actualValue: rowData.cells[colIdx],
-              column: matchedKey,
-              reason: matches
-                ? `Column "${matchedKey}" matches "${rawVal}"`
-                : `Column "${matchedKey}" is "${rowData.cells[colIdx]}" (skipping: target is "${rawVal}")`
-            };
-          }
-        }
-      }
-
-      // 2. Exact or substring match in any cell
-      const cellMatch = rowData.cells.find(c => c.toLowerCase() === targetVal || c.toLowerCase().includes(targetVal));
-      if (cellMatch) {
-        return { matches: true, actualValue: cellMatch, reason: `Cell matched "${cellMatch}"` };
-      }
-
-      // 3. Fallback to full text match
-      const fullTextLower = rowData.fullText.toLowerCase();
-      const matches = fullTextLower.includes(targetVal);
+      const actualVal = itemRecord[rowFilter.column] || itemRecord[rowFilter.field] || itemRecord.Type || itemRecord.label || itemRecord.fullText || '';
+      const evalResult = ConditionEvaluator.evaluate(itemRecord, rowFilter);
       return {
-        matches,
-        actualValue: rowData.fullText.slice(0, 50),
-        reason: matches
-          ? `Row contains "${rawVal}"`
-          : `Row does not match "${rawVal}" (skipping)`
+        matches: evalResult.matches,
+        reason: evalResult.reason || 'Matches configured condition',
+        column: targetCol,
+        actualValue: actualVal
       };
     } catch (err) {
       logger.warn(`[Runner] Filter check note on item #${index + 1}: ${err.message}`);
-      return { matches: true, reason: 'Filter check error fallback' };
+      return { matches: true, reason: 'Filter check error fallback', column: targetCol, actualValue: null };
     } finally {
-      if (itemHandle) await itemHandle.dispose().catch(() => {});
+      if (itemHandle) await itemHandle.dispose().catch(() => { });
     }
+  }
+
+  /**
+   * Efficiently detects all available elements on the page, identifies relevant options/items,
+   * excludes non-data controls (like "Select All"), and filters items based on the condition.
+   * Runs in a single pass instead of per-item RPC roundtrips.
+   */
+  async detectAndFilterItems(page, discovery, isDropdown, rowFilter) {
+    const rawVal = rowFilter ? (rowFilter.value || rowFilter.text) : null;
+    const isFilterActive = Boolean(rowFilter && rawVal && rawVal !== '__any__' && rawVal !== 'all');
+    const targetCol = rowFilter ? String(rowFilter.column || rowFilter.field || 'type').toLowerCase() : 'type';
+
+    let itemsData = [];
+
+    if (isDropdown && page) {
+      // For dropdowns: query all visible options in a single evaluate call
+      itemsData = await page.evaluate(() => {
+        const visible = el => {
+          if (!el || !el.isConnected) return false;
+          const style = window.getComputedStyle(el);
+          const rect = el.getBoundingClientRect();
+          return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+        };
+        const opts = Array.from(document.querySelectorAll('mat-option, [role="option"], select option')).filter(visible);
+        return opts.map((el, idx) => {
+          const text = (el.innerText || el.textContent || '').trim().replace(/\s+/g, ' ');
+          return {
+            index: idx,
+            text,
+            isSelectAll: /select\s*all/i.test(text),
+            fields: {
+              Type: text,
+              Option: text,
+              'Document Type': text,
+              Text: text,
+              Value: text,
+              fullText: text,
+              label: text
+            }
+          };
+        });
+      }).catch(() => []);
+    }
+
+    // If non-dropdown or dropdown evaluate returned empty, use discovery.items
+    if (!itemsData.length && discovery && Array.isArray(discovery.items) && discovery.items.length) {
+      itemsData = discovery.items.map((item, idx) => {
+        const text = item.text || '';
+        return {
+          index: item.index !== undefined ? item.index : idx,
+          text,
+          isSelectAll: /select\s*all/i.test(text),
+          fields: item.fields || {
+            Type: text,
+            Option: text,
+            'Document Type': text,
+            Text: text,
+            Value: text,
+            fullText: text,
+            label: text
+          }
+        };
+      });
+    }
+
+    // Fallback if discovery.items is empty (e.g. synthetic test discovery with only itemCount)
+    if (!itemsData.length) {
+      const count = discovery ? (discovery.itemCount || 0) : 0;
+      const fallbackList = [];
+      for (let idx = 0; idx < count; idx++) {
+        const itemIdentifier = await this.extractItemIdentifier(page, discovery, idx, isDropdown);
+        let matches = true;
+        let reason = 'Matches condition';
+        if (isDropdown && /select\s*all/i.test(itemIdentifier.itemLabel)) {
+          matches = false;
+          reason = 'Dropdown "Select All" control excluded from data items';
+        } else if (this.rowFilter) {
+          const filterCheck = await this.evaluateItemFilter(page, discovery, idx, this.rowFilter);
+          matches = filterCheck.matches;
+          reason = filterCheck.reason;
+        }
+        fallbackList.push({
+          index: idx,
+          itemIdentifier,
+          matches,
+          reason
+        });
+      }
+      return fallbackList;
+    }
+
+    // Evaluate all discovered items efficiently
+    const evaluatedItems = [];
+    for (const item of itemsData) {
+      const fields = item.fields || {};
+      const invoiceNo = fields['Invoice Number'] || fields['Invoice No'] || fields['Invoice'] ||
+        (item.text && item.text.match(/\b((?:SI|INV|DR|TX|CM)-\d+(?:[-_]\w+)*|\b\d{5,10}\b)/i)?.[1]) || null;
+
+      let itemLabel = item.text || `Item #${item.index + 1}`;
+      if (invoiceNo) {
+        itemLabel = fields.Type ? `${invoiceNo} (${fields.Type})` : invoiceNo;
+      }
+      const itemKey = isDropdown
+        ? `dropdown:${itemLabel}`
+        : (invoiceNo ? `invoice:${invoiceNo}` : `item_${item.index + 1}`);
+
+      const itemIdentifier = { itemKey, itemLabel, invoiceNumber: invoiceNo };
+
+      let matches = true;
+      let reason = 'Matches condition';
+
+      if (isDropdown && item.isSelectAll) {
+        matches = false;
+        reason = 'Dropdown "Select All" control excluded from data items';
+      } else if (isFilterActive) {
+        const evalResult = ConditionEvaluator.evaluate(item.fields, rowFilter);
+        matches = evalResult.matches;
+        reason = evalResult.reason || (matches ? 'Matches configured condition' : `Filtered out by "${targetCol}"`);
+      }
+
+      evaluatedItems.push({
+        index: item.index,
+        itemIdentifier,
+        fields: item.fields,
+        matches,
+        reason
+      });
+    }
+
+    return evaluatedItems;
   }
 
   /**
@@ -477,7 +913,7 @@ class LoopReplayRunner {
         await client.send('Page.setDownloadBehavior', {
           behavior: 'allow',
           downloadPath: this.downloadsDir
-        }).catch(() => {});
+        }).catch(() => { });
         return client;
       } catch {
         return null;
@@ -520,24 +956,44 @@ class LoopReplayRunner {
    * Navigate browser to the workflow's designated target/start URL
    */
   async navigateToWorkflowTarget(page, workflow) {
-    let targetUrl = workflow.targetUrl ||
-      (workflow.recordingData && workflow.recordingData.metadata && workflow.recordingData.metadata.startUrl) ||
-      (workflow.metadata && workflow.metadata.startUrl) ||
-      (workflow.steps && workflow.steps[0] && workflow.steps[0].url) ||
-      null;
-
-    const resolved = resolveTargetUrl(targetUrl);
+    const resolved = extractWorkflowStartUrl(workflow);
     if (!resolved) {
       logger.info('[Runner] No target URL specified for workflow. Executing on active tab.');
       return;
     }
 
     try {
-      await page.bringToFront().catch(() => {});
-    } catch {}
+      await page.bringToFront().catch(() => { });
+    } catch { }
 
     const currentUrl = page.url();
-    if (currentUrl === 'about:blank' || currentUrl.startsWith('chrome://') || currentUrl !== resolved) {
+    let shouldNavigate = false;
+
+    if (currentUrl === 'about:blank' || currentUrl.startsWith('chrome://')) {
+      shouldNavigate = true;
+    } else {
+      try {
+        const currentOrigin = new URL(currentUrl).origin;
+        const targetOrigin = new URL(resolved).origin;
+        if (currentOrigin !== targetOrigin) {
+          shouldNavigate = true;
+        } else {
+          // Same origin: do NOT navigate back to /login if current page is already authenticated past login
+          const isTargetLogin = /\/login\b/i.test(resolved);
+          const isCurrentLogin = /\/login\b/i.test(currentUrl);
+          if (isTargetLogin && !isCurrentLogin) {
+            shouldNavigate = false;
+            logger.info(`[Runner] Session already active at "${currentUrl}". Skipping navigation to login URL: ${resolved}`);
+          } else if (currentUrl !== resolved && isCurrentLogin) {
+            shouldNavigate = true;
+          }
+        }
+      } catch {
+        shouldNavigate = currentUrl !== resolved;
+      }
+    }
+
+    if (shouldNavigate) {
       logger.info(`[Runner] Navigating tab from "${currentUrl}" to workflow target URL: ${resolved}`);
       try {
         await page.goto(resolved, { waitUntil: 'domcontentloaded', timeout: 30000 });
@@ -549,7 +1005,7 @@ class LoopReplayRunner {
         logger.warn(`[Runner] Auto-navigation note: ${navErr.message}`);
       }
     } else {
-      logger.info(`[Runner] Tab already at target URL: ${resolved}`);
+      logger.info(`[Runner] Tab already at target URL: ${currentUrl}`);
     }
   }
 
@@ -626,17 +1082,17 @@ class LoopReplayRunner {
     const handle = await this.findNextPageTarget(page, workflow);
     const element = handle && handle.asElement();
     if (!element) {
-      if (handle) await handle.dispose().catch(() => {});
+      if (handle) await handle.dispose().catch(() => { });
       return false;
     }
 
     try {
       if (this.replayEngine) await this.replayEngine._setAutomatedAction(true, element);
-      await element.scrollIntoViewIfNeeded().catch(() => {});
+      await element.scrollIntoViewIfNeeded().catch(() => { });
       await element.click();
     } finally {
       if (this.replayEngine) await this.replayEngine._setAutomatedAction(false);
-      await element.dispose().catch(() => {});
+      await element.dispose().catch(() => { });
     }
 
     const timeout = Number.isInteger(workflow.pagination?.waitTimeoutMs)
@@ -709,7 +1165,7 @@ class LoopReplayRunner {
           await new Promise(r => setTimeout(r, 600));
         } finally {
           if (this.replayEngine) await this.replayEngine._setAutomatedAction(false);
-          await selectHandle.dispose().catch(() => {});
+          await selectHandle.dispose().catch(() => { });
         }
       }
     }
@@ -726,8 +1182,8 @@ class LoopReplayRunner {
     return false;
   }
 
-  async executeDropdownOptionSingleSelect(page, targetIndex) {
-    return page.evaluate((targetIdx) => {
+  async executeDropdownOptionSingleSelect(page, targetIndex, targetText = '') {
+    return page.evaluate((targetIdx, expectedText) => {
       const visible = el => {
         if (!el || !el.isConnected) return false;
         const style = window.getComputedStyle(el);
@@ -743,49 +1199,87 @@ class LoopReplayRunner {
         return Boolean(cb);
       };
 
-      const options = Array.from(document.querySelectorAll('mat-option, [role="option"]')).filter(visible);
+      const cleanText = (str) => String(str || '').replace(/\s+/g, ' ').trim();
+
+      const options = Array.from(document.querySelectorAll('mat-option, [role="option"], select option')).filter(visible);
       if (!options.length) {
         return { success: false, reason: 'No visible dropdown options found' };
       }
 
-      const actionsDone = [];
-
-      // Phase 1: Uncheck any option currently checked whose index !== targetIdx
-      for (let idx = 0; idx < options.length; idx++) {
-        if (idx !== targetIdx && isOptionSelected(options[idx])) {
-          const opt = options[idx];
-          if (opt.scrollIntoView) opt.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-          opt.click();
-          actionsDone.push({ action: 'UNCHECK', index: idx, text: opt.innerText.trim().slice(0, 40) });
+      // 1. Locate target option: prefer expectedText match if given, otherwise targetIdx
+      let targetOpt = null;
+      if (expectedText) {
+        const norm = cleanText(expectedText).toLowerCase();
+        targetOpt = options.find(o => cleanText(o.textContent).toLowerCase() === norm);
+        if (!targetOpt) {
+          targetOpt = options.find(o => {
+            const t = cleanText(o.textContent).toLowerCase();
+            return t && !/select\s*all/i.test(t) && (t.includes(norm) || norm.includes(t));
+          });
         }
       }
+      if (!targetOpt && targetIdx >= 0 && targetIdx < options.length) {
+        targetOpt = options[targetIdx];
+      }
 
-      // Phase 2: Check target option if not already checked
-      const targetOpt = options[targetIdx];
       if (!targetOpt) {
         return {
           success: false,
-          reason: `Target option at index ${targetIdx} not found (total options: ${options.length})`,
+          reason: `Target option not found (index: ${targetIdx}, text: "${expectedText}")`,
+          totalOptions: options.length
+        };
+      }
+
+      const actionsDone = [];
+
+      // 2. Check if target option is already selected AND no other option is selected
+      const selectAllOpt = options.find(o => /select\s*all/i.test(cleanText(o.textContent)));
+      const otherSelected = options.filter(o => o !== targetOpt && isOptionSelected(o));
+
+      if (isOptionSelected(targetOpt) && otherSelected.length === 0) {
+        return {
+          success: true,
+          targetIndex: options.indexOf(targetOpt),
+          targetText: cleanText(targetOpt.textContent).slice(0, 80),
+          alreadySelected: true,
           actionsDone
         };
       }
 
+      // 3. Handle "Select All" checkbox if present and currently checked
+      if (selectAllOpt && selectAllOpt !== targetOpt && isOptionSelected(selectAllOpt)) {
+        if (selectAllOpt.scrollIntoView) selectAllOpt.scrollIntoView({ block: 'nearest' });
+        selectAllOpt.click();
+        actionsDone.push({ action: 'UNCHECK_SELECT_ALL', text: cleanText(selectAllOpt.textContent).slice(0, 40) });
+      }
+
+      // 4. Safely uncheck any OTHER option that is currently selected (e.g. from previous loop item)
+      // Never click unselected options!
+      for (let idx = 0; idx < options.length; idx++) {
+        const opt = options[idx];
+        if (opt !== targetOpt && opt !== selectAllOpt && isOptionSelected(opt)) {
+          if (opt.scrollIntoView) opt.scrollIntoView({ block: 'nearest' });
+          opt.click();
+          actionsDone.push({ action: 'UNCHECK', index: idx, text: cleanText(opt.textContent).slice(0, 40) });
+        }
+      }
+
+      // 5. Click target option to select it
       if (!isOptionSelected(targetOpt)) {
-        if (targetOpt.scrollIntoView) targetOpt.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        if (targetOpt.scrollIntoView) targetOpt.scrollIntoView({ block: 'nearest' });
         targetOpt.click();
-        actionsDone.push({ action: 'CHECK', index: targetIdx, text: targetOpt.innerText.trim().slice(0, 40) });
+        actionsDone.push({ action: 'CHECK', index: options.indexOf(targetOpt), text: cleanText(targetOpt.textContent).slice(0, 40) });
       }
 
       const targetIsNowSelected = isOptionSelected(targetOpt);
-
       return {
-        success: targetIsNowSelected,
-        targetIndex: targetIdx,
-        targetText: targetOpt.innerText.trim().slice(0, 80),
+        success: targetIsNowSelected || actionsDone.some(a => a.action === 'CHECK'),
+        targetIndex: options.indexOf(targetOpt),
+        targetText: cleanText(targetOpt.textContent).slice(0, 80),
         totalOptions: options.length,
         actionsDone
       };
-    }, targetIndex);
+    }, targetIndex, targetText);
   }
 
   /**
@@ -793,9 +1287,9 @@ class LoopReplayRunner {
    * @param {object} workflow - Stored workflow object with steps array
    * @param {function} onProgress - Progress callback for live updates
    */
-  async executeStandard(workflow, onProgress = () => {}) {
+  async executeStandard(workflow, onProgress = () => { }) {
     this.initDirectories();
-    const steps = workflow.steps || (workflow.recordingData && workflow.recordingData.actions) || [];
+    const steps = workflow.steps || (workflow.recordingData && workflow.recordingData.actions) || workflow.actions || [];
     const manifest = {
       runId: this.runId,
       workflowId: workflow.id,
@@ -920,7 +1414,7 @@ class LoopReplayRunner {
         this.manifest = manifest;
         try {
           fs.writeFileSync(path.join(this.runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
-        } catch {}
+        } catch { }
         onProgress({ status: 'STEP_COMPLETE', stepResult, manifest });
       }
 
@@ -959,15 +1453,15 @@ class LoopReplayRunner {
       }
       try {
         fs.writeFileSync(path.join(this.runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
-      } catch {}
+      } catch { }
       if (this._replayTargetCreatedListener && this.replayEngine?.browser) {
         try {
           this.replayEngine.browser.off('targetcreated', this._replayTargetCreatedListener);
-        } catch {}
+        } catch { }
         this._replayTargetCreatedListener = null;
       }
       if (this.replayEngine) {
-        await this.replayEngine.disconnect().catch(() => {});
+        await this.replayEngine.disconnect().catch(() => { });
       }
       onProgress({ status: manifest.status, manifest });
     }
@@ -981,7 +1475,16 @@ class LoopReplayRunner {
    * @param {number} loopStepIndex - Index of the action to iterate over
    * @param {function} onProgress - Progress callback for live updates
    */
-  async executeLoop(workflow, loopStepIndex = 0, onProgress = () => {}) {
+  async executeLoop(workflow, loopStepIndex = null, onProgress = () => { }) {
+    this._limitReached = false;
+    if (workflow) {
+      if (!this.workflowId) this.workflowId = workflow.id || workflow.metadata?.recordingId;
+      if (!this.workflowName || this.workflowName === 'workflow') this.workflowName = workflow.name || workflow.metadata?.name || workflow.id || 'workflow';
+      const rawSlug = (this.workflowName || this.workflowId || 'workflow').toLowerCase();
+      this.workflowSlug = rawSlug.replace(/[^a-z0-9_-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'workflow';
+      this.workflowDownloadsBaseDir = path.resolve(process.cwd(), 'downloads', this.workflowSlug);
+      this.structuredDownloadsDir = path.resolve(this.workflowDownloadsBaseDir, this.dateStr);
+    }
     this.initDirectories();
     const manifest = {
       runId: this.runId,
@@ -1043,6 +1546,7 @@ class LoopReplayRunner {
       const pages = await browser.pages();
       const page = pages.length > 0 ? pages[0] : await browser.newPage();
       this.replayEngine.page = page;
+      const initialPageUrls = new Set(pages.map(p => p.url()));
 
       // Set up the secret resolver using the workflow's userId
       this.replayEngine.secretResolver = async (secretId) => {
@@ -1072,11 +1576,21 @@ class LoopReplayRunner {
       await this.replayEngine._ensureSelectorResolverInFrame(page.mainFrame());
 
       // 1. Partition steps into Setup vs Loop Steps
-      const steps = workflow.steps || (workflow.recordingData && workflow.recordingData.actions) || [];
+      const steps = workflow.steps || (workflow.recordingData && workflow.recordingData.actions) || workflow.actions || [];
 
       // Determine effective loopStepIndex:
       let effectiveLoopStepIndex = Number.isInteger(loopStepIndex) ? loopStepIndex : null;
-      if (effectiveLoopStepIndex === null || effectiveLoopStepIndex === 0) {
+      if (effectiveLoopStepIndex !== null) {
+        const reqStep = steps[effectiveLoopStepIndex];
+        const isNav = reqStep && LoopDetector.isNavigationOrChrome(
+          reqStep.target?.candidates?.find(c => c && c.strategy === 'css-path')?.value || '',
+          reqStep.target?.fingerprint || reqStep.fingerprint || {}
+        );
+        if (isNav) {
+          const autoIdx = LoopDetector.findLoopCandidateIndex(steps);
+          if (autoIdx >= 0) effectiveLoopStepIndex = autoIdx;
+        }
+      } else {
         if (Number.isInteger(workflow.loopStepIndex) && workflow.loopStepIndex >= 0) {
           effectiveLoopStepIndex = workflow.loopStepIndex;
         } else if (Number.isInteger(workflow.settings?.loopStepIndex) && workflow.settings.loopStepIndex >= 0) {
@@ -1104,25 +1618,58 @@ class LoopReplayRunner {
       logger.info(`[Loop Runner] Loop starts at step index ${effectiveLoopStepIndex} (Setup: ${partition.setupSteps.length} step(s), Loop: ${partition.loopSteps.length} action(s))`);
       logger.info(`[Loop Runner] Detected pattern: ${analysis.patternType} (Container: ${analysis.containerSelector})`);
 
-      // 2. Execute Setup Steps Once (e.g. Login & Navigate)
-      if (partition.setupSteps.length > 0) {
-        logger.info(`[Loop Runner] Executing ${partition.setupSteps.length} setup step(s)...`);
-        for (let i = 0; i < partition.setupSteps.length; i++) {
-          await this.replayEngine.executeAction(partition.setupSteps[i], i);
-        }
-      }
-
       // Capture the current page URL for state restoration. This must be updated
       // per pagination page so retries on page 2+ do not accidentally return to page 1.
       let currentPageUrl = page.url();
 
-      // 3. Discover the collection from the element the user actually recorded.
-      // ItemDiscovery replaces the old nth-child/container-only heuristic for the
-      // first generalized execution path.
+      // If target step is an option/dropdown, ensure dropdown is open before ItemDiscovery
+      const isDropdownCandidate = analysis.patternType === 'dropdown-option' ||
+        targetStep.fingerprint?.parentTag === 'mat-option' ||
+        targetStep.fingerprint?.tagName === 'mat-option' ||
+        (targetStep.target?.candidates && targetStep.target.candidates.some(c => c && /mat-option|role=["']option["']/i.test(c.value)));
+
+      if (isDropdownCandidate) {
+        const triggerStep = partition.setupSteps.length > 0 ? partition.setupSteps[partition.setupSteps.length - 1] : null;
+        await this.ensureDropdownOpen(page, triggerStep);
+        await new Promise(r => setTimeout(r, 400));
+      }
+
+      // Check if the target collection is ALREADY open and visible in DOM before running setup steps
       let discovery = await ItemDiscovery.discover(page, targetStep.target || targetStep.fingerprint, {
         minItems: 2,
         minScore: 0.55
-      });
+      }).catch(() => ({ success: false }));
+
+      const alreadyOpen = Boolean(discovery && discovery.success && discovery.itemCount >= 2);
+
+      if (alreadyOpen) {
+        logger.info(`[Loop Runner] Target collection already open and visible in DOM (${discovery.itemCount} items). Skipping setup steps.`);
+      } else if (partition.setupSteps.length > 0) {
+        // Execute Setup Steps (e.g. Login & Navigate)
+        logger.info(`[Loop Runner] Executing ${partition.setupSteps.length} setup step(s)...`);
+        for (let i = 0; i < partition.setupSteps.length; i++) {
+          const step = partition.setupSteps[i];
+          const isLogin = (step.target?.candidates?.some(c => /login|signin/i.test(c.value || ''))) ||
+            /login|signin/i.test(step.name || step.elementName || '');
+          const isCurrentLogin = /\/login\b/i.test(page.url());
+          if (isLogin && !isCurrentLogin) {
+            logger.info(`[Loop Runner] Skipping setup login step #${i + 1} (${step.name || 'login'}) — session already authenticated.`);
+            continue;
+          }
+          await this.replayEngine.executeAction(step, i);
+        }
+
+        if (isDropdownCandidate) {
+          const triggerStep = partition.setupSteps.length > 0 ? partition.setupSteps[partition.setupSteps.length - 1] : null;
+          await this.ensureDropdownOpen(page, triggerStep);
+          await new Promise(r => setTimeout(r, 400));
+        }
+
+        discovery = await ItemDiscovery.discover(page, targetStep.target || targetStep.fingerprint, {
+          minItems: 2,
+          minScore: 0.55
+        });
+      }
 
       if (!discovery.success || discovery.itemCount < 2) {
         logger.warn(`[Loop Runner] Item discovery did not detect multiple items: ${discovery.reason || 'only single item found'}. Falling back to standard execution.`);
@@ -1204,28 +1751,90 @@ class LoopReplayRunner {
           continue;
         }
 
-        for (let i = 0; i < discovery.itemCount; i++) {
-        if (this.isAborted) {
-          logger.warn(`[Loop Runner] Abort signal active before item #${i + 1}. Stopping loop.`);
-          manifest.status = 'STOPPED';
-          this.writeLoopCheckpoint(manifest, null, 0, currentPage, i, null);
-          break;
+        // 1. Efficiently identify and filter available items on current page
+        const evaluatedItems = await this.detectAndFilterItems(page, discovery, isDropdown, this.rowFilter);
+
+        const matchingItems = evaluatedItems.filter(it => it.matches);
+        const skippedItems = evaluatedItems.filter(it => !it.matches);
+
+        // Record all filtered-out items in manifest and progress immediately
+        for (const skipped of skippedItems) {
+          const skippedIndex = resumeItemIndex != null && currentPage === resumePage && skipped.index === resumePageItemIndex
+            ? resumeItemIndex
+            : manifest.results.reduce((max, result) => Math.max(max, Number(result.index) || 0), 0) + 1;
+          const skippedResult = {
+            index: skippedIndex,
+            itemIndex: skipped.index,
+            page: currentPage,
+            label: skipped.itemIdentifier.itemLabel,
+            itemKey: skipped.itemIdentifier.itemKey,
+            status: 'SKIPPED_FILTER',
+            skippedReason: skipped.reason,
+            timestamp: new Date().toISOString()
+          };
+          manifest.results.push(skippedResult);
+          manifest.itemsSkipped = (manifest.itemsSkipped || 0) + 1;
         }
 
-        if (checkpoint && currentPage === resumePage && i < resumePageItemIndex) {
-          continue;
+        if (this.rowFilter || isDropdown) {
+          logger.info(`[Loop Runner] Filter evaluation: ${matchingItems.length}/${evaluatedItems.length} matching item(s) (${skippedItems.length} filtered out). Iterating properly through matching items.`);
         }
 
-        logger.info(`\n[Loop Runner] --- Processing item [${i + 1}/${discovery.itemCount}] ---`);
+        // 2. Iterate properly through ONLY matching items
+        for (let m = 0; m < matchingItems.length; m++) {
+          const targetItem = matchingItems[m];
+          const i = targetItem.index;
+          const itemIdentifier = targetItem.itemIdentifier;
 
-        // Extract human-readable item identifier (text, link href, or data attribute)
-        const itemIdentifier = await this.extractItemIdentifier(page, discovery, i, isDropdown);
+          if (this.isAborted) {
+            logger.warn(`[Loop Runner] Abort signal active before item #${i + 1}. Stopping loop.`);
+            manifest.status = 'STOPPED';
+            this.writeLoopCheckpoint(manifest, null, 0, currentPage, i, null);
+            break;
+          }
 
-        // 1. Parameterized Row Filter (e.g. Type = "Invoice" vs "Credit Memo")
-        if (this.rowFilter) {
-          const filterCheck = await this.evaluateItemFilter(page, discovery, i, this.rowFilter);
-          if (!filterCheck.matches) {
-            logger.info(`[Loop Runner] ⏭️ Skipping item #${i + 1} ("${itemIdentifier.itemLabel}") — ${filterCheck.reason}`);
+          if (checkpoint && currentPage === resumePage && i < resumePageItemIndex) {
+            continue;
+          }
+
+          logger.info(`\n[Loop Runner] --- Processing item [${m + 1}/${matchingItems.length}] (DOM index ${i + 1}: "${itemIdentifier.itemLabel}") ---`);
+          // 1b. Stop when the requested number of items is reached
+          if (this.maxItems) {
+            const doneCount = manifest.results.filter(r => r.status === 'SUCCESS').length;
+            if (doneCount >= this.maxItems) {
+              logger.info(`[Loop Runner] Reached maxItems (${this.maxItems}). Stopping.`);
+              this._limitReached = true;
+              break;
+            }
+          }
+
+          // 2. Hybrid Deduplication Check: UI Identifier + DB Metadata + Physical Disk File
+          const dedupe = this.checkIfAlreadyDownloaded(itemIdentifier.itemKey, itemIdentifier.invoiceNumber, targetItem.fields || {});
+
+          // "old only" mode: skip items that were never downloaded before and not past due
+          if (this.itemMode === 'old' && !dedupe.isDuplicate && !dedupe.isOldData) {
+            const skippedIndex = manifest.results.reduce((max, result) => Math.max(max, Number(result.index) || 0), 0) + 1;
+            const skippedResult = {
+              index: skippedIndex,
+              itemIndex: i,
+              page: currentPage,
+              label: itemIdentifier.itemLabel,
+              itemKey: itemIdentifier.itemKey,
+              status: 'SKIPPED_FILTER',
+              skippedReason: 'New item (run mode is "old only")',
+              timestamp: new Date().toISOString()
+            };
+            manifest.results.push(skippedResult);
+            manifest.itemsSkipped = (manifest.itemsSkipped || 0) + 1;
+            this.manifest = manifest;
+            this.writeLoopCheckpoint(manifest, null, 0, currentPage, i + 1, null);
+            onProgress({ status: 'ITEM_SKIPPED', itemResult: skippedResult, manifest });
+            continue;
+          }
+
+          // "new only" mode (default): skip items already downloaded
+          if (dedupe.isDuplicate && this.itemMode === 'new' && !this.forceRedownload) {
+            logger.info(`[Loop Runner] Skipping item #${i + 1} ("${itemIdentifier.itemLabel}") — already downloaded: "${dedupe.record?.filename || 'existing'}" (${dedupe.record?.filePath || 'folder'})`);
             const skippedIndex = resumeItemIndex != null && currentPage === resumePage && i === resumePageItemIndex
               ? resumeItemIndex
               : manifest.results.reduce((max, result) => Math.max(max, Number(result.index) || 0), 0) + 1;
@@ -1236,8 +1845,16 @@ class LoopReplayRunner {
               page: currentPage,
               label: itemIdentifier.itemLabel,
               itemKey: itemIdentifier.itemKey,
-              status: 'SKIPPED_FILTER',
-              skippedReason: filterCheck.reason,
+              status: 'SKIPPED_DUPLICATE',
+              skippedReason: dedupe.inFolder ? `Already in download folder: ${dedupe.record?.filename || 'file'}` : `Already downloaded: ${dedupe.record?.filename || 'file'}`,
+              existingFile: dedupe.record?.filePath || null,
+              downloadedFiles: dedupe.record?.filePath ? [{
+                filename: dedupe.record.filename,
+                path: path.resolve(process.cwd(), dedupe.record.filePath),
+                relativePath: dedupe.record.filePath,
+                sizeBytes: dedupe.record.fileSizeBytes || 0,
+                skipped: true
+              }] : [],
               timestamp: new Date().toISOString()
             };
 
@@ -1247,59 +1864,20 @@ class LoopReplayRunner {
             this.writeLoopCheckpoint(manifest, null, 0, currentPage, i + 1, null);
             try {
               fs.writeFileSync(path.join(this.runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
-            } catch {}
+            } catch { }
             onProgress({ status: 'ITEM_SKIPPED', itemResult: skippedResult, manifest });
             continue;
           }
-        }
 
-        // 2. Hybrid Deduplication Check: UI Identifier + DB Metadata + Physical Disk File
-        const dedupe = this.checkIfAlreadyDownloaded(itemIdentifier.itemKey);
-        if (dedupe.isDuplicate && !this.forceRedownload) {
-          logger.info(`[Loop Runner] Skipping item #${i + 1} ("${itemIdentifier.itemLabel}") — already downloaded: "${dedupe.record.filename}" (${dedupe.record.filePath})`);
-          const skippedIndex = resumeItemIndex != null && currentPage === resumePage && i === resumePageItemIndex
-            ? resumeItemIndex
-            : manifest.results.reduce((max, result) => Math.max(max, Number(result.index) || 0), 0) + 1;
+          const isResumingCurrentItem =
+            checkpoint &&
+            currentPage === resumePage &&
+            i === resumePageItemIndex &&
+            resumeItemIndex != null;
 
-          const skippedResult = {
-            index: skippedIndex,
-            itemIndex: i,
-            page: currentPage,
-            label: itemIdentifier.itemLabel,
-            itemKey: itemIdentifier.itemKey,
-            status: 'SKIPPED_DUPLICATE',
-            skippedReason: `Already downloaded: ${dedupe.record.filename}`,
-            existingFile: dedupe.record.filePath,
-            downloadedFiles: [{
-              filename: dedupe.record.filename,
-              path: path.resolve(process.cwd(), dedupe.record.filePath),
-              relativePath: dedupe.record.filePath,
-              sizeBytes: dedupe.record.fileSizeBytes,
-              skipped: true
-            }],
-            timestamp: new Date().toISOString()
-          };
-
-          manifest.results.push(skippedResult);
-          manifest.itemsSkipped = (manifest.itemsSkipped || 0) + 1;
-          this.manifest = manifest;
-          this.writeLoopCheckpoint(manifest, null, 0, currentPage, i + 1, null);
-          try {
-            fs.writeFileSync(path.join(this.runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
-          } catch {}
-          onProgress({ status: 'ITEM_SKIPPED', itemResult: skippedResult, manifest });
-          continue;
-        }
-
-        const isResumingCurrentItem =
-          checkpoint &&
-          currentPage === resumePage &&
-          i === resumePageItemIndex &&
-          resumeItemIndex != null;
-
-        const itemResult = isResumingCurrentItem && checkpoint.activeItem
-          ? { ...checkpoint.activeItem, status: 'PENDING', error: null }
-          : {
+          const itemResult = isResumingCurrentItem && checkpoint.activeItem
+            ? { ...checkpoint.activeItem, status: 'PENDING', error: null }
+            : {
               index: resumeItemIndex != null && currentPage === resumePage && i === resumePageItemIndex
                 ? resumeItemIndex
                 : manifest.results.reduce((max, result) => Math.max(max, Number(result.index) || 0), 0) + 1,
@@ -1309,264 +1887,328 @@ class LoopReplayRunner {
               timestamp: new Date().toISOString(),
               error: null
             };
-        const startingActionOffset =
-          checkpoint && currentPage === resumePage && i === resumePageItemIndex
-            ? resumeActionOffset
-            : 0;
-        this.writeLoopCheckpoint(
-          manifest,
-          itemResult.index,
-          startingActionOffset,
-          currentPage,
-          i,
-          itemResult
-        );
+          const startingActionOffset =
+            checkpoint && currentPage === resumePage && i === resumePageItemIndex
+              ? resumeActionOffset
+              : 0;
+          this.writeLoopCheckpoint(
+            manifest,
+            itemResult.index,
+            startingActionOffset,
+            currentPage,
+            i,
+            itemResult
+          );
 
-        try {
-          itemResult.actions = Array.isArray(itemResult.actions) ? itemResult.actions : [];
-          itemResult.downloadedFiles = Array.isArray(itemResult.downloadedFiles) ? itemResult.downloadedFiles : [];
-          itemResult.attempts = Number.isInteger(itemResult.attempts) ? itemResult.attempts : 0;
-          itemResult.retryCount = Number.isInteger(itemResult.retryCount) ? itemResult.retryCount : 0;
+          try {
+            itemResult.actions = Array.isArray(itemResult.actions) ? itemResult.actions : [];
+            itemResult.downloadedFiles = Array.isArray(itemResult.downloadedFiles) ? itemResult.downloadedFiles : [];
+            itemResult.attempts = Number.isInteger(itemResult.attempts) ? itemResult.attempts : 0;
+            itemResult.retryCount = Number.isInteger(itemResult.retryCount) ? itemResult.retryCount : 0;
 
-          let completed = false;
-          let lastError = null;
-          let nextActionOffset = startingActionOffset;
+            let completed = false;
+            let lastError = null;
+            let nextActionOffset = startingActionOffset;
 
-          for (let attempt = 0; attempt <= this.maxItemRetries && !completed; attempt++) {
-            if (this.isAborted) throw new Error('Execution stopped by user');
+            for (let attempt = 0; attempt <= this.maxItemRetries && !completed; attempt++) {
+              if (this.isAborted) throw new Error('Execution stopped by user');
 
-            itemResult.attempts = attempt + 1;
-            if (attempt > 0) {
-              itemResult.retryCount = attempt;
-              logger.warn('[Loop Runner] Retrying item #' + (i + 1) + ' (attempt ' + (attempt + 1) + '/' + (this.maxItemRetries + 1) + ')');
-              await new Promise(r => setTimeout(r, 500));
+              itemResult.attempts = attempt + 1;
+              if (attempt > 0) {
+                itemResult.retryCount = attempt;
+                logger.warn('[Loop Runner] Retrying item #' + (i + 1) + ' (attempt ' + (attempt + 1) + '/' + (this.maxItemRetries + 1) + ')');
+                await new Promise(r => setTimeout(r, 500));
 
-              // Reacquire the live DOM item and resume at the failed action checkpoint.
-              if (page.url() !== currentPageUrl) {
-                try {
-                  await page.goto(currentPageUrl, { waitUntil: 'domcontentloaded' });
-                  await new Promise(r => setTimeout(r, 1000));
-                } catch (restoreErr) {
-                  logger.warn('[Loop Runner] Could not restore list state before retry: ' + restoreErr.message);
-                }
-              } else if (this.replayEngine) {
-                await this.replayEngine.dismissOverlays();
-              }
-            }
+                // Reacquire the live DOM item and resume at the failed action checkpoint.
+                const collectionStillPresent = await this.isCollectionPresent(page, discovery);
 
-            try {
-              for (let actionOffset = nextActionOffset; actionOffset < generalizedActions.length; actionOffset++) {
-                if (this.isAborted) throw new Error('Execution stopped by user');
-
-                const action = generalizedActions[actionOffset];
-                const actionType = action.type || action.action || 'CLICK';
-                const beforeActionFiles = this.snapshotDownloadedFiles();
-
-                if (isDropdown && actionOffset === 0 && action.scope === 'item') {
-                  // Sequential single-selection dropdown checkbox logic:
-                  // 1. Ensure dropdown is open
-                  await this.ensureDropdownOpen(page, triggerStep);
-                  // 2. Uncheck previous option(s), check target option i
-                  const selectResult = await this.executeDropdownOptionSingleSelect(page, i);
-                  if (!selectResult.success) {
-                    throw new Error(`Dropdown option selection failed for item #${i + 1}: ${selectResult.reason || 'Could not verify target option was selected'}`);
-                  }
-                  logger.info(`[Loop Runner] Item #${i + 1}/${discovery.itemCount}: Checked "${selectResult.targetText}", previous selections cleared.`);
-                } else if (action.scope === 'item') {
-                  const itemHandle = await ItemDiscovery.getItemHandle(page, discovery, i);
-                  const itemElement = itemHandle.asElement();
-                  if (!itemElement) {
-                    await itemHandle.dispose().catch(() => {});
-                    throw new Error(`Item at index ${i} could not be resolved`);
-                  }
-
+                if (!collectionStillPresent) {
                   try {
-                    await this.replayEngine.executeActionWithinItem(
-                      itemElement,
+                    const currentTabUrl = page.url() || '';
+                    if (currentPageUrl && currentTabUrl !== currentPageUrl) {
+                      await page.goto(currentPageUrl, { waitUntil: 'domcontentloaded' });
+                      await new Promise(r => setTimeout(r, 1000));
+                    }
+                    const restored = await this.isCollectionPresent(page, discovery);
+                    if (!restored && partition.setupSteps.length > 0) {
+                      for (let s = 0; s < partition.setupSteps.length; s++) {
+                        const step = partition.setupSteps[s];
+                        const isLogin = step.target?.candidates?.some(c => /login|signin/i.test(c.value || '')) ||
+                          /login|signin/i.test(step.name || step.elementName || '');
+                        if (!isLogin) {
+                          await this.replayEngine.executeAction(step, s).catch(() => { });
+                        }
+                      }
+                    }
+                  } catch (restoreErr) {
+                    logger.warn('[Loop Runner] Could not restore list state before retry: ' + restoreErr.message);
+                  }
+                }
+                if (this.replayEngine) {
+                  await this.replayEngine.dismissOverlays().catch(() => {});
+                  if (typeof this.replayEngine._waitForLoadingMasks === 'function') {
+                    await this.replayEngine._waitForLoadingMasks(4000).catch(() => {});
+                  }
+                }
+              }
+
+              try {
+                for (let actionOffset = nextActionOffset; actionOffset < generalizedActions.length; actionOffset++) {
+                  if (this.isAborted) throw new Error('Execution stopped by user');
+
+                  const action = generalizedActions[actionOffset];
+                  const actionType = action.type || action.action || 'CLICK';
+                  const beforeActionFiles = this.snapshotDownloadedFiles();
+
+                  if (isDropdown && actionOffset === 0 && action.scope === 'item') {
+                    // Sequential single-selection dropdown checkbox logic:
+                    // 1. Ensure dropdown is open
+                    await this.ensureDropdownOpen(page, triggerStep);
+                    // 2. Uncheck previous option(s), check target option i
+                    const selectResult = await this.executeDropdownOptionSingleSelect(page, i, itemIdentifier.itemLabel);
+                    if (!selectResult.success) {
+                      throw new Error(`Dropdown option selection failed for item #${i + 1}: ${selectResult.reason || 'Could not verify target option was selected'}`);
+                    }
+                    logger.info(`[Loop Runner] Item #${i + 1}/${discovery.itemCount}: Checked "${selectResult.targetText}", previous selections cleared.`);
+                  } else if (action.scope === 'item') {
+                    // Table/grid row action:
+                    // On first item action (actionOffset === 0), clear previously selected rows first
+                    if (actionOffset === 0) {
+                      await this.clearGridSelections(page, discovery);
+                    }
+
+                    const itemHandle = await ItemDiscovery.getItemHandle(page, discovery, i);
+                    const itemElement = itemHandle.asElement();
+                    if (!itemElement) {
+                      await itemHandle.dispose().catch(() => { });
+                      throw new Error(`Item at index ${i} could not be resolved`);
+                    }
+
+                    try {
+                      await this.replayEngine.executeActionWithinItem(
+                        itemElement,
+                        action,
+                        effectiveLoopStepIndex + actionOffset
+                      );
+
+                      // If first item action, verify and enforce that only row i is selected
+                      if (actionOffset === 0) {
+                        await this.enforceGridRowSingleSelection(page, discovery, i);
+                        logger.info(`[Loop Runner] Item #${i + 1}/${discovery.itemCount}: Selected target row, previous grid selections cleared.`);
+                      }
+                    } finally {
+                      await itemElement.dispose().catch(() => { });
+                    }
+                  } else {
+                    // Page-scoped action (e.g. click backdrop, Run Report, Export to Excel)
+                    await this.replayEngine.executeAction(
                       action,
                       effectiveLoopStepIndex + actionOffset
                     );
-                  } finally {
-                    await itemElement.dispose().catch(() => {});
                   }
-                } else {
-                  // Page-scoped action (e.g. click backdrop, Run Report, Export to Excel)
-                  await this.replayEngine.executeAction(
-                    action,
-                    effectiveLoopStepIndex + actionOffset
-                  );
-                }
 
-                const actionResult = {
-                  index: effectiveLoopStepIndex + actionOffset + 1,
-                  type: actionType,
-                  status: 'SUCCESS'
-                };
+                  const actionResult = {
+                    index: effectiveLoopStepIndex + actionOffset + 1,
+                    type: actionType,
+                    status: 'SUCCESS'
+                  };
 
-                if (actionType === 'CLICK' && this.downloadsDir) {
-                  const isDownloadAction = Boolean(
-                    (action.target?.candidates?.some(c => c.value && /download|export|save|pdf|print/i.test(c.value))) ||
-                    (action.target?.fingerprint?.attributes?.title && /download|export|save|pdf|print/i.test(action.target.fingerprint.attributes.title)) ||
-                    (action.target?.fingerprint?.text && /download|export|save|pdf|print/i.test(action.target.fingerprint.text))
-                  );
-                  const downloadWaitMs = isDownloadAction ? 12000 : 1200;
-                  const downloaded = await this.waitForDownload(beforeActionFiles, downloadWaitMs);
-                  if (downloaded.length) {
-                    for (const dl of downloaded) {
-                      const organized = this.processAndStoreDownload(dl.path, itemIdentifier.itemKey, itemIdentifier.itemLabel);
-                      itemResult.downloadedFiles.push(organized || dl);
+                  if (actionType === 'CLICK' && this.downloadsDir) {
+                    const isDownloadAction = Boolean(
+                      (action.target?.candidates?.some(c => c.value && /download|export|save|pdf|print/i.test(c.value))) ||
+                      (action.target?.fingerprint?.attributes?.title && /download|export|save|pdf|print/i.test(action.target.fingerprint.attributes.title)) ||
+                      (action.target?.fingerprint?.text && /download|export|save|pdf|print/i.test(action.target.fingerprint.text))
+                    );
+                    const downloadWaitMs = isDownloadAction ? 12000 : 1200;
+                    const downloaded = await this.waitForDownload(beforeActionFiles, downloadWaitMs);
+                    if (downloaded.length) {
+                      for (const dl of downloaded) {
+                        const organized = this.processAndStoreDownload(dl.path, itemIdentifier.itemKey, itemIdentifier.itemLabel);
+                        itemResult.downloadedFiles.push(organized || dl);
+                      }
+                      actionResult.downloadedFiles = downloaded.map(file => file.filename);
                     }
-                    actionResult.downloadedFiles = downloaded.map(file => file.filename);
                   }
+
+                  itemResult.actions.push(actionResult);
+                  nextActionOffset = actionOffset + 1;
+                  this.writeLoopCheckpoint(
+                    manifest,
+                    itemResult.index,
+                    nextActionOffset,
+                    currentPage,
+                    i,
+                    itemResult
+                  );
+                  await new Promise(r => setTimeout(r, 300));
                 }
 
-                itemResult.actions.push(actionResult);
-                nextActionOffset = actionOffset + 1;
-                this.writeLoopCheckpoint(
-                  manifest,
-                  itemResult.index,
-                  nextActionOffset,
-                  currentPage,
-                  i,
-                  itemResult
-                );
-                await new Promise(r => setTimeout(r, 300));
-              }
+                // Allow the complete per-item procedure to settle before restoring state.
+                await new Promise(r => setTimeout(r, 800));
 
-              // Allow the complete per-item procedure to settle before restoring state.
-              await new Promise(r => setTimeout(r, 800));
-
-              // Close any auxiliary tabs opened by item actions (e.g. target="_blank" download links)
-              try {
-                const browserPages = await page.browser().pages();
-                for (const p of browserPages) {
-                  if (p !== page && !p.isClosed()) {
-                    logger.info('[Loop Runner] Closing auxiliary tab opened during item replay: ' + p.url());
-                    await p.close().catch(() => {});
-                  }
-                }
-                await page.bringToFront().catch(() => {});
-              } catch {}
-
-              // Resilient state restoration back to the item collection page
-              if (page.url() !== currentPageUrl) {
-                logger.info('[Loop Runner] Restoring state -> Navigating back to: ' + currentPageUrl);
-                await page.goto(currentPageUrl, { waitUntil: 'domcontentloaded' }).catch(() => {});
-                await new Promise(r => setTimeout(r, 1000));
-              } else {
-                // Dismiss any open dropdown, context menu, or overlay modal (e.g. cdk-overlay-backdrop)
-                if (this.replayEngine) {
-                  await this.replayEngine.dismissOverlays();
-                } else {
-                  try {
-                    await page.keyboard.press('Escape');
-                    await new Promise(r => setTimeout(r, 200));
-                  } catch {}
-                }
-              }
-
-              // Ensure the collection list container is present on the page before next item
-              if (discovery.collection && discovery.collection.ancestorSelector) {
+                // Close only auxiliary tabs opened by item actions (e.g. target="_blank" download links)
+                // NEVER close the dashboard tab or pre-existing tabs
                 try {
-                  await page.waitForSelector(discovery.collection.ancestorSelector, { timeout: 3000 }).catch(() => {});
-                } catch {}
-              }
+                  const browserPages = await page.browser().pages();
+                  for (const p of browserPages) {
+                    if (p !== page && !p.isClosed()) {
+                      const pUrl = p.url() || '';
+                      const isDashboard = pUrl.includes('127.0.0.1:3000') || pUrl.includes('localhost:3000') || pUrl.includes('/app#');
+                      const wasInitial = initialPageUrls && initialPageUrls.has(pUrl);
+                      if (!isDashboard && !wasInitial) {
+                        logger.info('[Loop Runner] Closing auxiliary tab opened during item replay: ' + pUrl);
+                        await p.close().catch(() => { });
+                      }
+                    }
+                  }
+                  await page.bringToFront().catch(() => { });
+                } catch { }
 
-              completed = true;
-            } catch (attemptErr) {
-              lastError = attemptErr;
-              logger.warn('[Loop Runner] Item #' + (i + 1) + ' attempt ' + (attempt + 1) + ' failed at action #' + (nextActionOffset + 1) + ': ' + attemptErr.message);
+                // Resilient state verification back to the item collection page
+                const collectionStillPresent = await this.isCollectionPresent(page, discovery);
 
-              if (attempt < this.maxItemRetries) {
-                // Keep the checkpoint at the first action that did not complete.
-                continue;
+                if (!collectionStillPresent) {
+                  logger.info('[Loop Runner] Collection view not present after item — restoring state to: ' + currentPageUrl);
+                  const currentTabUrl = page.url() || '';
+                  if (currentPageUrl && currentTabUrl !== currentPageUrl) {
+                    await page.goto(currentPageUrl, { waitUntil: 'domcontentloaded' }).catch(() => { });
+                    await new Promise(r => setTimeout(r, 1000));
+                  }
+                  const restored = await this.isCollectionPresent(page, discovery);
+                  if (!restored && partition.setupSteps.length > 0) {
+                    logger.info('[Loop Runner] Re-executing non-login setup navigation steps to restore collection view...');
+                    for (let s = 0; s < partition.setupSteps.length; s++) {
+                      const step = partition.setupSteps[s];
+                      const isLogin = step.target?.candidates?.some(c => /login|signin/i.test(c.value || '')) ||
+                        /login|signin/i.test(step.name || step.elementName || '');
+                      if (!isLogin) {
+                        await this.replayEngine.executeAction(step, s).catch(() => { });
+                      }
+                    }
+                  }
+                } else {
+                  // Dismiss any open dropdown, context menu, or overlay backdrop (e.g. cdk-overlay-backdrop)
+                  if (this.replayEngine) {
+                    await this.replayEngine.dismissOverlays().catch(() => {});
+                    if (typeof this.replayEngine._waitForLoadingMasks === 'function') {
+                      await this.replayEngine._waitForLoadingMasks(4000).catch(() => {});
+                    }
+                  }
+                }
+
+                // Ensure the collection list container is present on the page before next item
+                if (discovery.collection && discovery.collection.ancestorSelector) {
+                  try {
+                    await page.waitForSelector(discovery.collection.ancestorSelector, { timeout: 3000 }).catch(() => { });
+                  } catch { }
+                }
+
+                completed = true;
+              } catch (attemptErr) {
+                lastError = attemptErr;
+                const diagReport = attemptErr.resolutionReport || attemptErr.details?.resolutionReport;
+                const diagReason = diagReport?.reason || diagReport?.attempts?.find(a => a.reason)?.reason;
+                const detailStr = diagReason ? ` (${diagReason})` : '';
+                logger.warn('[Loop Runner] Item #' + (i + 1) + ' attempt ' + (attempt + 1) + ' failed at action #' + (nextActionOffset + 1) + ': ' + attemptErr.message + detailStr);
+
+                if (attempt < this.maxItemRetries) {
+                  // Keep the checkpoint at the first action that did not complete.
+                  continue;
+                }
               }
             }
-          }
 
-          if (!completed) {
-            throw lastError || new Error('Item #' + (i + 1) + ' failed after ' + itemResult.attempts + ' attempt(s)');
-          }
-
-          itemResult.status = 'SUCCESS';
-          manifest.itemsSucceeded++;
-          if (itemResult.downloadedFiles.length) {
-            manifest.downloadedFiles.push(...itemResult.downloadedFiles);
-          }
-        } catch (itemErr) {
-          if (this.isAborted) {
-            itemResult.status = 'STOPPED';
-            itemResult.error = 'Execution stopped by user';
-            manifest.status = 'STOPPED';
-            const existingIdx = manifest.results.findIndex(r => r.index === itemResult.index);
-            if (existingIdx >= 0) {
-              manifest.results[existingIdx] = itemResult;
-            } else {
-              manifest.results.push(itemResult);
+            if (!completed) {
+              throw lastError || new Error('Item #' + (i + 1) + ' failed after ' + itemResult.attempts + ' attempt(s)');
             }
-            this.writeLoopCheckpoint(
-              manifest,
-              itemResult.index,
-              nextActionOffset,
-              currentPage,
-              i,
-              itemResult
-            );
-            break;
-          }
-          logger.error(`[Loop Runner] Error on item #${i + 1}: ${itemErr.message}`);
-          itemResult.status = 'FAILED';
-          itemResult.error = itemErr.message;
-          manifest.itemsFailed++;
 
-          // Attempt recovery
-          try {
-            const browserPages = await page.browser().pages();
-            for (const p of browserPages) {
-              if (p !== page && !p.isClosed()) {
-                await p.close().catch(() => {});
-              }
+            itemResult.status = 'SUCCESS';
+            manifest.itemsSucceeded++;
+            if (itemResult.downloadedFiles.length) {
+              manifest.downloadedFiles.push(...itemResult.downloadedFiles);
             }
-            await page.bringToFront().catch(() => {});
-            if (page.url() !== currentPageUrl) {
-              await page.goto(currentPageUrl, { waitUntil: 'domcontentloaded' }).catch(() => {});
-            } else {
-              if (this.replayEngine) {
-                await this.replayEngine.dismissOverlays();
+          } catch (itemErr) {
+            if (this.isAborted) {
+              itemResult.status = 'STOPPED';
+              itemResult.error = 'Execution stopped by user';
+              manifest.status = 'STOPPED';
+              const existingIdx = manifest.results.findIndex(r => r.index === itemResult.index);
+              if (existingIdx >= 0) {
+                manifest.results[existingIdx] = itemResult;
               } else {
-                await page.keyboard.press('Escape').catch(() => {});
+                manifest.results.push(itemResult);
               }
+              this.writeLoopCheckpoint(
+                manifest,
+                itemResult.index,
+                nextActionOffset,
+                currentPage,
+                i,
+                itemResult
+              );
+              break;
             }
-          } catch {
-            // Ignore recovery error
+            logger.error(`[Loop Runner] Error on item #${i + 1}: ${itemErr.message}`);
+            itemResult.status = 'FAILED';
+            itemResult.error = itemErr.message;
+            manifest.itemsFailed++;
+
+            // Attempt recovery
+            try {
+              const browserPages = await page.browser().pages();
+              for (const p of browserPages) {
+                if (p !== page && !p.isClosed()) {
+                  await p.close().catch(() => { });
+                }
+              }
+              await page.bringToFront().catch(() => { });
+              if (this.replayEngine) {
+                await this.replayEngine.dismissOverlays().catch(() => { });
+              } else if (page.keyboard) {
+                await page.keyboard.press('Escape').catch(() => { });
+              }
+              const collectionStillPresent = await this.isCollectionPresent(page, discovery);
+              if (!collectionStillPresent && page.url() !== currentPageUrl) {
+                await page.goto(currentPageUrl, { waitUntil: 'domcontentloaded' }).catch(() => { });
+                if (partition.setupSteps.length > 0) {
+                  for (let s = 0; s < partition.setupSteps.length; s++) {
+                    await this.replayEngine.executeAction(partition.setupSteps[s], s).catch(() => { });
+                  }
+                }
+              } else if (!collectionStillPresent && partition.setupSteps.length > 0) {
+                for (let s = 0; s < partition.setupSteps.length; s++) {
+                  await this.replayEngine.executeAction(partition.setupSteps[s], s).catch(() => { });
+                }
+              }
+            } catch {
+              // Ignore recovery error
+            }
           }
+
+          const existingIdx = manifest.results.findIndex(r => r.index === itemResult.index);
+          if (existingIdx >= 0) {
+            manifest.results[existingIdx] = itemResult;
+          } else {
+            manifest.results.push(itemResult);
+          }
+          this.manifest = manifest;
+          try {
+            fs.writeFileSync(path.join(this.runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+          } catch { }
+          this.writeLoopCheckpoint(
+            manifest,
+            null,
+            null,
+            currentPage,
+            i + 1,
+            null
+          );
+          onProgress({ status: 'ITEM_COMPLETE', itemResult, manifest });
         }
 
-        const existingIdx = manifest.results.findIndex(r => r.index === itemResult.index);
-        if (existingIdx >= 0) {
-          manifest.results[existingIdx] = itemResult;
-        } else {
-          manifest.results.push(itemResult);
-        }
-        this.manifest = manifest;
-        try {
-          fs.writeFileSync(path.join(this.runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
-        } catch {}
-        this.writeLoopCheckpoint(
-          manifest,
-          null,
-          null,
-          currentPage,
-          i + 1,
-          null
-        );
-        onProgress({ status: 'ITEM_COMPLETE', itemResult, manifest });
-      }
-
-        if (!paginationEnabled || currentPage >= maxPages) {
+        if (!paginationEnabled || currentPage >= maxPages || this._limitReached) {
           break;
         }
-
         const beforePageFingerprint = await this.getCollectionFingerprint(page, discovery.collection);
         const advanced = await this.advanceToNextPage(page, workflow);
         if (!advanced) {
@@ -1669,12 +2311,12 @@ class LoopReplayRunner {
       if (this._replayTargetCreatedListener && this.replayEngine?.browser) {
         try {
           this.replayEngine.browser.off('targetcreated', this._replayTargetCreatedListener);
-        } catch {}
+        } catch { }
         this._replayTargetCreatedListener = null;
       }
 
       if (this.replayEngine) {
-        await this.replayEngine.disconnect().catch(() => {});
+        await this.replayEngine.disconnect().catch(() => { });
       }
 
       onProgress({ status: manifest.status, manifest });
