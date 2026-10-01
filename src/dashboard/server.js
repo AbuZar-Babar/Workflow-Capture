@@ -46,6 +46,7 @@ const LoopDetector = require('../shared/loop-detector');
 const LoopReplayRunner = require('../replay/loop-replay-runner');
 const { extractAvailableFields, evaluateFilterPreview } = require('../shared/item-filter');
 const { PageInspector } = require('../shared/page-inspector');
+const { normalizeLoopData } = require('../shared/loop-data');
 const { connectToBrowser } = require('../utils/cdp-connector');
 const { extractWorkflowStartUrl } = require('../utils/url-helper');
 const logger = require('../utils/logger');
@@ -719,7 +720,23 @@ const server = http.createServer(async (req, res) => {
             fieldValuesJson[k] = Array.from(vSet).slice(0, 30);
           }
 
-          const stepsSummary = steps.map((s, idx) => ({
+          // Explicit refresh stores the latest live discovery snapshot. Filter rules are
+      // intentionally not changed; they are evaluated against the refreshed item fields.
+      if (body.refresh === true && discovery.success) {
+        try {
+          const refreshedLoopData = normalizeLoopData(discovery, {
+            loopStepIndex,
+            source: 'refresh'
+          });
+          if (refreshedLoopData) {
+            workflowController.persistLoopData(workflowId, refreshedLoopData);
+          }
+        } catch (err) {
+          logger.warn(`[Discovery] Could not persist refreshed loop data: ${err.message}`);
+        }
+      }
+
+      const stepsSummary = steps.map((s, idx) => ({
             index: idx,
             type: s.type || s.action || 'CLICK',
             target: s.target?.fingerprint?.text || s.target?.fingerprint?.title || s.target?.fingerprint?.tagName || s.role || `Step #${idx + 1}`,
