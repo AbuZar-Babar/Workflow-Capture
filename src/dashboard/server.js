@@ -408,6 +408,77 @@ const server = http.createServer(async (req, res) => {
     }
 
     // -------------------------------------------------------------
+    // Persisted Loop Data REST API
+    // -------------------------------------------------------------
+    const loopDataMatch = pathname.match(/^\/api\/workflows\/([^/]+)\/loop-data$/);
+    if (loopDataMatch && req.method === 'GET') {
+      const workflowId = loopDataMatch[1];
+      if (!requireAuth(req, res)) return;
+      workflowController.syncWorkflowsFromDisk(req.user.id);
+      let workflow = db.findOne('workflows', wf =>
+        wf.id === workflowId && (wf.userId === req.user.id || !wf.userId || wf.userId === 'system' || wf.isGlobal)
+      );
+      if (!workflow) workflow = db.findOne('workflows', wf => wf.id === workflowId);
+      if (!workflow) return sendJson(res, 404, { error: 'Workflow not found or unauthorized' });
+
+      const loopData = workflow.loopData ||
+        workflow.recordingData?.metadata?.loopData ||
+        null;
+      if (!loopData) {
+        return sendJson(res, 404, {
+          success: false,
+          error: 'No recorded loop data is available. Use Refresh to discover the current collection.'
+        });
+      }
+
+      const url = new URL(req.url, 'http://localhost');
+      const filterField = url.searchParams.get('field') || '';
+      const filterOperator = url.searchParams.get('operator') || 'contains';
+      const filterValue = url.searchParams.get('value') || '';
+      const itemFilter = filterField && filterValue
+        ? { field: filterField, operator: filterOperator, value: filterValue }
+        : null;
+
+      const items = Array.isArray(loopData.items) ? loopData.items : [];
+      const filterPreview = evaluateFilterPreview(itemFilter, items, {
+        loopLimit: null,
+        previewLimit: 10
+      });
+
+      const fieldValues = {};
+      for (const item of items) {
+        for (const [key, value] of Object.entries(item?.fields || {})) {
+          if (value == null || value === '') continue;
+          if (!fieldValues[key]) fieldValues[key] = new Set();
+          fieldValues[key].add(String(value).trim());
+        }
+      }
+      const fieldValuesJson = {};
+      for (const [key, values] of Object.entries(fieldValues)) {
+        fieldValuesJson[key] = Array.from(values).slice(0, 30);
+      }
+
+      return sendJson(res, 200, {
+        success: true,
+        source: 'recorded',
+        workflowId,
+        loopStepIndex: loopData.loopStepIndex,
+        discovery: {
+          success: true,
+          confidence: loopData.confidence || 0,
+          itemCount: loopData.itemCount ?? items.length,
+          collection: loopData.collection,
+          items,
+          availableFields: loopData.availableFields || []
+        },
+        availableFields: loopData.availableFields || [],
+        fieldValues: fieldValuesJson,
+        filterPreview,
+        capturedAt: loopData.capturedAt || null
+      });
+    }
+
+    // -------------------------------------------------------------
     // Item Discovery REST API
     // -------------------------------------------------------------
     const discoverMatch = pathname.match(/^\/api\/workflows\/([^/]+)\/discover$/);
