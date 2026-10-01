@@ -74,3 +74,14 @@ Execution is blocked when configuration errors exist or when no items are select
 ## 5. Out of Scope for This Contract
 
 Pagination across pages, infinite scroll, a second loop boundary, post-loop teardown actions, locale-dependent free-form date parsing, and filter expressions beyond `all`/`any` are not included. Add these only through separately reviewed requirements.
+
+## 6. Recorded Loop Snapshot and Explicit Refresh
+
+The loop collection discovered during recording is persisted as serializable `loopData` alongside the workflow. It contains the collection structure, available field schema, and a snapshot of item records with extracted fields such as invoice number, type, customer, status, due date, amount, and other portal-specific fields discovered from the collection.
+
+- Opening loop/filter configuration reads the persisted snapshot and does **not** require a browser visit.
+- Existing filter rules are configuration state and are not changed when loop data is refreshed.
+- `Refresh` explicitly visits the target portal, performs live item discovery, extracts the latest item fields, replaces the persisted snapshot, and re-evaluates the existing filter against the refreshed data.
+- The persisted snapshot must never contain Puppeteer `ElementHandle` objects or other live browser references.
+- Older workflows without `loopData` may fall back to one live discovery so they can be upgraded to the snapshot model.
+- The recorded snapshot is configuration/preview data; execution still resolves live item handles when it needs to interact with the current portal DOM.
