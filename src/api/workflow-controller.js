@@ -325,11 +325,38 @@ function deleteWorkflow(req, res, workflowId) {
   });
 }
 
+/** Persist the latest serializable loop snapshot without changing workflow steps. */
+function persistLoopData(workflowId, loopData) {
+  const existing = db.findOne('workflows', wf => wf.id === workflowId);
+  if (!existing) return null;
+  const updatedAt = new Date().toISOString();
+  const updated = db.update('workflows', existing.id, { loopData, updatedAt });
+  try {
+    const filePath = path.join(RECORDINGS_DIR, `${existing.id}.json`);
+    let fileContent = {};
+    if (fs.existsSync(filePath)) {
+      try { fileContent = JSON.parse(fs.readFileSync(filePath, 'utf8')); } catch {}
+    }
+    if (!fileContent.metadata) fileContent.metadata = {};
+    fileContent.metadata.loopData = loopData;
+    fileContent.metadata.loopStepIndex = loopData.loopStepIndex;
+    fileContent.metadata.isLoop = true;
+    fileContent.metadata.mode = 'LOOP';
+    fileContent.metadata.updatedAt = updatedAt;
+    fs.writeFileSync(filePath, JSON.stringify(fileContent, null, 2), 'utf8');
+    diskSyncCache.delete(`${existing.id}.json`);
+  } catch (err) {
+    console.error('[WorkflowController] Failed to persist loop data:', err.message);
+  }
+  return updated;
+}
+
 module.exports = {
   syncWorkflowsFromDisk,
   listWorkflows,
   getWorkflowById,
   createWorkflow,
   updateWorkflow,
-  deleteWorkflow
+  deleteWorkflow,
+  persistLoopData
 };
