@@ -887,15 +887,35 @@ class LoopReplayRunner {
     let itemsData = [];
 
     // When supplied, snapshotItems contain the persisted field values used for
-    // filtering. Their indexes remain the bridge to the live discovery handles.
+    // filtering. Their indexes are mapped to current live items for execution.
     if (Array.isArray(snapshotItems) && snapshotItems.length) {
-      itemsData = snapshotItems.map((item, idx) => ({
-        ...item,
-        index: Number.isInteger(item?.index) ? item.index : idx,
-        text: item?.text || '',
-        isSelectAll: /select\\s*all/i.test(item?.text || ''),
-        fields: item?.fields || {}
-      }));
+      itemsData = snapshotItems.map((item, idx) => {
+        const savedIndex = Number.isInteger(item?.index) ? item.index : idx;
+        const savedHref = item?.href || null;
+        const savedId = item?.id || null;
+        const savedSignature = item?.signature || null;
+        const savedText = String(item?.text || '').trim();
+
+        const liveMatch = Array.isArray(discovery?.items)
+          ? discovery.items.find(live => {
+              if (savedId && live?.id && savedId === live.id) return true;
+              if (savedHref && live?.href && savedHref === live.href) return true;
+              if (savedSignature && live?.signature && savedSignature === live.signature) {
+                const liveText = String(live?.text || '').trim();
+                return !savedText || !liveText || savedText === liveText;
+              }
+              return false;
+            })
+          : null;
+
+        return {
+          ...item,
+          index: Number.isInteger(liveMatch?.index) ? liveMatch.index : savedIndex,
+          text: item?.text || '',
+          isSelectAll: /select\s*all/i.test(item?.text || ''),
+          fields: item?.fields || {}
+        };
+      });
     }
 
     if (!itemsData.length && isDropdown && page) {
