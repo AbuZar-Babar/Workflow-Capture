@@ -1940,15 +1940,13 @@ class LoopReplayRunner {
         ? partition.setupSteps[partition.setupSteps.length - 1]
         : null;
 
-      // Extract structured fields from DOM for all discovered items
-      let itemsWithFields = await LoopReplayRunner.extractDiscoveredItems(page, discovery);
-      if (Array.isArray(discovery.items) && Array.isArray(itemsWithFields)) {
-        for (let idx = 0; idx < discovery.items.length; idx++) {
-          if (itemsWithFields[idx]) {
-            discovery.items[idx].fields = itemsWithFields[idx].fields || {};
-          }
-        }
-      }
+      // ItemDiscovery already extracts fields while preserving the exact
+      // discovered item identity/order used by getItemHandle().
+      // Do not rebuild the collection from the DOM here: doing so can shift
+      // row indices (headers/hidden rows) and overwrite correct fields.
+      let itemsWithFields = Array.isArray(discovery.items)
+        ? discovery.items
+        : [];
 
       if (this.filterValidationError) {
         throw new Error(`Filter configuration error: ${this.filterValidationError}`);
@@ -2070,7 +2068,7 @@ class LoopReplayRunner {
           }
 
           discovery = nextDiscovery;
-          itemsWithFields = await LoopReplayRunner.extractDiscoveredItems(page, discovery);
+          itemsWithFields = Array.isArray(discovery.items) ? discovery.items : [];
           currentPage++;
           manifest.pagesProcessed = currentPage;
           manifest.itemsTotal += discovery.itemCount;
@@ -2600,7 +2598,7 @@ class LoopReplayRunner {
         }
 
         discovery = nextDiscovery;
-        itemsWithFields = await LoopReplayRunner.extractDiscoveredItems(page, discovery);
+        itemsWithFields = Array.isArray(discovery.items) ? discovery.items : [];
         manifest.itemsTotal += discovery.itemCount;
         manifest.pagesProcessed = currentPage + 1;
         currentPage++;
