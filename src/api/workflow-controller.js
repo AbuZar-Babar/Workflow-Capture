@@ -60,7 +60,6 @@ function syncWorkflowsFromDisk(currentUserId, force = false) {
             loopData: content.metadata?.loopData || null,
             isLoop: content.metadata?.isLoop ?? (content.metadata?.loopStepIndex >= 0),
             mode: content.metadata?.mode ?? (content.metadata?.loopStepIndex >= 0 ? 'LOOP' : 'STANDARD'),
-            loopData: content.metadata?.loopData || null,
             createdAt: (content.metadata && content.metadata.startedAt) || stats.birthtime.toISOString(),
             updatedAt: (content.metadata && content.metadata.completedAt) || stats.mtime.toISOString()
           });
