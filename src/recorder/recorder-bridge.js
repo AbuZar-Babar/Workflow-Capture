@@ -9,6 +9,9 @@ const fs = require('fs');
 const path = require('path');
 const { connectToBrowser } = require('../utils/cdp-connector');
 const SelectorResolver = require('../shared/selector-resolver');
+const LoopDetector = require('../shared/loop-detector');
+const ItemDiscovery = require('../shared/item-discovery');
+const { normalizeLoopData } = require('../shared/loop-data');
 const logger = require('../utils/logger');
 const { isInternalBrowserUrl, extractWorkflowStartUrl } = require('../utils/url-helper');
 
@@ -668,6 +671,37 @@ class RecorderBridge {
       }
     }
 
+    // Capture the repeated collection while the recorded portal state is still open.
+    // Only serializable discovery data is persisted; browser ElementHandles never leave
+    // the recorder process. This snapshot is the basis for filter configuration/preview.
+    let loopData = null;
+    let loopStepIndex = null;
+    let loopPatternType = null;
+    if (this.page && !this.page.isClosed() && Array.isArray(this.actions)) {
+      for (let i = 0; i < this.actions.length; i++) {
+        const step = this.actions[i];
+        const analysis = LoopDetector.analyzeStep(step);
+        if (!analysis || !analysis.isLoopCandidate) continue;
+
+        const target = step?.target || step?.fingerprint || step;
+        try {
+          const discovery = await ItemDiscovery.discover(this.page, target);
+          if (discovery && discovery.success) {
+            loopStepIndex = i;
+            loopPatternType = analysis.patternType || null;
+            loopData = normalizeLoopData(discovery, {
+              loopStepIndex,
+              patternType: loopPatternType,
+              source: 'recording'
+            });
+            break;
+          }
+        } catch (err) {
+          logger.warn(`[Recorder] Loop data capture skipped for step ${i}: ${err?.message || err}`);
+        }
+      }
+    }
+
     const recording = {
       metadata: {
         recordingId: `rec_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -677,7 +711,11 @@ class RecorderBridge {
         completedAt,
         startUrl: finalStartUrl,
         userAgent,
-        viewport
+        viewport,
+        isLoop: Boolean(loopData),
+        mode: loopData ? 'LOOP' : 'STANDARD',
+        loopStepIndex,
+        loopData
       },
       actions: this.actions
     };
