@@ -25,6 +25,7 @@ const {
   extractAvailableFields
 } = require('../shared/item-filter');
 const { ConditionEvaluator } = require('../shared/condition-evaluator');
+const { validateLoopData } = require('../shared/loop-data');
 const { PageInspector } = require('../shared/page-inspector');
 const { IntentCompiler } = require('../engine/intent-compiler');
 const { SemanticResolver } = require('./semantic-resolver');
@@ -876,7 +877,7 @@ class LoopReplayRunner {
    * excludes non-data controls (like "Select All"), and filters items based on the condition.
    * Runs in a single pass instead of per-item RPC roundtrips.
    */
-  async detectAndFilterItems(page, discovery, isDropdown, rowFilter) {
+  async detectAndFilterItems(page, discovery, isDropdown, rowFilter, snapshotItems = null) {
     const filter = rowFilter || this.itemFilter || this.rowFilter || null;
     const rawVal = filter ? (filter.value || filter.text) : null;
     const hasConditions = Boolean(filter && Array.isArray(filter.conditions) && filter.conditions.length > 0);
@@ -885,7 +886,19 @@ class LoopReplayRunner {
 
     let itemsData = [];
 
-    if (isDropdown && page) {
+    // When supplied, snapshotItems contain the persisted field values used for
+    // filtering. Their indexes remain the bridge to the live discovery handles.
+    if (Array.isArray(snapshotItems) && snapshotItems.length) {
+      itemsData = snapshotItems.map((item, idx) => ({
+        ...item,
+        index: Number.isInteger(item?.index) ? item.index : idx,
+        text: item?.text || '',
+        isSelectAll: /select\\s*all/i.test(item?.text || ''),
+        fields: item?.fields || {}
+      }));
+    }
+
+    if (!itemsData.length && isDropdown && page) {
       // For dropdowns: query all visible options in a single evaluate call
       itemsData = await page.evaluate(() => {
         const visible = el => {
@@ -1866,6 +1879,9 @@ class LoopReplayRunner {
         return await this.executeStandard(workflow, onProgress);
       }
       const analysis = LoopDetector.analyzeStep(targetStep);
+      const persistedLoopData = workflow.loopData || workflow.recordingData?.metadata?.loopData || null;
+      const loopDataValidation = validateLoopData(persistedLoopData);
+      const hasSavedLoopData = loopDataValidation.valid && Array.isArray(persistedLoopData.items) && persistedLoopData.items.length > 0;
 
       manifest.loopStepIndex = effectiveLoopStepIndex;
 
@@ -1944,9 +1960,16 @@ class LoopReplayRunner {
       // discovered item identity/order used by getItemHandle().
       // Do not rebuild the collection from the DOM here: doing so can shift
       // row indices (headers/hidden rows) and overwrite correct fields.
-      let itemsWithFields = Array.isArray(discovery.items)
-        ? discovery.items
-        : [];
+      // The persisted snapshot is the source of truth for field values and filter
+      // evaluation. Live discovery above is retained only to resolve current DOM
+      // handles/collection identity needed for execution.
+      let itemsWithFields = hasSavedLoopData
+        ? persistedLoopData.items.map(item => ({ ...item, fields: { ...(item.fields || {}) } }))
+        : (Array.isArray(discovery.items) ? discovery.items : []);
+
+      if (hasSavedLoopData) {
+        logger.info(`[Loop Runner] Using saved loop snapshot (${persistedLoopData.items.length} item(s), captured ${persistedLoopData.capturedAt || 'unknown'}). Live DOM discovery is used only for execution handles.`);
+      }
 
       if (this.filterValidationError) {
         throw new Error(`Filter configuration error: ${this.filterValidationError}`);
@@ -2069,6 +2092,9 @@ class LoopReplayRunner {
 
           discovery = nextDiscovery;
           itemsWithFields = Array.isArray(discovery.items) ? discovery.items : [];
+          // Saved loop data is currently a single captured page snapshot. Pagination
+          // pages must use their freshly discovered fields until explicit refresh
+          // support is extended to a multi-page snapshot model.
           currentPage++;
           manifest.pagesProcessed = currentPage;
           manifest.itemsTotal += discovery.itemCount;
@@ -2077,7 +2103,13 @@ class LoopReplayRunner {
         }
 
         // 1. Efficiently identify and filter available items on current page
-        const evaluatedItems = await this.detectAndFilterItems(page, discovery, isDropdown, this.itemFilter || this.rowFilter);
+        const evaluatedItems = await this.detectAndFilterItems(
+          page,
+          discovery,
+          isDropdown,
+          this.itemFilter || this.rowFilter,
+          currentPage === 1 && hasSavedLoopData ? itemsWithFields : null
+        );
 
         const matchingItems = evaluatedItems.filter(it => it.matches);
         const skippedItems = evaluatedItems.filter(it => !it.matches);
