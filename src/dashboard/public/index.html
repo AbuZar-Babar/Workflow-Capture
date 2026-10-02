@@ -59,14 +59,27 @@
             <span class="header-brand-title">Workflow Capture</span>
           </div>
         </a>
+        <div class="topbar-breadcrumb-separator" aria-hidden="true">/</div>
+        <nav class="topbar-breadcrumb" id="topbarBreadcrumb" aria-label="Breadcrumb">
+          <span class="breadcrumb-item current" id="topbarCurrentSection">Dashboard</span>
+        </nav>
       </div>
+
       <div class="header-center flowmind-topbar-center">
+        <button class="topbar-search-trigger" id="btnTopbarSearch" title="Search workflows and actions (⌘K)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <span>Search workflows…</span>
+          <kbd>⌘K</kbd>
+        </button>
+      </div>
+
+      <div class="header-right flowmind-topbar-right">
+        <!-- Browser Automation Status Pill -->
         <div class="status-indicator-pill flowmind-engine-pill" id="headerStatusPill" role="status" aria-live="polite" title="Browser Automation Status">
           <span class="status-dot offline" id="cdpDot" aria-hidden="true"></span>
           <span id="cdpText">Browser Not Connected</span>
         </div>
-      </div>
-      <div class="header-right flowmind-topbar-right">
+
         <!-- Theme Switcher Button -->
         <button class="btn-topbar-nav theme-toggle-btn" id="btnThemeToggle" title="Toggle color theme" aria-label="Toggle theme">
           <svg class="theme-icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">

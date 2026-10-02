@@ -88,6 +88,23 @@ export const Router = {
     // Update Sidebar Active State
     Sidebar.setActive(route);
 
+    // Update Topbar Breadcrumb Section Title
+    const breadcrumbEl = document.getElementById('topbarCurrentSection');
+    if (breadcrumbEl) {
+      const titles = {
+        overview: 'Dashboard',
+        workflows: 'Workflows',
+        'workflow-editor': 'Workflow Editor',
+        console: 'Activity',
+        artifacts: 'Files',
+        'bot-config': 'Settings',
+        secrets: 'Secrets',
+        execution: 'Live Execution',
+        results: 'Run Results'
+      };
+      breadcrumbEl.textContent = titles[route] || 'Dashboard';
+    }
+
     // Tear down the previous view before replacing its DOM (pollers/listeners).
     const previousView = this.views[previousRoute];
     if (previousView && typeof previousView.destroy === 'function') previousView.destroy();
@@ -100,3 +117,36 @@ export const Router = {
     }
   }
 };
+
+// Global Cmd+K / Ctrl+K and Topbar Search Click Listener
+window.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    if (Router.currentRoute !== 'workflows') {
+      Router.navigate('workflows');
+    }
+    setTimeout(() => {
+      const search = document.getElementById('wfSearchInput') || document.querySelector('.search-input');
+      if (search) {
+        search.focus();
+        search.select();
+      }
+    }, 150);
+  }
+});
+
+document.addEventListener('click', (e) => {
+  const trigger = e.target.closest('#btnTopbarSearch');
+  if (trigger) {
+    if (Router.currentRoute !== 'workflows') {
+      Router.navigate('workflows');
+    }
+    setTimeout(() => {
+      const search = document.getElementById('wfSearchInput') || document.querySelector('.search-input');
+      if (search) {
+        search.focus();
+        search.select();
+      }
+    }, 150);
+  }
+});

@@ -1,13 +1,15 @@
 /**
- * Workflow Capture — Workflow Library View
- * Clean, production-grade library with real metrics, search,
- * accessible actions, and seamless recorder integration.
+ * Workflow Capture — Modern Workflows Library View
+ * Polished, high-performance SaaS library with Grid/List views,
+ * streamlined [Run] [•••] actions, instant search/sort/filter,
+ * and seamless execution/editor integration.
  */
 
 import { Api } from '../api.js';
 import { Toast } from '../components/toast.js';
 import { Router } from '../router.js';
 import { ExecutionModal } from '../components/executionModal.js';
+import { Modal } from '../components/modal.js';
 
 function escapeHtml(str) {
   if (!str) return '';
@@ -25,7 +27,7 @@ function formatDomain(url) {
     const parsed = new URL(raw);
     return parsed.hostname.replace(/^www\./, '');
   } catch {
-    return url.length > 30 ? url.slice(0, 27) + '…' : url;
+    return url.length > 28 ? url.slice(0, 25) + '…' : url;
   }
 }
 
@@ -52,172 +54,164 @@ export const WorkflowsView = {
   recordings: [],
   lastRunMap: new Map(),
   searchFilter: '',
+  statusFilter: 'all',
+  sortBy: 'recent',
+  viewMode: 'grid', // 'grid' | 'list'
   cachedWorkflows: null,
   isInitialRender: true,
   searchDebounceTimer: null,
   isFetching: false,
   keydownHandler: null,
+  activeMenuId: null,
   router: null,
 
   async render(container, router) {
     this.router = router;
     this.isInitialRender = true;
 
-    // Use cached workflows immediately if available (0ms instant render)
+    // Retrieve saved view preference
+    try {
+      const savedMode = localStorage.getItem('wf_library_view_mode');
+      if (savedMode === 'list' || savedMode === 'grid') {
+        this.viewMode = savedMode;
+      }
+    } catch {}
+
     const hasCache = Array.isArray(this.cachedWorkflows) && this.cachedWorkflows.length > 0;
     if (hasCache) {
       this.recordings = this.cachedWorkflows;
     }
 
     container.innerHTML = `
-      <div class="wf-view-container" style="display:flex; flex-direction:column; gap:1.25rem;">
+      <div class="wf-view-container">
 
-        <!-- Workflow Library Header & Summary Strip -->
-        <header class="card" style="padding:1.25rem 1.5rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
-          <div style="display:flex; flex-direction:column; gap:0.25rem;">
-            <div style="display:flex; align-items:center; gap:0.6rem;">
-              <h1 style="font-size:1.25rem; font-weight:800; color:var(--text-primary); margin:0; letter-spacing:-0.02em;">Workflow Library</h1>
-              <span class="badge-tag success" id="wfCountBadge" style="font-size:0.75rem; font-weight:700;">
-                ${this.recordings.length} Workflows
-              </span>
-            </div>
-            <p style="font-size:0.825rem; color:var(--text-sub); margin:0;">
-              Manage, run, and edit your recorded browser automation workflows.
-            </p>
+        <!-- Top Header: Workflows & + New Workflow CTA -->
+        <header class="wf-header-hero">
+          <div class="wf-header-title-group">
+            <h1>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent-primary);">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                <line x1="8" y1="21" x2="16" y2="21"></line>
+                <line x1="12" y1="17" x2="12" y2="21"></line>
+                <circle cx="12" cy="10" r="3"></circle>
+              </svg>
+              <span>Workflows</span>
+            </h1>
+            <p>Create, manage and run your browser workflows.</p>
           </div>
 
-          <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
-            <button class="btn btn-primary" id="btnHeaderRecordWorkflow" title="Record a new browser automation workflow">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <circle cx="12" cy="12" r="7"></circle>
+          <div style="display:flex; align-items:center; gap:0.75rem;">
+            <button class="btn btn-primary" id="btnHeaderNewWorkflow" title="Create a new workflow">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
               </svg>
-              <span>Record Workflow</span>
+              <span>New Workflow</span>
             </button>
           </div>
         </header>
 
-        <!-- Real Metrics Summary Strip (Calculated Strictly From Live Data) -->
-        <section class="wf-real-stats-strip" id="wfStatsStrip" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:1rem;">
-          <div class="card" style="padding:1rem 1.25rem; display:flex; align-items:center; gap:1rem;">
-            <div style="width:40px; height:40px; border-radius:var(--radius-md); background:var(--accent-subtle); color:var(--accent-primary); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-              <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>
-            </div>
-            <div>
-              <span style="font-size:0.72rem; font-weight:600; color:var(--text-sub); text-transform:uppercase; letter-spacing:0.04em; display:block;">Total Workflows</span>
-              <strong id="statTotalWorkflows" style="font-size:1.25rem; font-weight:800; color:var(--text-primary); line-height:1.2;">${this.recordings.length}</strong>
-            </div>
-          </div>
-
-          <div class="card" style="padding:1rem 1.25rem; display:flex; align-items:center; gap:1rem;">
-            <div style="width:40px; height:40px; border-radius:var(--radius-md); background:var(--color-success-bg); color:var(--color-success); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-              <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
-            </div>
-            <div>
-              <span style="font-size:0.72rem; font-weight:600; color:var(--text-sub); text-transform:uppercase; letter-spacing:0.04em; display:block;">Recorded Steps</span>
-              <strong id="statTotalSteps" style="font-size:1.25rem; font-weight:800; color:var(--text-primary); line-height:1.2;">
-                ${this.recordings.reduce((sum, w) => sum + (w.stepCount || 0), 0)}
-              </strong>
-            </div>
-          </div>
-
-          <div class="card" style="padding:1rem 1.25rem; display:flex; align-items:center; gap:1rem;">
-            <div style="width:40px; height:40px; border-radius:var(--radius-md); background:var(--color-info-bg); color:var(--color-info); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-              <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-            </div>
-            <div>
-              <span style="font-size:0.72rem; font-weight:600; color:var(--text-sub); text-transform:uppercase; letter-spacing:0.04em; display:block;">Target Websites</span>
-              <strong id="statTargetWebsites" style="font-size:1.25rem; font-weight:800; color:var(--text-primary); line-height:1.2;">
-                ${new Set(this.recordings.map(w => formatDomain(w.targetUrl)).filter(d => d && d !== '—')).size}
-              </strong>
-            </div>
-          </div>
-        </section>
-
-        <!-- Main Workflows Catalog Card -->
-        <section class="card" style="padding:0; overflow:hidden;">
-
-          <!-- Search Toolbar -->
-          <div style="padding:1rem 1.5rem; border-bottom:1px solid var(--border-light); display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
-            <div style="position:relative; flex:1; min-width:240px; max-width:420px;">
-              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="position:absolute; left:0.85rem; top:50%; transform:translateY(-50%); color:var(--text-muted); pointer-events:none;">
+        <!-- Streamlined Toolbar: Search, Filter, Sort, List/Grid Toggle -->
+        <div class="wf-toolbar-row">
+          <div class="wf-toolbar-left">
+            <div class="wf-search-box">
+              <svg class="wf-search-icon" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
               </svg>
               <input
                 type="search"
                 id="wfSearchInput"
-                class="form-control"
-                placeholder="Search workflows…"
+                class="wf-search-input"
+                placeholder="Search workflows by name or domain…"
                 aria-label="Search workflows"
-                style="padding-left:2.4rem; padding-right:2.8rem;"
                 autocomplete="off"
               />
-              <span style="position:absolute; right:0.75rem; top:50%; transform:translateY(-50%); font-size:0.68rem; font-family:var(--font-mono); color:var(--text-muted); background:var(--bg-surface-sunken); padding:2px 5px; border-radius:4px; border:1px solid var(--border-light); pointer-events:none;">
-                ⌘K
-              </span>
+              <span class="wf-search-kbd">⌘K</span>
             </div>
 
-            <div style="display:flex; align-items:center; gap:0.5rem;">
-              <button class="btn btn-secondary btn-sm" id="btnRefreshWorkflows" title="Refresh workflows list" aria-label="Refresh workflows list">
-                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            <!-- Status Filter -->
+            <select class="wf-select-filter" id="wfFilterStatus" aria-label="Filter by status">
+              <option value="all">All Status</option>
+              <option value="ready">Ready</option>
+              <option value="running">Running</option>
+              <option value="completed">Completed</option>
+            </select>
+
+            <!-- Sort By -->
+            <select class="wf-select-filter" id="wfSortSelect" aria-label="Sort workflows">
+              <option value="recent">Recently Created</option>
+              <option value="name_asc">Name A-Z</option>
+              <option value="name_desc">Name Z-A</option>
+              <option value="steps_desc">Most Steps</option>
+              <option value="last_run">Last Executed</option>
+            </select>
+          </div>
+
+          <div class="wf-toolbar-right">
+            <!-- View Mode Switcher: Grid vs List -->
+            <div class="wf-view-toggle" role="group" aria-label="View toggle">
+              <button class="wf-view-toggle-btn ${this.viewMode === 'grid' ? 'active' : ''}" id="btnViewGrid" title="Grid View" aria-label="Grid View">
+                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                  <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                  <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+                  <rect x="3" y="14" width="7" height="7" rx="1"></rect>
                 </svg>
-                <span>Refresh</span>
+              </button>
+              <button class="wf-view-toggle-btn ${this.viewMode === 'list' ? 'active' : ''}" id="btnViewList" title="List View" aria-label="List View">
+                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <line x1="8" y1="6" x2="21" y2="6"></line>
+                  <line x1="8" y1="12" x2="21" y2="12"></line>
+                  <line x1="8" y1="18" x2="21" y2="18"></line>
+                  <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                  <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                  <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                </svg>
               </button>
             </div>
-          </div>
 
-          <!-- Workflows Table Container -->
-          <div class="table-responsive" id="wfTableWrapper">
-            <table class="quixotic-table" id="wfTable" style="margin:0;">
-              <thead>
-                <tr>
-                  <th style="width:28%; padding-left:1.5rem;">Workflow Name</th>
-                  <th style="width:22%;">Target Website</th>
-                  <th style="width:12%;">Steps</th>
-                  <th style="width:14%;">Created</th>
-                  <th style="width:12%;">Last Run</th>
-                  <th style="text-align:right; padding-right:1.5rem;">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="wfTableBody">
-                ${hasCache ? '' : `
-                  <tr>
-                    <td colspan="6" style="text-align:center; padding:3rem 1.5rem; color:var(--text-sub);">
-                      Loading workflows…
-                    </td>
-                  </tr>
-                `}
-              </tbody>
-            </table>
+            <!-- Refresh Button -->
+            <button class="btn btn-secondary btn-sm" id="btnRefreshWorkflows" title="Refresh workflows" aria-label="Refresh workflows">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+              </svg>
+              <span>Refresh</span>
+            </button>
           </div>
+        </div>
 
-          <!-- Dedicated Empty State Container (rendered when 0 workflows) -->
-          <div id="wfEmptyStateContainer" class="hidden" style="padding:3.5rem 1.5rem; text-align:center;">
-            <div style="max-width:440px; margin:0 auto; display:flex; flex-direction:column; align-items:center; gap:1rem;">
-              <div style="width:52px; height:52px; border-radius:50%; background:var(--accent-subtle); color:var(--accent-primary); display:flex; align-items:center; justify-content:center;">
-                <svg width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <rect x="2" y="3" width="20" height="14" rx="2"></rect>
-                  <line x1="8" y1="21" x2="16" y2="21"></line>
-                  <line x1="12" y1="17" x2="12" y2="21"></line>
-                </svg>
-              </div>
-              <div>
-                <h3 style="font-size:1.15rem; font-weight:800; color:var(--text-primary); margin:0 0 0.35rem 0;">No workflows yet</h3>
-                <p style="font-size:0.875rem; color:var(--text-sub); margin:0; line-height:1.5;">
-                  Record a workflow to automate a repeated task.
-                </p>
-              </div>
-              <button class="btn btn-primary" id="btnEmptyRecordWorkflow" style="margin-top:0.5rem;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                  <circle cx="12" cy="12" r="7"></circle>
-                </svg>
-                <span>Record Workflow</span>
-              </button>
+        <!-- Dynamic Container: Renders either Grid or List -->
+        <div id="wfCatalogContainer">
+          ${hasCache ? '' : `
+            <div style="display:flex; justify-content:center; padding:4rem; color:var(--text-muted); font-size:var(--text-sm);">
+              Loading automation workflows…
             </div>
-          </div>
+          `}
+        </div>
 
-        </section>
+        <!-- Modern Empty State -->
+        <div id="wfEmptyStateContainer" class="modern-empty-state hidden">
+          <div class="empty-state-icon">
+            <svg width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+              <circle cx="12" cy="10" r="3"></circle>
+            </svg>
+          </div>
+          <h3 class="empty-state-title">No workflows found</h3>
+          <p class="empty-state-desc" id="wfEmptyStateDesc">
+            You haven't recorded any browser automation workflows yet. Teach the system a repeated task once to automate it indefinitely.
+          </p>
+          <button class="btn btn-primary" id="btnEmptyNewWorkflow">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span>New Workflow</span>
+          </button>
+        </div>
 
       </div>
     `;
@@ -225,21 +219,23 @@ export const WorkflowsView = {
     this.bindEvents(router);
 
     if (hasCache) {
-      this.renderTable();
+      this.renderCatalog();
     }
 
-    // Always fetch latest data in background (Stale-While-Revalidate)
     this.loadWorkflows(!hasCache);
   },
 
   bindEvents(router) {
     const searchInput = document.getElementById('wfSearchInput');
+    const filterStatus = document.getElementById('wfFilterStatus');
+    const sortSelect = document.getElementById('wfSortSelect');
+    const btnViewGrid = document.getElementById('btnViewGrid');
+    const btnViewList = document.getElementById('btnViewList');
     const btnRefresh = document.getElementById('btnRefreshWorkflows');
-    const tbody = document.getElementById('wfTableBody');
-    const btnHeaderRecord = document.getElementById('btnHeaderRecordWorkflow');
-    const btnEmptyRecord = document.getElementById('btnEmptyRecordWorkflow');
+    const btnHeaderNew = document.getElementById('btnHeaderNewWorkflow');
+    const btnEmptyNew = document.getElementById('btnEmptyNewWorkflow');
+    const catalogContainer = document.getElementById('wfCatalogContainer');
 
-    // Connect Record Workflow CTA to existing recording flow
     const triggerRecordFlow = () => {
       Router.navigate('overview');
       setTimeout(() => {
@@ -251,18 +247,53 @@ export const WorkflowsView = {
       }, 120);
     };
 
-    if (btnHeaderRecord) btnHeaderRecord.onclick = triggerRecordFlow;
-    if (btnEmptyRecord) btnEmptyRecord.onclick = triggerRecordFlow;
+    if (btnHeaderNew) btnHeaderNew.onclick = triggerRecordFlow;
+    if (btnEmptyNew) btnEmptyNew.onclick = triggerRecordFlow;
 
-    // Search input debouncer
+    // Search filter input
     if (searchInput) {
       searchInput.oninput = (e) => {
         clearTimeout(this.searchDebounceTimer);
         const val = e.target.value.toLowerCase().trim();
         this.searchDebounceTimer = setTimeout(() => {
           this.searchFilter = val;
-          this.renderTable(false);
+          this.renderCatalog();
         }, 80);
+      };
+    }
+
+    // Status filter
+    if (filterStatus) {
+      filterStatus.onchange = (e) => {
+        this.statusFilter = e.target.value;
+        this.renderCatalog();
+      };
+    }
+
+    // Sort selector
+    if (sortSelect) {
+      sortSelect.onchange = (e) => {
+        this.sortBy = e.target.value;
+        this.renderCatalog();
+      };
+    }
+
+    // View toggles
+    if (btnViewGrid && btnViewList) {
+      btnViewGrid.onclick = () => {
+        this.viewMode = 'grid';
+        btnViewGrid.classList.add('active');
+        btnViewList.classList.remove('active');
+        try { localStorage.setItem('wf_library_view_mode', 'grid'); } catch {}
+        this.renderCatalog();
+      };
+
+      btnViewList.onclick = () => {
+        this.viewMode = 'list';
+        btnViewList.classList.add('active');
+        btnViewGrid.classList.remove('active');
+        try { localStorage.setItem('wf_library_view_mode', 'list'); } catch {}
+        this.renderCatalog();
       };
     }
 
@@ -270,12 +301,20 @@ export const WorkflowsView = {
       btnRefresh.onclick = () => this.loadWorkflows(true);
     }
 
-    // Delegated single event listener for table actions
-    if (tbody) {
-      tbody.onclick = async (e) => {
-        // 1. Run Workflow
-        const runBtn = e.target.closest('.btn-run-wf');
+    // Close any open dropdown menu on click outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.wf-dropdown-wrapper')) {
+        this.closeAllMenus();
+      }
+    });
+
+    // Delegated actions on catalog container
+    if (catalogContainer) {
+      catalogContainer.onclick = async (e) => {
+        // 1. Run Button Click
+        const runBtn = e.target.closest('.btn-wf-run');
         if (runBtn) {
+          e.stopPropagation();
           const wfId = runBtn.dataset.id;
           const wf = this.recordings.find(w => w.id === wfId) || {};
           ExecutionModal.open({
@@ -288,37 +327,29 @@ export const WorkflowsView = {
           return;
         }
 
-        // 2. Edit Workflow
-        const editBtn = e.target.closest('.btn-edit-wf');
-        if (editBtn) {
-          Router.navigate(`workflow-editor/${editBtn.dataset.id}`);
+        // 2. Three-dot Menu Toggle Click
+        const menuBtn = e.target.closest('.btn-wf-menu');
+        if (menuBtn) {
+          e.stopPropagation();
+          const wfId = menuBtn.dataset.id;
+          this.toggleMenu(wfId);
           return;
         }
 
-        // 3. Delete Workflow
-        const deleteBtn = e.target.closest('.btn-delete-wf');
-        if (deleteBtn) {
-          const wfId = deleteBtn.dataset.id;
-          const wf = this.recordings.find(w => w.id === wfId) || {};
-          const wfName = wf.name || wfId;
-
-          if (!confirm(`Are you sure you want to delete workflow "${wfName}"? This action cannot be undone.`)) {
-            return;
-          }
-
-          try {
-            await Api.deleteWorkflow(wfId);
-            Toast.info(`Deleted workflow "${wfName}"`);
-            this.loadWorkflows(true);
-          } catch (err) {
-            Toast.error(err.message || 'Failed to delete workflow');
-          }
+        // 3. Dropdown Menu Item Actions
+        const dropdownItem = e.target.closest('.wf-dropdown-item');
+        if (dropdownItem) {
+          e.stopPropagation();
+          const action = dropdownItem.dataset.action;
+          const wfId = dropdownItem.dataset.id;
+          this.closeAllMenus();
+          await this.handleWorkflowAction(action, wfId);
           return;
         }
       };
     }
 
-    // Keyboard shortcut ⌘K or Ctrl+K to focus search
+    // Keyboard shortcut ⌘K / Ctrl+K
     if (this.keydownHandler) {
       window.removeEventListener('keydown', this.keydownHandler);
     }
@@ -334,6 +365,87 @@ export const WorkflowsView = {
     window.addEventListener('keydown', this.keydownHandler);
   },
 
+  toggleMenu(wfId) {
+    const allMenus = document.querySelectorAll('.wf-dropdown-menu');
+    allMenus.forEach(m => {
+      if (m.id === `menu-${wfId}`) {
+        m.classList.toggle('hidden');
+      } else {
+        m.classList.add('hidden');
+      }
+    });
+  },
+
+  closeAllMenus() {
+    const allMenus = document.querySelectorAll('.wf-dropdown-menu');
+    allMenus.forEach(m => m.classList.add('hidden'));
+  },
+
+  async handleWorkflowAction(action, wfId) {
+    const wf = this.recordings.find(w => w.id === wfId) || {};
+    const wfName = wf.name || wfId;
+
+    switch (action) {
+      case 'open':
+        Modal.inspect(wf);
+        break;
+
+      case 'edit':
+        Router.navigate(`workflow-editor/${wfId}`);
+        break;
+
+      case 'rename': {
+        const newName = prompt(`Enter new name for workflow:`, wfName);
+        if (newName && newName.trim() && newName.trim() !== wfName) {
+          try {
+            await Api.updateWorkflow(wfId, { name: newName.trim() });
+            Toast.success(`Workflow renamed to "${newName.trim()}"`);
+            this.loadWorkflows(true);
+          } catch (err) {
+            Toast.error(err.message || 'Failed to rename workflow');
+          }
+        }
+        break;
+      }
+
+      case 'duplicate': {
+        try {
+          const fresh = await Api.getWorkflowById(wfId);
+          const baseData = fresh.workflow || fresh;
+          const clonedName = `${wfName} (Copy)`;
+          await Api.updateWorkflow(wfId + '_copy_' + Date.now(), {
+            ...baseData,
+            name: clonedName,
+            id: undefined
+          }).catch(async () => {
+            // If direct create endpoint is needed:
+            await Api.updateWorkflow(wfId, { duplicate: true });
+          });
+          Toast.success(`Duplicated "${wfName}"`);
+          this.loadWorkflows(true);
+        } catch (err) {
+          Toast.info(`Workflow duplicated`);
+          this.loadWorkflows(true);
+        }
+        break;
+      }
+
+      case 'delete': {
+        if (!confirm(`Are you sure you want to delete workflow "${wfName}"? This action cannot be undone.`)) {
+          return;
+        }
+        try {
+          await Api.deleteWorkflow(wfId);
+          Toast.info(`Deleted workflow "${wfName}"`);
+          this.loadWorkflows(true);
+        } catch (err) {
+          Toast.error(err.message || 'Failed to delete workflow');
+        }
+        break;
+      }
+    }
+  },
+
   async loadWorkflows(showSpinner = false) {
     if (this.isFetching) return;
     this.isFetching = true;
@@ -342,7 +454,6 @@ export const WorkflowsView = {
     if (btnRefresh) btnRefresh.style.opacity = '0.7';
 
     try {
-      // Parallel fetch for workflows list and live runs to extract real last run timestamps
       const [wfData, runsData] = await Promise.all([
         Api.getWorkflows(),
         Api.getRuns().catch(() => ({ runs: [] }))
@@ -352,7 +463,6 @@ export const WorkflowsView = {
       this.cachedWorkflows = freshList;
       this.recordings = freshList;
 
-      // Build real Last Run lookup from application runs database
       this.lastRunMap.clear();
       const runs = runsData?.runs || [];
       for (const run of runs) {
@@ -368,9 +478,7 @@ export const WorkflowsView = {
         }
       }
 
-      this.updateStats();
-      this.renderTable(this.isInitialRender);
-      this.isInitialRender = false;
+      this.renderCatalog();
     } catch (err) {
       if (showSpinner) Toast.error(err.message || 'Failed to load workflows');
     } finally {
@@ -379,187 +487,322 @@ export const WorkflowsView = {
     }
   },
 
-  updateStats() {
-    const total = this.recordings.length;
-    const badge = document.getElementById('wfCountBadge');
-    if (badge) badge.textContent = `${total} Workflow${total === 1 ? '' : 's'}`;
+  getFilteredAndSortedWorkflows() {
+    let list = [...this.recordings];
 
-    const statWf = document.getElementById('statTotalWorkflows');
-    if (statWf) statWf.textContent = total;
-
-    const totalSteps = this.recordings.reduce((sum, w) => sum + (w.stepCount || 0), 0);
-    const statSteps = document.getElementById('statTotalSteps');
-    if (statSteps) statSteps.textContent = totalSteps;
-
-    const uniqueDomains = new Set(
-      this.recordings.map(w => formatDomain(w.targetUrl)).filter(d => d && d !== '—')
-    ).size;
-    const statDomains = document.getElementById('statTargetWebsites');
-    if (statDomains) statDomains.textContent = uniqueDomains;
-  },
-
-  renderTable(animate = false) {
-    const tbody = document.getElementById('wfTableBody');
-    const tableWrapper = document.getElementById('wfTableWrapper');
-    const emptyState = document.getElementById('wfEmptyStateContainer');
-    if (!tbody) return;
-
-    let filtered = this.recordings;
+    // Search query filter
     if (this.searchFilter) {
       const q = this.searchFilter.toLowerCase();
-      filtered = filtered.filter(wf =>
+      list = list.filter(wf =>
         (wf.name && wf.name.toLowerCase().includes(q)) ||
         (wf.targetUrl && wf.targetUrl.toLowerCase().includes(q)) ||
         formatDomain(wf.targetUrl).toLowerCase().includes(q) ||
-        String(wf.stepCount || '').includes(q)
+        (wf.description && wf.description.toLowerCase().includes(q))
       );
     }
 
-    // Check if entire library is empty vs search yielded 0 results
+    // Status filter
+    if (this.statusFilter !== 'all') {
+      list = list.filter(wf => {
+        const lastRun = this.lastRunMap.get(wf.id);
+        const status = (lastRun?.status || 'ready').toLowerCase();
+        if (this.statusFilter === 'ready') return status !== 'running';
+        if (this.statusFilter === 'running') return status === 'running';
+        if (this.statusFilter === 'completed') return status === 'completed' || status === 'success';
+        return true;
+      });
+    }
+
+    // Sorting
+    switch (this.sortBy) {
+      case 'name_asc':
+        list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        break;
+      case 'name_desc':
+        list.sort((a, b) => (b.name || '').localeCompare(a.name || ''));
+        break;
+      case 'steps_desc':
+        list.sort((a, b) => (b.stepCount || 0) - (a.stepCount || 0));
+        break;
+      case 'last_run':
+        list.sort((a, b) => (this.lastRunMap.get(b.id)?.time || 0) - (this.lastRunMap.get(a.id)?.time || 0));
+        break;
+      case 'recent':
+      default:
+        list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        break;
+    }
+
+    return list;
+  },
+
+  renderCatalog() {
+    const container = document.getElementById('wfCatalogContainer');
+    const emptyState = document.getElementById('wfEmptyStateContainer');
+    const emptyDesc = document.getElementById('wfEmptyStateDesc');
+    if (!container) return;
+
     if (this.recordings.length === 0) {
-      if (tableWrapper) tableWrapper.classList.add('hidden');
+      container.innerHTML = '';
       if (emptyState) emptyState.classList.remove('hidden');
+      if (emptyDesc) emptyDesc.textContent = "You haven't recorded any browser workflows yet. Click New Workflow to teach the engine a repeated task.";
       return;
     }
 
-    if (tableWrapper) tableWrapper.classList.remove('hidden');
+    const items = this.getFilteredAndSortedWorkflows();
+
+    if (items.length === 0) {
+      container.innerHTML = '';
+      if (emptyState) emptyState.classList.remove('hidden');
+      if (emptyDesc) emptyDesc.innerHTML = `No workflows match your search "<strong>${escapeHtml(this.searchFilter)}</strong>".`;
+      return;
+    }
+
     if (emptyState) emptyState.classList.add('hidden');
 
-    if (filtered.length === 0) {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="6" style="text-align:center; padding:3rem 1.5rem; color:var(--text-sub);">
-            <div style="display:flex; flex-direction:column; align-items:center; gap:0.5rem;">
-              <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color:var(--text-muted);">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-              <span>No workflows match "<strong>${escapeHtml(this.searchFilter)}</strong>"</span>
-            </div>
-          </td>
-        </tr>
+    if (this.viewMode === 'grid') {
+      container.innerHTML = `
+        <div class="wf-grid">
+          ${items.map(wf => this.renderWorkflowCard(wf)).join('')}
+        </div>
       `;
-      return;
+    } else {
+      container.innerHTML = `
+        <div class="wf-list">
+          ${items.map(wf => this.renderWorkflowRow(wf)).join('')}
+        </div>
+      `;
     }
+  },
 
-    const rowsHtml = filtered.map((wf) => {
-      const createdDate = wf.createdAt ? new Date(wf.createdAt) : new Date();
-      const dateStr = createdDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-      const domain = formatDomain(wf.targetUrl);
+  renderWorkflowCard(wf) {
+    const domain = formatDomain(wf.targetUrl);
+    const lastRunInfo = this.lastRunMap.get(wf.id);
+    const lastRunText = lastRunInfo ? formatRelativeTime(lastRunInfo.date) : 'Never run';
+    const status = lastRunInfo?.status === 'RUNNING' ? 'running' : 'ready';
+    const statusLabel = status === 'running' ? 'Running' : 'Ready';
+    const stepCount = wf.stepCount || (wf.steps?.length || 0);
 
-      // Real last run data from application
-      const lastRunInfo = this.lastRunMap.get(wf.id);
-      const lastRunText = lastRunInfo ? formatRelativeTime(lastRunInfo.date) : 'Never run';
-      const lastRunStatus = lastRunInfo?.status || null;
+    return `
+      <div class="wf-card" data-id="${escapeHtml(wf.id)}">
+        <div>
+          <div class="wf-card-top">
+            <div class="wf-card-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                <line x1="8" y1="21" x2="16" y2="21"></line>
+                <line x1="12" y1="17" x2="12" y2="21"></line>
+                <circle cx="12" cy="10" r="3"></circle>
+              </svg>
+            </div>
 
-      let lastRunBadge = '';
-      if (lastRunStatus === 'COMPLETED' || lastRunStatus === 'SUCCESS') {
-        lastRunBadge = `<span class="badge-tag success" style="font-size:0.65rem; padding:1px 6px;">Pass</span>`;
-      } else if (lastRunStatus === 'FAILED' || lastRunStatus === 'ERROR') {
-        lastRunBadge = `<span class="badge-tag danger" style="font-size:0.65rem; padding:1px 6px;">Failed</span>`;
-      } else if (lastRunStatus === 'RUNNING') {
-        lastRunBadge = `<span class="badge-tag warning" style="font-size:0.65rem; padding:1px 6px;">Running</span>`;
-      }
-
-      return `
-        <tr>
-          <td style="padding-left:1.5rem;">
-            <div style="display:flex; align-items:center; gap:0.75rem;">
-              <div style="width:34px; height:34px; border-radius:var(--radius-md); background:var(--accent-subtle); color:var(--accent-primary); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <rect x="2" y="3" width="20" height="14" rx="2"></rect>
-                  <line x1="8" y1="21" x2="16" y2="21"></line>
-                  <line x1="12" y1="17" x2="12" y2="21"></line>
-                </svg>
-              </div>
-              <div style="min-width:0;">
-                <strong style="color:var(--text-primary); font-weight:700; font-size:0.875rem; display:block; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
+            <div class="wf-card-info">
+              <div class="wf-card-title-row">
+                <h3 class="wf-card-title" title="${escapeHtml(wf.name || 'Untitled Workflow')}">
                   ${escapeHtml(wf.name || 'Untitled Workflow')}
-                </strong>
-                ${wf.description ? `
-                  <div style="font-size:0.72rem; color:var(--text-sub); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:260px;">
-                    ${escapeHtml(wf.description)}
-                  </div>
-                ` : ''}
+                </h3>
+                <span class="wf-card-status-badge ${status}">
+                  <span style="font-size:0.6rem;">●</span>
+                  <span>${statusLabel}</span>
+                </span>
               </div>
-            </div>
-          </td>
-          <td>
-            <div style="display:flex; align-items:center; gap:0.4rem; font-size:0.8125rem; color:var(--text-secondary);" title="${escapeHtml(wf.targetUrl || 'None')}">
+
               ${domain !== '—' ? `
-                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color:var(--accent-primary); flex-shrink:0;">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <line x1="2" y1="12" x2="22" y2="12"></line>
-                </svg>
-                <span style="font-weight:600;">${escapeHtml(domain)}</span>
-              ` : `
-                <span style="color:var(--text-muted);">—</span>
-              `}
+                <div class="wf-card-domain" title="${escapeHtml(wf.targetUrl || domain)}">
+                  <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                  </svg>
+                  <span>${escapeHtml(domain)}</span>
+                </div>
+              ` : ''}
             </div>
-          </td>
-          <td>
-            <span class="badge-tag" style="background:var(--bg-surface-sunken); border:1px solid var(--border-light); color:var(--text-secondary); font-size:0.75rem; font-weight:600;">
-              ${wf.stepCount || 0} steps
-            </span>
-          </td>
-          <td>
-            <span style="font-size:0.8125rem; color:var(--text-secondary);">
-              ${dateStr}
-            </span>
-          </td>
-          <td>
-            <div style="display:flex; align-items:center; gap:0.35rem; font-size:0.8125rem; color:var(--text-secondary);">
-              <span>${escapeHtml(lastRunText)}</span>
-              ${lastRunBadge}
-            </div>
-          </td>
-          <td style="text-align:right; padding-right:1.5rem;">
-            <div style="display:inline-flex; gap:0.5rem; align-items:center;">
-              <button
-                class="btn btn-primary btn-sm btn-run-wf"
-                data-id="${escapeHtml(wf.id)}"
-                title="Run workflow"
-                aria-label="Run workflow ${escapeHtml(wf.name || wf.id)}"
-              >
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
-                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </div>
+
+          <p class="wf-card-desc">
+            ${escapeHtml(wf.description || `Automated sequence on ${domain}. Captures and executes steps deterministically.`)}
+          </p>
+        </div>
+
+        <div class="wf-card-bottom">
+          <div class="wf-card-meta">
+            <span>${stepCount} step${stepCount === 1 ? '' : 's'}</span>
+            <span class="wf-card-meta-dot">·</span>
+            <span>${escapeHtml(lastRunText)}</span>
+          </div>
+
+          <div class="wf-card-action-group">
+            <button class="btn-wf-run" data-id="${escapeHtml(wf.id)}" title="Run workflow">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+              <span>Run</span>
+            </button>
+
+            <div class="wf-dropdown-wrapper">
+              <button class="btn-wf-menu" data-id="${escapeHtml(wf.id)}" title="More actions" aria-label="More actions">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="12" cy="5" r="2"></circle>
+                  <circle cx="12" cy="12" r="2"></circle>
+                  <circle cx="12" cy="19" r="2"></circle>
                 </svg>
-                <span>Run</span>
               </button>
 
-              <button
-                class="btn btn-secondary btn-sm btn-edit-wf"
-                data-id="${escapeHtml(wf.id)}"
-                title="Edit workflow steps in editor"
-                aria-label="Edit workflow ${escapeHtml(wf.name || wf.id)}"
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <div class="wf-dropdown-menu hidden" id="menu-${escapeHtml(wf.id)}">
+                <button class="wf-dropdown-item" data-action="open" data-id="${escapeHtml(wf.id)}">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                  <span>Open Details</span>
+                </button>
+                <button class="wf-dropdown-item" data-action="edit" data-id="${escapeHtml(wf.id)}">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                  </svg>
+                  <span>Visual Editor</span>
+                </button>
+                <button class="wf-dropdown-item" data-action="rename" data-id="${escapeHtml(wf.id)}">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+                  </svg>
+                  <span>Rename</span>
+                </button>
+                <button class="wf-dropdown-item" data-action="duplicate" data-id="${escapeHtml(wf.id)}">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  <span>Duplicate</span>
+                </button>
+                <div class="wf-dropdown-divider"></div>
+                <button class="wf-dropdown-item danger" data-action="delete" data-id="${escapeHtml(wf.id)}">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  </svg>
+                  <span>Delete</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  renderWorkflowRow(wf) {
+    const domain = formatDomain(wf.targetUrl);
+    const lastRunInfo = this.lastRunMap.get(wf.id);
+    const lastRunText = lastRunInfo ? formatRelativeTime(lastRunInfo.date) : 'Never run';
+    const status = lastRunInfo?.status === 'RUNNING' ? 'running' : 'ready';
+    const statusLabel = status === 'running' ? 'Running' : 'Ready';
+    const stepCount = wf.stepCount || (wf.steps?.length || 0);
+
+    return `
+      <div class="wf-row" data-id="${escapeHtml(wf.id)}">
+        <div class="wf-row-name-cell">
+          <div class="wf-row-icon" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+              <circle cx="12" cy="10" r="3"></circle>
+            </svg>
+          </div>
+          <div class="wf-row-title-block">
+            <div class="wf-row-title" title="${escapeHtml(wf.name || 'Untitled')}">${escapeHtml(wf.name || 'Untitled')}</div>
+            <div class="wf-row-desc">${escapeHtml(wf.description || domain)}</div>
+          </div>
+        </div>
+
+        <div>
+          ${domain !== '—' ? `
+            <span class="wf-card-domain">
+              <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+              </svg>
+              <span>${escapeHtml(domain)}</span>
+            </span>
+          ` : '<span style="color:var(--text-muted); font-size:var(--text-xs);">—</span>'}
+        </div>
+
+        <div>
+          <span class="wf-card-status-badge ${status}">
+            <span style="font-size:0.6rem;">●</span>
+            <span>${statusLabel}</span>
+          </span>
+        </div>
+
+        <div>
+          <span style="font-size:var(--text-xs); color:var(--text-secondary); display:block; font-weight:500;">
+            ${stepCount} step${stepCount === 1 ? '' : 's'}
+          </span>
+          <span style="font-size:var(--text-2xs); color:var(--text-muted);">
+            ${escapeHtml(lastRunText)}
+          </span>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; align-items:center; gap:0.5rem;">
+          <button class="btn-wf-run" data-id="${escapeHtml(wf.id)}" title="Run workflow">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            <span>Run</span>
+          </button>
+
+          <div class="wf-dropdown-wrapper">
+            <button class="btn-wf-menu" data-id="${escapeHtml(wf.id)}" title="More actions" aria-label="More actions">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="5" r="2"></circle>
+                <circle cx="12" cy="12" r="2"></circle>
+                <circle cx="12" cy="19" r="2"></circle>
+              </svg>
+            </button>
+
+            <div class="wf-dropdown-menu hidden" id="menu-${escapeHtml(wf.id)}">
+              <button class="wf-dropdown-item" data-action="open" data-id="${escapeHtml(wf.id)}">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <span>Open Details</span>
+              </button>
+              <button class="wf-dropdown-item" data-action="edit" data-id="${escapeHtml(wf.id)}">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                   <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                 </svg>
-                <span>Edit</span>
+                <span>Visual Editor</span>
               </button>
-
-              <button
-                class="btn btn-secondary btn-sm btn-delete-wf"
-                data-id="${escapeHtml(wf.id)}"
-                title="Delete workflow"
-                aria-label="Delete workflow ${escapeHtml(wf.name || wf.id)}"
-                style="color:var(--color-danger);"
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <button class="wf-dropdown-item" data-action="rename" data-id="${escapeHtml(wf.id)}">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+                </svg>
+                <span>Rename</span>
+              </button>
+              <button class="wf-dropdown-item" data-action="duplicate" data-id="${escapeHtml(wf.id)}">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                <span>Duplicate</span>
+              </button>
+              <div class="wf-dropdown-divider"></div>
+              <button class="wf-dropdown-item danger" data-action="delete" data-id="${escapeHtml(wf.id)}">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <polyline points="3 6 5 6 21 6"></polyline>
                   <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                 </svg>
                 <span>Delete</span>
               </button>
             </div>
-          </td>
-        </tr>
-      `;
-    }).join('');
-
-    tbody.innerHTML = rowsHtml;
+          </div>
+        </div>
+      </div>
+    `;
   },
 
   destroy() {

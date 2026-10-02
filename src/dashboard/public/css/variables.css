@@ -12,7 +12,20 @@
   --bg-surface: #FFFFFF;            /* Standard Card & Section Surface */
   --bg-surface-elevated: #FFFFFF;   /* Modals, menus, dropdowns */
   --bg-surface-sunken: #F1F5F9;     /* Inputs, code blocks, recessed panels */
-  --surface-overlay: rgba(15, 23, 42, 0.45);
+  --bg-surface-hover: #F8FAFC;
+  --surface-overlay: rgba(15, 23, 42, 0.55);
+
+  /* Modern Linear / Automation Accent Palette */
+  --accent-primary: #2563EB;        /* Electric Blue */
+  --accent-hover: #1D4ED8;
+  --accent-active: #1E40AF;
+  --accent-subtle: rgba(37, 99, 235, 0.08);
+  --accent-ring: rgba(37, 99, 235, 0.2);
+  --accent-gradient: linear-gradient(135deg, #2563EB 0%, #0284C7 100%);
+  --tech-cyan: #06B6D4;
+  --tech-emerald: #10B981;
+  --tech-amber: #F59E0B;
+  --tech-purple: #8B5CF6;
 
   /* Semantic Aliases for Compatibility */
   --canvas: var(--bg-page);
@@ -168,6 +181,7 @@
   --bg-surface: #111827;            /* Cards & surfaces */
   --bg-surface-elevated: #1F2937;   /* Elevated dialogs, popovers */
   --bg-surface-sunken: #0F172A;     /* Sunken controls */
+  --bg-surface-hover: #1E293B;      /* Card hover state */
   --surface-overlay: rgba(0, 0, 0, 0.75);
 
   --canvas: var(--bg-page);

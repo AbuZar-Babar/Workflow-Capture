@@ -139,26 +139,53 @@ export const WorkflowEditorView = {
           </div>
         </header>
 
-        <!-- Drawflow Visual Canvas -->
-        <div class="workflow-editor-canvas" id="drawflow">
-          <div class="drawflow-canvas-controls" role="toolbar" aria-label="Canvas zoom and view controls">
-            <button type="button" id="btnZoomIn" title="Zoom in" aria-label="Zoom in">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            </button>
-            <button type="button" id="btnZoomOut" title="Zoom out" aria-label="Zoom out">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            </button>
-            <button type="button" id="btnZoomReset" title="Reset view zoom" aria-label="Reset view zoom">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
-            </button>
-            <button type="button" id="btnCanvasShortcutsHelp" title="Shortcuts: Space+Drag to Pan · Del to Delete · Ctrl+S to Save · Ctrl+Enter to Run · Esc to Deselect" aria-label="View keyboard shortcuts">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect><line x1="6" y1="8" x2="6.01" y2="8"></line><line x1="10" y1="8" x2="10.01" y2="8"></line><line x1="14" y1="8" x2="14.01" y2="8"></line><line x1="18" y1="8" x2="18.01" y2="8"></line><line x1="8" y1="12" x2="8.01" y2="12"></line><line x1="12" y1="12" x2="12.01" y2="12"></line><line x1="16" y1="12" x2="16.01" y2="12"></line><line x1="7" y1="16" x2="17" y2="16"></line></svg>
-            </button>
+        <!-- Split Layout: Step Sequence List + Visual Drawflow Canvas -->
+        <div class="wf-editor-container">
+          <!-- Step Sequence Sidebar -->
+          <aside class="wf-steps-sidebar" id="wfStepsSidebar">
+            <div class="wf-steps-header">
+              <div style="display:flex; align-items:center; gap:0.4rem;">
+                <span style="font-size:0.75rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-sub);">Step Sequence</span>
+                <span class="badge-tag info" id="wfSequenceCountBadge" style="font-size:0.65rem;">0 steps</span>
+              </div>
+              <button type="button" class="btn btn-ghost btn-xs" id="btnToggleStepsSidebar" title="Toggle steps sidebar">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+              </button>
+            </div>
+            <div class="wf-steps-scroll" id="wfSequenceScrollList">
+              <div style="padding:1.5rem 1rem; text-align:center; color:var(--text-muted); font-size:var(--text-xs);">
+                Loading steps sequence…
+              </div>
+            </div>
+          </aside>
+
+          <!-- Drawflow Visual Canvas -->
+          <div class="workflow-editor-canvas" id="drawflow" style="flex:1; height:100%; position:relative;">
+            <div class="drawflow-canvas-controls" role="toolbar" aria-label="Canvas zoom and view controls">
+              <button type="button" id="btnZoomIn" title="Zoom in" aria-label="Zoom in">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              </button>
+              <button type="button" id="btnZoomOut" title="Zoom out" aria-label="Zoom out">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              </button>
+              <button type="button" id="btnZoomReset" title="Reset view zoom" aria-label="Reset view zoom">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+              </button>
+              <button type="button" id="btnCanvasShortcutsHelp" title="Shortcuts: Space+Drag to Pan · Del to Delete · Ctrl+S to Save · Ctrl+Enter to Run · Esc to Deselect" aria-label="View keyboard shortcuts">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect><line x1="6" y1="8" x2="6.01" y2="8"></line><line x1="10" y1="8" x2="10.01" y2="8"></line><line x1="14" y1="8" x2="14.01" y2="8"></line><line x1="18" y1="8" x2="18.01" y2="8"></line><line x1="8" y1="12" x2="8.01" y2="12"></line><line x1="12" y1="12" x2="12.01" y2="12"></line><line x1="16" y1="12" x2="16.01" y2="12"></line><line x1="7" y1="16" x2="17" y2="16"></line></svg>
+              </button>
+            </div>
           </div>
         </div>
 
       </div>
     `;
+
+    // Toggle steps sidebar
+    document.getElementById('btnToggleStepsSidebar')?.addEventListener('click', () => {
+      const sidebar = document.getElementById('wfStepsSidebar');
+      if (sidebar) sidebar.classList.toggle('collapsed');
+    });
 
     document.getElementById('btnBack')?.addEventListener('click', () => {
       this.hideConnectionMenu();
@@ -1127,6 +1154,135 @@ export const WorkflowEditorView = {
       previousNodeId = nodeId;
       pos_x += 390;
     });
+
+    this.renderSequenceList(steps);
+  },
+
+  renderSequenceList(steps) {
+    const list = document.getElementById('wfSequenceScrollList');
+    const badge = document.getElementById('wfSequenceCountBadge');
+    if (badge) badge.textContent = `${steps.length} step${steps.length === 1 ? '' : 's'}`;
+    if (!list) return;
+
+    if (!steps || steps.length === 0) {
+      list.innerHTML = `
+        <div style="padding:2rem 1rem; text-align:center; color:var(--text-muted); font-size:var(--text-xs);">
+          No steps in this workflow yet.
+        </div>
+      `;
+      return;
+    }
+
+    list.innerHTML = steps.map((step, idx) => {
+      const rawAction = (step.action || step.type || 'CLICK').toUpperCase();
+      const friendlyName = this.getFriendlyStepName(step, idx);
+      const actionLabel = this.getUserActionLabel(step, rawAction, friendlyName);
+      const actionIcon = this.getActionIcon(actionLabel);
+      const targetStr = step.target?.selectors?.cssPath || step.target?.selector || (typeof step.target === 'string' ? step.target : (step.url || 'Target Element'));
+
+      return `
+        <div class="wf-step-seq-card" data-step-idx="${idx}" id="seq-step-${idx}">
+          <div class="wf-step-seq-head">
+            <span class="wf-step-num">${idx + 1}</span>
+            <span class="step-seq-icon">${actionIcon}</span>
+            <div class="wf-step-name">${this.escapeHtml(actionLabel)}: ${this.escapeHtml(friendlyName)}</div>
+            <div class="wf-step-seq-actions">
+              <button type="button" class="btn-icon btn-seq-up" data-idx="${idx}" title="Move step up" ${idx === 0 ? 'disabled' : ''} style="width:22px; height:22px;">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg>
+              </button>
+              <button type="button" class="btn-icon btn-seq-down" data-idx="${idx}" title="Move step down" ${idx === steps.length - 1 ? 'disabled' : ''} style="width:22px; height:22px;">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </button>
+              <button type="button" class="btn-icon btn-seq-del" data-idx="${idx}" title="Delete step" style="width:22px; height:22px; color:var(--color-danger);">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
+          </div>
+          <div class="wf-step-target-text">${this.escapeHtml(targetStr)}</div>
+
+          <details style="margin-top:0.45rem; padding-top:0.35rem; border-top:1px dashed var(--border-light); font-size:var(--text-2xs);">
+            <summary style="cursor:pointer; color:var(--accent-primary); font-weight:600; outline:none;">
+              View Details
+            </summary>
+            <div style="margin-top:0.4rem; display:flex; flex-direction:column; gap:0.3rem; color:var(--text-sub);">
+              <div><span>Target:</span> <code class="mono" style="font-size:0.65rem; word-break:break-all;">${this.escapeHtml(targetStr)}</code></div>
+              ${step.value ? `<div><span>Input Value:</span> <strong style="color:var(--text-primary);">${this.escapeHtml(step.value)}</strong></div>` : ''}
+              <div><span>Execution:</span> <span class="badge-tag info" style="font-size:0.6rem;">${step.role || 'SETUP'}</span></div>
+            </div>
+          </details>
+        </div>
+      `;
+    }).join('');
+
+    // Bind card selection to canvas node
+    list.querySelectorAll('.wf-step-seq-card').forEach(card => {
+      card.onclick = (e) => {
+        if (e.target.closest('button') || e.target.closest('details') || e.target.closest('summary')) return;
+        const idx = Number(card.getAttribute('data-step-idx'));
+        list.querySelectorAll('.wf-step-seq-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+
+        const nodeEls = document.querySelectorAll('.drawflow-node');
+        if (nodeEls[idx]) {
+          nodeEls.forEach(n => n.classList.remove('selected'));
+          nodeEls[idx].classList.add('selected');
+          nodeEls[idx].scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+        }
+      };
+    });
+
+    // Bind Reorder Up
+    list.querySelectorAll('.btn-seq-up').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const idx = Number(btn.getAttribute('data-idx'));
+        if (idx > 0) {
+          const temp = steps[idx];
+          steps[idx] = steps[idx - 1];
+          steps[idx - 1] = temp;
+          this.workflow.steps = steps;
+          this.rebuildCanvasFromSteps();
+        }
+      };
+    });
+
+    // Bind Reorder Down
+    list.querySelectorAll('.btn-seq-down').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const idx = Number(btn.getAttribute('data-idx'));
+        if (idx < steps.length - 1) {
+          const temp = steps[idx];
+          steps[idx] = steps[idx + 1];
+          steps[idx + 1] = temp;
+          this.workflow.steps = steps;
+          this.rebuildCanvasFromSteps();
+        }
+      };
+    });
+
+    // Bind Delete
+    list.querySelectorAll('.btn-seq-del').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const idx = Number(btn.getAttribute('data-idx'));
+        if (confirm(`Remove step #${idx + 1} from workflow?`)) {
+          steps.splice(idx, 1);
+          this.workflow.steps = steps;
+          this.rebuildCanvasFromSteps();
+        }
+      };
+    });
+  },
+
+  rebuildCanvasFromSteps() {
+    if (!this.editor) return;
+    this.editor.clearModuleSelected();
+    this.renderWorkflowSteps();
+    const badge = document.getElementById('wfStepCounter');
+    const steps = this.workflow.steps || [];
+    if (badge) badge.textContent = `${steps.length} Steps`;
+    Toast.info('Workflow steps updated');
   },
 
   getUserActionLabel(step, rawAction, friendlyName) {
