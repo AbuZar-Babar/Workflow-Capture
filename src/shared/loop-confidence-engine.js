@@ -73,6 +73,12 @@ class LoopConfidenceEngine {
     if (patternType === 'table-row') {
       signals.domRepetition = 0.95;
       reasons.push('Action targets repeated table row structure (<tr> / gridcell).');
+    } else if (patternType === 'checkbox-list') {
+      signals.domRepetition = 0.95;
+      reasons.push('Action targets repeated checkbox selection list.');
+    } else if (patternType === 'radio-group') {
+      signals.domRepetition = 0.90;
+      reasons.push('Action targets radio option group.');
     } else if (patternType === 'dropdown-option') {
       signals.domRepetition = 0.95;
       reasons.push('Action targets dropdown option collection (mat-option / [role="option"]).');
@@ -133,10 +139,10 @@ class LoopConfidenceEngine {
     const fp = stepAnalysis.fingerprint || context.fingerprint || {};
     const role = (fp.role || '').toLowerCase();
     const tag = (fp.tagName || '').toLowerCase();
-    if (['row', 'gridcell', 'option', 'listitem'].includes(role) || ['tr', 'td', 'li', 'mat-option'].includes(tag)) {
+    if (['row', 'gridcell', 'option', 'listitem', 'checkbox', 'radio', 'switch'].includes(role) || ['tr', 'td', 'li', 'mat-option'].includes(tag)) {
       signals.semanticSimilarity = 0.95;
       reasons.push(`Accessible semantic role or tag indicates collection item (role="${role || tag}").`);
-    } else if (fp.ariaLabel || fp.title || (Array.isArray(fp.classes) && fp.classes.some(c => /item|card|row|cell/i.test(c)))) {
+    } else if (fp.ariaLabel || fp.title || (Array.isArray(fp.classes) && fp.classes.some(c => /item|card|row|cell|check/i.test(c)))) {
       signals.semanticSimilarity = 0.75;
       reasons.push('Element classes or ARIA attributes indicate collection item membership.');
     } else {

@@ -151,6 +151,13 @@ class LoopReplayRunner {
     const filename = path.basename(sourcePath);
     if (filename.endsWith('.crdownload') || filename.endsWith('.tmp')) return null;
 
+    // Fallback to active item context if itemKey or fields are missing
+    if (!itemKey && this._activeItemContext) {
+      itemKey = this._activeItemContext.itemKey;
+      itemLabel = this._activeItemContext.itemLabel;
+      itemFields = { ...(this._activeItemContext.fields || {}), ...itemFields };
+    }
+
     try {
       this.initDirectories();
       const fileBuffer = fs.readFileSync(sourcePath);
@@ -166,7 +173,7 @@ class LoopReplayRunner {
       let targetFilename = runArtifact ? runArtifact.targetFilename : filename;
       let destPath = path.join(this.structuredDownloadsDir, targetFilename);
 
-      // Handle duplicate filename with different hash: append timestamp suffix
+      // Handle duplicate filename with different hash: append content hash or timestamp suffix
       if (fs.existsSync(destPath)) {
         try {
           const existingBuffer = fs.readFileSync(destPath);
@@ -174,7 +181,7 @@ class LoopReplayRunner {
           if (existingHash !== fileHash) {
             const ext = path.extname(targetFilename);
             const base = path.basename(targetFilename, ext);
-            targetFilename = `${base}_${Date.now()}${ext}`;
+            targetFilename = `${base}_${fileHash.substring(0, 8)}${ext}`;
             destPath = path.join(this.structuredDownloadsDir, targetFilename);
             fs.copyFileSync(sourcePath, destPath);
           }
@@ -313,13 +320,14 @@ class LoopReplayRunner {
    * Verifies database records, physical presence on disk, and file names in workflow downloads folder.
    * Also evaluates Due Date / Days Old if itemFields are provided.
    */
-  checkIfAlreadyDownloaded(itemKey, invoiceNumber = null, itemFields = {}) {
-    if (!itemKey && !invoiceNumber) return { isDuplicate: false };
+  checkIfAlreadyDownloaded(itemKey, invoiceNumber = null, itemFields = {}, contentHash = null) {
+    if (!itemKey && !invoiceNumber && !contentHash) return { isDuplicate: false };
 
     // 1. Database check
     if (this.workflowId) {
       const records = db.find('downloads', d =>
         d.workflowId === this.workflowId && (
+          (contentHash && d.fileHash === contentHash) ||
           (itemKey && d.itemKey === itemKey) ||
           (d.itemLabel && d.itemLabel === itemKey) ||
           (invoiceNumber && (
@@ -2438,6 +2446,14 @@ class LoopReplayRunner {
             i === resumePageItemIndex &&
             resumeItemIndex != null;
 
+          this._activeItemContext = {
+            itemKey: itemIdentifier.itemKey,
+            itemLabel: itemIdentifier.itemLabel,
+            fields: targetItem.fields || {},
+            invoiceNumber: itemIdentifier.invoiceNumber,
+            index: i
+          };
+
           const itemResult = isResumingCurrentItem && checkpoint.activeItem
             ? { ...checkpoint.activeItem, status: 'PENDING', error: null }
             : {
@@ -2610,6 +2626,23 @@ class LoopReplayRunner {
 
                 // Allow the complete per-item procedure to settle before restoring state.
                 await new Promise(r => setTimeout(r, 800));
+
+                // Check if any download arrived for this item (e.g. late export/save response)
+                if (this.downloadsDir && fs.existsSync(this.downloadsDir)) {
+                  try {
+                    const pendingFiles = fs.readdirSync(this.downloadsDir)
+                      .filter(f => !f.endsWith('.crdownload') && !f.endsWith('.tmp'));
+                    for (const f of pendingFiles) {
+                      const rawPath = path.join(this.downloadsDir, f);
+                      const organized = this.processAndStoreDownload(rawPath, itemIdentifier.itemKey, itemIdentifier.itemLabel, targetItem.fields || {});
+                      if (organized) {
+                        itemResult.downloadedFiles = itemResult.downloadedFiles || [];
+                        itemResult.downloadedFiles.push(organized);
+                        try { fs.unlinkSync(rawPath); } catch {}
+                      }
+                    }
+                  } catch {}
+                }
 
                 // Close only auxiliary tabs opened by item actions (e.g. target="_blank" download links)
                 // NEVER close the dashboard tab or pre-existing tabs
@@ -2820,11 +2853,18 @@ class LoopReplayRunner {
           .filter(file => !file.endsWith('.crdownload') && !file.endsWith('.tmp'));
         manifest.downloadedFiles = files.map(file => {
           const rawPath = path.join(this.downloadsDir, file);
-          const stored = this.processAndStoreDownload(rawPath);
+          const fallbackContext = this._activeItemContext || null;
+          const stored = this.processAndStoreDownload(
+            rawPath,
+            fallbackContext?.itemKey || null,
+            fallbackContext?.itemLabel || null,
+            fallbackContext?.fields || {}
+          );
+          try { fs.unlinkSync(rawPath); } catch {}
           return stored || {
             filename: file,
             path: rawPath,
-            sizeBytes: fs.statSync(rawPath).size
+            sizeBytes: fs.existsSync(rawPath) ? fs.statSync(rawPath).size : 0
           };
         });
       }

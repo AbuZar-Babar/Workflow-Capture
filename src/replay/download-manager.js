@@ -13,6 +13,8 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+const zlib = require('zlib');
 const logger = require('../utils/logger');
 const { db } = require('../database/db');
 
@@ -170,10 +172,71 @@ class DownloadManager {
   }
 
   /**
+   * Determine if a filename is a generic reporting or default export name
+   * (e.g. InvoiceMainReport.pdf, report.pdf, export.pdf)
+   */
+  isGenericFilename(filename = '') {
+    const raw = String(filename || '').trim();
+    const ext = path.extname(raw);
+    const base = path.basename(raw, ext);
+    return /^(invoicemainreport|mainreport|report|export|download|document|viewer|print|default|statement|invoice|invoices)(\s*\(\d+\))?$/i.test(base);
+  }
+
+  /**
+   * Extract document metadata and text from file buffer (PDF streams / raw text)
+   * to discover document numbers and compute content hash.
+   */
+  extractDocMetadataFromFile(sourcePathOrBuffer) {
+    if (!sourcePathOrBuffer) return { docId: null, dateStr: null, fileHash: null };
+    try {
+      const buf = Buffer.isBuffer(sourcePathOrBuffer)
+        ? sourcePathOrBuffer
+        : (fs.existsSync(sourcePathOrBuffer) ? fs.readFileSync(sourcePathOrBuffer) : null);
+      if (!buf || !buf.length) return { docId: null, dateStr: null, fileHash: null };
+
+      const fileHash = crypto.createHash('sha256').update(buf).digest('hex');
+      const rawStr = buf.toString('latin1');
+      const docIdRegex = /\b((?:SI|INV|DR|TX|CM)-\d+(?:[-_]\w+)*|\b\d{5,10}\b)/gi;
+
+      let match = docIdRegex.exec(rawStr);
+      if (match) {
+        return { docId: match[1].toUpperCase(), dateStr: null, fileHash };
+      }
+
+      // Check uncompressed/inflated streams in PDF
+      if (rawStr.startsWith('%PDF')) {
+        const zlib = require('zlib');
+        let offset = 0;
+        while (true) {
+          const streamIdx = buf.indexOf('stream', offset);
+          if (streamIdx === -1) break;
+          let start = streamIdx + 6;
+          while (buf[start] === 13 || buf[start] === 10) start++;
+          const endIdx = buf.indexOf('endstream', start);
+          if (endIdx === -1) break;
+          try {
+            const unzipped = zlib.inflateSync(buf.slice(start, endIdx)).toString('latin1');
+            docIdRegex.lastIndex = 0;
+            match = docIdRegex.exec(unzipped);
+            if (match) {
+              return { docId: match[1].toUpperCase(), dateStr: null, fileHash };
+            }
+          } catch {}
+          offset = endIdx + 9;
+        }
+      }
+
+      return { docId: null, dateStr: null, fileHash };
+    } catch {
+      return { docId: null, dateStr: null, fileHash: null };
+    }
+  }
+
+  /**
    * Format meaningful artifact filename from item fields:
    * e.g. INV-10234_ACME_2026-09-30.pdf, PAY-88321_2026-09-30.pdf
    */
-  formatItemFilename(originalFilename = '', itemFields = {}, fallbackItemKey = '') {
+  formatItemFilename(originalFilename = '', itemFields = {}, fallbackItemKey = '', sourcePathOrBuffer = null) {
     const raw = String(originalFilename || '').trim();
     const ext = path.extname(raw) || '.pdf';
     const base = path.basename(raw, ext);
@@ -244,13 +307,42 @@ class DownloadManager {
       dateStr = this.runTimestamp.split('_')[0] || new Date().toISOString().split('T')[0];
     }
 
-    // 4. Assemble clean structured filename
+    // 4. If docId still missing and filename is generic, attempt in-file inspection
+    let fileHash = null;
+    if (!docId && sourcePathOrBuffer) {
+      const extracted = this.extractDocMetadataFromFile(sourcePathOrBuffer);
+      if (extracted.docId) {
+        docId = extracted.docId;
+      }
+      fileHash = extracted.fileHash;
+    }
+
+    // 5. Assemble clean structured filename
     if (docId) {
       const cleanDocId = docId.replace(/[^a-zA-Z0-9_-]/g, '').toUpperCase();
       if (customer) {
         return `${cleanDocId}_${customer}_${dateStr}${ext}`;
       } else {
         return `${cleanDocId}_${dateStr}${ext}`;
+      }
+    }
+
+    // 6. Generic filename differentiation:
+    // If the filename is generic (e.g. InvoiceMainReport.pdf) and inside is different,
+    // append short content hash so distinct files never overwrite each other
+    if (this.isGenericFilename(raw)) {
+      if (!fileHash && sourcePathOrBuffer) {
+        try {
+          const buf = Buffer.isBuffer(sourcePathOrBuffer)
+            ? sourcePathOrBuffer
+            : (fs.existsSync(sourcePathOrBuffer) ? fs.readFileSync(sourcePathOrBuffer) : null);
+          if (buf) {
+            fileHash = crypto.createHash('sha256').update(buf).digest('hex');
+          }
+        } catch {}
+      }
+      if (fileHash) {
+        return `${base}_${fileHash.substring(0, 8)}${ext}`;
       }
     }
 
@@ -267,16 +359,38 @@ class DownloadManager {
     const originalFilename = path.basename(sourcePath);
     if (originalFilename.endsWith('.crdownload') || originalFilename.endsWith('.tmp')) return null;
 
+    const fileBuffer = fs.readFileSync(sourcePath);
+    const fileHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+
     const category = this.inferCategory(originalFilename, itemFields);
-    const targetFilename = this.formatItemFilename(originalFilename, itemFields, itemKey);
+    let targetFilename = this.formatItemFilename(originalFilename, itemFields, itemKey, fileBuffer);
     const categoryDir = path.join(this.runDomainDir, category);
 
     if (!fs.existsSync(categoryDir)) {
       fs.mkdirSync(categoryDir, { recursive: true });
     }
 
-    const destPath = path.join(categoryDir, targetFilename);
-    fs.copyFileSync(sourcePath, destPath);
+    let destPath = path.join(categoryDir, targetFilename);
+
+    // Collision check: if a file already exists at destPath:
+    if (fs.existsSync(destPath)) {
+      try {
+        const existingBuf = fs.readFileSync(destPath);
+        const existingHash = crypto.createHash('sha256').update(existingBuf).digest('hex');
+        if (existingHash !== fileHash) {
+          // Inside content is DIFFERENT! Never overwrite.
+          const ext = path.extname(targetFilename);
+          const base = path.basename(targetFilename, ext);
+          targetFilename = `${base}_${fileHash.substring(0, 8)}${ext}`;
+          destPath = path.join(categoryDir, targetFilename);
+          fs.copyFileSync(sourcePath, destPath);
+        }
+      } catch {
+        fs.copyFileSync(sourcePath, destPath);
+      }
+    } else {
+      fs.copyFileSync(sourcePath, destPath);
+    }
 
     const relativeRunPath = path.relative(process.cwd(), destPath).replace(/\\/g, '/');
 
@@ -285,7 +399,8 @@ class DownloadManager {
       category,
       categoryDir,
       fullPath: destPath,
-      relativeRunPath
+      relativeRunPath,
+      fileHash
     };
   }
 

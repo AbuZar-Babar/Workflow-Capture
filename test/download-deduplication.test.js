@@ -30,8 +30,20 @@ function cleanup() {
   if (fs.existsSync(testRunDir)) {
     fs.rmSync(testRunDir, { recursive: true, force: true });
   }
+  const testGenericRunDir = path.resolve(process.cwd(), 'Run', '2026-10-02_09-99-99');
+  if (fs.existsSync(testGenericRunDir)) {
+    fs.rmSync(testGenericRunDir, { recursive: true, force: true });
+  }
+  const testGenericWf = path.resolve(process.cwd(), 'downloads', 'citymart-generic-flow');
+  if (fs.existsSync(testGenericWf)) {
+    fs.rmSync(testGenericWf, { recursive: true, force: true });
+  }
   if (db && db.state && Array.isArray(db.state.downloads)) {
-    db.state.downloads = db.state.downloads.filter(d => d.workflowId !== 'wf_city_mart_999' && d.workflowId !== 'wf_oil_portal_123');
+    db.state.downloads = db.state.downloads.filter(d =>
+      d.workflowId !== 'wf_city_mart_999' &&
+      d.workflowId !== 'wf_oil_portal_123' &&
+      d.workflowId !== 'wf_citymart_generic'
+    );
     db.save();
   }
 }
@@ -279,6 +291,59 @@ async function runTests() {
     assert(fs.existsSync(path.resolve(process.cwd(), storedPayment.runPath)), 'File must exist in Run/ hierarchy');
 
     console.log('  ✅ Run/<timestamp>/<domain>/<Category>/<filename> hierarchy passed\n');
+
+    // -------------------------------------------------------------
+    // Test 10: Generic filename differentiation (InvoiceMainReport.pdf)
+    // -------------------------------------------------------------
+    console.log('🔹 Test 10: Generic filename differentiation (InvoiceMainReport.pdf)');
+    const genericRunner = new LoopReplayRunner({
+      runId: 'run_test_generic_diff',
+      workflowId: 'wf_citymart_generic',
+      workflowName: 'Citymart Generic Flow',
+      targetUrl: 'https://citymart.i21web.com/iRelyProd/login#home',
+      startedAt: '2026-10-02_09-99-99'
+    });
+    genericRunner.initDirectories();
+
+    // 10a: First invoice downloads as InvoiceMainReport.pdf with fields
+    const file1Path = path.join(genericRunner.downloadsDir, 'InvoiceMainReport.pdf');
+    fs.writeFileSync(file1Path, 'PDF content invoice 1 DR-1468-260921182926', 'utf8');
+    const stored1 = genericRunner.processAndStoreDownload(
+      file1Path,
+      'invoice:DR-1468-260921182926',
+      'DR-1468-260921182926 (Invoice)',
+      { 'Invoice Number': 'DR-1468-260921182926', 'Type': 'Invoice', 'Date': '2026-09-21' }
+    );
+    assert.strictEqual(stored1.filename, 'DR-1468-260921182926_2026-09-21.pdf');
+    assert(fs.existsSync(stored1.path));
+
+    // 10b: Second invoice downloads also as InvoiceMainReport.pdf, but content is DIFFERENT (different invoice inside)
+    fs.writeFileSync(file1Path, 'PDF content invoice 2 DR-1468-26091913502 - totally different inside', 'utf8');
+    const stored2 = genericRunner.processAndStoreDownload(
+      file1Path,
+      'invoice:DR-1468-26091913502',
+      'DR-1468-26091913502 (Invoice)',
+      { 'Invoice Number': 'DR-1468-26091913502', 'Type': 'Invoice', 'Date': '2026-09-19' }
+    );
+    assert.strictEqual(stored2.filename, 'DR-1468-26091913502_2026-09-19.pdf');
+    assert.notStrictEqual(stored1.fileHash, stored2.fileHash);
+    assert(fs.existsSync(stored2.path));
+    assert(fs.existsSync(stored1.path), 'Previous invoice file must not be overwritten');
+
+    // 10c: Third download arrives late without explicit item context, but with generic filename
+    fs.writeFileSync(file1Path, 'PDF content invoice 3 completely unassociated with item context', 'utf8');
+    const stored3 = genericRunner.processAndStoreDownload(file1Path);
+    assert(stored3.filename.startsWith('InvoiceMainReport_'), 'Must be disambiguated with content hash');
+    assert.notStrictEqual(stored3.fileHash, stored2.fileHash);
+
+    // 10d: Check deduplication recognizes content difference
+    const dedupeDiff = genericRunner.checkIfAlreadyDownloaded('invoice:DR-99999', null, {}, 'unknown_hash_123');
+    assert.strictEqual(dedupeDiff.isDuplicate, false, 'Different content hash must not be marked as duplicate');
+
+    const dedupeSame = genericRunner.checkIfAlreadyDownloaded(null, null, {}, stored1.fileHash);
+    assert.strictEqual(dedupeSame.isDuplicate, true, 'Matching content hash must be recognized as duplicate');
+
+    console.log('  ✅ Generic filename differentiation passed\n');
 
     console.log('🎉 ALL DOWNLOAD ORGANIZATION & DEDUPLICATION TESTS PASSED SUCCESSFULLY!\n');
   } finally {

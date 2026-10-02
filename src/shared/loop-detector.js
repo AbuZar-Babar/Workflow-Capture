@@ -46,13 +46,13 @@ class LoopDetector {
       };
     }
 
-    // 1. Table Row Detection (<tr>, <td>, <th>, [role="row"], [role="gridcell"])
+    // 1. Table Row & Data Grid Detection (<tr>, <td>, <th>, [role="row"], [role="gridcell"], .row, .grid-row)
     if (
-      /(tr:nth-(?:child|of-type)|tbody\s*>\s*tr|\btr\b|x-grid-row|dxgvDataRow)/i.test(cssPath) ||
+      /(tr:nth-(?:child|of-type)|tbody\s*>\s*tr|\btr\b|\[role=["']row["']\]|\[role=["']gridcell["']\]|\b(data-row|table-row|grid-row)\b)/i.test(cssPath) ||
       parentTag === 'tr' || parentTag === 'td' || tagName === 'tr' || tagName === 'td' ||
       role === 'row' || role === 'gridcell'
     ) {
-      const tableMatch = cssPath.match(/(.*?tr)(?::(?:nth-child|nth-of-type)\(\d+\))?(.*)/i);
+      const tableMatch = cssPath.match(/(.*?(?:tr|\[role=["']row["']\]|\.data-row|\.grid-row))(?::(?:nth-child|nth-of-type)\(\d+\))?(.*)/i);
       if (tableMatch) {
         const containerSelector = tableMatch[1].replace(/:(?:nth-child|nth-of-type)\(\d+\)/g, '').trim();
         const relativeSelector = tableMatch[2].replace(/^(\s*>\s*)+/, '').trim() || null;
@@ -60,11 +60,11 @@ class LoopDetector {
           isLoopCandidate: true,
           patternType: 'table-row',
           role: 'LOOP',
-          containerSelector: containerSelector || 'table tbody tr',
+          containerSelector: containerSelector || 'table tbody tr, [role="row"]',
           relativeSelector: relativeSelector || '*',
           originalCssPath: cssPath,
           fingerprint,
-          description: 'Repeated action across table rows'
+          description: 'Repeated action across table rows or data grid records'
         };
       }
 
@@ -72,7 +72,7 @@ class LoopDetector {
         isLoopCandidate: true,
         patternType: 'table-row',
         role: 'LOOP',
-        containerSelector: 'table tbody tr, [role="grid"] [role="row"]',
+        containerSelector: 'table tbody tr, [role="grid"] [role="row"], [role="row"]',
         relativeSelector: '*',
         originalCssPath: cssPath,
         fingerprint,
@@ -80,27 +80,50 @@ class LoopDetector {
       };
     }
 
-    // 2. Dropdown Option Detection (mat-option, [role="option"], mat-pseudo-checkbox)
+    // 2. Dropdown Option Detection (mat-option, [role="option"], select > option, mat-pseudo-checkbox)
     if (
       tagName === 'mat-option' ||
       parentTag === 'mat-option' ||
       tagName === 'mat-pseudo-checkbox' ||
+      tagName === 'option' ||
       role === 'option' ||
-      /(mat-option|\[role="option"\]|mat-pseudo-checkbox|\.mat-mdc-option)/i.test(cssPath)
+      /(mat-option|\[role=["']option["']\]|select\s*>\s*option|\.mat-mdc-option)/i.test(cssPath)
     ) {
       return {
         isLoopCandidate: true,
         patternType: 'dropdown-option',
         role: 'LOOP',
-        containerSelector: 'div[role="listbox"], mat-select, .cdk-overlay-pane',
-        relativeSelector: 'mat-option, [role="option"]',
+        containerSelector: 'div[role="listbox"], mat-select, select, .cdk-overlay-pane',
+        relativeSelector: 'mat-option, [role="option"], option',
         originalCssPath: cssPath,
         fingerprint,
-        description: 'Repeated action across dropdown option checkboxes'
+        description: 'Repeated action across dropdown option items'
       };
     }
 
-    // 3. Ordered/Unordered List Items (<ul> / <ol> -> <li>, [role="listitem"])
+    // 3. Checkbox & Radio Repeating List Detection
+    const isCheckbox = tagName === 'input' && (fingerprint.type === 'checkbox' || fingerprint.attributes?.type === 'checkbox') ||
+      role === 'checkbox' || (/\bcheckbox\b/i.test(cssPath) && !/\bmat-option\b/i.test(cssPath));
+    const isRadio = tagName === 'input' && (fingerprint.type === 'radio' || fingerprint.attributes?.type === 'radio') ||
+      role === 'radio';
+
+    if (isCheckbox || isRadio) {
+      const pType = isCheckbox ? 'checkbox-list' : 'radio-group';
+      const parts = cssPath.split(/:(?:nth-child|nth-of-type)\(\d+\)/i);
+      const containerSelector = parts.length >= 2 ? parts[0].trim() : 'form, fieldset, div, ul';
+      return {
+        isLoopCandidate: true,
+        patternType: pType,
+        role: 'LOOP',
+        containerSelector,
+        relativeSelector: isCheckbox ? 'input[type="checkbox"], [role="checkbox"]' : 'input[type="radio"], [role="radio"]',
+        originalCssPath: cssPath,
+        fingerprint,
+        description: `Repeated action across ${isCheckbox ? 'checkbox items' : 'radio options'}`
+      };
+    }
+
+    // 4. Ordered/Unordered List Items (<ul> / <ol> -> <li>, [role="listitem"])
     if (
       /(li:nth-(?:child|of-type)|[uo]l\s*>\s*li)/i.test(cssPath) ||
       parentTag === 'li' || tagName === 'li' || role === 'listitem'
@@ -133,10 +156,10 @@ class LoopDetector {
       };
     }
 
-    // 4. Repeating Card or Grid Containers (.item, .card, [data-item-id], [data-testid*="item"])
+    // 5. Repeating Card, Tile, or Flex/Grid Containers (.item, .card, [data-item-id], [data-testid*="item"])
     if (
       /:(?:nth-child|nth-of-type)\(\d+\)/i.test(cssPath) ||
-      /\b(card|grid-item|card-item|product-item|document-card|data-card)\b/i.test(cssPath) ||
+      /\b(card|grid-item|card-item|product-item|document-card|data-card|item-row)\b/i.test(cssPath) ||
       role === 'article'
     ) {
       const parts = cssPath.split(/:(?:nth-child|nth-of-type)\(\d+\)/i);
@@ -204,14 +227,14 @@ class LoopDetector {
     }
 
     // 3. Navigation class names & UI patterns
-    if (/\b(navbar|nav-tabs|nav-item|nav-link|top-bar|app-bar|sidebar-nav|sidebar|site-header|main-nav|page-header|pager|header-nav|menu-item|menu-link|i21-menu-link|x-menu|x-tree|mat-list-item)\b/i.test(combined) ||
-        /(#menu-|\.x-menu|\.menu\b|nav\s*>\s*ul|sidebar\s*>\s*ul|\/menu-|\bmenu-\d+)/i.test(cssPath) ||
+    if (/\b(navbar|nav-tabs|nav-item|nav-link|top-bar|app-bar|sidebar-nav|sidebar|site-header|main-nav|page-header|pager|header-nav|menu-item|menu-link|mat-list-item)\b/i.test(combined) ||
+        /(#menu-|\.menu\b|nav\s*>\s*ul|sidebar\s*>\s*ul|\/menu-|\bmenu-\d+)/i.test(cssPath) ||
         /(^|#|\b)menu-\d+/i.test(fingerprint.id || '')) {
       return true;
     }
 
     // 4. Form inputs that are not repetitive data records (e.g. login username/password fields)
-    if (/(form\s*>\s*div.*input|input\[type=(?:password|email|text)\])/i.test(combined)) {
+    if (/(form\s*>\s*div.*input|input\[type=(?:password|email)\])/i.test(combined)) {
       return true;
     }
 
@@ -241,14 +264,14 @@ class LoopDetector {
       }
     }
 
-    // 2. Prioritize Data Table Rows and Dropdown Options (Primary batch processing targets)
+    // 2. Prioritize Data Table Rows, Checkbox Lists, Radio Groups, and Dropdown Options
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
       if (!step || step.role === 'SETUP') continue;
 
       const analysis = this.analyzeStep(step);
       if (analysis && analysis.isLoopCandidate && !analysis.isNavigationOrChrome) {
-        if (analysis.patternType === 'table-row' || analysis.patternType === 'dropdown-option') {
+        if (['table-row', 'checkbox-list', 'radio-group', 'dropdown-option'].includes(analysis.patternType)) {
           return i;
         }
       }
