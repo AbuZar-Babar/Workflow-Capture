@@ -213,10 +213,13 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
   if (typeof paginate === 'boolean') {
     workflow.pagination = { ...(workflow.pagination || {}), enabled: paginate };
   }
+  const targetUrl = workflow.targetUrl || workflow.startUrl || (workflow.steps && workflow.steps[0] && workflow.steps[0].url) || '';
   const runner = new LoopReplayRunner({
     runId,
     workflowId: workflow.id,
     workflowName: workflow.name || workflow.id,
+    targetUrl,
+    portalUrl: targetUrl,
     userId,
     forceRedownload: itemMode === 'all' || !!forceRedownload,
     itemMode,

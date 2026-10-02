@@ -258,54 +258,44 @@ async function executeClick(elementHandle, action, options = {}) {
   );
 
   let clicked = false;
-  if (isLikelyDownloadOrExport) {
-    // For download and export icons (e.g. DevExpress Report Viewer save), use async dispatch
-    // to avoid CDP evaluation hanging while waiting for browser download network handshake
-    try {
-      await Promise.race([
-        clickTarget.evaluate((el) => {
-          setTimeout(() => {
-            el.focus?.();
-            el.click?.();
-            const parentItem = el.closest && el.closest('.dxm-item');
-            if (parentItem && parentItem !== el) {
-              parentItem.click?.();
-            }
-          }, 0);
-        }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 800))
-      ]).catch(() => {});
+  try {
+    // Primary: Trusted Puppeteer CDP click with timeout guard (2500ms) against download hangs.
+    // Dispatches authentic OS-level mouse events providing Chrome transient user activation.
+    await Promise.race([
+      clickTarget.click({ delay: 35 }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Click timeout (likely download trigger)')), 2500))
+    ]);
+    clicked = true;
+  } catch (err) {
+    if (err.message && err.message.includes('Click timeout')) {
+      logger.info(`[Replay] Native CDP click initiated download stream on ${action.name || 'element'}.`);
       clicked = true;
-      logger.info(`[Replay] Dispatched export/download click directly on element.`);
-    } catch {}
+    }
   }
 
-  if (!clicked) {
+  // Supplementary / Fallback: If not clicked or if targeting DevExpress/framework export buttons,
+  // also fire synchronous DOM events on the element and any parent toolbar item (.dxm-item, button, .x-btn)
+  if (!clicked || isLikelyDownloadOrExport) {
     try {
-      // Primary: Trusted Puppeteer CDP click with timeout guard against download hangs
-      await Promise.race([
-        clickTarget.click({ delay: 35 }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Click timeout (likely download trigger)')), 2500))
-      ]);
-    } catch (err) {
-      try {
-        // Fallback: Clean DOM click with DevExpress, ExtJS, and framework button support
-        await clickTarget.evaluate((el) => {
-          el.focus?.();
+      await clickTarget.evaluate((el, alreadyClicked) => {
+        el.focus?.();
+        if (!alreadyClicked) {
           el.click?.();
-          const parentBtn = el.closest && el.closest('button, a, [role="button"], .x-btn, .dxm-item');
-          if (parentBtn && parentBtn !== el) {
-            parentBtn.focus?.();
-            parentBtn.click?.();
-          }
-          try {
-            el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
-            el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
-            el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-          } catch {}
-        });
-      } catch (fallbackErr) {
-        throw new ActionExecutionError(`Failed to click element: ${err.message}`, {
+        }
+        const parentBtn = el.closest && el.closest('button, a, [role="button"], .x-btn, .dxm-item');
+        if (parentBtn && parentBtn !== el) {
+          parentBtn.focus?.();
+          parentBtn.click?.();
+        }
+        try {
+          el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+          el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+          el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+        } catch {}
+      }, clicked);
+    } catch (fallbackErr) {
+      if (!clicked) {
+        throw new ActionExecutionError(`Failed to click element: ${fallbackErr.message}`, {
           actionIndex: action.index,
           actionType: action.type,
           originalError: fallbackErr

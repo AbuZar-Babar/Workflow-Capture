@@ -236,11 +236,24 @@ class ReplayEngine extends EventEmitter {
     try {
       const downloadDir = path.resolve(process.cwd(), 'downloads');
       if (!fs.existsSync(downloadDir)) fs.mkdirSync(downloadDir, { recursive: true });
+      if (this.browser) {
+        try {
+          const browserTarget = (typeof this.browser.targets === 'function' ? this.browser.targets().find(t => t.type() === 'browser') : null) || (typeof this.browser.target === 'function' ? this.browser.target() : null);
+          if (browserTarget && typeof browserTarget.createCDPSession === 'function') {
+            const browserClient = await browserTarget.createCDPSession();
+            await browserClient.send('Browser.setDownloadBehavior', {
+              behavior: 'allow',
+              downloadPath: downloadDir,
+              eventsEnabled: true
+            }).catch(() => {});
+          }
+        } catch {}
+      }
       const client = await this.page.target().createCDPSession();
       await client.send('Page.setDownloadBehavior', {
         behavior: 'allow',
         downloadPath: downloadDir
-      });
+      }).catch(() => {});
     } catch {}
 
     if (this.enableDisturbanceDetection) {

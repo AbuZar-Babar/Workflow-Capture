@@ -1081,16 +1081,22 @@ class LoopReplayRunner {
 
   /**
    * Wait for a new completed download in this run's download directory.
+   * Also checks OS user Downloads directory as a fallback if the browser
+   * bypassed CDP redirection.
    */
-  async waitForDownload(previousFiles = [], timeoutMs = 10000) {
+  async waitForDownload(previousSnapshot = [], timeoutMs = 10000) {
     const startedAt = Date.now();
-    const previous = new Set(previousFiles);
+    const previousRun = new Set(Array.isArray(previousSnapshot) ? previousSnapshot : (previousSnapshot.runFiles || []));
+    const previousOs = new Set(Array.isArray(previousSnapshot) ? [] : (previousSnapshot.osFiles || []));
+    const osDownloadsDir = path.join(require('os').homedir(), 'Downloads');
     let effectiveTimeoutMs = timeoutMs;
+
     while (Date.now() - startedAt < effectiveTimeoutMs) {
+      // 1. Check primary isolated execution downloads directory
       const files = fs.existsSync(this.downloadsDir)
         ? fs.readdirSync(this.downloadsDir)
         : [];
-      const candidates = files.filter(file => !previous.has(file) && !file.endsWith('.crdownload') && !file.endsWith('.tmp'));
+      const candidates = files.filter(file => !previousRun.has(file) && !file.endsWith('.crdownload') && !file.endsWith('.tmp') && !file.endsWith('.download'));
       if (candidates.length) {
         return candidates.map(filename => ({
           filename,
@@ -1100,9 +1106,55 @@ class LoopReplayRunner {
       }
 
       // If a .crdownload file is active that was not there before, extend timeout to let it finish
-      const inFlightCr = files.filter(file => !previous.has(file) && file.endsWith('.crdownload'));
+      const inFlightCr = files.filter(file => !previousRun.has(file) && (file.endsWith('.crdownload') || file.endsWith('.download') || file.endsWith('.tmp')));
       if (inFlightCr.length && effectiveTimeoutMs < 45000) {
         effectiveTimeoutMs = 45000;
+      }
+
+      // 2. Fallback: Check if browser routed the download to OS default ~/Downloads
+      if (fs.existsSync(osDownloadsDir)) {
+        let currentOsFiles = [];
+        try {
+          currentOsFiles = fs.readdirSync(osDownloadsDir);
+        } catch {
+          currentOsFiles = [];
+        }
+
+        const inFlightOs = currentOsFiles.filter(file => !previousOs.has(file) && (file.endsWith('.crdownload') || file.endsWith('.download') || file.endsWith('.tmp')));
+        if (inFlightOs.length && effectiveTimeoutMs < 45000) {
+          effectiveTimeoutMs = 45000;
+        }
+
+        const newOsCompleted = currentOsFiles.filter(file =>
+          !previousOs.has(file) &&
+          !file.endsWith('.crdownload') &&
+          !file.endsWith('.tmp') &&
+          !file.endsWith('.download')
+        );
+
+        if (newOsCompleted.length > 0) {
+          const copied = [];
+          for (const osFile of newOsCompleted) {
+            const osFilePath = path.join(osDownloadsDir, osFile);
+            try {
+              const stats = fs.statSync(osFilePath);
+              if (stats.size > 0 && stats.mtimeMs >= startedAt - 2500) {
+                this.initDirectories();
+                const targetPath = path.join(this.downloadsDir, osFile);
+                fs.copyFileSync(osFilePath, targetPath);
+                copied.push({
+                  filename: osFile,
+                  path: targetPath,
+                  sizeBytes: stats.size
+                });
+                logger.info(`[Runner] Captured download from OS downloads folder: "${osFile}" (${stats.size} bytes)`);
+              }
+            } catch {}
+          }
+          if (copied.length > 0) {
+            return copied;
+          }
+        }
       }
 
       await new Promise(resolve => setTimeout(resolve, 250));
@@ -1111,9 +1163,21 @@ class LoopReplayRunner {
   }
 
   snapshotDownloadedFiles() {
-    return fs.existsSync(this.downloadsDir)
+    const runFiles = fs.existsSync(this.downloadsDir)
       ? fs.readdirSync(this.downloadsDir).filter(file => !file.endsWith('.crdownload') && !file.endsWith('.tmp'))
       : [];
+    let osFiles = [];
+    try {
+      const osDownloadsDir = path.join(require('os').homedir(), 'Downloads');
+      if (fs.existsSync(osDownloadsDir)) {
+        osFiles = fs.readdirSync(osDownloadsDir).filter(file => !file.endsWith('.crdownload') && !file.endsWith('.tmp'));
+      }
+    } catch {}
+    return {
+      runFiles,
+      osFiles,
+      timestamp: Date.now()
+    };
   }
 
   writeLoopCheckpoint(
@@ -1219,6 +1283,25 @@ class LoopReplayRunner {
     };
 
     try {
+      // 1. Browser-level global download configuration across all frames & windows
+      if (page.browser) {
+        const browser = page.browser();
+        try {
+          const browserTarget = (typeof browser.targets === 'function' ? browser.targets().find(t => t.type() === 'browser') : null) || (typeof browser.target === 'function' ? browser.target() : null);
+          if (browserTarget && typeof browserTarget.createCDPSession === 'function') {
+            const browserClient = await browserTarget.createCDPSession();
+            await browserClient.send('Browser.setDownloadBehavior', {
+              behavior: 'allow',
+              downloadPath: this.downloadsDir,
+              eventsEnabled: true
+            }).catch(() => { });
+            logger.info(`[Runner] Configured browser-level CDP download path: ${this.downloadsDir}`);
+          }
+        } catch (bErr) {
+          logger.warn(`[Runner] Note on Browser.setDownloadBehavior: ${bErr.message}`);
+        }
+      }
+
       const client = await configureTarget(page.target());
       logger.info(`[Runner] Configured CDP download path: ${this.downloadsDir}`);
 
@@ -1586,6 +1669,28 @@ class LoopReplayRunner {
    * @param {function} onProgress - Progress callback for live updates
    */
   async executeStandard(workflow, onProgress = () => { }) {
+    if (workflow) {
+      const targetUrl = workflow.targetUrl || workflow.startUrl || (workflow.steps && workflow.steps[0] && workflow.steps[0].url) || '';
+      if (targetUrl && (!this.portalDomain || this.portalDomain === 'customerportal.usoil.com')) {
+        let extractedDomain = '';
+        try {
+          const u = new URL(targetUrl.startsWith('http') ? targetUrl : `https://${targetUrl}`);
+          extractedDomain = u.hostname;
+        } catch {
+          extractedDomain = targetUrl.replace(/https?:\/\//, '').split('/')[0];
+        }
+        if (extractedDomain) {
+          this.portalDomain = extractedDomain;
+          if (this.downloadManager) {
+            this.downloadManager.portalDomain = extractedDomain;
+            this.downloadManager.runDomainDir = path.resolve(this.downloadManager.runTimestampDir, extractedDomain);
+            if (!fs.existsSync(this.downloadManager.runDomainDir)) {
+              fs.mkdirSync(this.downloadManager.runDomainDir, { recursive: true });
+            }
+          }
+        }
+      }
+    }
     this.initDirectories();
     const steps = workflow.steps || (workflow.recordingData && workflow.recordingData.actions) || workflow.actions || [];
     const manifest = {
@@ -1782,6 +1887,27 @@ class LoopReplayRunner {
       this.workflowSlug = rawSlug.replace(/[^a-z0-9_-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'workflow';
       this.workflowDownloadsBaseDir = path.resolve(process.cwd(), 'downloads', this.workflowSlug);
       this.structuredDownloadsDir = path.resolve(this.workflowDownloadsBaseDir, this.dateStr);
+
+      const targetUrl = workflow.targetUrl || workflow.startUrl || (workflow.steps && workflow.steps[0] && workflow.steps[0].url) || '';
+      if (targetUrl && (!this.portalDomain || this.portalDomain === 'customerportal.usoil.com')) {
+        let extractedDomain = '';
+        try {
+          const u = new URL(targetUrl.startsWith('http') ? targetUrl : `https://${targetUrl}`);
+          extractedDomain = u.hostname;
+        } catch {
+          extractedDomain = targetUrl.replace(/https?:\/\//, '').split('/')[0];
+        }
+        if (extractedDomain) {
+          this.portalDomain = extractedDomain;
+          if (this.downloadManager) {
+            this.downloadManager.portalDomain = extractedDomain;
+            this.downloadManager.runDomainDir = path.resolve(this.downloadManager.runTimestampDir, extractedDomain);
+            if (!fs.existsSync(this.downloadManager.runDomainDir)) {
+              fs.mkdirSync(this.downloadManager.runDomainDir, { recursive: true });
+            }
+          }
+        }
+      }
     }
     this.initDirectories();
     const manifest = {
