@@ -163,14 +163,24 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
       loopStepIndex = candidateIdx >= 0 ? candidateIdx : 0;
     }
   } else if (workflow.mode === 'LOOP' && Number.isInteger(workflow.loopStepIndex) && workflow.loopStepIndex >= 0) {
-    // Workflow was explicitly saved in workflow editor in LOOP mode
+    // Workflow was configured in LOOP mode
+    isLoop = true;
+    loopStepIndex = workflow.loopStepIndex;
+  } else if (workflow.isLoop === true && Number.isInteger(workflow.loopStepIndex) && workflow.loopStepIndex >= 0) {
+    // Workflow metadata flagged as loop
     isLoop = true;
     loopStepIndex = workflow.loopStepIndex;
   } else {
-    // Default for newly recorded workflows or unconfigured workflows:
-    // Run as-is as a macro (STANDARD execution)
-    isLoop = false;
-    loopStepIndex = null;
+    // Automatic loop understanding: analyze steps dynamically
+    const autoAnalysis = LoopDetector.analyzeWorkflow(steps);
+    if (autoAnalysis.isLoop && autoAnalysis.loopStepIndex >= 0) {
+      isLoop = true;
+      loopStepIndex = autoAnalysis.loopStepIndex;
+      logger.info(`[RunController] Automatically identified loop structure (${autoAnalysis.patternType}) starting at step #${loopStepIndex + 1} with ${autoAnalysis.confidence}% confidence.`);
+    } else {
+      isLoop = false;
+      loopStepIndex = null;
+    }
   }
   const rawFilter = body.itemFilter || body.rowFilter || (body.filterValue ? { column: body.filterColumn || 'Type', value: body.filterValue } : null);
   const rowFilter = (rawFilter && (rawFilter.value || rawFilter.text) && rawFilter.value !== '__any__' && rawFilter.value !== 'all') ? rawFilter : legacyRowFilter;

@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const { connectToBrowser } = require('../utils/cdp-connector');
 const SelectorResolver = require('../shared/selector-resolver');
+const LoopDetector = require('../shared/loop-detector');
 const logger = require('../utils/logger');
 const { isInternalBrowserUrl, extractWorkflowStartUrl } = require('../utils/url-helper');
 
@@ -668,6 +669,17 @@ class RecorderBridge {
       }
     }
 
+    // Automatically analyze workflow for repeating loop structures
+    let loopAnalysis = { isLoop: false, loopStepIndex: null, confidence: 0, patternType: 'none' };
+    try {
+      loopAnalysis = LoopDetector.analyzeWorkflow(this.actions);
+      if (loopAnalysis.isLoop) {
+        logger.info(`[Recorder] Auto-detected repeated loop structure (${loopAnalysis.patternType}) starting at step #${loopAnalysis.loopStepIndex + 1} with ${loopAnalysis.confidence}% confidence.`);
+      }
+    } catch (err) {
+      logger.warn(`[Recorder] Loop analysis skipped: ${err?.message || err}`);
+    }
+
     const recording = {
       metadata: {
         recordingId: `rec_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -677,7 +689,17 @@ class RecorderBridge {
         completedAt,
         startUrl: finalStartUrl,
         userAgent,
-        viewport
+        viewport,
+        isLoop: loopAnalysis.isLoop,
+        loopStepIndex: loopAnalysis.loopStepIndex >= 0 ? loopAnalysis.loopStepIndex : null,
+        loopConfidence: loopAnalysis.confidence,
+        confidenceCategory: loopAnalysis.confidenceCategory,
+        patternType: loopAnalysis.patternType,
+        mode: loopAnalysis.isLoop ? 'LOOP' : 'STANDARD',
+        loopMetadata: {
+          reasons: loopAnalysis.reasons,
+          signals: loopAnalysis.signals
+        }
       },
       actions: this.actions
     };

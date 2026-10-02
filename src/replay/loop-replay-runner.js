@@ -28,6 +28,10 @@ const { ConditionEvaluator } = require('../shared/condition-evaluator');
 const { PageInspector } = require('../shared/page-inspector');
 const { IntentCompiler } = require('../engine/intent-compiler');
 const { SemanticResolver } = require('./semantic-resolver');
+const DownloadManager = require('./download-manager');
+const PaginationManager = require('./pagination-manager');
+const ResultValidator = require('./result-validator');
+const FilterEngine = require('../shared/filter-engine');
 
 class LoopReplayRunner {
   constructor(options = {}) {
@@ -75,6 +79,20 @@ class LoopReplayRunner {
     this.dateStr = new Date().toISOString().split('T')[0];
     this.workflowDownloadsBaseDir = path.resolve(process.cwd(), 'downloads', this.workflowSlug);
     this.structuredDownloadsDir = path.resolve(this.workflowDownloadsBaseDir, this.dateStr);
+
+    // Dedicated per-execution downloads isolation: downloads/<workflow-slug>/<execution-id>/
+    this.downloadManager = new DownloadManager({
+      workflowSlug: this.workflowSlug,
+      executionId: this.runId,
+      workflowId: this.workflowId
+    });
+    this.executionDownloadsDir = this.downloadManager.getDirectory();
+    this.paginationManager = new PaginationManager({ maxPages: options.maxPages || 25 });
+    this.resultValidator = new ResultValidator({
+      executionId: this.runId,
+      workflowId: this.workflowId,
+      workflowName: this.workflowName
+    });
   }
 
   /**
@@ -94,6 +112,9 @@ class LoopReplayRunner {
     }
     if (!fs.existsSync(this.structuredDownloadsDir)) {
       fs.mkdirSync(this.structuredDownloadsDir, { recursive: true });
+    }
+    if (this.downloadManager) {
+      this.downloadManager._initDirectory();
     }
   }
 
@@ -136,6 +157,22 @@ class LoopReplayRunner {
         }
       } else {
         fs.copyFileSync(sourcePath, destPath);
+      }
+
+      // Also copy to isolated per-execution downloads directory: downloads/<workflow-slug>/<execution-id>/
+      if (this.executionDownloadsDir && fs.existsSync(this.executionDownloadsDir)) {
+        const execDestPath = path.join(this.executionDownloadsDir, targetFilename);
+        try {
+          fs.copyFileSync(sourcePath, execDestPath);
+        } catch {}
+      }
+
+      if (this.downloadManager) {
+        this.downloadManager.recordSuccess(itemKey || targetFilename, {
+          filename: targetFilename,
+          size: fileSizeBytes,
+          filePath: destPath
+        }, { label: itemLabel });
       }
 
       const relativeFilePath = path.relative(process.cwd(), destPath).replace(/\\/g, '/');

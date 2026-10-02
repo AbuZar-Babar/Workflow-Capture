@@ -3,6 +3,7 @@ const path = require('path');
 const { db } = require('../database/db');
 const { sendJson } = require('../auth/auth-controller');
 const { extractWorkflowStartUrl } = require('../utils/url-helper');
+const LoopDetector = require('../shared/loop-detector');
 
 const RECORDINGS_DIR = path.resolve(process.cwd(), 'recordings');
 
@@ -43,6 +44,12 @@ function syncWorkflowsFromDisk(currentUserId, force = false) {
         const actions = Array.isArray(content.actions) ? content.actions : [];
         const startUrl = extractWorkflowStartUrl(content) || '';
 
+        const autoAnalysis = LoopDetector.analyzeWorkflow(actions);
+        const loopStepIndex = content.metadata?.loopStepIndex ?? (autoAnalysis.isLoop && autoAnalysis.loopStepIndex >= 0 ? autoAnalysis.loopStepIndex : null);
+        const isLoop = content.metadata?.isLoop ?? autoAnalysis.isLoop;
+        const mode = content.metadata?.mode ?? (isLoop ? 'LOOP' : 'STANDARD');
+        const loopConfidence = content.metadata?.loopConfidence ?? autoAnalysis.confidence;
+
         const existing = db.findOne('workflows', wf => wf.id === wfId || wf.name === wfName);
 
         if (!existing) {
@@ -56,9 +63,10 @@ function syncWorkflowsFromDisk(currentUserId, force = false) {
             steps: actions,
             recordingData: content,
             stepCount: actions.length,
-            loopStepIndex: content.metadata?.loopStepIndex ?? null,
-            isLoop: content.metadata?.isLoop ?? (content.metadata?.loopStepIndex >= 0),
-            mode: content.metadata?.mode ?? (content.metadata?.loopStepIndex >= 0 ? 'LOOP' : 'STANDARD'),
+            loopStepIndex: loopStepIndex,
+            isLoop: isLoop,
+            loopConfidence: loopConfidence,
+            mode: mode,
             createdAt: (content.metadata && content.metadata.startedAt) || stats.birthtime.toISOString(),
             updatedAt: (content.metadata && content.metadata.completedAt) || stats.mtime.toISOString()
           });

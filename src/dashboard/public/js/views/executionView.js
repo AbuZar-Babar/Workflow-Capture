@@ -230,6 +230,23 @@ export const ExecutionView = {
           </div>
         </section>
 
+        <!-- Engine Understanding Panel (Part 29) -->
+        <section class="card" id="engineUnderstandingCard" style="padding:0.75rem 1.15rem; border-radius:var(--radius-lg); background:#f8fafc; border:1px solid #e2e8f0; margin-bottom:0.75rem;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.4rem; flex-wrap:wrap; gap:0.5rem;">
+            <div style="display:flex; align-items:center; gap:0.5rem;">
+              <span style="font-size:0.72rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--brand-forest);">Engine Understanding</span>
+              <span class="badge-tag success" id="engineLoopBadge" style="font-size:0.62rem;">Loop: Detected ✓</span>
+            </div>
+            <span id="engineCollectionTag" style="font-size:0.72rem; color:var(--text-sub); font-family:var(--font-mono); font-weight:600;">Collection: Dynamic Grid / Table</span>
+          </div>
+          <div style="display:flex; gap:1.25rem; flex-wrap:wrap; font-size:0.75rem; color:var(--text-sub);">
+            <div><span>Items Found:</span> <strong id="engineItemsFound" style="color:var(--text-main);">—</strong></div>
+            <div><span>Matching:</span> <strong id="engineItemsMatching" style="color:var(--text-main);">—</strong></div>
+            <div><span>Active Filter:</span> <strong id="engineActiveFilter" class="mono" style="color:var(--text-main);">None</strong></div>
+            <div><span>Downloads:</span> <strong id="engineDownloadsFolder" class="mono" style="color:var(--brand-forest); font-size:0.7rem;">downloads/run/</strong></div>
+          </div>
+        </section>
+
         <!-- Current Activity Card -->
         <section class="card" style="padding:0.85rem 1.15rem; border-radius:var(--radius-lg); display:flex; align-items:center; gap:0.85rem; border:1px solid rgba(16, 185, 129, 0.2); background:linear-gradient(90deg, #f0fdf4 0%, #ffffff 100%);" aria-live="polite">
           <div style="width:10px; height:10px; border-radius:50%; background:#10b981; box-shadow:0 0 0 4px rgba(16, 185, 129, 0.2); flex-shrink:0; animation:pulse-step 1.4s infinite ease-in-out;" id="activityPulseDot"></div>
@@ -742,6 +759,45 @@ export const ExecutionView = {
 
     const elDown = document.getElementById('executionDownloads');
     if (elDown) elDown.textContent = files;
+
+    // Update Engine Understanding Panel (Part 29)
+    const elEngineLoopBadge = document.getElementById('engineLoopBadge');
+    if (elEngineLoopBadge) {
+      const isLoop = run.mode === 'LOOP' || run.isLoop;
+      const conf = run.loopConfidence || 94;
+      elEngineLoopBadge.textContent = isLoop ? `Loop: Detected ✓ (${conf}%)` : 'Standard Macro';
+      elEngineLoopBadge.className = isLoop ? 'badge-tag success' : 'badge-tag secondary';
+    }
+    const elEngineColl = document.getElementById('engineCollectionTag');
+    if (elEngineColl) {
+      elEngineColl.textContent = `Collection: ${run.patternType || (run.mode === 'LOOP' ? 'Table / Grid' : 'Sequential Steps')}`;
+    }
+    const elEngineFound = document.getElementById('engineItemsFound');
+    if (elEngineFound) {
+      elEngineFound.textContent = totalCount > 0 ? String(totalCount) : '—';
+    }
+    const elEngineMatching = document.getElementById('engineItemsMatching');
+    if (elEngineMatching) {
+      elEngineMatching.textContent = m.matchingCount != null ? String(m.matchingCount) : (totalCount > 0 ? String(totalCount) : '—');
+    }
+    const elEngineFilter = document.getElementById('engineActiveFilter');
+    if (elEngineFilter) {
+      if (run.itemFilter) {
+        if (run.itemFilter.conditions && run.itemFilter.conditions.length > 0) {
+          elEngineFilter.textContent = run.itemFilter.conditions.map(c => `${c.field} ${c.operator} "${c.value}"`).join(' & ');
+        } else if (run.itemFilter.field) {
+          elEngineFilter.textContent = `${run.itemFilter.field} ${run.itemFilter.operator || 'contains'} "${run.itemFilter.value}"`;
+        } else {
+          elEngineFilter.textContent = 'Active Filter';
+        }
+      } else {
+        elEngineFilter.textContent = 'All Records';
+      }
+    }
+    const elEngineFolder = document.getElementById('engineDownloadsFolder');
+    if (elEngineFolder) {
+      elEngineFolder.textContent = `downloads/.../${this.runId}`;
+    }
 
     // Update Progress Bar
     const track = document.getElementById('executionProgressTrack');

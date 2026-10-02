@@ -128,8 +128,32 @@ class ActionGeneralizer {
   static toRelativeCss(cssPath, itemTag) {
     if (typeof cssPath !== 'string' || !cssPath.trim()) return null;
 
-    const tag = String(itemTag || '').toLowerCase();
-    if (!tag) return null;
+    const rawTag = String(itemTag || '').toLowerCase().trim();
+    if (!rawTag) return null;
+
+    const cleanTag = rawTag.replace(/:(?:nth-child|nth-of-type)\([^)]*\)/gi, '').trim();
+    const tagBase = cleanTag.match(/^([a-z][a-z0-9-]*)/i)?.[1] || '';
+    const extractClasses = (s) => (s.match(/\.[a-z0-9_-]+/gi) || []).map(c => c.slice(1).toLowerCase());
+    const tagClassList = extractClasses(cleanTag);
+
+    const isSegmentMatch = (seg) => {
+      if (!seg) return false;
+      const cleanSeg = seg.replace(/:(?:nth-child|nth-of-type)\([^)]*\)/gi, '').trim().toLowerCase();
+      if (cleanSeg === cleanTag) return true;
+      const segClasses = extractClasses(cleanSeg);
+      const segTag = cleanSeg.match(/^([a-z][a-z0-9-]*)/i)?.[1] || '';
+
+      if (tagBase && segTag === tagBase) {
+        if (tagClassList.length > 0) {
+          return tagClassList.every(cls => segClasses.includes(cls));
+        }
+        return cleanSeg === tagBase || cleanSeg.startsWith(`${tagBase}:`) || cleanSeg.startsWith(`${tagBase}[`);
+      }
+      if (tagClassList.length > 0 && tagClassList.every(cls => segClasses.includes(cls))) {
+        return true;
+      }
+      return false;
+    };
 
     const cleanPath = cssPath.trim();
 
@@ -139,12 +163,9 @@ class ActionGeneralizer {
       .map(segment => segment.trim())
       .filter(Boolean);
 
-    // If itemTag appears multiple times (e.g. body > div > div > ... > div.card > a),
-    // find the last segment matching itemTag that has child segments
     let itemIndex = -1;
     for (let i = segments.length - 1; i >= 0; i--) {
-      const match = segments[i].match(/^([a-z][a-z0-9-]*)/i);
-      if (match && match[1].toLowerCase() === tag) {
+      if (isSegmentMatch(segments[i])) {
         itemIndex = i;
         break;
       }
@@ -159,8 +180,7 @@ class ActionGeneralizer {
     const spaceTokens = cleanPath.split(/\s+/);
     let tokenIdx = -1;
     for (let i = spaceTokens.length - 1; i >= 0; i--) {
-      const match = spaceTokens[i].match(/^([a-z][a-z0-9-]*)/i);
-      if (match && match[1].toLowerCase() === tag) {
+      if (isSegmentMatch(spaceTokens[i])) {
         tokenIdx = i;
         break;
       }
@@ -176,6 +196,38 @@ class ActionGeneralizer {
 
   static isGeneralized(action) {
     return Boolean(action && action.scope === 'item' && action.target?.scope === 'item');
+  }
+
+  /**
+   * Classify action safety and destructive potential (Part 28: Security / Safety).
+   *
+   * @param {object} action
+   * @returns {{ category: string, isDestructive: boolean, requiresConfirmation: boolean }}
+   */
+  static classifySafety(action) {
+    if (!action) return { category: 'read', isDestructive: false, requiresConfirmation: false };
+    const type = (action.type || action.action || '').toUpperCase();
+    const text = (action.target?.fingerprint?.text || action.text || action.target?.fingerprint?.title || '').toLowerCase();
+
+    if (/\b(delete|remove|erase|destroy|drop|terminate)\b/i.test(text)) {
+      return { category: 'delete', isDestructive: true, requiresConfirmation: true };
+    }
+    if (/\b(pay|purchase|buy|checkout|charge|transfer)\b/i.test(text)) {
+      return { category: 'purchase', isDestructive: true, requiresConfirmation: true };
+    }
+    if (/\b(submit|send|publish|post)\b/i.test(text)) {
+      return { category: 'submit', isDestructive: false, requiresConfirmation: false };
+    }
+    if (/\b(download|export|save|print)\b/i.test(text) || action.isDownload) {
+      return { category: 'download', isDestructive: false, requiresConfirmation: false };
+    }
+    if (type === 'TYPE' || type === 'SELECT') {
+      return { category: 'edit', isDestructive: false, requiresConfirmation: false };
+    }
+    if (type === 'NAVIGATE') {
+      return { category: 'navigate', isDestructive: false, requiresConfirmation: false };
+    }
+    return { category: 'read', isDestructive: false, requiresConfirmation: false };
   }
 }
 
