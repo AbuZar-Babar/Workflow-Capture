@@ -428,6 +428,51 @@ class ItemDiscovery {
               fields['Document Type'] = itemText;
               fields['Text'] = itemText;
               fields['Value'] = itemText;
+            } else {
+              // Universal field extraction for cards, grids, and list items
+              // 1. Labeled pairs (<label>Key:</label><span>Val</span>, <dt>Key</dt><dd>Val</dd>)
+              const labelEls = item.querySelectorAll('dt, label, [class*="label"], [class*="title"], strong, b');
+              labelEls.forEach(lbl => {
+                const lText = (lbl.innerText || lbl.textContent || '').trim().replace(/[:：]$/, '');
+                if (lText && lText.length > 1 && lText.length < 40) {
+                  const valEl = lbl.nextElementSibling || lbl.parentElement?.querySelector('[class*="value"], [class*="content"], span:not([class*="label"])');
+                  if (valEl && valEl !== lbl) {
+                    const val = (valEl.innerText || valEl.textContent || '').trim();
+                    if (val && !fields[lText]) fields[lText] = val;
+                  }
+                }
+              });
+
+              // 2. Data attributes and named elements
+              const dataEls = item.querySelectorAll('[data-field], [data-col], [data-column], [name]');
+              dataEls.forEach(el => {
+                const attr = el.getAttribute('data-field') || el.getAttribute('data-column') || el.getAttribute('data-col') || el.getAttribute('name');
+                const txt = (el.innerText || el.textContent || '').trim();
+                if (attr && txt && !fields[attr]) fields[attr] = txt;
+              });
+
+              // 3. Status badges / chips
+              const badgeEls = item.querySelectorAll('[class*="status"], [class*="badge"], [class*="tag"], [role="status"]');
+              badgeEls.forEach(b => {
+                const bTxt = (b.innerText || b.textContent || '').trim();
+                if (bTxt && bTxt.length < 30 && !fields['Status'] && !fields['State']) {
+                  fields['Status'] = bTxt;
+                }
+              });
+
+              // 4. Semantic tokens from text
+              const idMatch = itemText.match(/\b([A-Z0-9]{2,8}[-_#][A-Z0-9-_#]{2,20}|(?:INV|ORD|TX|PO|SI|CM)-\d+|#\d{4,10})\b/i);
+              if (idMatch && !fields['Identifier'] && !fields['ID'] && !fields['Invoice Number']) {
+                fields['Identifier'] = idMatch[1];
+              }
+              const dateMatch = itemText.match(/\b(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{2,4}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4})\b/i);
+              if (dateMatch && !fields['Date'] && !fields['Created On']) {
+                fields['Date'] = dateMatch[1];
+              }
+              const amountMatch = itemText.match(/\b([$€£¥₹]\s*\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?|\d{1,3}(?:,\d{3})*\.\d{2}\s*[$€£¥₹]?)\b/);
+              if (amountMatch && !fields['Amount'] && !fields['Total']) {
+                fields['Amount'] = amountMatch[1];
+              }
             }
 
             if (fields['Type'] === undefined && fields['type'] === undefined) {

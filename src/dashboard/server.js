@@ -44,6 +44,7 @@ const RecorderBridge = require('../recorder/recorder-bridge');
 const ReplayEngine = require('../replay/replay-engine');
 const LoopDetector = require('../shared/loop-detector');
 const LoopReplayRunner = require('../replay/loop-replay-runner');
+const ItemDiscovery = require('../shared/item-discovery');
 const { extractAvailableFields, evaluateFilterPreview } = require('../shared/item-filter');
 const { PageInspector } = require('../shared/page-inspector');
 const { connectToBrowser } = require('../utils/cdp-connector');
@@ -699,7 +700,7 @@ const server = http.createServer(async (req, res) => {
           await browser.disconnect().catch(() => {});
         }
       } catch (err) {
-        logger.error('[Discovery] Failed:', err.message);
+        logger.error('[Discovery] Failed:', err);
         return sendJson(res, 500, { error: err.message });
       }
     }
