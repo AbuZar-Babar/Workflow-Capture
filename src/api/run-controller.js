@@ -515,8 +515,8 @@ function listDownloads(req, res) {
   const wfMap = new Map(workflows.map(w => [w.id, w.name]));
 
   const downloads = rawDownloads.map(d => {
-    const rel = d.relativeFilePath || d.filePath || '';
-    const fullPath = path.resolve(process.cwd(), rel);
+    const primaryRel = d.runPath || d.relativeFilePath || d.filePath || '';
+    const fullPath = path.resolve(process.cwd(), primaryRel);
     const exists = fs.existsSync(fullPath);
     let size = d.fileSizeBytes || 0;
     if (exists && !size) {
@@ -524,8 +524,12 @@ function listDownloads(req, res) {
     }
     return {
       ...d,
-      relativeFilePath: rel,
-      filePath: rel,
+      relativeFilePath: d.relativeFilePath || primaryRel,
+      filePath: primaryRel,
+      runPath: d.runPath || null,
+      portalDomain: d.portalDomain || 'customerportal.usoil.com',
+      runTimestamp: d.runTimestamp || null,
+      category: d.category || 'Invoices',
       workflowName: d.workflowName || wfMap.get(d.workflowId) || d.workflowId || 'Workflow',
       fileExists: exists,
       fileSizeBytes: size
@@ -556,10 +560,17 @@ function getWorkflowDownloads(req, res, workflowId) {
   const wfName = workflow ? workflow.name : workflowId;
 
   const downloads = rawDownloads.map(d => {
-    const fullPath = path.resolve(process.cwd(), d.relativeFilePath || '');
+    const primaryRel = d.runPath || d.relativeFilePath || d.filePath || '';
+    const fullPath = path.resolve(process.cwd(), primaryRel);
     const exists = fs.existsSync(fullPath);
     return {
       ...d,
+      relativeFilePath: d.relativeFilePath || primaryRel,
+      filePath: primaryRel,
+      runPath: d.runPath || null,
+      portalDomain: d.portalDomain || 'customerportal.usoil.com',
+      runTimestamp: d.runTimestamp || null,
+      category: d.category || 'Invoices',
       workflowName: wfName,
       fileExists: exists
     };
@@ -588,10 +599,10 @@ function deleteDownload(req, res, downloadId) {
     return sendJson(res, 404, { error: 'Download artifact not found' });
   }
 
-  // Delete physical file if exists
-  const fileRelPath = record.relativeFilePath || record.filePath;
-  if (fileRelPath) {
-    const fullPath = path.resolve(process.cwd(), fileRelPath);
+  // Delete physical files if exist (both structured and Run paths)
+  const candidatePaths = [record.runPath, record.relativeFilePath, record.filePath].filter(Boolean);
+  for (const relPath of candidatePaths) {
+    const fullPath = path.resolve(process.cwd(), relPath);
     if (fs.existsSync(fullPath)) {
       try {
         fs.unlinkSync(fullPath);
@@ -617,7 +628,12 @@ function deleteDownload(req, res, downloadId) {
  */
 function exportAllDownloadsZip(req, res) {
   const downloadsDir = path.resolve(process.cwd(), 'downloads');
-  if (!fs.existsSync(downloadsDir)) {
+  const runDir = path.resolve(process.cwd(), 'Run');
+  const targetDirs = [];
+  if (fs.existsSync(runDir)) targetDirs.push('Run');
+  if (fs.existsSync(downloadsDir)) targetDirs.push('downloads');
+
+  if (targetDirs.length === 0) {
     return sendJson(res, 404, { error: 'No downloads directory found' });
   }
 
@@ -629,7 +645,7 @@ function exportAllDownloadsZip(req, res) {
   const tempZipPath = path.resolve(recordingsDir, `export_artifacts_${Date.now()}.zip`);
   const { execFile } = require('child_process');
 
-  execFile('tar', ['-a', '-cf', tempZipPath, '-C', downloadsDir, '.'], (err) => {
+  execFile('tar', ['-a', '-cf', tempZipPath, ...targetDirs], { cwd: process.cwd() }, (err) => {
     if (err || !fs.existsSync(tempZipPath)) {
       return sendJson(res, 500, { error: 'Failed to archive downloads: ' + (err ? err.message : 'File not created') });
     }

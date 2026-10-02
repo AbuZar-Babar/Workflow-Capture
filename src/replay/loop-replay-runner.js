@@ -80,12 +80,32 @@ class LoopReplayRunner {
     this.workflowDownloadsBaseDir = path.resolve(process.cwd(), 'downloads', this.workflowSlug);
     this.structuredDownloadsDir = path.resolve(this.workflowDownloadsBaseDir, this.dateStr);
 
+    // Primary Run/ hierarchy: Run/<YYYY-MM-DD_HH-mm-ss>/<portalDomain>/<Category>/
+    const targetUrl = options.targetUrl || options.portalUrl || this.workflow?.targetUrl || this.workflow?.startUrl || '';
+    let extractedDomain = options.portalDomain || '';
+    if (!extractedDomain && targetUrl) {
+      try {
+        const u = new URL(targetUrl.startsWith('http') ? targetUrl : `https://${targetUrl}`);
+        extractedDomain = u.hostname;
+      } catch {
+        extractedDomain = targetUrl.replace(/https?:\/\//, '').split('/')[0];
+      }
+    }
+    this.portalDomain = extractedDomain || 'customerportal.usoil.com';
+
     // Dedicated per-execution downloads isolation: downloads/<workflow-slug>/<execution-id>/
+    // + Structured Run/ hierarchy: Run/<YYYY-MM-DD_HH-mm-ss>/<portalDomain>/<Category>/
     this.downloadManager = new DownloadManager({
       workflowSlug: this.workflowSlug,
       executionId: this.runId,
-      workflowId: this.workflowId
+      workflowId: this.workflowId,
+      portalDomain: this.portalDomain,
+      portalUrl: targetUrl,
+      runTimestamp: options.runTimestamp,
+      startedAt: options.startedAt
     });
+    this.runTimestamp = this.downloadManager.runTimestamp;
+    this.runDomainDir = this.downloadManager.runDomainDir;
     this.executionDownloadsDir = this.downloadManager.getDirectory();
     this.paginationManager = new PaginationManager({ maxPages: options.maxPages || 25 });
     this.resultValidator = new ResultValidator({
@@ -126,7 +146,7 @@ class LoopReplayRunner {
    * 4. Persists metadata record in db.json ('downloads' collection)
    * 5. Appends record to workflow downloads manifest: downloads/<workflow-slug>/manifest.json
    */
-  processAndStoreDownload(sourcePath, itemKey = null, itemLabel = null) {
+  processAndStoreDownload(sourcePath, itemKey = null, itemLabel = null, itemFields = {}) {
     if (!sourcePath || !fs.existsSync(sourcePath)) return null;
     const filename = path.basename(sourcePath);
     if (filename.endsWith('.crdownload') || filename.endsWith('.tmp')) return null;
@@ -137,7 +157,13 @@ class LoopReplayRunner {
       const fileHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
       const fileSizeBytes = fileBuffer.length;
 
-      let targetFilename = filename;
+      // 1. Organize into primary Run/ hierarchy: Run/<runTimestamp>/<portalDomain>/<Category>/<formattedFilename>
+      let runArtifact = null;
+      if (this.downloadManager && typeof this.downloadManager.organizeRunArtifact === 'function') {
+        runArtifact = this.downloadManager.organizeRunArtifact(sourcePath, itemKey, itemLabel, itemFields);
+      }
+
+      let targetFilename = runArtifact ? runArtifact.targetFilename : filename;
       let destPath = path.join(this.structuredDownloadsDir, targetFilename);
 
       // Handle duplicate filename with different hash: append timestamp suffix
@@ -146,8 +172,8 @@ class LoopReplayRunner {
           const existingBuffer = fs.readFileSync(destPath);
           const existingHash = crypto.createHash('sha256').update(existingBuffer).digest('hex');
           if (existingHash !== fileHash) {
-            const ext = path.extname(filename);
-            const base = path.basename(filename, ext);
+            const ext = path.extname(targetFilename);
+            const base = path.basename(targetFilename, ext);
             targetFilename = `${base}_${Date.now()}${ext}`;
             destPath = path.join(this.structuredDownloadsDir, targetFilename);
             fs.copyFileSync(sourcePath, destPath);
@@ -167,35 +193,43 @@ class LoopReplayRunner {
         } catch {}
       }
 
+      const relativeFilePath = path.relative(process.cwd(), destPath).replace(/\\/g, '/');
+      const relativeRunPath = runArtifact ? runArtifact.relativeRunPath : null;
+
       if (this.downloadManager) {
         this.downloadManager.recordSuccess(itemKey || targetFilename, {
           filename: targetFilename,
           size: fileSizeBytes,
-          filePath: destPath
-        }, { label: itemLabel });
+          filePath: destPath,
+          runPath: relativeRunPath,
+          category: runArtifact ? runArtifact.category : null
+        }, { label: itemLabel, fields: itemFields });
       }
-
-      const relativeFilePath = path.relative(process.cwd(), destPath).replace(/\\/g, '/');
 
       const downloadRecord = {
         workflowId: this.workflowId,
         workflowName: this.workflowName,
         userId: this.userId,
         runId: this.runId,
+        runTimestamp: this.runTimestamp,
+        portalDomain: this.portalDomain,
+        category: runArtifact ? runArtifact.category : 'Invoices',
         itemKey: itemKey || filename,
         itemLabel: itemLabel || filename,
         filename: targetFilename,
         fileHash,
         filePath: relativeFilePath,
         relativeFilePath: relativeFilePath,
+        runPath: relativeRunPath,
         fileSizeBytes,
+        itemFields: itemFields || {},
         downloadedAt: new Date().toISOString()
       };
 
       const existingInDb = db.findOne('downloads', d =>
         d.workflowId === this.workflowId &&
         d.fileHash === fileHash &&
-        d.filePath === relativeFilePath
+        (d.filePath === relativeFilePath || (relativeRunPath && d.runPath === relativeRunPath))
       );
 
       let savedRecord = existingInDb;
@@ -205,13 +239,18 @@ class LoopReplayRunner {
 
       this.syncWorkflowDownloadsManifest(savedRecord || downloadRecord);
 
-      logger.info(`[Runner] Download organized: "${targetFilename}" -> ${relativeFilePath} (${fileSizeBytes} bytes)`);
+      logger.info(`[Runner] Download organized: "${targetFilename}" -> ${relativeRunPath || relativeFilePath} (${fileSizeBytes} bytes)`);
 
       return {
         id: (savedRecord || downloadRecord).id,
         filename: targetFilename,
         path: destPath,
         relativePath: relativeFilePath,
+        runPath: relativeRunPath,
+        runDirectory: runArtifact ? runArtifact.categoryDir : null,
+        portalDomain: this.portalDomain,
+        runTimestamp: this.runTimestamp,
+        category: runArtifact ? runArtifact.category : null,
         fileHash,
         sizeBytes: fileSizeBytes,
         itemKey: itemKey || filename
@@ -2423,10 +2462,10 @@ class LoopReplayRunner {
                     const downloaded = await this.waitForDownload(beforeActionFiles, downloadWaitMs);
                     if (downloaded.length) {
                       for (const dl of downloaded) {
-                        const organized = this.processAndStoreDownload(dl.path, itemIdentifier.itemKey, itemIdentifier.itemLabel);
+                        const organized = this.processAndStoreDownload(dl.path, itemIdentifier.itemKey, itemIdentifier.itemLabel, targetItem.fields || {});
                         itemResult.downloadedFiles.push(organized || dl);
                       }
-                      actionResult.downloadedFiles = downloaded.map(file => file.filename);
+                      actionResult.downloadedFiles = itemResult.downloadedFiles.map(file => file.filename || file.targetFilename);
                     }
                   }
 

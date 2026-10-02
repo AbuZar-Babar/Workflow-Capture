@@ -26,8 +26,12 @@ function cleanup() {
   if (fs.existsSync(testWfDownloads)) {
     fs.rmSync(testWfDownloads, { recursive: true, force: true });
   }
+  const testRunDir = path.resolve(process.cwd(), 'Run', '2026-10-02_03-42-18');
+  if (fs.existsSync(testRunDir)) {
+    fs.rmSync(testRunDir, { recursive: true, force: true });
+  }
   if (db && db.state && Array.isArray(db.state.downloads)) {
-    db.state.downloads = db.state.downloads.filter(d => d.workflowId !== 'wf_city_mart_999');
+    db.state.downloads = db.state.downloads.filter(d => d.workflowId !== 'wf_city_mart_999' && d.workflowId !== 'wf_oil_portal_123');
     db.save();
   }
 }
@@ -219,6 +223,62 @@ async function runTests() {
     // Verify file removed from disk
     assert(!fs.existsSync(stored.path));
     console.log('  ✅ deleteDownload passed\n');
+
+    // -------------------------------------------------------------
+    // Test 9: Run/<timestamp>/<domain>/<Category>/<filename> hierarchy
+    // -------------------------------------------------------------
+    console.log('🔹 Test 9: Run/<timestamp>/<domain>/<Category>/<filename> hierarchy creation');
+    const runRunner = new LoopReplayRunner({
+      runId: 'run_test_run_hierarchy',
+      workflowId: 'wf_oil_portal_123',
+      workflowName: 'US Oil Customer Portal Sync',
+      targetUrl: 'https://customerportal.usoil.com/invoices',
+      startedAt: '2026-10-02T03:42:18.000Z'
+    });
+
+    assert.strictEqual(runRunner.portalDomain, 'customerportal.usoil.com', 'Domain must be extracted correctly');
+    assert.strictEqual(runRunner.runTimestamp, '2026-10-02_03-42-18', 'Run timestamp must match YYYY-MM-DD_HH-mm-ss');
+
+    runRunner.initDirectories();
+    const rawStaging1 = path.join(runRunner.downloadsDir, 'invoice_raw.pdf');
+    fs.writeFileSync(rawStaging1, 'PDF fake content for ACME invoice', 'utf8');
+
+    const storedInvoice = runRunner.processAndStoreDownload(
+      rawStaging1,
+      'item_inv_1',
+      'Invoice #1',
+      { 'Invoice Number': 'INV-10234', 'Customer': 'ACME', 'Date': '2026-09-30' }
+    );
+
+    assert(storedInvoice, 'storedInvoice must be returned');
+    assert.strictEqual(storedInvoice.filename, 'INV-10234_ACME_2026-09-30.pdf');
+    assert.strictEqual(storedInvoice.category, 'Invoices');
+    assert.strictEqual(
+      storedInvoice.runPath,
+      'Run/2026-10-02_03-42-18/customerportal.usoil.com/Invoices/INV-10234_ACME_2026-09-30.pdf'
+    );
+    assert(fs.existsSync(path.resolve(process.cwd(), storedInvoice.runPath)), 'File must exist in Run/ hierarchy');
+
+    const rawStaging2 = path.join(runRunner.downloadsDir, 'payment_raw.pdf');
+    fs.writeFileSync(rawStaging2, 'PDF fake content for payment', 'utf8');
+
+    const storedPayment = runRunner.processAndStoreDownload(
+      rawStaging2,
+      'item_pay_1',
+      'Payment #1',
+      { 'Payment ID': 'PAY-88321', 'Date': '2026-09-30', 'Type': 'Payment' }
+    );
+
+    assert(storedPayment, 'storedPayment must be returned');
+    assert.strictEqual(storedPayment.filename, 'PAY-88321_2026-09-30.pdf');
+    assert.strictEqual(storedPayment.category, 'Payments');
+    assert.strictEqual(
+      storedPayment.runPath,
+      'Run/2026-10-02_03-42-18/customerportal.usoil.com/Payments/PAY-88321_2026-09-30.pdf'
+    );
+    assert(fs.existsSync(path.resolve(process.cwd(), storedPayment.runPath)), 'File must exist in Run/ hierarchy');
+
+    console.log('  ✅ Run/<timestamp>/<domain>/<Category>/<filename> hierarchy passed\n');
 
     console.log('🎉 ALL DOWNLOAD ORGANIZATION & DEDUPLICATION TESTS PASSED SUCCESSFULLY!\n');
   } finally {

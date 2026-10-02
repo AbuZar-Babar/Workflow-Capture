@@ -770,6 +770,40 @@ const server = http.createServer(async (req, res) => {
       return runController.exportAllDownloadsZip(req, res);
     }
 
+    const dlFileMatch = pathname.match(/^\/api\/downloads\/([^/]+)\/file$/);
+    if (dlFileMatch && req.method === 'GET') {
+      if (!requireAuth(req, res)) return;
+      const downloadId = dlFileMatch[1];
+      const record = db.findOne('downloads', d => d.id === downloadId);
+      if (!record) {
+        return sendJson(res, 404, { error: 'Download not found' });
+      }
+      const targetRel = record.runPath || record.relativeFilePath || record.filePath;
+      const fullPath = path.resolve(process.cwd(), targetRel);
+      if (!fs.existsSync(fullPath)) {
+        return sendJson(res, 404, { error: 'File not found on disk' });
+      }
+      const ext = path.extname(fullPath).toLowerCase();
+      const mimeTypes = {
+        '.pdf': 'application/pdf',
+        '.csv': 'text/csv',
+        '.json': 'application/json',
+        '.txt': 'text/plain',
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      };
+      const contentType = mimeTypes[ext] || 'application/octet-stream';
+      const stat = fs.statSync(fullPath);
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Content-Length': stat.size,
+        'Content-Disposition': `inline; filename="${encodeURIComponent(record.filename || path.basename(fullPath))}"`
+      });
+      return fs.createReadStream(fullPath).pipe(res);
+    }
+
     const dlDeleteMatch = pathname.match(/^\/api\/downloads\/([^/]+)$/);
     if (dlDeleteMatch && req.method === 'DELETE') {
       const downloadId = dlDeleteMatch[1];
@@ -1239,7 +1273,10 @@ const server = http.createServer(async (req, res) => {
     // Static File Serving (HTML, CSS, JS, Assets, Test Portals)
     // -------------------------------------------------------------
     let filePath;
-    if (pathname.startsWith('/downloads/')) {
+    if (pathname.startsWith('/Run/')) {
+      const runFile = pathname.replace('/Run/', '');
+      filePath = path.join(process.cwd(), 'Run', runFile);
+    } else if (pathname.startsWith('/downloads/')) {
       const downloadFile = pathname.replace('/downloads/', '');
       filePath = path.join(process.cwd(), 'downloads', downloadFile);
     } else if (pathname.startsWith('/portal/')) {
