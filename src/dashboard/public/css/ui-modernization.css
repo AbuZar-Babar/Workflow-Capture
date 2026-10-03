@@ -2457,3 +2457,34 @@ body {
     flex: 0 0 auto !important;
   }
 }
+
+/* Editor header: keep Target Website in the metadata area; actions stay on the far right. */
+.workflow-editor-header {
+  display: flex !important;
+  align-items: center !important;
+}
+.workflow-editor-header > div:first-child {
+  display: flex !important;
+  align-items: center !important;
+  gap: 1rem !important;
+  flex: 0 0 auto !important;
+}
+.workflow-editor-header > div:last-child {
+  margin-left: auto !important;
+  flex: 0 0 auto !important;
+  width: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+}
+.workflow-editor-header > div:last-child #btnBack {
+  order: 1 !important;
+  margin-left: 0 !important;
+}
+.workflow-editor-header > div:last-child #btnSaveWorkflow {
+  order: 2 !important;
+}
+.workflow-editor-header > div:last-child #btnRunWorkflow {
+  order: 3 !important;
+  margin-left: 0.5rem !important;
+}
