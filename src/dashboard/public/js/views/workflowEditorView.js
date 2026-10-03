@@ -146,17 +146,17 @@ export const WorkflowEditorView = {
 
           <!-- Primary Actions -->
           <div class="wf-editor-actions" style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
-            <button class="btn btn-secondary btn-sm" id="btnBack" title="Cancel and return to Workflow Library" aria-label="Cancel and return to Workflow Library"><span>Cancel</span></button>
-
+            <button class="btn btn-primary btn-sm" id="btnExecuteFlowEditor" style="margin-top:auto; font-weight:700; letter-spacing:0.04em;" title="Run this workflow (Ctrl+Enter)">
+              <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              <span>RUN AGENT</span>
+            </button>
             <button class="btn btn-secondary btn-sm" id="btnSaveFlow" style="margin-top:auto;" title="Save changes to this workflow (Ctrl+S)">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2v-8"></path><polyline points="7 3 7 8 15 8"></polyline></svg>
               <span>Save</span>
             </button>
 
-            <button class="btn btn-primary btn-sm" id="btnExecuteFlowEditor" style="margin-top:auto; font-weight:700; letter-spacing:0.04em;" title="Run this workflow (Ctrl+Enter)">
-              <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-              <span>RUN AGENT</span>
-            </button>
+            <button class="btn btn-secondary btn-sm" id="btnBack" title="Cancel and return to Workflow Library" aria-label="Cancel and return to Workflow Library"><span>Cancel</span></button>
+
           </div>
         </header>
 
