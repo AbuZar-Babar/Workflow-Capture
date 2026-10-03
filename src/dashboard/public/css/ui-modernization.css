@@ -2089,3 +2089,27 @@ body {
 .wf-dropdown-menu .wf-dropdown-item {
   background: transparent !important;
 }
+
+/* Force workflow action menus to use a solid surface in every theme. */
+.wf-dropdown-wrapper {
+  position: relative !important;
+}
+.wf-dropdown-menu {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  isolation: isolate !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18) !important;
+}
+.dark-theme .wf-dropdown-menu,
+:root[data-theme="dark"] .wf-dropdown-menu {
+  background: #111827 !important;
+  background-color: #111827 !important;
+}
+.wf-dropdown-menu::before,
+.wf-dropdown-menu::after {
+  display: none !important;
+}
