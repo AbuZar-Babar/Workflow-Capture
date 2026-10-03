@@ -1570,3 +1570,218 @@ body {
 }
 
 
+
+
+/* --- Overview page: focused product dashboard ----------------------- */
+.dashboard-shell {
+  max-width: 1280px !important;
+  padding: 0.5rem 0 1.25rem !important;
+  gap: 1rem !important;
+}
+
+.dashboard-shell > .wf-page-header {
+  padding: 0.75rem 0 1rem !important;
+  border-bottom: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+.dashboard-shell > .wf-page-header .wf-page-title {
+  font-size: 1.5rem !important;
+  font-weight: 700 !important;
+}
+
+.dashboard-shell > .wf-page-header .wf-page-subtitle {
+  max-width: 620px;
+}
+
+.dashboard-shell > .wf-page-header > div:first-child > div:first-child {
+  display: none !important;
+}
+
+/* The status hub becomes a compact operational summary instead of a hero. */
+.dashboard-shell > .agent-status-hub {
+  margin-bottom: 0 !important;
+  padding: 1rem 1.15rem !important;
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: 10px !important;
+  box-shadow: var(--shadow-card) !important;
+}
+
+.dashboard-shell .agent-status-avatar-box,
+.dashboard-shell .orbital-ring {
+  display: none !important;
+}
+
+.dashboard-shell > .agent-status-hub > div {
+  gap: 1rem !important;
+}
+
+.dashboard-shell > .agent-status-hub > div > div:first-child {
+  gap: 0 !important;
+}
+
+.dashboard-shell > .agent-status-hub > div > div:first-child > div:last-child {
+  min-width: 240px;
+}
+
+.dashboard-shell > .agent-status-hub [style*="DIGITAL"],
+.dashboard-shell > .agent-status-hub [style*="AUTOMATION"] {
+  color: var(--accent-primary) !important;
+  letter-spacing: 0.06em !important;
+}
+
+.dashboard-shell > .agent-status-hub [style*="background:rgba(6,9,19,0.6)"] {
+  background: var(--bg-surface-alt) !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: 8px !important;
+  padding: 0.65rem 0.9rem !important;
+  gap: 1.15rem !important;
+}
+
+.dashboard-shell > .agent-status-hub [style*="background:rgba(6,9,19,0.6)"] > div[style*="width:1px"] {
+  background: var(--border-light) !important;
+}
+
+/* Metrics: fewer visual treatments, clearer numbers. */
+.dashboard-shell > .dashboard-stat-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 0.75rem !important;
+  margin-bottom: 0 !important;
+}
+
+.dashboard-shell .dashboard-stat-card {
+  min-height: 108px !important;
+  padding: 0.9rem 1rem !important;
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: 9px !important;
+  box-shadow: var(--shadow-card) !important;
+}
+
+.dashboard-shell .dashboard-stat-card:hover {
+  transform: none !important;
+  border-color: var(--border-hover) !important;
+  box-shadow: var(--shadow-card-hover) !important;
+}
+
+.dashboard-shell .dashboard-stat-label {
+  font-size: 0.68rem !important;
+  letter-spacing: 0.04em !important;
+  color: var(--text-muted) !important;
+}
+
+.dashboard-shell .dashboard-stat-value {
+  font-size: 1.55rem !important;
+  line-height: 1.15 !important;
+  color: var(--text-primary) !important;
+}
+
+.dashboard-shell .dashboard-stat-meta {
+  color: var(--text-sub) !important;
+  font-size: 0.72rem !important;
+}
+
+/* Recent content is the main working area. */
+.dashboard-shell > .dashboard-stat-grid + div {
+  grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.9fr) !important;
+  gap: 0.75rem !important;
+  height: 360px !important;
+  min-height: 360px !important;
+}
+
+.dashboard-shell > .dashboard-stat-grid + div > .card {
+  padding: 1rem 1.1rem !important;
+  border-radius: 9px !important;
+}
+
+.dashboard-shell > .dashboard-stat-grid + div h2 {
+  font-size: 0.95rem !important;
+  font-weight: 650 !important;
+}
+
+.dashboard-shell > .dashboard-stat-grid + div p {
+  color: var(--text-sub) !important;
+}
+
+.dashboard-shell .wf-list,
+.dashboard-shell .act-timeline {
+  scrollbar-width: thin;
+}
+
+/* Hide decorative robot UI in the overview; the page stays fully functional. */
+.dashboard-shell .robot-avatar,
+.dashboard-shell [class*="robot-avatar"] {
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+@media (max-width: 900px) {
+  .dashboard-shell > .agent-status-hub > div {
+    align-items: flex-start !important;
+    flex-direction: column !important;
+  }
+
+  .dashboard-shell > .agent-status-hub [style*="background:rgba(6,9,19,0.6)"] {
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+
+  .dashboard-shell > .dashboard-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .dashboard-shell > .dashboard-stat-grid + div {
+    grid-template-columns: 1fr !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  .dashboard-shell > .dashboard-stat-grid + div > .card {
+    min-height: 280px !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .dashboard-shell {
+    padding: 0.25rem 0.75rem 1rem !important;
+  }
+
+  .dashboard-shell > .wf-page-header {
+    padding: 0.5rem 0 0.75rem !important;
+  }
+
+  .dashboard-shell > .wf-page-header > div:last-child {
+    width: 100% !important;
+  }
+
+  .dashboard-shell > .wf-page-header > div:last-child .btn {
+    flex: 1 1 0 !important;
+  }
+
+  .dashboard-shell > .agent-status-hub {
+    padding: 0.85rem !important;
+  }
+
+  .dashboard-shell > .agent-status-hub [style*="background:rgba(6,9,19,0.6)"] {
+    gap: 0.75rem !important;
+    flex-wrap: wrap !important;
+  }
+
+  .dashboard-shell > .agent-status-hub [style*="background:rgba(6,9,19,0.6)"] > div[style*="width:1px"] {
+    display: none !important;
+  }
+
+  .dashboard-shell > .dashboard-stat-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.6rem !important;
+  }
+
+  .dashboard-shell .dashboard-stat-card {
+    min-height: 96px !important;
+  }
+
+  .dashboard-shell > .dashboard-stat-grid + div > .card {
+    min-height: 240px !important;
+  }
+}
