@@ -919,3 +919,438 @@
     min-width: 680px;
   }
 }
+
+
+/* =====================================================================
+   Final product-wide visual pass — UI only
+   ===================================================================== */
+
+/* Page framing */
+.app-view-container {
+  background: var(--bg-page);
+  color: var(--text-primary);
+}
+.wf-page-header {
+  padding: 1.25rem 1rem 1rem;
+  border-bottom: 1px solid var(--border-light);
+  margin-bottom: 1rem;
+}
+.wf-page-title {
+  color: var(--text-primary) !important;
+  letter-spacing: -0.025em !important;
+}
+.wf-page-subtitle {
+  color: var(--text-sub) !important;
+  line-height: 1.45;
+}
+
+/* Remove decorative product/AI branding without removing any controls. */
+.header-brand .badge-tag,
+.sidebar-agent-badge,
+.wf-page-header .robot-avatar,
+.wf-page-header [class*="robot"],
+.wf-page-header [class*="mascot"] {
+  display: none !important;
+}
+.header-logo-icon {
+  background: var(--accent-subtle) !important;
+  border-color: var(--border-light) !important;
+  color: var(--accent-primary) !important;
+}
+.header-brand-title {
+  letter-spacing: -0.02em !important;
+}
+.topbar-breadcrumb-separator {
+  color: var(--text-muted) !important;
+}
+.topbar-search-trigger {
+  border-color: var(--border-light) !important;
+  background: var(--bg-surface) !important;
+  color: var(--text-secondary) !important;
+  box-shadow: none !important;
+}
+.topbar-search-trigger:hover {
+  border-color: var(--border-hover) !important;
+  background: var(--state-hover-bg) !important;
+}
+.theme-toggle-label {
+  display: none !important;
+}
+
+/* Sidebar: quiet navigation, no "agent" dashboard feel. */
+.app-sidebar,
+.floating-sidebar {
+  width: 216px !important;
+  background: var(--bg-surface) !important;
+  border-right-color: var(--border-light) !important;
+}
+.sidebar-nav-list,
+.sidebar-nav-icons {
+  gap: 2px !important;
+}
+.sidebar-nav-item,
+.sidebar-icon-btn {
+  border-radius: 6px !important;
+  height: 38px !important;
+}
+.sidebar-nav-item.active,
+.sidebar-icon-btn.active {
+  background: var(--accent-subtle) !important;
+  border-color: transparent !important;
+}
+.sidebar-bottom-section {
+  gap: 2px !important;
+}
+.sidebar-stop-execution.is-active {
+  box-shadow: none !important;
+}
+
+/* Shared surfaces: eliminate legacy glass / oversized cards. */
+.card,
+.settings-panel,
+.settings-nav,
+.settings-section-pane,
+.wf-toolbar,
+.activity-view-shell > .card,
+.secrets-view-shell > .card {
+  border-color: var(--border-light) !important;
+  box-shadow: var(--shadow-card) !important;
+  border-radius: 9px !important;
+}
+.card:hover {
+  box-shadow: var(--shadow-card) !important;
+  border-color: var(--border-light) !important;
+}
+.badge-tag {
+  border-radius: 5px !important;
+}
+
+/* Activity / Console */
+.activity-view-shell,
+.secrets-view-shell,
+.settings-shell-wrapper {
+  max-width: var(--ui-content-max) !important;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+.activity-view-shell .wf-page-header,
+.secrets-view-shell .wf-page-header,
+.settings-shell-wrapper .wf-page-header {
+  background: transparent;
+}
+.activity-view-shell .toggle-group {
+  background: var(--bg-surface-alt) !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: 7px !important;
+}
+.activity-view-shell .btn-toggle {
+  box-shadow: none !important;
+}
+.activity-view-shell .btn-toggle.active {
+  background: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-light) !important;
+}
+.wf-toolbar {
+  background: var(--bg-surface) !important;
+  padding: 0.75rem !important;
+}
+.console-full-view {
+  background: var(--bg-surface) !important;
+  border-radius: 9px !important;
+}
+.console-filter-pill-group {
+  background: var(--bg-surface-alt) !important;
+  border-color: var(--border-light) !important;
+  border-radius: 7px !important;
+}
+.console-filter-btn {
+  border-radius: 5px !important;
+}
+.console-filter-btn.active {
+  background: var(--accent-primary) !important;
+  color: #fff !important;
+}
+.console-terminal-wrapper {
+  border-radius: 7px !important;
+  box-shadow: none !important;
+  border-color: #273244 !important;
+}
+.log-badge {
+  border-radius: 4px !important;
+}
+
+/* Secrets */
+.secrets-view-shell .wf-toolbar {
+  justify-content: space-between;
+}
+.secrets-view-shell table {
+  border-collapse: collapse;
+}
+.secrets-view-shell table th {
+  background: var(--bg-surface-alt) !important;
+  color: var(--text-sub) !important;
+  border-bottom: 1px solid var(--border-light) !important;
+}
+.secrets-view-shell table td {
+  border-bottom: 1px solid var(--border-light) !important;
+}
+.secrets-view-shell table tr:hover td {
+  background: var(--state-hover-bg) !important;
+}
+#addSecretModal {
+  border-left: 2px solid var(--accent-primary) !important;
+  box-shadow: var(--shadow-card) !important;
+}
+.secrets-view-shell .modern-empty-state {
+  border: 0 !important;
+}
+
+/* Settings */
+.settings-shell {
+  gap: 1rem !important;
+}
+.settings-nav {
+  background: var(--bg-surface) !important;
+  padding: 0.5rem !important;
+}
+.settings-nav-item {
+  border-radius: 6px !important;
+  color: var(--text-secondary) !important;
+}
+.settings-nav-item.active {
+  background: var(--accent-subtle) !important;
+  color: var(--accent-primary) !important;
+  box-shadow: none !important;
+}
+.settings-panel {
+  background: var(--bg-surface) !important;
+  padding: 0 !important;
+}
+.settings-section-pane {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+.settings-panel-header {
+  padding: 1.25rem 1.25rem 0.9rem !important;
+  border-bottom: 1px solid var(--border-light) !important;
+}
+.settings-row {
+  padding: 1rem 1.25rem !important;
+  border-bottom-color: var(--border-light) !important;
+}
+.settings-row:hover {
+  background: var(--state-hover-bg) !important;
+}
+.settings-row-info h4 {
+  color: var(--text-primary) !important;
+}
+.settings-row-info p {
+  color: var(--text-sub) !important;
+}
+
+/* Execution / discovery: information hierarchy over decoration. */
+.execution-hero,
+.results-hero,
+.discovery-modal,
+.exec-modal-dialog,
+.exec-option-label,
+.exec-preflight-container,
+.discovery-options,
+.discovery-metric {
+  border-radius: 9px !important;
+  box-shadow: var(--shadow-card) !important;
+}
+.execution-hero,
+.results-hero {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-light) !important;
+}
+.exec-option-label {
+  border-width: 1px !important;
+  background: var(--bg-surface) !important;
+}
+.exec-option-label.active {
+  background: var(--accent-subtle) !important;
+  border-color: var(--accent-primary) !important;
+}
+.exec-preflight-container,
+.discovery-options {
+  background: var(--bg-surface-alt) !important;
+  border-color: var(--border-light) !important;
+}
+.discovery-modal {
+  background: var(--bg-surface) !important;
+  border-color: var(--border-light) !important;
+}
+.execution-item-row {
+  border-radius: 7px !important;
+  box-shadow: none !important;
+}
+.execution-current,
+.result-file {
+  border-radius: 7px !important;
+  box-shadow: none !important;
+}
+
+/* Workflow editor: professional canvas, simpler nodes and controls. */
+.workflow-editor-canvas,
+.parent-drawflow {
+  background-image: radial-gradient(circle, rgba(100,116,139,0.13) 1px, transparent 1px) !important;
+  background-size: 20px 20px !important;
+}
+.drawflow .drawflow-node {
+  min-width: 280px !important;
+  max-width: 340px !important;
+  border-radius: 8px !important;
+  box-shadow: var(--shadow-card) !important;
+}
+.drawflow .drawflow-node:hover {
+  border-color: var(--border-hover) !important;
+  box-shadow: var(--shadow-card-hover) !important;
+}
+.drawflow .drawflow-node.selected {
+  border-color: var(--accent-primary) !important;
+  box-shadow: 0 0 0 3px var(--accent-subtle), var(--shadow-card) !important;
+}
+.drawflow-canvas-controls {
+  border-radius: 7px !important;
+  box-shadow: var(--shadow-card) !important;
+}
+.drawflow-canvas-controls button {
+  border-radius: 5px !important;
+  background: var(--bg-surface) !important;
+}
+.drawflow-canvas-controls button:hover {
+  background: var(--accent-primary) !important;
+  border-color: var(--accent-primary) !important;
+}
+.wf-title-input {
+  font-weight: 650 !important;
+}
+.workflow-editor-toolbar {
+  background: var(--bg-surface) !important;
+  border-bottom-color: var(--border-light) !important;
+  box-shadow: none !important;
+}
+
+/* Modals and overlays */
+.modal-overlay {
+  background: rgba(15, 23, 42, 0.45) !important;
+  backdrop-filter: blur(2px) !important;
+}
+.modal-dialog {
+  border-radius: 9px !important;
+  border-color: var(--border-light) !important;
+  box-shadow: var(--shadow-xl) !important;
+}
+.modal-header {
+  border-bottom-color: var(--border-light) !important;
+}
+.modal-footer {
+  border-top-color: var(--border-light) !important;
+}
+
+/* Recording state stays visually prominent because it is functional. */
+.global-recording-banner {
+  box-shadow: none !important;
+  padding: 0.45rem 1rem !important;
+}
+.recording-pulse-dot {
+  animation: none !important;
+}
+
+/* Toasts/tooltips */
+.toast,
+.toast-container > * {
+  border-radius: 7px !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+.tooltip {
+  box-shadow: var(--shadow-md) !important;
+}
+
+/* Responsive: don't compress desktop layouts into unusable narrow columns. */
+@media (max-width: 1100px) {
+  .activity-view-shell,
+  .secrets-view-shell,
+  .settings-shell-wrapper {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+  .settings-shell {
+    grid-template-columns: 180px minmax(0, 1fr) !important;
+  }
+}
+@media (max-width: 700px) {
+  .app-sidebar,
+  .floating-sidebar {
+    width: 56px !important;
+    padding-left: 0.35rem !important;
+    padding-right: 0.35rem !important;
+  }
+  .sidebar-nav-item,
+  .sidebar-icon-btn {
+    height: 40px !important;
+  }
+  .activity-view-shell,
+  .secrets-view-shell,
+  .settings-shell-wrapper {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  .wf-page-header {
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+  }
+  .settings-shell {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  .settings-nav {
+    display: flex !important;
+    overflow-x: auto;
+    gap: 0.25rem;
+  }
+  .settings-nav-item {
+    flex: 0 0 auto;
+    min-width: max-content;
+  }
+  .settings-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.65rem !important;
+  }
+  .settings-row-info {
+    max-width: none !important;
+  }
+  .settings-row .form-control {
+    max-width: none !important;
+  }
+  .secrets-view-shell .wf-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .secrets-view-shell .search-input-wrap,
+  .secrets-view-shell .search-input-wrap input {
+    max-width: none !important;
+    width: 100% !important;
+  }
+  .console-terminal-wrapper {
+    height: min(55vh, 480px) !important;
+  }
+  .drawflow .drawflow-node {
+    min-width: 250px !important;
+    max-width: 300px !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .status-dot.running,
+  .status-dot.recording,
+  .recording-pulse-dot,
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
