@@ -13,7 +13,7 @@ import { Theme } from './theme.js';
 import { renderRobotAvatar } from './components/robotAvatar.js';
 
 function bootstrap() {
-  // The robot logo doubles as the home control.
+  // The robot + Workflow Agent brand area doubles as the home control.
   const topbarRobot = document.getElementById('topbarRobotAvatar');
   if (topbarRobot) {
     topbarRobot.innerHTML = renderRobotAvatar({
@@ -21,7 +21,11 @@ function bootstrap() {
       state: 'idle',
       className: 'topbar-robot-render'
     });
-    topbarRobot.parentElement?.addEventListener('click', (event) => {
+  }
+
+  const topbarBrand = document.querySelector('.flowmind-topbar-brand');
+  if (topbarBrand) {
+    topbarBrand.addEventListener('click', (event) => {
       event.preventDefault();
       Router.navigate('overview');
     });
