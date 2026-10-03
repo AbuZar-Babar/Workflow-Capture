@@ -121,7 +121,7 @@ export const WorkflowsView = {
                 aria-label="Search workflows"
                 autocomplete="off"
               />
-              <span class="wf-search-kbd">⌘K</span>
+              <kbd class="wf-search-kbd">Ctrl K</kbd>
             </div>
 
             <!-- Status Filter -->
