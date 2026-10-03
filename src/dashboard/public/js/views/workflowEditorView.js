@@ -128,10 +128,6 @@ export const WorkflowEditorView = {
         <!-- Modernized Robotic Editor Header -->
         <header class="workflow-editor-header" role="region" aria-label="Workflow Editor Header" style="background:rgba(13,19,36,0.85); border-bottom:1px solid rgba(255,255,255,0.08);">
           <div style="display:flex; align-items:center; gap:1rem; flex:1; min-width:0;">
-            <button class="btn btn-secondary btn-sm" id="btnBack" title="Cancel and return to Workflow Library" aria-label="Cancel and return to Workflow Library">
-              <span>Cancel</span>
-            </button>
-
             <!-- Robot Assistant Indicator -->
             <div style="flex-shrink:0;">
               ${renderRobotAvatar({ size: 'badge', state: 'idle' })}
@@ -176,6 +172,10 @@ export const WorkflowEditorView = {
                 />
               </div>
             </div>
+
+            <button class="btn btn-secondary btn-sm" id="btnBack" title="Cancel and return to Workflow Library" aria-label="Cancel and return to Workflow Library">
+              <span>Cancel</span>
+            </button>
 
             <button class="btn btn-secondary btn-sm" id="btnSaveFlow" style="margin-top:auto;" title="Save changes to this workflow (Ctrl+S)">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
