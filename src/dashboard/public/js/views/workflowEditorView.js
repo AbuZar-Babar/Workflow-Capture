@@ -9,6 +9,7 @@ import { Api } from '../api.js';
 import { Toast } from '../components/toast.js';
 import { Router } from '../router.js';
 import { ExecutionModal } from '../components/executionModal.js';
+import { Modal } from '../components/modal.js';
 import { renderRobotAvatar } from '../components/robotAvatar.js';
 
 export const WorkflowEditorView = {
@@ -1360,11 +1361,18 @@ export const WorkflowEditorView = {
 
     // Bind Delete
     list.querySelectorAll('.btn-seq-del').forEach(btn => {
-      btn.onclick = (e) => {
+      btn.onclick = async (e) => {
         e.stopPropagation();
         if (this.isReordering) return;
         const idx = Number(btn.getAttribute('data-idx'));
-        if (confirm(`Remove step #${idx + 1} from workflow?`)) {
+        const confirmed = await Modal.confirm({
+          title: 'Remove Step',
+          message: `Are you sure you want to remove step #${idx + 1} from this workflow?`,
+          confirmText: 'Remove Step',
+          cancelText: 'Cancel',
+          danger: true
+        });
+        if (confirmed) {
           this.isReordering = true;
           try {
             steps.splice(idx, 1);

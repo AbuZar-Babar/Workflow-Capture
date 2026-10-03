@@ -401,7 +401,14 @@ export const WorkflowsView = {
         break;
 
       case 'rename': {
-        const newName = prompt(`Enter new name for workflow:`, wfName);
+        const newName = await Modal.prompt({
+          title: 'Rename Workflow',
+          message: 'Enter a new descriptive name for this workflow:',
+          defaultValue: wfName,
+          placeholder: 'Workflow name',
+          confirmText: 'Rename',
+          cancelText: 'Cancel'
+        });
         if (newName && newName.trim() && newName.trim() !== wfName) {
           try {
             await Api.updateWorkflow(wfId, { name: newName.trim() });
@@ -437,7 +444,14 @@ export const WorkflowsView = {
       }
 
       case 'delete': {
-        if (!confirm(`Are you sure you want to delete workflow "${wfName}"? This action cannot be undone.`)) {
+        const confirmed = await Modal.confirm({
+          title: 'Delete Workflow',
+          message: `Are you sure you want to delete workflow "${wfName}"? This action cannot be undone.`,
+          confirmText: 'Delete Workflow',
+          cancelText: 'Cancel',
+          danger: true
+        });
+        if (!confirmed) {
           return;
         }
         try {

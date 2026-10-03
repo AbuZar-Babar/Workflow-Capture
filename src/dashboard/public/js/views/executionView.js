@@ -8,6 +8,7 @@ import { Api } from '../api.js';
 import { Toast } from '../components/toast.js';
 import { SSE } from '../sse.js';
 import { renderRobotAvatar } from '../components/robotAvatar.js';
+import { Modal } from '../components/modal.js';
 
 const terminalStates = new Set(['COMPLETED', 'COMPLETED_WITH_ERRORS', 'FAILED', 'STOPPED']);
 
@@ -457,7 +458,14 @@ export const ExecutionView = {
     document.getElementById('btnExecutionStop')?.addEventListener('click', async () => {
       if (this.isStopping) return;
 
-      if (!confirm('Are you sure you want to stop this run? Active steps will be aborted.')) {
+      const confirmed = await Modal.confirm({
+        title: 'Stop Execution',
+        message: 'Are you sure you want to stop this run? Active steps will be aborted immediately.',
+        confirmText: 'Stop Run',
+        cancelText: 'Continue Running',
+        danger: true
+      });
+      if (!confirmed) {
         return;
       }
 

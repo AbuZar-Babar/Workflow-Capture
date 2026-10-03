@@ -178,6 +178,189 @@ export const Modal = {
       } catch {}
       this.previousActiveElement = null;
     }
+  },
+
+  confirm({
+    title = 'Confirm Action',
+    message = 'Are you sure you want to proceed?',
+    confirmText = 'Confirm',
+    cancelText = 'Cancel',
+    danger = false
+  } = {}) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.setAttribute('role', 'dialog');
+      overlay.setAttribute('aria-modal', 'true');
+      overlay.style.zIndex = '9999';
+
+      overlay.innerHTML = `
+        <div class="modal-dialog" style="max-width:440px;">
+          <div class="modal-header">
+            <h3 style="margin:0; font-size:1rem; display:flex; align-items:center; gap:0.5rem;">
+              ${danger ? `
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-danger)" stroke-width="2">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                  <line x1="12" y1="9" x2="12" y2="13"></line>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+              ` : `
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="16" x2="12" y2="12"></line>
+                  <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                </svg>
+              `}
+              <span>${escapeHtml(title)}</span>
+            </h3>
+            <button class="btn btn-ghost btn-xs btn-close-confirm" aria-label="Close dialog">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+          <div class="modal-body" style="padding:1.25rem 1.5rem; font-size:0.875rem; color:var(--text-sub); line-height:1.5;">
+            ${escapeHtml(message)}
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary btn-sm btn-cancel-confirm">${escapeHtml(cancelText)}</button>
+            <button class="btn ${danger ? 'btn-danger' : 'btn-primary'} btn-sm btn-ok-confirm">${escapeHtml(confirmText)}</button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(overlay);
+
+      const btnOk = overlay.querySelector('.btn-ok-confirm');
+      const btnCancel = overlay.querySelector('.btn-cancel-confirm');
+      const btnClose = overlay.querySelector('.btn-close-confirm');
+
+      let resolved = false;
+      const cleanup = (result) => {
+        if (resolved) return;
+        resolved = true;
+        window.removeEventListener('keydown', onKeyDown);
+        overlay.remove();
+        resolve(result);
+      };
+
+      const onKeyDown = (e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          cleanup(false);
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          cleanup(true);
+        }
+      };
+
+      window.addEventListener('keydown', onKeyDown);
+      btnOk.onclick = () => cleanup(true);
+      btnCancel.onclick = () => cleanup(false);
+      btnClose.onclick = () => cleanup(false);
+      overlay.onclick = (e) => {
+        if (e.target === overlay) cleanup(false);
+      };
+
+      requestAnimationFrame(() => {
+        if (danger) {
+          btnCancel.focus();
+        } else {
+          btnOk.focus();
+        }
+      });
+    });
+  },
+
+  prompt({
+    title = 'Input Required',
+    message = '',
+    defaultValue = '',
+    placeholder = '',
+    confirmText = 'Save',
+    cancelText = 'Cancel'
+  } = {}) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.setAttribute('role', 'dialog');
+      overlay.setAttribute('aria-modal', 'true');
+      overlay.style.zIndex = '9999';
+
+      overlay.innerHTML = `
+        <div class="modal-dialog" style="max-width:440px;">
+          <div class="modal-header">
+            <h3 style="margin:0; font-size:1rem; display:flex; align-items:center; gap:0.5rem;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" stroke-width="2">
+                <path d="M12 20h9"></path>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+              </svg>
+              <span>${escapeHtml(title)}</span>
+            </h3>
+            <button class="btn btn-ghost btn-xs btn-close-prompt" aria-label="Close dialog">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+          <div class="modal-body" style="padding:1.25rem 1.5rem;">
+            ${message ? `<p style="margin:0 0 0.75rem 0; font-size:0.875rem; color:var(--text-sub);">${escapeHtml(message)}</p>` : ''}
+            <input
+              type="text"
+              class="input prompt-modal-input"
+              value="${escapeHtml(defaultValue)}"
+              placeholder="${escapeHtml(placeholder)}"
+              style="width:100%; box-sizing:border-box; font-size:0.875rem;"
+            />
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary btn-sm btn-cancel-prompt">${escapeHtml(cancelText)}</button>
+            <button class="btn btn-primary btn-sm btn-ok-prompt">${escapeHtml(confirmText)}</button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(overlay);
+
+      const input = overlay.querySelector('.prompt-modal-input');
+      const btnOk = overlay.querySelector('.btn-ok-prompt');
+      const btnCancel = overlay.querySelector('.btn-cancel-prompt');
+      const btnClose = overlay.querySelector('.btn-close-prompt');
+
+      let resolved = false;
+      const cleanup = (result) => {
+        if (resolved) return;
+        resolved = true;
+        window.removeEventListener('keydown', onKeyDown);
+        overlay.remove();
+        resolve(result);
+      };
+
+      const onKeyDown = (e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          cleanup(null);
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          cleanup(input.value);
+        }
+      };
+
+      window.addEventListener('keydown', onKeyDown);
+      btnOk.onclick = () => cleanup(input.value);
+      btnCancel.onclick = () => cleanup(null);
+      btnClose.onclick = () => cleanup(null);
+      overlay.onclick = (e) => {
+        if (e.target === overlay) cleanup(null);
+      };
+
+      requestAnimationFrame(() => {
+        input.focus();
+        input.select();
+      });
+    });
   }
 };
 

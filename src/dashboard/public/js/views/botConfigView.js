@@ -14,6 +14,7 @@ import { Api } from '../api.js';
 import { Toast } from '../components/toast.js';
 import { Theme } from '../theme.js';
 import { renderRobotAvatar } from '../components/robotAvatar.js';
+import { Modal } from '../components/modal.js';
 
 export const BotConfigView = {
   currentConfig: null,
@@ -418,7 +419,14 @@ export const BotConfigView = {
     const btnReset = document.getElementById('btnResetSettings');
     if (btnReset) {
       btnReset.onclick = async () => {
-        if (!confirm('Are you sure you want to reset settings to defaults?')) return;
+        const confirmed = await Modal.confirm({
+          title: 'Reset Settings',
+          message: 'Are you sure you want to reset all settings to defaults? This will restore original configurations.',
+          confirmText: 'Reset to Defaults',
+          cancelText: 'Cancel',
+          danger: true
+        });
+        if (!confirmed) return;
         try {
           await Api.resetBotConfig();
           Toast.success('Settings restored to defaults');
