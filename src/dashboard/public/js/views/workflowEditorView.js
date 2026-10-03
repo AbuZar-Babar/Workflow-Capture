@@ -158,7 +158,6 @@ export const WorkflowEditorView = {
               <span>RUN AGENT</span>
             </button>
           </div>
-          </div>
         </header>
 
         <!-- Split Layout: Step Sequence List + Visual Drawflow Canvas -->
