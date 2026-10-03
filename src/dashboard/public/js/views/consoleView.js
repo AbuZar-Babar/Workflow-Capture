@@ -15,17 +15,7 @@ import { Api } from '../api.js';
 import { SSE } from '../sse.js';
 import { Toast } from '../components/toast.js';
 import { renderRobotAvatar } from '../components/robotAvatar.js';
-
-function escapeHtml(str) {
-  if (!str) return '';
-  return String(str).replace(/[&<>"']/g, c => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-  }[c]));
-}
+import { escapeHtml } from '../utils/dom.js';
 
 function formatRelativeTime(dateInput) {
   if (!dateInput) return 'Recently';

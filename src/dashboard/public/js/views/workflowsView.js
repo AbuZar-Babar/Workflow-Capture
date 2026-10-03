@@ -11,15 +11,7 @@ import { Router } from '../router.js';
 import { ExecutionModal } from '../components/executionModal.js';
 import { Modal } from '../components/modal.js';
 import { renderRobotAvatar } from '../components/robotAvatar.js';
-
-function escapeHtml(str) {
-  if (!str) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+import { escapeHtml } from '../utils/dom.js';
 
 function formatDomain(url) {
   if (!url || url === 'about:blank') return '—';

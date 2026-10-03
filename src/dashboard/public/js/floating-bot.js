@@ -74,16 +74,16 @@
       <div class="flowmind-bubble-head">
         <div class="flowmind-bubble-badge">
           <span class="flowmind-bubble-pulse-dot"></span>
-          <span class="flowmind-bubble-badge-txt">Human Disturbance</span>
+          <span class="flowmind-bubble-badge-txt">User Interaction Detected</span>
         </div>
         <button class="flowmind-bubble-close" id="flowmindBubbleClose" title="Dismiss Alert" aria-label="Close">&times;</button>
       </div>
       <div class="flowmind-bubble-body">
         <p class="flowmind-bubble-msg" id="flowmindBubbleMsg">
-          Manual input intercepted on <strong id="flowmindBubbleStep">Step #1</strong>! Automated flow was disturbed.
+          Automation paused: Manual mouse or keyboard input was detected on <strong id="flowmindBubbleStep">Step #1</strong>.
         </p>
         <div class="flowmind-bubble-meta">
-          <span class="flowmind-bubble-tag" id="flowmindBubbleTag">Input Disturbance</span>
+          <span class="flowmind-bubble-tag" id="flowmindBubbleTag">Input Intercepted</span>
           <span class="flowmind-bubble-time" id="flowmindBubbleTime">Just now</span>
         </div>
       </div>
@@ -236,12 +236,12 @@
     if (bubbleMsg) {
       const type = data.detail?.type || data.event?.type || 'input';
       const keyInfo = data.detail?.key ? ` (key '${data.detail.key}')` : '';
-      bubbleMsg.innerHTML = `Manual human <strong>${type}${keyInfo}</strong> detected on <strong class="flowmind-highlight-step">Step #${stepIdx}</strong>. Automated workflow execution was disturbed!`;
+      bubbleMsg.innerHTML = `Automation paused: Manual <strong>${type}${keyInfo}</strong> detected on <strong class="flowmind-highlight-step">Step #${stepIdx}</strong>.`;
     }
 
     if (bubbleTag) {
-      const type = (data.detail?.type || data.event?.type || 'human input').toUpperCase();
-      bubbleTag.textContent = `${type} INTERRUPT`;
+      const type = (data.detail?.type || data.event?.type || 'input').toUpperCase();
+      bubbleTag.textContent = `${type} DETECTED`;
     }
 
     if (bubbleTime) {

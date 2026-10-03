@@ -15,17 +15,7 @@ import { Toast } from './toast.js';
 import { Router } from '../router.js';
 import { Auth } from '../auth.js';
 import { renderRobotAvatar } from './robotAvatar.js';
-
-function escapeHtml(str) {
-  if (str == null) return '';
-  return String(str).replace(/[&<>"']/g, c => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-  }[c]));
-}
+import { escapeHtml } from '../utils/dom.js';
 
 export const ExecutionModal = {
   container: null,
@@ -290,7 +280,7 @@ export const ExecutionModal = {
               <input type="radio" name="execModeRadio" value="single" ${!isLoopSelected ? 'checked' : ''} style="margin-top:0.25rem; accent-color:var(--brand-forest);">
               <div style="display:flex; flex-direction:column; gap:0.2rem;">
                 <div style="display:flex; align-items:center; gap:0.5rem;">
-                  <strong style="font-size:0.9rem; color:var(--text-main);">⚡ Run as Macro (Single Execution)</strong>
+                  <strong style="font-size:0.9rem; color:var(--text-main);">⚡ Run Once (Single Workflow)</strong>
                   <span class="badge-tag success" style="font-size:0.65rem; padding:0.12rem 0.4rem;">Standard</span>
                 </div>
                 <span style="font-size:0.76rem; color:var(--text-sub);">Replays the exact recorded workflow once from start to finish. Does not iterate through other rows.</span>
@@ -305,7 +295,7 @@ export const ExecutionModal = {
                   <strong style="font-size:0.9rem; color:var(--text-main);">🔁 Run as Loop (Batch / Filtered Items)</strong>
                   ${hasLoopConfigured ? '<span class="badge-tag success" style="font-size:0.65rem; padding:0.12rem 0.4rem;">Configured</span>' : '<span class="badge-tag primary" style="font-size:0.65rem; padding:0.12rem 0.4rem;">Auto-Discovery</span>'}
                 </div>
-                <span style="font-size:0.76rem; color:var(--text-sub);">Discovers repeated records on the target page and iterates across matching items using the preflight filter guard.</span>
+                <span style="font-size:0.76rem; color:var(--text-sub);">Automatically detects table records and processes matching items based on your filter criteria.</span>
               </div>
             </label>
           </div>
@@ -317,8 +307,8 @@ export const ExecutionModal = {
             <div class="exec-loop-step-picker-box" style="padding:0.75rem 0.85rem; background:var(--bg-surface-secondary, rgba(0,0,0,0.02)); border-radius:6px; border:1px solid var(--border-light, #e2e8f0);">
               <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.35rem;">
                 <label for="selExecLoopStep" style="font-size:0.8rem; font-weight:700; color:var(--text-main); display:flex; align-items:center; gap:0.4rem;">
-                  <span>📍 Where to implement loop?</span>
-                  <span style="font-size:0.72rem; font-weight:normal; color:var(--text-sub);">(Action that repeats for each item)</span>
+                  <span>📍 Repeating Step</span>
+                  <span style="font-size:0.72rem; font-weight:normal; color:var(--text-sub);">(Choose which step repeats for each item in the list)</span>
                 </label>
                 <span class="badge-tag primary" style="font-size:0.65rem;">Loop Target Step</span>
               </div>
@@ -332,17 +322,17 @@ export const ExecutionModal = {
               ${this.renderPreflightContent()}
             </div>
 
-            <!-- Section 3: Which data is required? (New vs Old vs All) -->
+            <!-- Section 3: Download & Sync Options (New vs Old vs All) -->
             <div class="exec-data-requirement-box" style="padding:0.75rem 0.85rem; background:var(--bg-surface-secondary, rgba(0,0,0,0.02)); border-radius:6px; border:1px solid var(--border-light, #e2e8f0);">
               <label style="font-size:0.8rem; font-weight:700; color:var(--text-main); display:block; margin-bottom:0.45rem;">
-                📦 Which data is required?
+                📦 Download &amp; Sync Options
               </label>
               <div class="exec-data-mode-radios" style="display:flex; flex-direction:column; gap:0.4rem;">
                 <label class="exec-data-radio-label ${this.itemMode === 'new' ? 'active' : ''}">
                   <input type="radio" name="execDataModeRadio" value="new" ${this.itemMode === 'new' ? 'checked' : ''} style="accent-color:var(--brand-forest); margin-top:0.15rem;">
                   <div>
-                    <strong style="font-size:0.82rem; color:var(--text-main);">New data only <span class="badge-tag success" style="font-size:0.62rem; padding:0.05rem 0.35rem;">Recommended</span></strong>
-                    <span style="font-size:0.74rem; color:var(--text-sub); display:block;">Automatically skip items already downloaded or processed in prior runs</span>
+                    <strong style="font-size:0.82rem; color:var(--text-main);">Skip previously downloaded files <span class="badge-tag success" style="font-size:0.62rem; padding:0.05rem 0.35rem;">Recommended</span></strong>
+                    <span style="font-size:0.74rem; color:var(--text-sub); display:block;">Only download new files from this run</span>
                   </div>
                 </label>
 
@@ -357,8 +347,8 @@ export const ExecutionModal = {
                 <label class="exec-data-radio-label ${this.itemMode === 'old' ? 'active' : ''}">
                   <input type="radio" name="execDataModeRadio" value="old" ${this.itemMode === 'old' ? 'checked' : ''} style="accent-color:var(--brand-forest); margin-top:0.15rem;">
                   <div>
-                    <strong style="font-size:0.82rem; color:var(--text-main);">Old data only</strong>
-                    <span style="font-size:0.74rem; color:var(--text-sub); display:block;">Only re-download or inspect items downloaded in prior runs</span>
+                    <strong style="font-size:0.82rem; color:var(--text-main);">Previously downloaded only</strong>
+                    <span style="font-size:0.74rem; color:var(--text-sub); display:block;">Re-download or inspect files captured in earlier runs</span>
                   </div>
                 </label>
               </div>
@@ -372,7 +362,7 @@ export const ExecutionModal = {
                 <div style="display:flex; flex-direction:column; justify-content:center; gap:0.35rem; margin-top:0.4rem;">
                   <div style="display:flex; align-items:center; gap:0.4rem;">
                     <input type="checkbox" id="chkExecPaginate" style="accent-color:var(--brand-forest); cursor:pointer;">
-                    <label for="chkExecPaginate" style="font-size:0.76rem; color:var(--text-body); cursor:pointer; user-select:none;">Go through all pages?</label>
+                    <label for="chkExecPaginate" style="font-size:0.76rem; color:var(--text-body); cursor:pointer; user-select:none;">Process all pages (Multi-page pagination)</label>
                   </div>
                   <div style="display:flex; align-items:center; gap:0.4rem;">
                     <input type="checkbox" id="chkExecForceRedownload" style="accent-color:var(--brand-forest); cursor:pointer;">
@@ -412,7 +402,7 @@ export const ExecutionModal = {
               <span class="status-dot analyzing"></span>
               <strong style="display:block; font-size:0.85rem; color:var(--text-primary); text-transform:uppercase; letter-spacing:0.04em;">AGENT ANALYZING LIVE WEBPAGE…</strong>
             </div>
-            <span style="display:block; margin-top:0.25rem; font-size:0.75rem; color:var(--text-sub);">Scanning page DOM via CDP to discover repeating entities, action buttons, and schema fields.</span>
+            <span style="display:block; margin-top:0.25rem; font-size:0.75rem; color:var(--text-sub);">Scanning page in Chrome to detect tables and data columns…</span>
           </div>
         </div>
       `;
@@ -471,14 +461,14 @@ export const ExecutionModal = {
           </div>
         </div>
 
-        <!-- Filter Guard Section -->
+        <!-- Filter Rules Section -->
         <div style="display:flex; flex-direction:column; gap:0.6rem; padding-top:0.25rem;">
           <div style="display:flex; align-items:center; justify-content:space-between;">
             <div style="display:flex; align-items:center; gap:0.45rem;">
-              <span style="font-size:0.82rem; font-weight:800; color:var(--text-main);">🎯 Target Filter Guard</span>
-              <span class="badge-tag primary" style="font-size:0.65rem; padding:0.1rem 0.4rem;">Shared Filter Contract</span>
+              <span style="font-size:0.82rem; font-weight:800; color:var(--text-main);">🎯 Item Filter Rules</span>
+              <span class="badge-tag primary" style="font-size:0.65rem; padding:0.1rem 0.4rem;">Filter by Field Criteria</span>
             </div>
-            <span style="font-size:0.72rem; color:var(--text-sub);">Generic field-level preflight</span>
+            <span style="font-size:0.72rem; color:var(--text-sub);">Configure item selection criteria</span>
           </div>
 
           <!-- Explicit Filter Mode Toggle -->
@@ -529,10 +519,10 @@ export const ExecutionModal = {
                 </div>
                 <div class="exec-pill-group" id="execSmartDatePills">
                   <button type="button" class="exec-pill exec-pill-smart-date ${this.filterEnabled && this.filterOperator === '<=' && (this.filterValue === 'today' || this.isTodayValue(this.filterValue)) ? 'active' : ''}" data-action="overdue" title="Due date has passed (Due Date <= Today)">
-                    🔴 Overdue (Due date is over)
+                    🔴 Overdue (on or before today)
                   </button>
                   <button type="button" class="exec-pill exec-pill-smart-date ${this.filterEnabled && this.filterOperator === '>=' && (this.filterValue === 'today' || this.isTodayValue(this.filterValue)) ? 'active' : ''}" data-action="upcoming" title="Due date has not arrived yet (Due Date >= Today)">
-                    🟢 Upcoming (Due date not met)
+                    🟢 Upcoming (after today)
                   </button>
                   <button type="button" class="exec-pill exec-pill-smart-date ${this.itemMode === 'old' ? 'active' : ''}" data-action="in_folder" title="Process only items already downloaded in folder">
                     📁 Already in Folder (${this.getDownloadedCount()})
@@ -566,11 +556,11 @@ export const ExecutionModal = {
                 ${isDateField && this.filterEnabled && this.filterValue && this.filterValue !== 'today' && this.isDateString(this.filterValue) ? `
                   <div style="display:flex; align-items:center; flex-wrap:wrap; gap:0.4rem; padding:0.35rem 0.6rem; background:rgba(0,0,0,0.03); border-radius:6px; font-size:0.72rem; margin-top:0.25rem;">
                     <span style="color:var(--text-sub); font-weight:700;">Condition for &ldquo;${escapeHtml(this.filterValue)}&rdquo;:</span>
-                    <button type="button" class="exec-pill exec-pill-date-op ${this.filterOperator === '<=' ? 'active' : ''}" data-op="<=" title="Due date is on or before ${escapeHtml(this.filterValue)} (Due date is over)">
-                      📅 Due date is over (&le; ${escapeHtml(this.filterValue)})
+                    <button type="button" class="exec-pill exec-pill-date-op ${this.filterOperator === '<=' ? 'active' : ''}" data-op="<=" title="Due date is on or before ${escapeHtml(this.filterValue)}">
+                      📅 Overdue (on or before ${escapeHtml(this.filterValue)})
                     </button>
-                    <button type="button" class="exec-pill exec-pill-date-op ${this.filterOperator === '>=' ? 'active' : ''}" data-op=">=" title="Due date not met / on or after ${escapeHtml(this.filterValue)}">
-                      📅 Due date not met (&ge; ${escapeHtml(this.filterValue)})
+                    <button type="button" class="exec-pill exec-pill-date-op ${this.filterOperator === '>=' ? 'active' : ''}" data-op=">=" title="Due date is on or after ${escapeHtml(this.filterValue)}">
+                      📅 Upcoming (on or after ${escapeHtml(this.filterValue)})
                     </button>
                     <button type="button" class="exec-pill exec-pill-date-op ${this.filterOperator === 'equals' ? 'active' : ''}" data-op="equals" title="Exact match on ${escapeHtml(this.filterValue)}">
                       🎯 Exact (= ${escapeHtml(this.filterValue)})
@@ -601,8 +591,8 @@ export const ExecutionModal = {
                 <select id="execFilterOperatorSelect" class="exec-control-select">
                   <option value="contains" ${this.filterOperator === 'contains' ? 'selected' : ''}>contains</option>
                   <option value="equals" ${this.filterOperator === 'equals' ? 'selected' : ''}>equals</option>
-                  <option value="<=" ${this.filterOperator === '<=' ? 'selected' : ''}>&lt;= (Due date is over / on or before)</option>
-                  <option value=">=" ${this.filterOperator === '>=' ? 'selected' : ''}>&gt;= (Due date not met / on or after)</option>
+                  <option value="<=" ${this.filterOperator === '<=' ? 'selected' : ''}>&lt;= (On or before)</option>
+                  <option value=">=" ${this.filterOperator === '>=' ? 'selected' : ''}>&gt;= (On or after)</option>
                   <option value="<" ${this.filterOperator === '<' ? 'selected' : ''}>&lt; (before or &lt;)</option>
                   <option value=">" ${this.filterOperator === '>' ? 'selected' : ''}>&gt; (after or &gt;)</option>
                 </select>
@@ -1398,15 +1388,15 @@ export const ExecutionModal = {
     const val = this.filterValue;
     if (isDateField) {
       if (op === '<=') {
-        const desc = val === 'today' ? 'today (due date is over)' : `"${val}" (due date is over / on or before)`;
-        return `⚡ Loop will inspect each item: only rows where <strong style="color:var(--brand-forest);">${escapeHtml(currentField)} &le; ${escapeHtml(desc)}</strong> will execute. Other rows are skipped as <code>SKIPPED_FILTER</code>.`;
+        const desc = val === 'today' ? 'today (overdue)' : `"${val}" (on or before)`;
+        return `⚡ Loop will inspect each item: only rows where <strong style="color:var(--brand-forest);">${escapeHtml(currentField)} &le; ${escapeHtml(desc)}</strong> will execute. Other rows are skipped.`;
       }
       if (op === '>=') {
-        const desc = val === 'today' ? 'today (due date not met / upcoming)' : `"${val}" (due date not met / on or after)`;
-        return `⚡ Loop will inspect each item: only rows where <strong style="color:var(--brand-forest);">${escapeHtml(currentField)} &ge; ${escapeHtml(desc)}</strong> will execute. Other rows are skipped as <code>SKIPPED_FILTER</code>.`;
+        const desc = val === 'today' ? 'today (upcoming)' : `"${val}" (on or after)`;
+        return `⚡ Loop will inspect each item: only rows where <strong style="color:var(--brand-forest);">${escapeHtml(currentField)} &ge; ${escapeHtml(desc)}</strong> will execute. Other rows are skipped.`;
       }
     }
-    return `⚡ Loop will inspect each item: only rows where <strong style="color:var(--brand-forest);">${escapeHtml(currentField)} ${escapeHtml(this.filterOperator)} "${escapeHtml(this.filterValue)}"</strong> will execute. Other rows are skipped as <code>SKIPPED_FILTER</code>.`;
+    return `⚡ Loop will inspect each item: only rows where <strong style="color:var(--brand-forest);">${escapeHtml(currentField)} ${escapeHtml(this.filterOperator)} "${escapeHtml(this.filterValue)}"</strong> will execute. Other rows are skipped.`;
   },
 
   updateDataModeStyles() {
@@ -1735,7 +1725,7 @@ export const ExecutionModal = {
         const field = (this.filterField === '__custom__' ? this.customFieldName : this.filterField).trim() || 'Field';
         const op = this.filterOperator || 'contains';
         const val = this.filterValue.trim() || '...';
-        expText.innerHTML = `⚡ Loop will inspect each item: only rows where <strong style="color:var(--brand-forest);">${escapeHtml(field)} ${escapeHtml(op)} "${escapeHtml(val)}"</strong> will execute. Other rows are skipped as <code>SKIPPED_FILTER</code>.`;
+        expText.innerHTML = `⚡ Loop will inspect each item: only rows where <strong style="color:var(--brand-forest);">${escapeHtml(field)} ${escapeHtml(op)} "${escapeHtml(val)}"</strong> will execute. Other rows are skipped.`;
       }
     }
 
@@ -1803,8 +1793,8 @@ export const ExecutionModal = {
 
       if (isZeroMatch) {
         confirmBtn.disabled = true;
-        confirmBtn.title = 'Zero items match your filter. Filtered runs with 0 items are blocked.';
-        if (confirmText) confirmText.textContent = '0 Matching Items';
+        confirmBtn.title = 'No items match this filter. Adjust your filter criteria to continue.';
+        if (confirmText) confirmText.textContent = 'No Matching Items';
         return;
       }
 

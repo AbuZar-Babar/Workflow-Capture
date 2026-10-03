@@ -9,19 +9,7 @@ import { Toast } from '../components/toast.js';
 import { SSE } from '../sse.js';
 import { renderRobotAvatar } from '../components/robotAvatar.js';
 import { Modal } from '../components/modal.js';
-
-const terminalStates = new Set(['COMPLETED', 'COMPLETED_WITH_ERRORS', 'FAILED', 'STOPPED']);
-
-function escapeHtml(str) {
-  if (str == null) return '';
-  return String(str).replace(/[&<>"']/g, c => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-  }[c]));
-}
+import { escapeHtml } from '../utils/dom.js';
 
 function formatStatusLabel(status) {
   const s = String(status || 'QUEUED').toUpperCase();

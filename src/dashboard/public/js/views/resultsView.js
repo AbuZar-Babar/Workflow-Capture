@@ -7,17 +7,7 @@
 import { Api } from '../api.js';
 import { Toast } from '../components/toast.js';
 import { ExecutionModal } from '../components/executionModal.js';
-
-function escapeHtml(str) {
-  if (str == null) return '';
-  return String(str).replace(/[&<>"']/g, c => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-  }[c]));
-}
+import { escapeHtml } from '../utils/dom.js';
 
 function formatStatusLabel(status) {
   const s = String(status || 'UNKNOWN').toUpperCase();

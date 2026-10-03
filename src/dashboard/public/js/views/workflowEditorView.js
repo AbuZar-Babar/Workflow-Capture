@@ -11,6 +11,7 @@ import { Router } from '../router.js';
 import { ExecutionModal } from '../components/executionModal.js';
 import { Modal } from '../components/modal.js';
 import { renderRobotAvatar } from '../components/robotAvatar.js';
+import { escapeHtml } from '../utils/dom.js';
 
 export const WorkflowEditorView = {
   editor: null,
@@ -1790,12 +1791,7 @@ export const WorkflowEditorView = {
   },
 
   escapeHtml(unsafe) {
-    return (unsafe || '').toString()
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
+    return escapeHtml(unsafe);
   },
 
   destroy() {

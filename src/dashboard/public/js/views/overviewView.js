@@ -14,6 +14,7 @@ import { Toast } from '../components/toast.js';
 import { Header } from '../components/header.js';
 import { ExecutionModal } from '../components/executionModal.js';
 import { renderRobotAvatar } from '../components/robotAvatar.js';
+import { escapeHtml } from '../utils/dom.js';
 
 function extractDomain(url) {
   if (!url || url === 'about:blank' || url === 'unknown') return 'Web Application';
@@ -56,13 +57,7 @@ export const OverviewView = {
   router: null,
 
   escapeHtml(val) {
-    return String(val || '').replace(/[&<>"']/g, c => ({
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#39;'
-    }[c]));
+    return escapeHtml(val);
   },
 
   async render(container, router, routeArg) {

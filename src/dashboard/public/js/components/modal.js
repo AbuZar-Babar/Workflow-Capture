@@ -2,10 +2,7 @@
  * Workflow Capture — Step Inspector Modal Component
  */
 
-function escapeHtml(str) {
-  if (!str) return '';
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
+import { escapeHtml } from '../utils/dom.js';
 
 export const Modal = {
   elModal: null,

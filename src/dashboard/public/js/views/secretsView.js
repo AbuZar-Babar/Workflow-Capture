@@ -12,17 +12,7 @@
 import { Api } from '../api.js';
 import { Toast } from '../components/toast.js';
 import { renderRobotAvatar } from '../components/robotAvatar.js';
-
-function escapeHtml(str) {
-  if (!str) return '';
-  return String(str).replace(/[&<>"']/g, c => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-  }[c]));
-}
+import { escapeHtml } from '../utils/dom.js';
 
 function formatDate(isoStr) {
   if (!isoStr) return '—';
@@ -56,7 +46,7 @@ export const SecretsView = {
                 <h1 class="wf-page-title" style="margin:0; font-size:1.35rem; font-weight:800; letter-spacing:-0.02em;">AGENT SECRETS VAULT</h1>
                 <span class="badge-tag info" style="font-size:0.68rem; font-weight:700;">ENCRYPTED TOKENS</span>
               </div>
-              <p class="wf-page-subtitle" style="margin:0.2rem 0 0;">Encrypted credentials and auth tokens injected securely into agent workflows via {{secret:name}}.</p>
+              <p class="wf-page-subtitle" style="margin:0.2rem 0 0;">Store credentials securely. Reference them in workflow steps using {{secret:name}}.</p>
             </div>
           </div>
           <div style="display:flex; align-items:center; gap:0.6rem;">
@@ -81,7 +71,7 @@ export const SecretsView = {
 
           <form id="addSecretForm" style="display:grid; grid-template-columns: 1fr 1fr 1.2fr auto; gap:0.75rem; align-items:end;">
             <div class="form-group" style="margin:0;">
-              <label style="font-size:var(--text-xs); font-weight:700; color:var(--text-sub); display:block; margin-bottom:0.25rem;">Secret Key / ID</label>
+              <label style="font-size:var(--text-xs); font-weight:700; color:var(--text-sub); display:block; margin-bottom:0.25rem;">Secret Name</label>
               <input type="text" id="secretName" class="form-control mono" required placeholder="e.g. portal_password" style="font-size:var(--text-xs);">
             </div>
             <div class="form-group" style="margin:0;">
