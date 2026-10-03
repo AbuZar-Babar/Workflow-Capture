@@ -23,6 +23,11 @@ export const WorkflowEditorView = {
   selectedNodeId: null,
   pendingDeleteNodeId: null,
   isSaving: false,
+  isDirty: false,
+  userHasTypedName: false,
+  isReordering: false,
+  isInitialRender: false,
+  beforeUnloadHandler: null,
   isSpaceDown: false,
   isSpacePanning: false,
   spaceStartX: 0,
@@ -34,6 +39,39 @@ export const WorkflowEditorView = {
   onCanvasMouseDown: null,
   onWindowMouseMove: null,
   onWindowMouseUp: null,
+
+  markDirty() {
+    this.isDirty = true;
+    const btn = document.getElementById('btnSaveFlow');
+    if (btn) {
+      btn.classList.remove('btn-secondary');
+      btn.classList.add('btn-primary');
+      const span = btn.querySelector('span');
+      if (span && !span.textContent.includes('*')) {
+        span.textContent = 'Save *';
+      }
+    }
+  },
+
+  markClean() {
+    this.isDirty = false;
+    const btn = document.getElementById('btnSaveFlow');
+    if (btn) {
+      btn.classList.remove('btn-primary');
+      btn.classList.add('btn-secondary');
+      const span = btn.querySelector('span');
+      if (span) {
+        span.textContent = 'Save';
+      }
+    }
+  },
+
+  canDeactivate() {
+    if (this.isDirty) {
+      return window.confirm('You have unsaved changes in this workflow. Are you sure you want to leave without saving?');
+    }
+    return true;
+  },
 
   setSafeTimeout(fn, ms) {
     if (!this.isMounted) return null;
@@ -68,6 +106,19 @@ export const WorkflowEditorView = {
     this.workflowId = workflowId;
     this.workflow = null;
     this.activeTimers = new Set();
+    this.isDirty = false;
+    this.userHasTypedName = false;
+    this.isReordering = false;
+    this.isInitialRender = true;
+
+    this.beforeUnloadHandler = (e) => {
+      if (this.isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+    };
+    window.addEventListener('beforeunload', this.beforeUnloadHandler);
 
     container.innerHTML = `
       <div class="workflow-editor-layout">
@@ -198,6 +249,10 @@ export const WorkflowEditorView = {
     });
 
     document.getElementById('btnBack')?.addEventListener('click', () => {
+      if (this.isDirty) {
+        const proceed = window.confirm('You have unsaved changes in this workflow. Are you sure you want to leave without saving?');
+        if (!proceed) return;
+      }
       this.hideConnectionMenu();
       Router.navigate('workflows');
     });
@@ -223,6 +278,8 @@ export const WorkflowEditorView = {
     const nameInput = document.getElementById('wfNameInput');
     if (nameInput) {
       nameInput.addEventListener('input', (e) => {
+        this.userHasTypedName = true;
+        this.markDirty();
         if (this.workflow) {
           this.workflow.name = e.target.value;
         }
@@ -240,7 +297,7 @@ export const WorkflowEditorView = {
       this.workflow = data.workflow || data;
       const wfName = this.workflow.name || 'Workflow';
 
-      if (nameInput) {
+      if (nameInput && !this.userHasTypedName) {
         nameInput.value = wfName;
       }
 
@@ -253,6 +310,12 @@ export const WorkflowEditorView = {
         targetUrlInput.value = this.workflow.targetUrl ||
           (this.workflow.recordingData && this.workflow.recordingData.metadata && this.workflow.recordingData.metadata.startUrl) ||
           '';
+        targetUrlInput.addEventListener('input', (e) => {
+          this.markDirty();
+          if (this.workflow) {
+            this.workflow.targetUrl = e.target.value;
+          }
+        });
       }
 
       this.initDrawflow();
@@ -342,15 +405,19 @@ export const WorkflowEditorView = {
     // Refresh visual step numbers when links change
     this.editor.on('connectionCreated', () => {
       this.refreshStepNumbers();
+      if (!this.isInitialRender) this.markDirty();
     });
     this.editor.on('connectionRemoved', () => {
       this.refreshStepNumbers();
+      if (!this.isInitialRender) this.markDirty();
     });
     this.editor.on('nodeRemoved', () => {
       this.refreshStepNumbers();
+      if (!this.isInitialRender) this.markDirty();
     });
 
     this.renderWorkflowSteps();
+    this.isInitialRender = false;
   },
 
   initConnectionInteractions(container) {
@@ -640,6 +707,7 @@ export const WorkflowEditorView = {
       this.selectedConnectionInfo = null;
       this.hideConnectionMenu();
       this.refreshStepNumbers();
+      this.markDirty();
       Toast.info('Link removed. You can relink steps by dragging between ports.');
     } catch (err) {
       console.warn('Could not remove connection via removeSingleConnection:', err);
@@ -648,6 +716,7 @@ export const WorkflowEditorView = {
         this.selectedConnectionInfo = null;
         this.hideConnectionMenu();
         this.refreshStepNumbers();
+        this.markDirty();
         Toast.info('Link removed.');
       } catch (e2) {
         Toast.error('Failed to remove link');
@@ -715,6 +784,7 @@ export const WorkflowEditorView = {
       this.hideConnectionMenu();
       this.selectedConnectionInfo = null;
       this.refreshStepNumbers();
+      this.markDirty();
 
       Toast.info('Step removed. Connect remaining steps by dragging from an output port to an input port.');
     } catch (err) {
@@ -1033,133 +1103,136 @@ export const WorkflowEditorView = {
         this.editor.addConnection(previousNodeId, nodeId, "output_1", "input_1");
       }
 
-      // Wire interactive events
-      this.setSafeTimeout(() => {
-        const nodeEl = document.getElementById(`node-${nodeId}`);
-        if (nodeEl) {
-          const nameInput = nodeEl.querySelector('.df-name-input');
-          const valueInput = nodeEl.querySelector('.df-value-input');
-          const titleEl = document.getElementById(`node-title-${index}`);
-          const descEl = document.getElementById(`node-desc-${index}`);
-          const optionSelect = nodeEl.querySelector('.df-option-select');
+      // Wire interactive events synchronously
+      const nodeEl = document.getElementById(`node-${nodeId}`);
+      if (nodeEl) {
+        const nameInput = nodeEl.querySelector('.df-name-input');
+        const valueInput = nodeEl.querySelector('.df-value-input');
+        const titleEl = document.getElementById(`node-title-${index}`);
+        const descEl = document.getElementById(`node-desc-${index}`);
+        const optionSelect = nodeEl.querySelector('.df-option-select');
 
-          if (nameInput) {
-            nameInput.addEventListener('input', (e) => {
-              const newName = e.target.value.trim() || `Step #${index + 1}`;
-              const newHumanTitle = this.getHumanNodeTitle(step, actionLabel, newName);
-              if (titleEl) titleEl.textContent = newHumanTitle;
-              if (descEl) descEl.textContent = this.describeAction({
-                ...step,
-                action: rawAction,
-                value: valueInput?.value || stepValue,
-                key: step.key
-              }, newName);
-            });
-          }
-
-          if (valueInput) {
-            valueInput.addEventListener('input', (e) => {
-              const currentName = nameInput ? nameInput.value.trim() : friendlyName;
-              if (descEl) descEl.textContent = this.describeAction({
-                ...step,
-                action: rawAction,
-                value: e.target.value,
-                key: step.key
-              }, currentName);
-            });
-          }
-
-          if (optionSelect && valueInput) {
-            optionSelect.onchange = (e) => {
-              const val = e.target.value;
-              if (val === '__dynamic_loop__') {
-                valueInput.value = '{{loop:index}}';
-                Toast.info(`Step #${index + 1} will repeat for each record.`);
-              } else {
-                const selectedOpt = e.target.options[e.target.selectedIndex];
-                const label = selectedOpt ? selectedOpt.getAttribute('data-label') : val;
-                valueInput.value = val || label || '';
-                Toast.success(`Selected option: ${label || val}`);
-              }
-              const currentName = nameInput ? nameInput.value.trim() : friendlyName;
-              if (descEl) descEl.textContent = this.describeAction({
-                ...step,
-                action: rawAction,
-                value: valueInput.value,
-                key: step.key
-              }, currentName);
-            };
-          }
-
-          const checkboxSelect = nodeEl.querySelector('.df-checkbox-select');
-          if (checkboxSelect) {
-            checkboxSelect.onchange = (e) => {
-              const shouldBeChecked = e.target.value === 'true';
-              const currentName = nameInput ? nameInput.value.trim() : friendlyName;
-              if (descEl) descEl.textContent = this.describeAction({
-                ...step,
-                action: rawAction,
-                isCheckbox: true,
-                desiredState: shouldBeChecked,
-                checked: shouldBeChecked
-              }, currentName);
-              Toast.info(`Step #${index + 1} set to ensure ${shouldBeChecked ? 'CHECKED' : 'UNCHECKED'}`);
-            };
-          }
-
-          const roleSelect = nodeEl.querySelector('.df-role-select');
-          if (roleSelect) {
-            roleSelect.onchange = (e) => {
-              const newRole = e.target.value;
-              const roleBadge = document.getElementById(`badge-role-${index}`);
-              const roleHelper = nodeEl.querySelector('.df-role-helper');
-              const roleGroup = roleSelect.closest('.df-role-group');
-
-              if (newRole === 'LOOP') {
-                if (roleBadge) {
-                  roleBadge.className = 'df-role-badge role-loop';
-                  roleBadge.textContent = '🔁 Repeats';
-                  roleBadge.title = 'Repeats for each record';
-                }
-                if (roleHelper) {
-                  roleHelper.textContent = 'Repeats for each record';
-                }
-                if (roleGroup) {
-                  roleGroup.className = 'df-input-group df-role-group is-loop';
-                }
-                nodeEl.classList.add('is-loop-node');
-                Toast.info(`Step #${index + 1} set to repeat for each record`);
-              } else {
-                if (roleBadge) {
-                  roleBadge.className = 'df-role-badge role-setup';
-                  roleBadge.textContent = '⚙️ Run once';
-                  roleBadge.title = 'Runs once during setup';
-                }
-                if (roleHelper) {
-                  roleHelper.textContent = 'Runs once';
-                }
-                if (roleGroup) {
-                  roleGroup.className = 'df-input-group df-role-group is-setup';
-                }
-                nodeEl.classList.remove('is-loop-node', 'is-loop-anchor');
-                Toast.info(`Step #${index + 1} set to run once (setup)`);
-              }
-            };
-          }
-
-          // Wire Delete Step buttons
-          const deleteBtnHeader = nodeEl.querySelector('.df-btn-delete-node');
-          const deleteBtnFooter = nodeEl.querySelector('.df-btn-delete-text');
-          const triggerDelete = (e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            const currentName = nameInput ? nameInput.value.trim() : friendlyName;
-            this.promptDeleteNode(nodeId, currentName);
-          };
-          if (deleteBtnHeader) deleteBtnHeader.onclick = triggerDelete;
-          if (deleteBtnFooter) deleteBtnFooter.onclick = triggerDelete;
+        if (nameInput) {
+          nameInput.addEventListener('input', (e) => {
+            this.markDirty();
+            const newName = e.target.value.trim() || `Step #${index + 1}`;
+            const newHumanTitle = this.getHumanNodeTitle(step, actionLabel, newName);
+            if (titleEl) titleEl.textContent = newHumanTitle;
+            if (descEl) descEl.textContent = this.describeAction({
+              ...step,
+              action: rawAction,
+              value: valueInput?.value || stepValue,
+              key: step.key
+            }, newName);
+          });
         }
-      }, 50);
+
+        if (valueInput) {
+          valueInput.addEventListener('input', (e) => {
+            this.markDirty();
+            const currentName = nameInput ? nameInput.value.trim() : friendlyName;
+            if (descEl) descEl.textContent = this.describeAction({
+              ...step,
+              action: rawAction,
+              value: e.target.value,
+              key: step.key
+            }, currentName);
+          });
+        }
+
+        if (optionSelect && valueInput) {
+          optionSelect.onchange = (e) => {
+            this.markDirty();
+            const val = e.target.value;
+            if (val === '__dynamic_loop__') {
+              valueInput.value = '{{loop:index}}';
+              Toast.info(`Step #${index + 1} will repeat for each record.`);
+            } else {
+              const selectedOpt = e.target.options[e.target.selectedIndex];
+              const label = selectedOpt ? selectedOpt.getAttribute('data-label') : val;
+              valueInput.value = val || label || '';
+              Toast.success(`Selected option: ${label || val}`);
+            }
+            const currentName = nameInput ? nameInput.value.trim() : friendlyName;
+            if (descEl) descEl.textContent = this.describeAction({
+              ...step,
+              action: rawAction,
+              value: valueInput.value,
+              key: step.key
+            }, currentName);
+          };
+        }
+
+        const checkboxSelect = nodeEl.querySelector('.df-checkbox-select');
+        if (checkboxSelect) {
+          checkboxSelect.onchange = (e) => {
+            this.markDirty();
+            const shouldBeChecked = e.target.value === 'true';
+            const currentName = nameInput ? nameInput.value.trim() : friendlyName;
+            if (descEl) descEl.textContent = this.describeAction({
+              ...step,
+              action: rawAction,
+              isCheckbox: true,
+              desiredState: shouldBeChecked,
+              checked: shouldBeChecked
+            }, currentName);
+            Toast.info(`Step #${index + 1} set to ensure ${shouldBeChecked ? 'CHECKED' : 'UNCHECKED'}`);
+          };
+        }
+
+        const roleSelect = nodeEl.querySelector('.df-role-select');
+        if (roleSelect) {
+          roleSelect.onchange = (e) => {
+            this.markDirty();
+            const newRole = e.target.value;
+            const roleBadge = document.getElementById(`badge-role-${index}`);
+            const roleHelper = nodeEl.querySelector('.df-role-helper');
+            const roleGroup = roleSelect.closest('.df-role-group');
+
+            if (newRole === 'LOOP') {
+              if (roleBadge) {
+                roleBadge.className = 'df-role-badge role-loop';
+                roleBadge.textContent = '🔁 Repeats';
+                roleBadge.title = 'Repeats for each record';
+              }
+              if (roleHelper) {
+                roleHelper.textContent = 'Repeats for each record';
+              }
+              if (roleGroup) {
+                roleGroup.className = 'df-input-group df-role-group is-loop';
+              }
+              nodeEl.classList.add('is-loop-node');
+              Toast.info(`Step #${index + 1} set to repeat for each record`);
+            } else {
+              if (roleBadge) {
+                roleBadge.className = 'df-role-badge role-setup';
+                roleBadge.textContent = '⚙️ Run once';
+                roleBadge.title = 'Runs once during setup';
+              }
+              if (roleHelper) {
+                roleHelper.textContent = 'Runs once';
+              }
+              if (roleGroup) {
+                roleGroup.className = 'df-input-group df-role-group is-setup';
+              }
+              nodeEl.classList.remove('is-loop-node', 'is-loop-anchor');
+              Toast.info(`Step #${index + 1} set to run once (setup)`);
+            }
+          };
+        }
+
+        // Wire Delete Step buttons
+        const deleteBtnHeader = nodeEl.querySelector('.df-btn-delete-node');
+        const deleteBtnFooter = nodeEl.querySelector('.df-btn-delete-text');
+        const triggerDelete = (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          const currentName = nameInput ? nameInput.value.trim() : friendlyName;
+          this.promptDeleteNode(nodeId, currentName);
+        };
+        if (deleteBtnHeader) deleteBtnHeader.onclick = triggerDelete;
+        if (deleteBtnFooter) deleteBtnFooter.onclick = triggerDelete;
+      }
 
       previousNodeId = nodeId;
       pos_x += 390;
@@ -1245,13 +1318,20 @@ export const WorkflowEditorView = {
     list.querySelectorAll('.btn-seq-up').forEach(btn => {
       btn.onclick = (e) => {
         e.stopPropagation();
+        if (this.isReordering) return;
         const idx = Number(btn.getAttribute('data-idx'));
         if (idx > 0) {
-          const temp = steps[idx];
-          steps[idx] = steps[idx - 1];
-          steps[idx - 1] = temp;
-          this.workflow.steps = steps;
-          this.rebuildCanvasFromSteps();
+          this.isReordering = true;
+          try {
+            const temp = steps[idx];
+            steps[idx] = steps[idx - 1];
+            steps[idx - 1] = temp;
+            this.workflow.steps = steps;
+            this.markDirty();
+            this.rebuildCanvasFromSteps();
+          } finally {
+            this.isReordering = false;
+          }
         }
       };
     });
@@ -1260,13 +1340,20 @@ export const WorkflowEditorView = {
     list.querySelectorAll('.btn-seq-down').forEach(btn => {
       btn.onclick = (e) => {
         e.stopPropagation();
+        if (this.isReordering) return;
         const idx = Number(btn.getAttribute('data-idx'));
         if (idx < steps.length - 1) {
-          const temp = steps[idx];
-          steps[idx] = steps[idx + 1];
-          steps[idx + 1] = temp;
-          this.workflow.steps = steps;
-          this.rebuildCanvasFromSteps();
+          this.isReordering = true;
+          try {
+            const temp = steps[idx];
+            steps[idx] = steps[idx + 1];
+            steps[idx + 1] = temp;
+            this.workflow.steps = steps;
+            this.markDirty();
+            this.rebuildCanvasFromSteps();
+          } finally {
+            this.isReordering = false;
+          }
         }
       };
     });
@@ -1275,11 +1362,18 @@ export const WorkflowEditorView = {
     list.querySelectorAll('.btn-seq-del').forEach(btn => {
       btn.onclick = (e) => {
         e.stopPropagation();
+        if (this.isReordering) return;
         const idx = Number(btn.getAttribute('data-idx'));
         if (confirm(`Remove step #${idx + 1} from workflow?`)) {
-          steps.splice(idx, 1);
-          this.workflow.steps = steps;
-          this.rebuildCanvasFromSteps();
+          this.isReordering = true;
+          try {
+            steps.splice(idx, 1);
+            this.workflow.steps = steps;
+            this.markDirty();
+            this.rebuildCanvasFromSteps();
+          } finally {
+            this.isReordering = false;
+          }
         }
       };
     });
@@ -1657,6 +1751,7 @@ export const WorkflowEditorView = {
         this.workflow.targetUrl = updatedTargetUrl;
       }
 
+      this.markClean();
       Toast.success(`Workflow saved successfully (${newSteps.length} steps updated)!`);
       const badge = document.getElementById('wfStepCounter');
       if (badge) badge.textContent = `${newSteps.length} Steps`;
@@ -1670,7 +1765,14 @@ export const WorkflowEditorView = {
       if (this.isMounted && this.currentGeneration === saveGeneration) {
         this.isSaving = false;
         if (btn) {
-          btn.innerHTML = origText;
+          btn.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+              <polyline points="17 21 17 13 7 13 7 21"></polyline>
+              <polyline points="7 3 7 8 15 8"></polyline>
+            </svg>
+            <span>${this.isDirty ? 'Save *' : 'Save'}</span>
+          `;
           btn.disabled = false;
         }
       } else {
@@ -1695,6 +1797,15 @@ export const WorkflowEditorView = {
     this.workflowId = null;
     this.workflow = null;
     this.isSaving = false;
+    this.isDirty = false;
+    this.userHasTypedName = false;
+    this.isReordering = false;
+    this.isInitialRender = false;
+
+    if (this.beforeUnloadHandler) {
+      window.removeEventListener('beforeunload', this.beforeUnloadHandler);
+      this.beforeUnloadHandler = null;
+    }
 
     this.clearAllTimers();
     this.hideConnectionMenu();
