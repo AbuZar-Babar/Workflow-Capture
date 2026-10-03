@@ -2604,3 +2604,12 @@ body {
   stroke-width: 4px !important;
   filter: none !important;
 }
+
+/* Keep node action icons and labels visually separated across every action type. */
+.drawflow .df-action-badge {
+  gap: 8px !important;
+}
+.drawflow .df-action-badge > span:first-child {
+  flex: 0 0 auto !important;
+  margin-right: 1px !important;
+}
