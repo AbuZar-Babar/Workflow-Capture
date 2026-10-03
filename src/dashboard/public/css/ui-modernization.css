@@ -1575,3 +1575,6 @@ body {
 
 /* UI sync watcher second test: harmless marker. */
 .ui-sync-test-marker-2 { display: contents; }
+
+/* UI sync visible test */
+.ui-sync-visible-test { outline: 1px solid transparent; }
