@@ -2113,3 +2113,210 @@ body {
 .wf-dropdown-menu::after {
   display: none !important;
 }
+
+
+/* --- Visual Editor: clean professional workspace -------------------- */
+/* Keep the editor focused on the workflow itself rather than the old agent/robot styling. */
+.workflow-editor-layout {
+  border-radius: 8px !important;
+  border: 1px solid var(--border-light) !important;
+  box-shadow: none !important;
+  background: var(--bg-surface) !important;
+}
+
+.workflow-editor-header {
+  min-height: 64px !important;
+  padding: 0.7rem 1rem !important;
+  gap: 1rem !important;
+  background: var(--bg-surface) !important;
+  border-bottom: 1px solid var(--border-light) !important;
+}
+
+/* The inline legacy editor header colors are intentionally neutralized here. */
+.workflow-editor-header,
+.workflow-editor-header > div,
+.wf-header-target-box > div {
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border-light) !important;
+}
+
+.workflow-editor-header .robot-avatar-wrap {
+  display: none !important;
+}
+
+.workflow-editor-header label {
+  color: var(--text-muted) !important;
+}
+
+.workflow-editor-header .badge-tag.info {
+  background: var(--color-surface-muted) !important;
+  color: var(--text-secondary) !important;
+  border-color: var(--border-light) !important;
+}
+
+.workflow-editor-header .badge-tag.success {
+  background: var(--color-success-bg) !important;
+  color: var(--color-success) !important;
+  border-color: var(--color-success-border) !important;
+}
+
+.wf-header-title-wrap {
+  max-width: 360px !important;
+}
+
+.wf-title-input {
+  min-height: 32px !important;
+  font-size: 1rem !important;
+  background: transparent !important;
+}
+
+.wf-header-target-box input {
+  color: var(--text-primary) !important;
+}
+
+.wf-header-target-box svg {
+  color: var(--text-muted) !important;
+}
+
+.wf-editor-container {
+  height: calc(100vh - 124px) !important;
+  background: var(--bg-page) !important;
+}
+
+.wf-steps-sidebar {
+  width: 300px !important;
+  min-width: 280px !important;
+  max-width: 320px !important;
+  background: var(--bg-surface) !important;
+  border-right: 1px solid var(--border-light) !important;
+}
+
+.wf-steps-header {
+  min-height: 48px !important;
+  padding: 0.65rem 0.8rem !important;
+  background: var(--bg-surface) !important;
+}
+
+.wf-steps-scroll {
+  padding: 0.65rem !important;
+  gap: 0.4rem !important;
+}
+
+.wf-step-seq-card {
+  padding: 0.65rem 0.7rem !important;
+  border-radius: 7px !important;
+  box-shadow: none !important;
+}
+
+.wf-step-seq-card.active {
+  box-shadow: inset 3px 0 0 var(--accent-primary) !important;
+}
+
+.workflow-editor-canvas,
+.parent-drawflow {
+  background-color: var(--bg-page) !important;
+  background-image: radial-gradient(circle, rgba(100,116,139,0.10) 1px, transparent 1px) !important;
+  background-size: 24px 24px !important;
+}
+
+.drawflow .drawflow-node {
+  min-width: 290px !important;
+  max-width: 320px !important;
+  border-radius: 8px !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+.drawflow .drawflow-node:hover {
+  box-shadow: var(--shadow-md) !important;
+}
+
+.drawflow .drawflow-node.selected {
+  border-width: 1px !important;
+  box-shadow: 0 0 0 3px var(--accent-subtle), var(--shadow-md) !important;
+}
+
+.df-node-header {
+  padding: 9px 12px !important;
+}
+
+.df-node-hero {
+  padding: 10px 12px 8px !important;
+}
+
+.df-node-body {
+  padding: 12px !important;
+  gap: 8px !important;
+}
+
+.drawflow-canvas-controls {
+  bottom: 1rem !important;
+  right: 1rem !important;
+  padding: 0.3rem !important;
+}
+
+.drawflow-canvas-controls button {
+  width: 30px !important;
+  height: 30px !important;
+}
+
+@media (max-width: 900px) {
+  .workflow-editor-header {
+    flex-wrap: wrap !important;
+  }
+
+  .workflow-editor-header > div:last-child {
+    width: 100% !important;
+    justify-content: flex-end !important;
+  }
+
+  .wf-header-target-box {
+    flex: 1 1 220px !important;
+  }
+
+  .wf-editor-container {
+    height: calc(100vh - 150px) !important;
+  }
+
+  .wf-steps-sidebar {
+    width: 260px !important;
+    min-width: 240px !important;
+  }
+}
+
+@media (max-width: 700px) {
+  .workflow-editor-header {
+    padding: 0.6rem 0.7rem !important;
+  }
+
+  .workflow-editor-header > div:first-child {
+    width: 100% !important;
+  }
+
+  .workflow-editor-header > div:last-child {
+    align-items: stretch !important;
+  }
+
+  .wf-header-target-box {
+    min-width: 0 !important;
+    flex: 1 1 100% !important;
+  }
+
+  .wf-header-target-box input {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .wf-editor-container {
+    height: calc(100vh - 210px) !important;
+  }
+
+  .wf-steps-sidebar {
+    width: 230px !important;
+    min-width: 210px !important;
+  }
+
+  .drawflow .drawflow-node {
+    min-width: 250px !important;
+    max-width: 280px !important;
+  }
+}
