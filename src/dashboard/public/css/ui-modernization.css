@@ -1577,4 +1577,4 @@ body {
 .ui-sync-test-marker-2 { display: contents; }
 
 /* UI sync visible test */
-.ui-sync-visible-test { outline: 1px solid transparent; }
+.dashboard-header { box-shadow: inset 0 2px 0 var(--color-primary) !important; }
