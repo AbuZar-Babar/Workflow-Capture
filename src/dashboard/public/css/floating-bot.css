@@ -547,3 +547,50 @@
   0% { transform: translateY(0) rotate(-2deg); }
   100% { transform: translateY(-4px) rotate(2deg); }
 }
+
+/* Clean UI override: keep assistant interaction, remove mascot/glow-heavy presentation. */
+.flowmind-floating-bot-root {
+  bottom: 20px;
+  right: 20px;
+  gap: 8px;
+  font-family: var(--font-sans);
+}
+.flowmind-floating-mascot-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  filter: none;
+  box-shadow: var(--shadow-md);
+}
+.flowmind-floating-mascot-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+.flowmind-mascot-svg-wrap {
+  transform: scale(0.58);
+}
+.flowmind-mascot-glow,
+.flowmind-orbital-ring {
+  display: none;
+}
+.flowmind-floating-card {
+  width: 220px;
+  padding: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+.flowmind-card-head {
+  border-bottom-color: var(--color-border);
+}
+.flowmind-card-title,
+.flowmind-step-label {
+  color: var(--color-text);
+}
+.flowmind-step-item:hover {
+  background: var(--color-surface-muted);
+  transform: none;
+}
