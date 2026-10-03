@@ -1569,16 +1569,6 @@ body {
   }
 }
 
-/* --- UI sync test marker -------------------------------------------- */
-/* Sync watcher verification marker; no visual or functional effect. */
-.ui-sync-test-marker { display: contents; }
 
-/* UI sync watcher second test: harmless marker. */
-.ui-sync-test-marker-2 { display: contents; }
-
-/* UI sync visible test */
-.dashboard-header { box-shadow: inset 0 2px 0 var(--color-primary) !important; }
-
-/* LIVE RELOAD TEST: intentionally obvious temporary marker. */
-.dashboard-page.overview-page,
-[data-view="overview"] .dashboard-page { background: #fff3cd !important; }
+/* UI sync live-reload verification marker: intentionally obvious and temporary. */
+.dashboard-page.overview-page { background: #dbeafe !important; }
