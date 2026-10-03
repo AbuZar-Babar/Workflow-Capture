@@ -258,35 +258,41 @@ class ItemDiscovery {
         const isHeaderItem = (el) => {
           if (!el) return false;
           const tag = el.tagName.toLowerCase();
-          if (tag === 'thead' || el.closest('thead, .x-grid-header-ct, .x-grid-header')) return true;
-          if (el.classList?.contains('x-grid-header-row') || el.classList?.contains('x-grid-header')) return true;
-          const ths = el.querySelectorAll('th, [role="columnheader"], .x-column-header');
-          const tds = el.querySelectorAll('td, [role="gridcell"], .x-grid-cell');
+          if (tag === 'thead' || el.closest('thead')) return true;
+          const cls = (typeof el.className === 'string' ? el.className : '').toLowerCase();
+          if (/\b(header|thead|column-header|grid-header|header-row)\b/i.test(cls)) return true;
+          const ths = el.querySelectorAll('th, [role="columnheader"]');
+          const tds = el.querySelectorAll('td, [role="gridcell"]');
           if (ths.length > 0 && tds.length === 0) return true;
-          const txt = (el.innerText || el.textContent || '').toLowerCase();
-          if (txt.includes('invoice number') && (txt.includes('customer name') || txt.includes('customer number') || txt.includes('payment method'))) return true;
+          if (el === el.parentElement?.firstElementChild && (ths.length > 0 || tds.length >= 2)) {
+            const hasLinksOrInputs = el.querySelector('a[href], button, input[type="button"], input[type="submit"]');
+            const nextRow = el.nextElementSibling;
+            const nextRowHasLinks = nextRow?.querySelector('a[href], button, input');
+            if (!hasLinksOrInputs && (nextRowHasLinks || Array.from(tds).some(c => c.querySelector('b, strong, th') || (window.getComputedStyle && (window.getComputedStyle(c).fontWeight >= 600 || window.getComputedStyle(c).fontWeight === 'bold'))))) {
+              return true;
+            }
+          }
           return false;
         };
 
         // Try extracting headers from explicit header row or parent grid header
         const explicitHeader = siblingSet.find(isHeaderItem);
         if (explicitHeader) {
-          const hCells = Array.from(explicitHeader.querySelectorAll('th, [role="columnheader"], td, .x-column-header')).map(c => (c.innerText || c.textContent || '').trim()).filter(t => t.length > 0 && t.length < 50);
+          const hCells = Array.from(explicitHeader.querySelectorAll('th, [role="columnheader"], td, .x-column-header')).map(c => (c.innerText || c.textContent || '').trim()).filter(t => t.length > 0 && t.length < 60);
           if (hCells.length > 0) {
             headerColumns = Array.from(new Set(hCells));
           }
         }
 
-        // Also check parent grid / table container for header elements
-        const gridContainer = (itemForRecorded.closest && itemForRecorded.closest('.x-grid, table, [role="grid"], .dxgvTable, .grid-container')) || document.querySelector('.x-grid, table, [role="grid"]');
-        if (gridContainer && headerColumns.length === 0) {
-          const headerCt = gridContainer.querySelector('.x-grid-header-ct, thead, .x-grid-header-row') || gridContainer;
-          const headerEls = Array.from(headerCt.querySelectorAll('.x-column-header, th, [role="columnheader"], .mat-header-cell, .ag-header-cell'))
-            .filter(h => !h.parentElement?.closest('.x-column-header'));
-          const colTexts = headerEls.map(h => {
-            const innerTextEl = h.querySelector('.x-column-header-text') || h;
-            return (innerTextEl.innerText || innerTextEl.textContent || '').trim();
-          }).filter(t => t.length > 0 && t.length < 60);
+        // Also check parent grid / table container for header elements (scoped strictly to item's container)
+        const tableContainer = itemForRecorded.closest('table, [role="grid"], .data-table, .x-grid');
+        if (tableContainer && headerColumns.length === 0) {
+          const thead = tableContainer.querySelector('thead');
+          let headerEls = thead ? Array.from(thead.querySelectorAll('th, td, [role="columnheader"]')) : [];
+          if (!headerEls.length) {
+            headerEls = Array.from(tableContainer.querySelectorAll('th, [role="columnheader"]'));
+          }
+          const colTexts = headerEls.map(h => (h.innerText || h.textContent || '').trim()).filter(t => t.length > 0 && t.length < 60);
           if (colTexts.length > 0) {
             headerColumns = Array.from(new Set(colTexts));
           }
@@ -298,6 +304,23 @@ class ItemDiscovery {
 
         const index = effectiveMatching.indexOf(itemForRecorded);
         if (index < 0 && !effectiveMatching.includes(itemForRecorded) && effectiveMatching.length === 0) continue;
+
+        // Detect which column contained the recorded action element (e.g. "Download Files")
+        let recordedCellIndex = -1;
+        let recordedTargetColumn = null;
+        let recordedActionValue = null;
+
+        if (recorded && itemForRecorded) {
+          let recCells = Array.from(itemForRecorded.querySelectorAll('td, th, [role="gridcell"]'));
+          if (recCells.length === 0) {
+            recCells = Array.from(itemForRecorded.children);
+          }
+          recordedCellIndex = recCells.findIndex(c => c === recorded || c.contains(recorded));
+          if (recordedCellIndex >= 0 && headerColumns[recordedCellIndex]) {
+            recordedTargetColumn = headerColumns[recordedCellIndex];
+          }
+          recordedActionValue = (recorded.innerText || recorded.textContent || recorded.getAttribute('value') || recorded.getAttribute('title') || '').trim().replace(/\s+/g, ' ');
+        }
 
         const ancestorTagLower = ancestor.tagName.toLowerCase();
 
@@ -321,6 +344,8 @@ class ItemDiscovery {
           score,
           itemCount: effectiveMatching.length,
           recordedIndex: Math.max(0, index),
+          targetColumn: recordedTargetColumn,
+          targetActionValue: recordedActionValue,
           ancestorTag: ancestorTagLower,
           ancestorSelector: buildAncestorSelector(ancestor),
           itemTag: itemTagLower,
@@ -376,58 +401,34 @@ class ItemDiscovery {
                 }
               });
 
-              // Smart field derivation for common enterprise table attributes:
-              // 1. Transaction / Invoice Number
-              if (!fields['Invoice Number'] && !fields['Invoice No'] && !fields['Invoice']) {
-                const invMatch = itemText.match(/\b((?:SI|INV|DR|TX|CM)-\d+(?:[-_]\w+)*|\b\d{5,10}\b)/i);
-                if (invMatch) {
-                  fields['Invoice Number'] = invMatch[1];
+              // Also extract specific interactive controls in cells (e.g. Download links, action buttons)
+              cells.forEach((cell, cIdx) => {
+                const colName = headerColumns[cIdx];
+                const link = cell.querySelector('a[href], button, input');
+                if (link && colName && !fields[colName]) {
+                  fields[colName] = (link.innerText || link.textContent || link.getAttribute('value') || 'Action').trim();
                 }
-              }
+              });
 
-              // 2. Document / Record Type
-              if (!fields['Type'] || fields['Type'] === itemText || /^(SI|INV|DR|TX|CM)-\d+/i.test(fields['Type'])) {
-                if (/\bcredit\s*memo\b/i.test(itemText)) {
-                  fields['Type'] = 'Credit Memo';
-                } else if (/\binvoice\b/i.test(itemText)) {
-                  fields['Type'] = 'Invoice';
-                } else if (/\border\b/i.test(itemText)) {
-                  fields['Type'] = 'Order';
-                }
-              }
-
-              // 3. Status
+              // Universal status derivation if not in headers
               if (!fields['Status']) {
-                const statusMatch = itemText.match(/\b(Open|Closed|Pending|Paid|Unpaid|Draft|Approved|Posted)\b/i);
+                const statusMatch = itemText.match(/\b(Open|Closed|Pending|Paid|Unpaid|Draft|Approved|Posted|Active|Inactive)\b/i);
                 if (statusMatch) {
                   fields['Status'] = statusMatch[1];
                 }
               }
 
-              // 4. Due Date & Invoice Date
-              if (!fields['Due Date'] || !fields['Invoice Date']) {
-                const dateMatches = itemText.match(/\b\d{1,2}\/\d{1,2}\/\d{4}\b/g);
-                if (dateMatches && dateMatches.length >= 2) {
-                  fields['Invoice Date'] = fields['Invoice Date'] || dateMatches[0];
-                  fields['Due Date'] = fields['Due Date'] || dateMatches[1];
-                } else if (dateMatches && dateMatches.length === 1) {
-                  fields['Due Date'] = fields['Due Date'] || dateMatches[0];
-                }
-              }
-
-              // 5. Days Old
-              if (!fields['Days Old']) {
-                const daysMatch = itemText.match(/\b(\d{1,3})\s+(?:days?\s+old|\d{1,2}\/\d{1,2}\/\d{4})/i);
-                if (daysMatch) {
-                  fields['Days Old'] = daysMatch[1];
+              // Universal date derivation if not in headers
+              if (!fields['Date'] && !fields['UploadDate'] && !fields['Created']) {
+                const dateMatch = itemText.match(/\b(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*,?\s+\d{4}|\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{2,4})\b/i);
+                if (dateMatch) {
+                  fields['Date'] = dateMatch[1];
                 }
               }
             } else if (itemTagLower === 'mat-option' || itemRole === 'option' || itemTagLower === 'option') {
-              fields['Type'] = itemText;
               fields['Option'] = itemText;
-              fields['Document Type'] = itemText;
-              fields['Text'] = itemText;
               fields['Value'] = itemText;
+              fields['Type'] = itemText;
             } else {
               // Universal field extraction for cards, grids, and list items
               // 1. Labeled pairs (<label>Key:</label><span>Val</span>, <dt>Key</dt><dd>Val</dd>)
@@ -476,7 +477,9 @@ class ItemDiscovery {
             }
 
             if (fields['Type'] === undefined && fields['type'] === undefined) {
-              fields['Type'] = itemText;
+              if (itemTagLower === 'mat-option' || itemRole === 'option' || itemTagLower === 'option') {
+                fields['Type'] = itemText;
+              }
             }
             fields['fullText'] = itemText;
             fields['label'] = itemText;
@@ -524,11 +527,14 @@ class ItemDiscovery {
         confidence: best.score,
         itemCount: best.itemCount,
         recordedIndex: best.recordedIndex,
+        targetColumn: best.targetColumn,
+        targetActionValue: best.targetActionValue,
         collection: {
           ancestorTag: best.ancestorTag,
           ancestorSelector: best.ancestorSelector,
           itemTag: best.itemTag,
-          itemSignature: best.itemSignature
+          itemSignature: best.itemSignature,
+          headerColumns: best.headerColumns
         },
         items: best.items,
         availableFields: Array.from(availableCols),

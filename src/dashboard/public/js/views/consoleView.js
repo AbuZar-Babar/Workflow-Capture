@@ -14,6 +14,7 @@
 import { Api } from '../api.js';
 import { SSE } from '../sse.js';
 import { Toast } from '../components/toast.js';
+import { renderRobotAvatar } from '../components/robotAvatar.js';
 
 function escapeHtml(str) {
   if (!str) return '';
@@ -64,13 +65,21 @@ export const ConsoleView = {
 
         <!-- Page Header -->
         <div class="wf-page-header">
-          <div>
-            <h1 class="wf-page-title">Activity</h1>
-            <p class="wf-page-subtitle">Timeline of browser workflow executions, live runs, and automation history.</p>
+          <div style="display:flex; align-items:center; gap:0.85rem;">
+            <div>
+              ${renderRobotAvatar({ size: 'badge', state: 'idle' })}
+            </div>
+            <div>
+              <div style="display:flex; align-items:center; gap:0.5rem;">
+                <h1 class="wf-page-title" style="margin:0; font-size:1.35rem; font-weight:800; letter-spacing:-0.02em;">AGENT ACTIVITY</h1>
+                <span class="badge-tag info" style="font-size:0.68rem; font-weight:700;">LIVE TELEMETRY</span>
+              </div>
+              <p class="wf-page-subtitle" style="margin:0.2rem 0 0;">Autonomous agent timeline, website stage analysis, and streaming execution logs.</p>
+            </div>
           </div>
           <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
             <!-- View Mode Switcher -->
-            <div class="toggle-group" style="display:inline-flex; background:var(--bg-surface-sunken); padding:2px; border-radius:var(--radius-md); border:1px solid var(--border-light);">
+            <div class="toggle-group" style="display:inline-flex; background:rgba(6,9,19,0.7); padding:3px; border-radius:var(--radius-md); border:1px solid rgba(255,255,255,0.08);">
               <button class="btn-toggle active" id="btnTabTimeline" style="padding:0.35rem 0.75rem; font-size:var(--text-xs); font-weight:600; border-radius:var(--radius-sm); border:none; cursor:pointer; background:var(--bg-surface); color:var(--text-primary); box-shadow:var(--shadow-sm);">
                 Activity Timeline
               </button>
@@ -408,14 +417,12 @@ export const ConsoleView = {
 
     if (this.filteredRuns.length === 0) {
       list.innerHTML = `
-        <div class="modern-empty-state" style="padding:3.5rem 1.5rem;">
-          <div class="empty-state-icon" style="background:var(--bg-surface-sunken); color:var(--text-muted);">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-            </svg>
+        <div class="modern-empty-state" style="padding:3.5rem 1.5rem; text-align:center;">
+          <div style="margin-bottom:1rem; display:inline-block;">
+            ${renderRobotAvatar({ size: 'medium', state: 'idle' })}
           </div>
-          <h3 class="empty-state-title">No activity events found</h3>
-          <p class="empty-state-desc">Try clearing your search query or filters to view past execution history.</p>
+          <h3 class="empty-state-title" style="font-size:1.05rem; color:var(--text-primary); font-weight:700;">No agent activity events found</h3>
+          <p class="empty-state-desc" style="color:var(--text-sub); max-width:380px; margin:0.35rem auto 0;">When autonomous agents execute workflows, detailed step milestones and telemetry will be tracked here.</p>
         </div>
       `;
       return;

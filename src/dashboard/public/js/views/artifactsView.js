@@ -14,6 +14,7 @@
 
 import { Api } from '../api.js';
 import { Toast } from '../components/toast.js';
+import { renderRobotAvatar } from '../components/robotAvatar.js';
 
 function esc(v) {
   return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({
@@ -129,9 +130,17 @@ export const ArtifactsView = {
 
         <!-- Page Header -->
         <div class="wf-page-header">
-          <div>
-            <h1 class="wf-page-title">Files</h1>
-            <p class="wf-page-subtitle">Documents, spreadsheets, PDFs, and data produced by workflow runs.</p>
+          <div style="display:flex; align-items:center; gap:0.85rem;">
+            <div>
+              ${renderRobotAvatar({ size: 'badge', state: 'idle' })}
+            </div>
+            <div>
+              <div style="display:flex; align-items:center; gap:0.5rem;">
+                <h1 class="wf-page-title" style="margin:0; font-size:1.35rem; font-weight:800; letter-spacing:-0.02em;">AGENT OUTPUTS</h1>
+                <span class="badge-tag info" style="font-size:0.68rem; font-weight:700;">OUTPUT CENTER</span>
+              </div>
+              <p class="wf-page-subtitle" style="margin:0.2rem 0 0;">Intelligent artifacts, downloaded records, invoices, datasets, and execution output packages.</p>
+            </div>
           </div>
           <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
             <button class="btn btn-secondary btn-sm" id="btnExportAllFiles" title="Download all captured files as a consolidated ZIP package">
@@ -483,11 +492,11 @@ export const ArtifactsView = {
         <tr>
           <td colspan="6" style="padding:3.5rem 1.5rem; text-align:center;">
             <div class="modern-empty-state" style="border:none; padding:1rem 0;">
-              <div class="empty-state-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+              <div style="margin-bottom:1rem; display:inline-block;">
+                ${renderRobotAvatar({ size: 'medium', state: 'idle' })}
               </div>
-              <h3 class="empty-state-title">No files found</h3>
-              <p class="empty-state-desc">Generated files and documents produced during automation runs will appear here.</p>
+              <h3 class="empty-state-title" style="font-size:1.05rem; color:var(--text-primary); font-weight:700;">No agent outputs found</h3>
+              <p class="empty-state-desc" style="color:var(--text-sub); max-width:380px; margin:0.35rem auto 0;">Invoices, spreadsheets, and documents downloaded by autonomous workflows will be archived here.</p>
             </div>
           </td>
         </tr>

@@ -735,19 +735,23 @@ class LoopReplayRunner {
           const fields = {};
           if (!el) return fields;
 
-          const table = (typeof el.closest === 'function' && el.closest('table, [role="grid"], [role="treegrid"], .dxgvTable')) ||
-                        (typeof document !== 'undefined' && typeof document.querySelector === 'function' && document.querySelector('table, [role="grid"], [role="treegrid"], .dxgvTable'));
-          const headers = [];
-          if (table && typeof table.querySelectorAll === 'function') {
-            const thead = typeof table.querySelector === 'function' ? table.querySelector('thead') : null;
-            let headerEls = thead && typeof thead.querySelectorAll === 'function' ? Array.from(thead.querySelectorAll('th, td, [role="columnheader"]')) : [];
-            if (!headerEls.length) {
-              headerEls = Array.from(table.querySelectorAll('th, [role="columnheader"], .dxgvHeader'));
+          let headers = Array.isArray(collection.headerColumns) && collection.headerColumns.length > 0
+            ? collection.headerColumns
+            : [];
+
+          if (!headers.length) {
+            const table = typeof el.closest === 'function' ? el.closest('table, [role="grid"], [role="treegrid"], .dxgvTable') : null;
+            if (table && typeof table.querySelectorAll === 'function') {
+              const thead = typeof table.querySelector === 'function' ? table.querySelector('thead') : null;
+              let headerEls = thead && typeof thead.querySelectorAll === 'function' ? Array.from(thead.querySelectorAll('th, td, [role="columnheader"]')) : [];
+              if (!headerEls.length) {
+                headerEls = Array.from(table.querySelectorAll('th, [role="columnheader"], .dxgvHeader'));
+              }
+              headerEls.forEach(h => {
+                const t = (h.innerText || h.textContent || '').trim().replace(/\s+/g, ' ');
+                if (t) headers.push(t);
+              });
             }
-            headerEls.forEach(h => {
-              const t = (h.innerText || h.textContent || '').trim().replace(/\s+/g, ' ');
-              if (t) headers.push(t);
-            });
           }
 
           let cellEls = [];
@@ -758,13 +762,20 @@ class LoopReplayRunner {
             cellEls = Array.from(el.children);
           }
 
-          const cells = cellEls.map(c =>
-            (c.innerText || c.textContent || '').trim().replace(/\s+/g, ' ')
-          );
+          const cells = cellEls.map(c => {
+            let val = (c.innerText || c.textContent || '').trim().replace(/\s+/g, ' ');
+            if (!val) {
+              const link = c.querySelector('a, button, input');
+              if (link) {
+                val = (link.innerText || link.textContent || link.getAttribute('value') || '').trim();
+              }
+            }
+            return val;
+          });
 
           if (headers.length > 0 && cells.length > 0) {
             headers.forEach((hName, idx) => {
-              if (idx < cells.length) {
+              if (idx < cells.length && cells[idx]) {
                 fields[hName] = cells[idx];
               }
             });
@@ -801,7 +812,8 @@ class LoopReplayRunner {
         for (let i = 0; i < total; i++) {
           const base = items && items[i] ? items[i] : {};
           const domEl = domElements[i] || null;
-          const extracted = domEl ? extractFieldsFromElement(domEl) : (base.fields || {});
+          const extracted = domEl ? extractFieldsFromElement(domEl) : {};
+          const mergedFields = Object.assign({}, base.fields || {}, extracted);
           result.push({
             index: base.index !== undefined ? base.index : i,
             text: base.text || (domEl ? (domEl.innerText || domEl.textContent || '').trim() : ''),
@@ -810,7 +822,7 @@ class LoopReplayRunner {
             signature: base.signature || (domEl ? structuralSignature(domEl) : ''),
             href: base.href || (domEl ? domEl.querySelector('a[href]')?.href || null : null),
             id: base.id || (domEl ? domEl.id || null : null),
-            fields: extracted
+            fields: mergedFields
           });
         }
         return result;
@@ -2596,9 +2608,13 @@ class LoopReplayRunner {
 
                   if (actionType === 'CLICK' && this.downloadsDir) {
                     const isDownloadAction = Boolean(
-                      (action.target?.candidates?.some(c => c.value && /download|export|save|pdf|print/i.test(c.value))) ||
+                      action.isDownload === true ||
+                      (action.target?.candidates?.some(c => c.value && /download|export|save|pdf|print|file/i.test(c.value))) ||
                       (action.target?.fingerprint?.attributes?.title && /download|export|save|pdf|print/i.test(action.target.fingerprint.attributes.title)) ||
-                      (action.target?.fingerprint?.text && /download|export|save|pdf|print/i.test(action.target.fingerprint.text))
+                      (action.target?.fingerprint?.attributes?.href && /download|export|save|file/i.test(action.target.fingerprint.attributes.href)) ||
+                      (action.target?.fingerprint?.text && /download|export|save|pdf|print/i.test(action.target.fingerprint.text)) ||
+                      (action.name && /download|export|save/i.test(action.name)) ||
+                      (action.elementName && /download|export|save/i.test(action.elementName))
                     );
                     const downloadWaitMs = isDownloadAction ? 12000 : 1200;
                     const downloaded = await this.waitForDownload(beforeActionFiles, downloadWaitMs);

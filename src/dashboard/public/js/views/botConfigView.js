@@ -13,6 +13,7 @@
 import { Api } from '../api.js';
 import { Toast } from '../components/toast.js';
 import { Theme } from '../theme.js';
+import { renderRobotAvatar } from '../components/robotAvatar.js';
 
 export const BotConfigView = {
   currentConfig: null,
@@ -25,9 +26,17 @@ export const BotConfigView = {
 
         <!-- Header -->
         <div class="wf-page-header">
-          <div>
-            <h1 class="wf-page-title">Settings</h1>
-            <p class="wf-page-subtitle">Configure workspace preferences, browser automation engine, and security.</p>
+          <div style="display:flex; align-items:center; gap:0.85rem;">
+            <div>
+              ${renderRobotAvatar({ size: 'badge', state: 'idle' })}
+            </div>
+            <div>
+              <div style="display:flex; align-items:center; gap:0.5rem;">
+                <h1 class="wf-page-title" style="margin:0; font-size:1.35rem; font-weight:800; letter-spacing:-0.02em;">AGENT SETTINGS</h1>
+                <span class="badge-tag info" style="font-size:0.68rem; font-weight:700;">ENGINE CONFIG</span>
+              </div>
+              <p class="wf-page-subtitle" style="margin:0.2rem 0 0;">Agent worker tuning, browser CDP connection parameters, anti-detection, and vault security.</p>
+            </div>
           </div>
           <div style="display:flex; align-items:center; gap:0.6rem;">
             <button class="btn btn-secondary btn-sm" id="btnResetSettings" title="Restore default settings">

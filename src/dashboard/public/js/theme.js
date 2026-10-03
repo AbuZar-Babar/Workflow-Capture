@@ -3,17 +3,15 @@
  */
 
 export const Theme = {
-  current: 'light',
+  current: 'dark',
   transitionTimeout: null,
 
   init() {
     const saved = localStorage.getItem('workflow_capture_theme') || localStorage.getItem('flowmind_theme');
-    let initial = 'light';
+    let initial = 'dark';
 
     if (saved === 'dark' || saved === 'light') {
       initial = saved;
-    } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      initial = 'dark';
     }
 
     this.setTheme(initial, false);
@@ -58,11 +56,7 @@ export const Theme = {
       root.classList.remove('theme-transition');
     }, 250);
 
-    if (theme === 'dark') {
-      root.setAttribute('data-theme', 'dark');
-    } else {
-      root.removeAttribute('data-theme');
-    }
+    root.setAttribute('data-theme', theme);
 
     if (save) {
       try {

@@ -54,4 +54,4 @@
  * @property {Action[]} actions - Ordered list of actions
  */
 
-module.exports = {};
+module.exports = require('./runtime-contract');

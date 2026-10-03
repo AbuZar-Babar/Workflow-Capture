@@ -433,10 +433,21 @@ const server = http.createServer(async (req, res) => {
 
         let loopStepIndex = Number.isInteger(body.loopStepIndex) ? body.loopStepIndex : null;
         if (loopStepIndex === null) {
-          if (Number.isInteger(workflow.loopStepIndex) && workflow.loopStepIndex >= 0) {
-            loopStepIndex = workflow.loopStepIndex;
+          const candidateIdx = LoopDetector.findLoopCandidateIndex(steps);
+          const wfLoopIdx = Number.isInteger(workflow.loopStepIndex)
+            ? workflow.loopStepIndex
+            : (Number.isInteger(workflow.metadata?.loopStepIndex) ? workflow.metadata.loopStepIndex : null);
+
+          if (Number.isInteger(wfLoopIdx) && wfLoopIdx >= 0 && wfLoopIdx < steps.length) {
+            const currentStepAnalysis = LoopDetector.analyzeStep(steps[wfLoopIdx]);
+            if (!currentStepAnalysis.isLoopCandidate && candidateIdx >= 0) {
+              loopStepIndex = candidateIdx;
+            } else if (candidateIdx >= 0 && candidateIdx > wfLoopIdx) {
+              loopStepIndex = candidateIdx;
+            } else {
+              loopStepIndex = wfLoopIdx;
+            }
           } else {
-            const candidateIdx = LoopDetector.findLoopCandidateIndex(steps);
             loopStepIndex = candidateIdx >= 0 ? candidateIdx : 0;
           }
         }
@@ -471,41 +482,83 @@ const server = http.createServer(async (req, res) => {
           engine.page = page;
           await engine._ensureSelectorResolverInFrame(page.mainFrame());
 
-          // 1. If setup steps are defined (e.g. opening a search modal or navigation), execute them to reveal the data table
-          if (partition.setupSteps.length > 0) {
-            try {
-              for (let i = 0; i < partition.setupSteps.length; i++) {
-                await engine.executeAction(partition.setupSteps[i], i);
-                await new Promise(resolve => setTimeout(resolve, 800));
-              }
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            } catch (setupErr) {
-              logger.warn(`[Discovery] Setup execution note: ${setupErr.message}`);
-            }
-          }
-
-          // 2. Perform element-level item discovery on target step
+          // 1. Check if the target collection is ALREADY open and visible in DOM before running setup steps
           let discovery = await ItemDiscovery.discover(page, targetStep.target || targetStep.fingerprint, {
             minItems: 2,
             minScore: 0.55
-          });
+          }).catch(() => ({ success: false }));
 
-          // 3. Autonomous Full-Page Inspection
+          const alreadyOpen = Boolean(discovery && discovery.success && discovery.itemCount >= 2);
+          if (alreadyOpen) {
+            logger.info(`[Discovery] Target collection already open and visible in DOM (${discovery.itemCount} items). Skipping setup steps.`);
+          } else if (partition.setupSteps.length > 0) {
+            try {
+              for (let i = 0; i < partition.setupSteps.length; i++) {
+                const step = partition.setupSteps[i];
+                const isLogin = (step.target?.candidates?.some(c => /login|signin/i.test(c.value || ''))) ||
+                  /login|signin/i.test(step.name || step.elementName || '');
+                const isCurrentLogin = /\/login\b/i.test(page.url());
+                if (isLogin && !isCurrentLogin) {
+                  continue;
+                }
+
+                await engine.executeAction(step, i);
+
+                // If step triggers navigation or ASP.NET postback, await settling
+                if (step.type === 'SELECT' || (step.type === 'CLICK' && step.target?.fingerprint?.attributes?.href)) {
+                  await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 4000 }).catch(() => {});
+                }
+                await new Promise(resolve => setTimeout(resolve, 600));
+              }
+              await new Promise(resolve => setTimeout(resolve, 800));
+            } catch (setupErr) {
+              logger.warn(`[Discovery] Setup execution note: ${setupErr.message}`);
+            }
+
+            // Re-run discovery after setup steps
+            discovery = await ItemDiscovery.discover(page, targetStep.target || targetStep.fingerprint, {
+              minItems: 2,
+              minScore: 0.55
+            }).catch(() => ({ success: false }));
+          }
+
+          // 2. Autonomous Full-Page Inspection
           const pageInspection = await PageInspector.inspectPage(page).catch(() => ({ success: false }));
           const pageSummary = pageInspection.summary || null;
 
-          // 4. If element discovery missed the table or locked onto sidebar <li> tags, elevate the PageInspector table
+          // 3. Multi-table disambiguation: elevate real data tables with explicit headers & action controls
           if ((!discovery.success || discovery.collection?.itemTag === 'li') && pageSummary?.entities?.length > 0) {
-            const tableEntity = pageSummary.entities.find(e => e.type === 'table_grid' && e.itemCount >= 2);
+            const targetText = String(targetStep.target?.fingerprint?.text || targetStep.target?.candidates?.[0]?.value || '').toLowerCase();
+            let tableEntity = null;
+            if (targetText) {
+              tableEntity = pageSummary.entities.find(e =>
+                e.type === 'table_grid' && e.itemCount >= 2 &&
+                (e.columns?.some(c => targetText.includes(c.toLowerCase()) || c.toLowerCase().includes(targetText)) ||
+                 (e.rows || e.sampleRows || []).some(r => Object.values(r).some(v => String(v).toLowerCase().includes(targetText))))
+              );
+            }
+            if (!tableEntity) {
+              // Prioritize real data tables with download links and explicit headers over headerless layout/profile tables
+              const tableGridCandidates = pageSummary.entities.filter(e => e.type === 'table_grid' && e.itemCount >= 2);
+              tableEntity = tableGridCandidates.find(e => e.hasDownloadLinks || e.actionColumn) ||
+                            tableGridCandidates.find(e => e.hasExplicitHeaders && e.columns?.length >= 2) ||
+                            tableGridCandidates.find(e => !e.isKeyValueLayout) ||
+                            tableGridCandidates[0];
+            }
             if (tableEntity) {
+              const targetCol = tableEntity.actionColumn || (tableEntity.columns || []).find(c => /download|file|link|export/i.test(c)) || null;
+              const targetVal = tableEntity.actionText || 'Download';
               discovery = {
                 success: true,
                 confidence: 0.95,
                 itemCount: tableEntity.itemCount,
+                targetColumn: targetCol,
+                targetActionValue: targetVal,
                 collection: {
                   itemTag: 'tr',
                   ancestorTag: 'tbody',
-                  ancestorSelector: 'table tbody'
+                  ancestorSelector: 'table tbody',
+                  headerColumns: tableEntity.columns
                 },
                 items: (tableEntity.rows || tableEntity.sampleRows).map((row, idx) => ({
                   index: idx,
@@ -615,9 +668,13 @@ const server = http.createServer(async (req, res) => {
               }
             }
 
+            const defaultFilter = (discovery.targetColumn && discovery.targetActionValue)
+              ? { field: discovery.targetColumn, operator: 'contains', value: discovery.targetActionValue }
+              : null;
+
             const effectiveFilter = body.itemFilter !== undefined
               ? body.itemFilter
-              : (body.rowFilter || (body.filterValue ? { column: body.filterColumn || 'Type', value: body.filterValue } : null));
+              : (body.rowFilter || (body.filterValue ? { column: body.filterColumn || discovery.targetColumn || 'Type', value: body.filterValue } : defaultFilter));
 
             try {
               filterPreview = evaluateFilterPreview(effectiveFilter, itemsWithFields, {
@@ -659,9 +716,9 @@ const server = http.createServer(async (req, res) => {
 
           const availableFieldsSet = new Set(discovery.availableFields || []);
           for (const k of Object.keys(fieldValuesJson)) {
-            availableFieldsSet.add(k);
+            if (k && !['fullText', 'label', 'isSelectAll', '_rawText'].includes(k)) availableFieldsSet.add(k);
           }
-          if (pageSummary?.entities?.length > 0) {
+          if (!discovery.success && pageSummary?.entities?.length > 0) {
             for (const entity of pageSummary.entities) {
               if (Array.isArray(entity.columns)) {
                 for (const c of entity.columns) {
@@ -673,7 +730,7 @@ const server = http.createServer(async (req, res) => {
           for (const item of items) {
             if (item && item.fields) {
               for (const k of Object.keys(item.fields)) {
-                if (k && !['fullText', 'label', 'isSelectAll'].includes(k)) availableFieldsSet.add(k);
+                if (k && !['fullText', 'label', 'isSelectAll', '_rawText'].includes(k)) availableFieldsSet.add(k);
               }
             }
           }
@@ -1073,7 +1130,8 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/record/stop' && req.method === 'POST') {
       if (!requireAuth(req, res)) return;
       if (!activeRecorder || !activeRecorder.isRecording || isStoppingRecorder) {
-        return sendJson(res, 400, { error: 'No active recording session to stop' });
+        broadcast('recording_state', { isRecording: false, summary: { name: '', actionCount: 0 } });
+        return sendJson(res, 200, { success: true, isRecording: false, summary: { name: '', actionCount: 0 }, message: 'No active recording session to stop' });
       }
 
       try {

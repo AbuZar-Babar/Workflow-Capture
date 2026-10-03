@@ -76,7 +76,8 @@ class PageInspector {
             const tds = r.querySelectorAll('td, [role="gridcell"], .x-grid-cell, mat-cell, .ag-cell');
             if (ths.length > 0 && tds.length === 0) return false;
             const rText = cleanText(r.textContent).toLowerCase();
-            if (rText.includes('invoice number') && (rText.includes('customer name') || rText.includes('customer number') || rText.includes('payment method'))) return false;
+            const matchingHeaderCols = columns.filter(c => c && rText.includes(c.toLowerCase()));
+            if (matchingHeaderCols.length >= Math.min(3, Math.max(2, columns.length - 1))) return false;
             return true;
           });
 
@@ -108,7 +109,16 @@ class PageInspector {
               );
 
               const dataCells = isFirstCellChecker ? cells.slice(1) : cells;
-              const cellTexts = dataCells.map(c => cleanText(c.textContent));
+              const cellTexts = dataCells.map(c => {
+                let txt = cleanText(c.textContent);
+                if (!txt) {
+                  const link = c.querySelector('a, button, input');
+                  if (link) {
+                    txt = cleanText(link.textContent || link.getAttribute('value') || '');
+                  }
+                }
+                return txt;
+              });
               const rowObj = {};
               columns.forEach((col, i) => {
                 if (cellTexts[i] !== undefined && cellTexts[i]) rowObj[col] = cellTexts[i];
@@ -117,39 +127,30 @@ class PageInspector {
               rowObj._rawText = rawTxt;
               rowObj.Text = rawTxt;
 
-              if (!rowObj['Invoice Number'] && !rowObj['Invoice No']) {
-                const invMatch = rawTxt.match(/\b((?:SI|INV|DR|TX|CM)-\d+(?:[-_]\w+)*|\b\d{5,10}\b)/i);
-                if (invMatch) rowObj['Invoice Number'] = invMatch[1];
+              const isInvoiceGrid = columns.some(c => /invoice/i.test(c));
+              if (isInvoiceGrid) {
+                if (!rowObj['Invoice Number'] && !rowObj['Invoice No']) {
+                  const invMatch = rawTxt.match(/\b((?:SI|INV|DR|TX|CM)-\d+(?:[-_]\w+)*|\b\d{5,10}\b)/i);
+                  if (invMatch) rowObj['Invoice Number'] = invMatch[1];
+                }
+                if (!rowObj['Type'] || rowObj['Type'] === rawTxt || /^(SI|INV|DR|TX|CM)-\d+/i.test(rowObj['Type'])) {
+                  if (/\bcredit\s*memo\b/i.test(rawTxt)) rowObj['Type'] = 'Credit Memo';
+                  else if (/\binvoice\b/i.test(rawTxt)) rowObj['Type'] = 'Invoice';
+                  else if (/\border\b/i.test(rawTxt)) rowObj['Type'] = 'Order';
+                }
+                if (!rowObj['Days Old']) {
+                  const daysMatch = rawTxt.match(/\b(\d{1,3})\s+days?\s+old\b/i) ||
+                    rawTxt.match(/\b\d{1,2}\/\d{1,2}\/\d{4}\s+(\d{1,3})\s+\d{1,2}\/\d{1,2}\/\d{4}\b/) ||
+                    rawTxt.match(/\b(\d{1,3})\s+\d{1,2}\/\d{1,2}\/\d{4}\b/);
+                  if (daysMatch) {
+                    rowObj['Days Old'] = daysMatch[1];
+                  }
+                }
               }
-              if (!rowObj['Type'] || rowObj['Type'] === rawTxt || /^(SI|INV|DR|TX|CM)-\d+/i.test(rowObj['Type'])) {
-                if (/\bcredit\s*memo\b/i.test(rawTxt)) rowObj['Type'] = 'Credit Memo';
-                else if (/\binvoice\b/i.test(rawTxt)) rowObj['Type'] = 'Invoice';
-                else if (/\border\b/i.test(rawTxt)) rowObj['Type'] = 'Order';
-              }
+
               if (!rowObj['Status']) {
                 const statusMatch = rawTxt.match(/\b(Open|Closed|Pending|Paid|Unpaid|Draft|Approved|Posted)\b/i);
                 if (statusMatch) rowObj['Status'] = statusMatch[1];
-              }
-
-              // Due Date & Invoice Date
-              if (!rowObj['Due Date'] || !rowObj['Invoice Date']) {
-                const dateMatches = rawTxt.match(/\b\d{1,2}\/\d{1,2}\/\d{4}\b/g);
-                if (dateMatches && dateMatches.length >= 2) {
-                  rowObj['Invoice Date'] = rowObj['Invoice Date'] || dateMatches[0];
-                  rowObj['Due Date'] = rowObj['Due Date'] || dateMatches[1];
-                } else if (dateMatches && dateMatches.length === 1) {
-                  rowObj['Due Date'] = rowObj['Due Date'] || dateMatches[0];
-                }
-              }
-
-              // Days Old
-              if (!rowObj['Days Old']) {
-                const daysMatch = rawTxt.match(/\b(\d{1,3})\s+days?\s+old\b/i) ||
-                  rawTxt.match(/\b\d{1,2}\/\d{1,2}\/\d{4}\s+(\d{1,3})\s+\d{1,2}\/\d{1,2}\/\d{4}\b/) ||
-                  rawTxt.match(/\b(\d{1,3})\s+\d{1,2}\/\d{1,2}\/\d{4}\b/);
-                if (daysMatch) {
-                  rowObj['Days Old'] = daysMatch[1];
-                }
               }
 
               return rowObj;
@@ -162,6 +163,40 @@ class PageInspector {
               });
             });
 
+            // Check for row-scoped action controls (downloads, export buttons, checkboxes)
+            let hasDownloadLinks = false;
+            let hasActionControls = false;
+            let actionColumn = null;
+            let actionText = null;
+
+            for (const r of rowEls) {
+              const downloadEl = r.querySelector('a[href*="download" i], a[href*="file" i], button[title*="download" i]') ||
+                Array.from(r.querySelectorAll('a, button')).find(b => /download|export|save|file/i.test(b.textContent || b.getAttribute('title') || ''));
+              if (downloadEl) {
+                hasDownloadLinks = true;
+                hasActionControls = true;
+                actionText = cleanText(downloadEl.textContent || downloadEl.getAttribute('title') || 'Download');
+                const cell = downloadEl.closest('td, th, [role="gridcell"]');
+                if (cell && cell.parentElement === r) {
+                  const cellIdx = Array.from(r.children).indexOf(cell);
+                  if (columns[cellIdx]) actionColumn = columns[cellIdx];
+                }
+                break;
+              }
+            }
+
+            // Distinguish key-value layout / profile tables (e.g. "Name : Sania") from repeating record collections
+            const isKeyValueLayout = columns.length === 0 && rowEls.length > 0 && rowEls.every(r => {
+              const tds = r.querySelectorAll('td, th');
+              const txt = cleanText(r.textContent);
+              return (tds.length === 2 || tds.length === 4) && /:\s*\w+/.test(txt);
+            });
+
+            const collectionScore = (columns.length >= 2 ? 0.5 : 0.1) +
+              (hasDownloadLinks ? 0.4 : 0) +
+              (hasActionControls ? 0.1 : 0) +
+              (isKeyValueLayout ? -0.4 : 0);
+
             discoveredEntities.push({
               id: `entity_table_${idx + 1}`,
               name: entityName,
@@ -171,6 +206,13 @@ class PageInspector {
               sampleRows,
               rows: sampleRows,
               hasSelectionCheckbox: !!tableEl.querySelector('input[type="checkbox"], [role="checkbox"]'),
+              hasExplicitHeaders: columns.length >= 2,
+              hasDownloadLinks,
+              hasActionControls,
+              actionColumn,
+              actionText,
+              isKeyValueLayout,
+              collectionScore,
               tag: tableEl.tagName.toLowerCase()
             });
           }

@@ -19,6 +19,10 @@ html.theme-transition *::after {
 
 body {
   background-color: var(--bg-page);
+  background-image:
+    radial-gradient(at 10% 12%, rgba(0, 240, 255, 0.04) 0px, transparent 40%),
+    radial-gradient(at 90% 18%, rgba(99, 102, 241, 0.05) 0px, transparent 45%),
+    radial-gradient(at 50% 60%, rgba(56, 189, 248, 0.03) 0px, transparent 55%);
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: var(--text-sm);
@@ -42,9 +46,27 @@ body {
   width: 100%;
   min-height: 100vh;
   background-color: var(--bg-page);
+  background-image:
+    radial-gradient(ellipse at 50% -10%, rgba(0, 240, 255, 0.07) 0%, transparent 60%),
+    radial-gradient(ellipse at 100% 40%, rgba(99, 102, 241, 0.04) 0%, transparent 50%);
   display: flex;
   flex-direction: column;
   overflow: visible;
+}
+
+[data-theme="light"] body {
+  background-color: var(--bg-page);
+  background-image:
+    radial-gradient(at 10% 12%, rgba(2, 132, 199, 0.12) 0px, transparent 40%),
+    radial-gradient(at 90% 18%, rgba(99, 102, 241, 0.08) 0px, transparent 45%),
+    radial-gradient(at 50% 60%, rgba(56, 189, 248, 0.10) 0px, transparent 55%);
+}
+
+[data-theme="light"] .dashboard-wrapper {
+  background-color: var(--bg-page);
+  background-image:
+    radial-gradient(ellipse at 50% -10%, rgba(2, 132, 199, 0.15) 0%, transparent 60%),
+    radial-gradient(ellipse at 100% 40%, rgba(59, 130, 246, 0.08) 0%, transparent 50%);
 }
 
 /* Main Body Layout with Sidebar and View Container */

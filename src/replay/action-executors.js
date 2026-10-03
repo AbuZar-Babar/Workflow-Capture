@@ -253,8 +253,13 @@ async function executeClick(elementHandle, action, options = {}) {
   }
 
   const isLikelyDownloadOrExport = Boolean(
-    action.target?.candidates?.some(c => c.value && /save|export|download|print|pdf/i.test(c.value)) ||
-    (action.target?.fingerprint?.attributes?.title && /save|export|download|print|pdf/i.test(action.target.fingerprint.attributes.title))
+    action.isDownload === true ||
+    (action.target?.candidates?.some(c => c.value && /save|export|download|print|pdf|file/i.test(c.value))) ||
+    (action.target?.fingerprint?.attributes?.title && /save|export|download|print|pdf/i.test(action.target.fingerprint.attributes.title)) ||
+    (action.target?.fingerprint?.attributes?.href && /download|export|save|file/i.test(action.target.fingerprint.attributes.href)) ||
+    (action.target?.fingerprint?.text && /download|export|save|print|pdf/i.test(action.target.fingerprint.text)) ||
+    (action.name && /download|export|save/i.test(action.name)) ||
+    (action.elementName && /download|export|save/i.test(action.elementName))
   );
 
   let clicked = false;

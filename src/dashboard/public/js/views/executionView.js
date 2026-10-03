@@ -7,6 +7,7 @@
 import { Api } from '../api.js';
 import { Toast } from '../components/toast.js';
 import { SSE } from '../sse.js';
+import { renderRobotAvatar } from '../components/robotAvatar.js';
 
 const terminalStates = new Set(['COMPLETED', 'COMPLETED_WITH_ERRORS', 'FAILED', 'STOPPED']);
 
@@ -195,19 +196,24 @@ export const ExecutionView = {
         </div>
 
         <!-- Hero Header -->
-        <section class="card execution-hero" aria-labelledby="executionTitle">
-          <div>
-            <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.25rem;">
-              <span class="eyebrow" style="color:var(--brand-forest); font-weight:800; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.08em;">Live Run Monitor</span>
-              <span class="badge-tag info" id="executionModeBadge" style="font-size:0.62rem; text-transform:uppercase;">BATCH RUN</span>
-              <span class="badge-tag secondary" id="executionDomainBadge" style="display:none; font-size:0.62rem;"></span>
+        <section class="card execution-hero" aria-labelledby="executionTitle" style="background:rgba(13,19,36,0.85); border:1px solid rgba(0,240,255,0.2); box-shadow:0 0 25px rgba(0,240,255,0.06); border-radius:var(--radius-xl); margin-bottom:1rem;">
+          <div style="display:flex; align-items:center; gap:1rem;">
+            <div id="execHeroAvatar" style="flex-shrink:0;">
+              ${renderRobotAvatar({ size: 'badge', state: 'running' })}
             </div>
-            <h1 id="executionTitle" style="font-size:1.45rem; font-weight:800; margin:0.15rem 0; color:var(--text-main);">Workflow Run</h1>
-            <p style="margin:0.25rem 0 0; color:var(--text-sub); font-size:0.75rem; display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
-              <span>Run reference <strong class="mono" id="executionRunId" style="font-weight:700;">${escapeHtml(this.runId)}</strong></span>
-              <span id="executionStartedTime" style="color:var(--text-tertiary);"></span>
-              <span id="executionPhaseBadge" style="font-weight:600; color:var(--brand-forest);"></span>
-            </p>
+            <div>
+              <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.25rem;">
+                <span class="eyebrow" style="color:var(--accent-cyan); font-weight:800; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.1em;">AGENT MISSION CONTROL</span>
+                <span class="badge-tag info" id="executionModeBadge" style="font-size:0.62rem; text-transform:uppercase;">AUTONOMOUS AGENT</span>
+                <span class="badge-tag secondary" id="executionDomainBadge" style="display:none; font-size:0.62rem;"></span>
+              </div>
+              <h1 id="executionTitle" style="font-size:1.4rem; font-weight:800; margin:0.15rem 0; color:var(--text-primary);">Workflow Run</h1>
+              <p style="margin:0.25rem 0 0; color:var(--text-sub); font-size:0.75rem; display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+                <span>Mission ID <strong class="mono" id="executionRunId" style="font-weight:700; color:var(--text-primary);">${escapeHtml(this.runId)}</strong></span>
+                <span id="executionStartedTime" style="color:var(--text-muted);"></span>
+                <span id="executionPhaseBadge" style="font-weight:600; color:var(--accent-cyan);"></span>
+              </p>
+            </div>
           </div>
           <div class="execution-hero-actions">
             <button class="btn btn-secondary btn-sm" id="btnExecutionBack" title="Return to Workflows library">
@@ -217,7 +223,7 @@ export const ExecutionView = {
             <span class="run-status-badge queued" id="executionStatusBadge" aria-live="polite">Starting</span>
             <button class="btn btn-danger btn-sm" id="btnExecutionStop" title="Stop current run">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
-              <span id="btnExecutionStopText">Stop Run</span>
+              <span id="btnExecutionStopText">Abort Mission</span>
             </button>
             <button class="btn btn-secondary btn-sm hidden" id="btnExecutionViewFiles" title="View all files produced by this run">
               <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
@@ -230,34 +236,58 @@ export const ExecutionView = {
           </div>
         </section>
 
-        <!-- Engine Understanding Panel (Part 29) -->
-        <section class="card" id="engineUnderstandingCard" style="padding:0.75rem 1.15rem; border-radius:var(--radius-lg); background:#f8fafc; border:1px solid #e2e8f0; margin-bottom:0.75rem;">
-          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.4rem; flex-wrap:wrap; gap:0.5rem;">
-            <div style="display:flex; align-items:center; gap:0.5rem;">
-              <span style="font-size:0.72rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--brand-forest);">Engine Understanding</span>
-              <span class="badge-tag success" id="engineLoopBadge" style="font-size:0.62rem;">Loop: Detected ✓</span>
+        <!-- Agent Mission Control Box (Robotic Worker Center) -->
+        <section class="agent-mission-control-box" aria-label="Agent Mission Status">
+          <div class="scanline-overlay"></div>
+          <div style="display:flex; align-items:center; justify-content:center; gap:1.75rem; flex-wrap:wrap; position:relative; z-index:1;">
+            <div id="execRobotCenterBox" style="position:relative;">
+              <div class="orbital-ring"></div>
+              ${renderRobotAvatar({ size: 'card', state: 'running' })}
             </div>
-            <span id="engineCollectionTag" style="font-size:0.72rem; color:var(--text-sub); font-family:var(--font-mono); font-weight:600;">Collection: Dynamic Grid / Table</span>
+            <div style="text-align:left; max-width:520px;">
+              <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.25rem;">
+                <span class="status-dot running" id="execRobotStatusDot"></span>
+                <strong id="execRobotStatusText" style="font-size:0.8rem; color:var(--accent-cyan); text-transform:uppercase; letter-spacing:0.08em;">● AGENT ACTIVE — AUTONOMOUS WORKER</strong>
+              </div>
+              <div id="activityTitle" style="font-size:1.15rem; font-weight:700; color:var(--text-primary); margin-bottom:0.3rem;">
+                Initializing autonomous execution…
+              </div>
+              <div id="execRobotDetailText" style="font-size:0.8rem; color:var(--text-sub);">
+                Observing live page structure, evaluating repeating entities, and executing user intent.
+              </div>
+            </div>
           </div>
-          <div style="display:flex; gap:1.25rem; flex-wrap:wrap; font-size:0.75rem; color:var(--text-sub);">
-            <div><span>Items Found:</span> <strong id="engineItemsFound" style="color:var(--text-main);">—</strong></div>
-            <div><span>Matching:</span> <strong id="engineItemsMatching" style="color:var(--text-main);">—</strong></div>
-            <div><span>Active Filter:</span> <strong id="engineActiveFilter" class="mono" style="color:var(--text-main);">None</strong></div>
-            <div><span>Downloads:</span> <strong id="engineDownloadsFolder" class="mono" style="color:var(--brand-forest); font-size:0.7rem;">downloads/run/</strong></div>
+
+          <!-- Futuristic Energy Progress Bar -->
+          <div style="max-width:680px; margin:1.25rem auto 0; position:relative; z-index:1;">
+            <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:0.35rem;">
+              <span style="color:var(--text-muted); text-transform:uppercase; letter-spacing:0.06em; font-weight:700;">Mission Progress</span>
+              <strong id="executionProgressPercent" style="color:var(--accent-cyan); font-family:var(--font-mono); font-size:0.88rem;">0%</strong>
+            </div>
+            <div class="mission-progress-bar-wrap">
+              <div class="mission-progress-bar-fill" id="executionProgressBar" style="width:0%;"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:0.72rem; color:var(--text-muted); margin-top:0.25rem;">
+              <span id="executionProgressLabel">Connecting to browser…</span>
+              <span id="executionProgressDetail">Preparing steps</span>
+            </div>
           </div>
         </section>
 
-        <!-- Current Activity Card -->
-        <section class="card" style="padding:0.85rem 1.15rem; border-radius:var(--radius-lg); display:flex; align-items:center; gap:0.85rem; border:1px solid rgba(16, 185, 129, 0.2); background:linear-gradient(90deg, #f0fdf4 0%, #ffffff 100%);" aria-live="polite">
-          <div style="width:10px; height:10px; border-radius:50%; background:#10b981; box-shadow:0 0 0 4px rgba(16, 185, 129, 0.2); flex-shrink:0; animation:pulse-step 1.4s infinite ease-in-out;" id="activityPulseDot"></div>
-          <div style="min-width:0; flex:1;">
-            <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.06em; font-weight:800; color:var(--brand-forest); margin-bottom:0.15rem;">
-              <span>Current Activity</span>
-              <span id="activityPhaseIndicator" style="font-family:var(--font-mono); color:var(--text-sub);">Processing</span>
+        <!-- Engine Understanding Panel -->
+        <section class="card" id="engineUnderstandingCard" style="padding:0.85rem 1.25rem; border-radius:var(--radius-lg); background:rgba(6,9,19,0.7); border:1px solid rgba(255,255,255,0.06); margin-bottom:0.85rem;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.45rem; flex-wrap:wrap; gap:0.5rem;">
+            <div style="display:flex; align-items:center; gap:0.5rem;">
+              <span style="font-size:0.72rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--accent-cyan);">Robotic Intelligence Engine</span>
+              <span class="badge-tag success" id="engineLoopBadge" style="font-size:0.62rem;">Dynamic Pattern Detected ✓</span>
             </div>
-            <strong id="activityTitle" style="font-size:0.85rem; font-weight:700; color:var(--text-main); display:block; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
-              Starting run…
-            </strong>
+            <span id="engineCollectionTag" style="font-size:0.72rem; color:var(--text-sub); font-family:var(--font-mono); font-weight:600;">Collection: Repeating Grid / Table</span>
+          </div>
+          <div style="display:flex; gap:1.5rem; flex-wrap:wrap; font-size:0.75rem; color:var(--text-sub);">
+            <div><span>Discovered:</span> <strong id="engineItemsFound" style="color:var(--text-primary);">—</strong></div>
+            <div><span>Matching:</span> <strong id="engineItemsMatching" style="color:var(--accent-cyan);">—</strong></div>
+            <div><span>Condition Filter:</span> <strong id="engineActiveFilter" class="mono" style="color:var(--text-primary);">None</strong></div>
+            <div><span>Artifact Destination:</span> <strong id="engineDownloadsFolder" class="mono" style="color:var(--accent-cyan); font-size:0.7rem;">downloads/run/</strong></div>
           </div>
         </section>
 
@@ -918,46 +948,73 @@ export const ExecutionView = {
       const oTitle = document.getElementById('terminalOutcomeTitle');
       const oSummary = document.getElementById('terminalOutcomeSummary');
 
+      // Update center robot avatar
+      const centerRobot = document.getElementById('execRobotCenterBox');
+      const heroRobot = document.getElementById('execHeroAvatar');
+      const robotDot = document.getElementById('execRobotStatusDot');
+      const robotStatusText = document.getElementById('execRobotStatusText');
+
       if (status === 'COMPLETED') {
-        outcomeCard.style.borderLeft = '4px solid #16a34a';
-        outcomeCard.style.background = '#f0fdf4';
+        outcomeCard.style.border = '1px solid rgba(16,185,129,0.3)';
+        outcomeCard.style.borderLeft = '4px solid #10b981';
+        outcomeCard.style.background = 'rgba(16,185,129,0.08)';
         if (oIcon) {
-          oIcon.style.background = '#dcfce7';
-          oIcon.style.color = '#15803d';
+          oIcon.style.background = 'rgba(16,185,129,0.2)';
+          oIcon.style.color = '#34d399';
           oIcon.textContent = '✓';
         }
-        if (oTitle) oTitle.textContent = 'Run completed successfully';
-        if (oSummary) oSummary.textContent = `All ${totalCount} records processed without errors. ${files} files generated.`;
+        if (oTitle) oTitle.textContent = 'Mission Completed Successfully';
+        if (oSummary) oSummary.textContent = `All ${totalCount} records processed autonomously. ${files} files generated and verified.`;
+        if (centerRobot) centerRobot.innerHTML = `<div class="orbital-ring"></div>` + renderRobotAvatar({ size: 'card', state: 'success' });
+        if (heroRobot) heroRobot.innerHTML = renderRobotAvatar({ size: 'badge', state: 'success' });
+        if (robotDot) robotDot.className = 'status-dot online';
+        if (robotStatusText) {
+          robotStatusText.style.color = '#34d399';
+          robotStatusText.textContent = '● AGENT COMPLETED — MISSION SUCCESSFUL';
+        }
       } else if (status === 'COMPLETED_WITH_ERRORS') {
+        outcomeCard.style.border = '1px solid rgba(245,158,11,0.3)';
         outcomeCard.style.borderLeft = '4px solid #f59e0b';
-        outcomeCard.style.background = '#fffbeb';
+        outcomeCard.style.background = 'rgba(245,158,11,0.08)';
         if (oIcon) {
-          oIcon.style.background = '#fef3c7';
-          oIcon.style.color = '#b45309';
+          oIcon.style.background = 'rgba(245,158,11,0.2)';
+          oIcon.style.color = '#fbbf24';
           oIcon.textContent = '⚠️';
         }
-        if (oTitle) oTitle.textContent = 'Run completed with some errors';
-        if (oSummary) oSummary.textContent = `${ok} records succeeded, ${fail} failed. ${files} files were produced.`;
+        if (oTitle) oTitle.textContent = 'Mission Completed with Warnings';
+        if (oSummary) oSummary.textContent = `${ok} records succeeded, ${fail} failed. ${files} files produced.`;
+        if (centerRobot) centerRobot.innerHTML = `<div class="orbital-ring"></div>` + renderRobotAvatar({ size: 'card', state: 'warning' });
+        if (heroRobot) heroRobot.innerHTML = renderRobotAvatar({ size: 'badge', state: 'warning' });
       } else if (status === 'STOPPED') {
+        outcomeCard.style.border = '1px solid rgba(234,88,12,0.3)';
         outcomeCard.style.borderLeft = '4px solid #ea580c';
-        outcomeCard.style.background = '#fff7ed';
+        outcomeCard.style.background = 'rgba(234,88,12,0.08)';
         if (oIcon) {
-          oIcon.style.background = '#ffedd5';
-          oIcon.style.color = '#c2410c';
+          oIcon.style.background = 'rgba(234,88,12,0.2)';
+          oIcon.style.color = '#fb923c';
           oIcon.textContent = '■';
         }
-        if (oTitle) oTitle.textContent = 'Run stopped';
+        if (oTitle) oTitle.textContent = 'Mission Aborted';
         if (oSummary) oSummary.textContent = `Halted by user. ${processed} records were processed before stopping.`;
+        if (centerRobot) centerRobot.innerHTML = `<div class="orbital-ring"></div>` + renderRobotAvatar({ size: 'card', state: 'idle' });
       } else {
-        outcomeCard.style.borderLeft = '4px solid #dc2626';
-        outcomeCard.style.background = '#fef2f2';
+        outcomeCard.style.border = '1px solid rgba(239,68,68,0.3)';
+        outcomeCard.style.borderLeft = '4px solid #ef4444';
+        outcomeCard.style.background = 'rgba(239,68,68,0.08)';
         if (oIcon) {
-          oIcon.style.background = '#fee2e2';
-          oIcon.style.color = '#b91c1c';
+          oIcon.style.background = 'rgba(239,68,68,0.2)';
+          oIcon.style.color = '#f87171';
           oIcon.textContent = '✗';
         }
-        if (oTitle) oTitle.textContent = 'Run failed';
+        if (oTitle) oTitle.textContent = 'Mission Failed';
         if (oSummary) oSummary.textContent = run.error || m.error || 'Execution encountered an error and could not complete.';
+        if (centerRobot) centerRobot.innerHTML = `<div class="orbital-ring"></div>` + renderRobotAvatar({ size: 'card', state: 'error' });
+        if (heroRobot) heroRobot.innerHTML = renderRobotAvatar({ size: 'badge', state: 'error' });
+        if (robotDot) robotDot.className = 'status-dot recording';
+        if (robotStatusText) {
+          robotStatusText.style.color = '#f87171';
+          robotStatusText.textContent = '● AGENT UNCERTAINTY — ERROR ENCOUNTERED';
+        }
       }
     }
 

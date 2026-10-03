@@ -13,6 +13,7 @@ import { Api } from '../api.js';
 import { Toast } from '../components/toast.js';
 import { Header } from '../components/header.js';
 import { ExecutionModal } from '../components/executionModal.js';
+import { renderRobotAvatar } from '../components/robotAvatar.js';
 
 function extractDomain(url) {
   if (!url || url === 'about:blank' || url === 'unknown') return 'Web Application';
@@ -73,9 +74,17 @@ export const OverviewView = {
 
         <!-- Top Page Header -->
         <div class="wf-page-header">
-          <div>
-            <h1 class="wf-page-title">Dashboard</h1>
-            <p class="wf-page-subtitle">Real-time overview of your automated browser workflows and system health.</p>
+          <div style="display:flex; align-items:center; gap:0.85rem;">
+            <div style="position:relative;">
+              ${renderRobotAvatar({ size: 'badge', state: 'idle' })}
+            </div>
+            <div>
+              <div style="display:flex; align-items:center; gap:0.5rem;">
+                <h1 class="wf-page-title" style="margin:0; font-size:1.4rem; letter-spacing:-0.02em;">WORKFLOW AGENT</h1>
+                <span class="badge-tag success" style="font-size:0.68rem; padding:0.15rem 0.55rem; box-shadow:0 0 10px rgba(16,185,129,0.3); font-weight:700;">● SYSTEM ONLINE</span>
+              </div>
+              <p class="wf-page-subtitle" style="margin:0.2rem 0 0;">Autonomous browser AI operations center &amp; live workflow telemetry.</p>
+            </div>
           </div>
           <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
             <button class="btn btn-secondary btn-sm" id="btnOverviewLaunchChrome" title="Launch connected Chrome browser">
@@ -88,73 +97,130 @@ export const OverviewView = {
               </svg>
               <span id="overviewLaunchChromeLabel">Open Browser</span>
             </button>
-            <button class="btn btn-primary btn-sm" id="btnOverviewCreateWorkflow">
+            <button class="btn btn-primary btn-sm" id="btnOverviewCreateWorkflow" style="box-shadow:0 0 14px rgba(0,240,255,0.3);">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
               </svg>
-              <span>+ Create Workflow</span>
+              <span>+ Train Agent</span>
             </button>
           </div>
         </div>
 
-        <!-- Inline Create Workflow Modal / Recording Banner -->
-        <div id="overviewCreateModal" class="card hidden" style="margin-bottom:1.5rem; padding:1.25rem 1.5rem; border-left:4px solid var(--accent-primary); background:var(--bg-surface);">
+        <!-- Central Agent Status Area (Operations Hub) -->
+        <section class="agent-status-hub" aria-label="Digital Agent Status" style="margin-bottom:1.5rem;">
+          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1.5rem;">
+            <div style="display:flex; align-items:center; gap:1.25rem;">
+              <div class="agent-status-avatar-box">
+                <div class="orbital-ring"></div>
+                ${renderRobotAvatar({ size: 'card', state: 'idle' })}
+              </div>
+              <div>
+                <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.25rem;">
+                  <span style="font-size:0.75rem; font-weight:800; letter-spacing:0.12em; color:var(--accent-cyan); text-transform:uppercase;">DIGITAL AGENT</span>
+                  <span class="status-dot online"></span>
+                  <span style="font-size:0.72rem; font-weight:700; color:var(--color-success); text-transform:uppercase;">OPERATIONAL</span>
+                </div>
+                <div style="font-size:1.15rem; font-weight:700; color:var(--text-primary); margin-bottom:0.25rem;">Monitoring autonomous workflows</div>
+                <div style="font-size:0.8rem; color:var(--text-sub);">Ready to inspect live pages, discover repeating entities, and execute tasks.</div>
+              </div>
+            </div>
+
+            <!-- Agent Telemetry Metrics Strip -->
+            <div style="display:flex; align-items:center; gap:1.75rem; background:rgba(6,9,19,0.6); padding:0.85rem 1.25rem; border-radius:var(--radius-lg); border:1px solid rgba(255,255,255,0.06); flex-wrap:wrap;">
+              <div>
+                <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.15rem;">Browser</div>
+                <strong style="font-size:0.88rem; color:var(--accent-cyan);" id="hubBrowserStatus">Connected</strong>
+              </div>
+              <div style="width:1px; height:24px; background:rgba(255,255,255,0.1);"></div>
+              <div>
+                <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.15rem;">Scanner</div>
+                <strong style="font-size:0.88rem; color:var(--color-success);" id="hubScannerStatus">Ready</strong>
+              </div>
+              <div style="width:1px; height:24px; background:rgba(255,255,255,0.1);"></div>
+              <div>
+                <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.15rem;">Agent</div>
+                <strong style="font-size:0.88rem; color:#a78bfa;" id="hubAgentStatus">Autonomous</strong>
+              </div>
+              <div style="width:1px; height:24px; background:rgba(255,255,255,0.1);"></div>
+              <div>
+                <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.15rem;">Tasks</div>
+                <strong style="font-size:0.88rem; color:var(--text-primary);" id="hubTaskCount">0</strong>
+              </div>
+              <div style="width:1px; height:24px; background:rgba(255,255,255,0.1);"></div>
+              <div>
+                <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.15rem;">Success</div>
+                <strong style="font-size:0.88rem; color:var(--color-success);" id="hubSuccessRate">100%</strong>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Inline Train Agent Modal / Recording Banner -->
+        <div id="overviewCreateModal" class="card hidden" style="margin-bottom:1.5rem; padding:1.25rem 1.5rem; border-left:4px solid var(--accent-cyan); background:var(--card-bg);">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
-            <div style="display:flex; align-items:center; gap:0.5rem;">
-              <span style="font-size:0.9rem; font-weight:700; color:var(--text-primary);">Record New Browser Workflow</span>
-              <span class="badge-tag info" style="font-size:0.68rem;">Interactive</span>
+            <div style="display:flex; align-items:center; gap:0.65rem;">
+              ${renderRobotAvatar({ size: 'mini', state: 'analyzing' })}
+              <span style="font-size:0.95rem; font-weight:700; color:var(--text-primary);">TRAIN YOUR AGENT</span>
+              <span class="badge-tag info" style="font-size:0.68rem;">Interactive Training</span>
             </div>
             <button class="btn-icon" id="btnCloseCreateModal" title="Close" aria-label="Close">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
             </button>
           </div>
+          <p style="font-size:var(--text-xs); color:var(--text-sub); margin:0 0 0.85rem;">Show the agent how the task should be done once on the live website. It learns the pattern and automates it.</p>
           <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
-            <input type="text" id="overviewRecName" class="form-control" style="max-width:320px;" placeholder="Workflow name (e.g. invoice-collection)" spellcheck="false" aria-label="Workflow Name">
+            <input type="text" id="overviewRecName" class="form-control" style="max-width:320px;" placeholder="Workflow name (e.g. invoice-collector)" spellcheck="false" aria-label="Workflow Name">
             <button class="btn btn-primary" id="btnOverviewStartRec">
               <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg>
-              <span id="overviewRecordButtonLabel">Start Recording</span>
+              <span id="overviewRecordButtonLabel">Start Teaching</span>
             </button>
-            <span style="font-size:var(--text-xs); color:var(--text-sub);">Navigate and perform clicks on the target portal. Workflow engine captures selectors automatically.</span>
           </div>
         </div>
 
         <!-- Active Recording Live Strip (Visible only when recording) -->
-        <div id="overviewActiveControls" class="card hidden" style="margin-bottom:1.5rem; padding:1rem 1.25rem; border-left:4px solid var(--color-danger); background:var(--color-danger-bg); display:none; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
-          <div style="display:flex; align-items:center; gap:0.75rem;">
-            <span class="status-dot recording" style="width:10px; height:10px;"></span>
+        <div id="overviewActiveControls" class="card hidden" style="margin-bottom:1.5rem; padding:1rem 1.25rem; border-left:4px solid var(--accent-cyan); background:rgba(0,240,255,0.06); display:none; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+          <div style="display:flex; align-items:center; gap:0.85rem;">
+            ${renderRobotAvatar({ size: 'badge', state: 'running' })}
             <div>
-              <strong style="color:var(--color-danger); font-size:var(--text-sm); display:block;">Recording in progress</strong>
-              <span id="overviewActiveWorkflowName" style="color:var(--text-primary); font-size:var(--text-xs); font-weight:600;">workflow</span>
-              <span id="overviewActiveMeta" class="mono" style="color:var(--text-sub); font-size:var(--text-xs); margin-left:0.5rem;">00:00 · 0 actions</span>
+              <div style="display:flex; align-items:center; gap:0.5rem;">
+                <span class="status-dot recording" style="width:10px; height:10px;"></span>
+                <strong style="color:var(--accent-cyan); font-size:var(--text-sm); text-transform:uppercase; letter-spacing:0.05em;">AGENT LEARNING IN PROGRESS</strong>
+              </div>
+              <div style="margin-top:0.15rem;">
+                <span id="overviewActiveWorkflowName" style="color:var(--text-primary); font-size:var(--text-xs); font-weight:600;">workflow</span>
+                <span id="overviewActiveMeta" class="mono" style="color:var(--text-sub); font-size:var(--text-xs); margin-left:0.5rem;">00:00 · 0 actions captured</span>
+              </div>
             </div>
           </div>
           <button class="btn btn-danger btn-sm" id="btnOverviewStopRec">
-            <span>■</span> <span>Stop &amp; Save Workflow</span>
+            <span>■</span> <span>Finish &amp; Save Workflow</span>
           </button>
           <span id="overviewRecActionCount" class="hidden" aria-hidden="true">0</span>
         </div>
 
-        <!-- Compact Useful Statistics (4 Cards) -->
+        <!-- Intelligent Operations Statistics (4 Cards) -->
         <section class="dashboard-stat-grid" aria-label="Workflow Statistics" style="margin-bottom:1.75rem;">
-          <!-- 1. Total Workflows -->
+          <!-- 1. WORKFLOWS -->
           <article class="dashboard-stat-card" id="cardTotalWorkflows">
             <div class="stat-card-header">
-              <span class="dashboard-stat-label">Total Workflows</span>
-              <div class="stat-card-icon" style="color:var(--accent-primary);">
+              <span class="dashboard-stat-label">WORKFLOWS</span>
+              <div class="stat-card-icon" style="color:var(--accent-cyan);">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M4 6h16M4 12h16M4 18h16"></path>
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                  <line x1="8" y1="21" x2="16" y2="21"></line>
+                  <line x1="12" y1="17" x2="12" y2="21"></line>
                 </svg>
               </div>
             </div>
             <strong class="dashboard-stat-value" id="overviewWorkflowCount">0</strong>
-            <span class="dashboard-stat-meta" id="overviewWorkflowMeta">Saved &amp; ready to run</span>
+            <span class="dashboard-stat-meta" id="overviewWorkflowMeta">Autonomous sequences ready</span>
           </article>
 
-          <!-- 2. Active Runs -->
+          <!-- 2. ACTIVE AGENTS -->
           <article class="dashboard-stat-card" id="cardActiveRuns">
             <div class="stat-card-header">
-              <span class="dashboard-stat-label">Active Runs</span>
+              <span class="dashboard-stat-label">ACTIVE AGENTS</span>
               <div class="stat-card-icon" style="color:var(--color-success);">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                   <polygon points="5 3 19 12 5 21 5 3"></polygon>
@@ -165,13 +231,13 @@ export const OverviewView = {
               <strong class="dashboard-stat-value" id="overviewActiveRunsCount">0</strong>
               <span id="overviewActiveRunsBadge" class="status-dot online" style="display:none;" title="Active execution running"></span>
             </div>
-            <span class="dashboard-stat-meta" id="overviewActiveRunsMeta">No runs currently executing</span>
+            <span class="dashboard-stat-meta" id="overviewActiveRunsMeta">Autonomous tasks running</span>
           </article>
 
-          <!-- 3. Successful Runs -->
+          <!-- 3. SUCCESSFUL RUNS -->
           <article class="dashboard-stat-card" id="cardSuccessfulRuns">
             <div class="stat-card-header">
-              <span class="dashboard-stat-label">Successful Runs</span>
+              <span class="dashboard-stat-label">SUCCESSFUL RUNS</span>
               <div class="stat-card-icon" style="color:var(--color-success);">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                   <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
@@ -183,18 +249,18 @@ export const OverviewView = {
             <span class="dashboard-stat-meta" id="overviewSuccessRateMeta">100% completion rate</span>
           </article>
 
-          <!-- 4. Recent Activity -->
+          <!-- 4. TASKS PROCESSED -->
           <article class="dashboard-stat-card" id="cardRecentActivity">
             <div class="stat-card-header">
-              <span class="dashboard-stat-label">Recent Activity</span>
-              <div class="stat-card-icon" style="color:var(--tech-purple);">
+              <span class="dashboard-stat-label">TASKS PROCESSED</span>
+              <div class="stat-card-icon" style="color:var(--accent-purple);">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                   <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
                 </svg>
               </div>
             </div>
             <strong class="dashboard-stat-value" id="overviewRecentActivityTitle" style="font-size:1.15rem; font-weight:700;">Idle</strong>
-            <span class="dashboard-stat-meta" id="overviewRecentActivityMeta">No recent events</span>
+            <span class="dashboard-stat-meta" id="overviewRecentActivityMeta">Records extracted &amp; completed</span>
           </article>
         </section>
 
@@ -346,6 +412,7 @@ export const OverviewView = {
           await this.loadData();
         } catch (err) {
           Toast.error(err.message || 'Failed to stop recording');
+          this.setRecordingState(false);
         } finally {
           this.isStopping = false;
           if (btnStop) btnStop.disabled = false;
@@ -369,12 +436,16 @@ export const OverviewView = {
         Api.getRuns().catch(() => ({ runs: [] }))
       ]);
 
-      if (status && status.recorder && status.recorder.isRecording && !this.isRecording) {
-        this.setRecordingState(true, {
-          name: status.recorder.name,
-          startedAt: status.recorder.startedAt,
-          actionCount: status.recorder.actionCount
-        });
+      if (status && status.recorder) {
+        if (status.recorder.isRecording && !this.isRecording) {
+          this.setRecordingState(true, {
+            name: status.recorder.name,
+            startedAt: status.recorder.startedAt,
+            actionCount: status.recorder.actionCount
+          });
+        } else if (!status.recorder.isRecording && this.isRecording) {
+          this.setRecordingState(false);
+        }
       }
 
       this.recordings = recRes.workflows || recRes.recordings || [];
@@ -403,31 +474,50 @@ export const OverviewView = {
     if (elActiveBadge) elActiveBadge.style.display = activeRuns.length > 0 ? 'inline-block' : 'none';
     if (elActiveMeta) {
       elActiveMeta.textContent = activeRuns.length > 0
-        ? `${activeRuns.length} run${activeRuns.length === 1 ? '' : 's'} in progress`
-        : 'No runs currently executing';
+        ? `${activeRuns.length} agent${activeRuns.length === 1 ? '' : 's'} executing live`
+        : 'Autonomous tasks running';
     }
 
     // 3. Successful Runs
     const completedRuns = runs.filter(r => r.status === 'COMPLETED' || r.status === 'SUCCESS');
     const elSuccessCount = document.getElementById('overviewSuccessfulRunsCount');
     const elSuccessRate = document.getElementById('overviewSuccessRateMeta');
+    let rate = 100;
+    if (runs.length > 0) {
+      rate = Math.round((completedRuns.length / runs.length) * 100);
+    }
     if (elSuccessCount) elSuccessCount.textContent = completedRuns.length;
     if (elSuccessRate && runs.length > 0) {
-      const rate = Math.round((completedRuns.length / runs.length) * 100);
       elSuccessRate.textContent = `${rate}% completion rate (${runs.length} total)`;
     }
 
-    // 4. Recent Activity
+    // 4. Tasks Processed / Recent Activity
     const elActivityTitle = document.getElementById('overviewRecentActivityTitle');
     const elActivityMeta = document.getElementById('overviewRecentActivityMeta');
-    if (runs.length > 0) {
-      const latest = runs[0];
-      const rel = formatRelativeTime(latest.completedAt || latest.startedAt || latest.createdAt);
-      if (elActivityTitle) elActivityTitle.textContent = rel;
-      if (elActivityMeta) elActivityMeta.textContent = latest.workflowName || `Run #${(latest.id || '').slice(0, 8)}`;
-    } else {
-      if (elActivityTitle) elActivityTitle.textContent = 'Idle';
-      if (elActivityMeta) elActivityMeta.textContent = 'No executions yet';
+    let totalItems = 0;
+    runs.forEach(r => {
+      totalItems += (r.processedCount || r.itemsProcessed || (r.downloads ? r.downloads.length : 0) || 0);
+    });
+    if (elActivityTitle) {
+      elActivityTitle.textContent = totalItems > 0 ? `${totalItems} items` : (runs.length > 0 ? `${runs.length} runs` : 'Idle');
+    }
+    if (elActivityMeta) {
+      elActivityMeta.textContent = totalItems > 0 ? 'Extracted & processed autonomously' : 'Records extracted & completed';
+    }
+
+    // Hub Telemetry updates
+    const hubTask = document.getElementById('hubTaskCount');
+    if (hubTask) hubTask.textContent = workflows.length;
+
+    const hubSuccess = document.getElementById('hubSuccessRate');
+    if (hubSuccess) hubSuccess.textContent = `${rate}%`;
+
+    const hubAgent = document.getElementById('hubAgentStatus');
+    if (hubAgent) hubAgent.textContent = activeRuns.length > 0 ? 'Executing' : 'Autonomous';
+
+    const hubBrowser = document.getElementById('hubBrowserStatus');
+    if (hubBrowser && status && status.browser) {
+      hubBrowser.textContent = status.browser.connected ? 'Connected' : 'Offline';
     }
   },
 
@@ -437,15 +527,13 @@ export const OverviewView = {
 
     if (!workflows || workflows.length === 0) {
       container.innerHTML = `
-        <div class="modern-empty-state" style="padding:2.5rem 1rem;">
-          <div class="empty-state-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M4 6h16M4 12h16M4 18h16"></path>
-            </svg>
+        <div class="modern-empty-state" style="padding:2.5rem 1rem; text-align:center;">
+          <div style="margin-bottom:1rem; display:inline-block;">
+            ${renderRobotAvatar({ size: 'medium', state: 'waving' })}
           </div>
-          <h3 class="empty-state-title">No workflows created yet</h3>
-          <p class="empty-state-desc">Capture your first web automation sequence to get started.</p>
-          <button class="btn btn-primary btn-sm" onclick="document.getElementById('btnOverviewCreateWorkflow')?.click()">+ Create Workflow</button>
+          <h3 class="empty-state-title" style="color:var(--text-primary); font-size:1.05rem;">No agent workflows yet</h3>
+          <p class="empty-state-desc" style="color:var(--text-sub); max-width:320px; margin:0.35rem auto 1rem;">Show the agent how you work once. It will learn the pattern and repeat it reliably.</p>
+          <button class="btn btn-primary btn-sm" onclick="document.getElementById('btnOverviewCreateWorkflow')?.click()">+ Train First Agent</button>
         </div>
       `;
       return;
@@ -461,36 +549,31 @@ export const OverviewView = {
       const lastRun = wf.lastRunAt ? formatRelativeTime(wf.lastRunAt) : 'Ready';
 
       return `
-        <div class="wf-row" data-id="${this.escapeHtml(wfId)}" style="cursor:pointer;">
+        <div class="wf-row" data-id="${this.escapeHtml(wfId)}" style="cursor:pointer; background:rgba(13,19,36,0.65); border:1px solid rgba(255,255,255,0.07); border-radius:var(--radius-lg); margin-bottom:0.6rem; padding:0.85rem 1rem; display:flex; align-items:center; justify-content:space-between; transition:all 0.2s ease;">
           <div style="display:flex; align-items:center; gap:0.85rem; min-width:0; flex:1;">
-            <div class="wf-avatar-icon" style="flex-shrink:0;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                <line x1="8" y1="21" x2="16" y2="21"></line>
-                <line x1="12" y1="17" x2="12" y2="21"></line>
-                <circle cx="12" cy="10" r="3"></circle>
-              </svg>
+            <div style="flex-shrink:0;">
+              ${renderRobotAvatar({ size: 'badge', state: 'idle' })}
             </div>
             <div style="min-width:0;">
-              <div style="display:flex; align-items:center; gap:0.5rem;">
-                <span class="wf-name" style="font-size:0.88rem;">${this.escapeHtml(name)}</span>
-                <span class="wf-domain-pill">${this.escapeHtml(domain)}</span>
+              <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+                <span class="wf-name" style="font-size:0.9rem; font-weight:700; color:var(--text-primary);">${this.escapeHtml(name)}</span>
+                <span class="wf-domain-pill" style="font-size:0.7rem; background:rgba(0,240,255,0.08); border:1px solid rgba(0,240,255,0.2); color:var(--accent-cyan); padding:0.1rem 0.5rem; border-radius:var(--radius-pill);">${this.escapeHtml(domain)}</span>
               </div>
-              <div class="wf-card-meta" style="margin-top:0.2rem; font-size:var(--text-xs);">
+              <div class="wf-card-meta" style="margin-top:0.25rem; font-size:var(--text-xs); color:var(--text-sub); display:flex; align-items:center; gap:0.5rem;">
                 <span>${stepCount} step${stepCount === 1 ? '' : 's'}</span>
                 <span>&middot;</span>
-                <span>${lastRun}</span>
+                <span style="color:var(--accent-cyan); font-weight:600;">${lastRun}</span>
               </div>
             </div>
           </div>
 
           <div style="display:flex; align-items:center; gap:0.5rem; flex-shrink:0;">
-            <button class="btn btn-primary btn-sm btn-quick-run" data-id="${this.escapeHtml(wfId)}" title="Execute this workflow">
+            <button class="btn btn-primary btn-sm btn-quick-run" data-id="${this.escapeHtml(wfId)}" title="Execute this agent" style="font-weight:700; letter-spacing:0.04em;">
               <svg width="10" height="10" fill="currentColor" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-              <span>Run</span>
+              <span>RUN AGENT</span>
             </button>
             <button class="btn btn-secondary btn-sm btn-quick-edit" data-id="${this.escapeHtml(wfId)}" title="Open Editor">
-              <span>Open</span>
+              <span>Inspect</span>
             </button>
           </div>
         </div>
@@ -508,7 +591,8 @@ export const OverviewView = {
           workflowName: wf?.name || id,
           stepCount: wf?.stepCount || wf?.steps?.length || 0,
           loopStepIndex: wf?.loopStepIndex,
-          isLoop: wf?.isLoop || wf?.mode === 'LOOP'
+          isLoop: wf?.isLoop || wf?.mode === 'LOOP' || (Number.isInteger(wf?.loopStepIndex) && wf?.loopStepIndex >= 0),
+          steps: wf?.steps || []
         });
       };
     });
@@ -535,14 +619,12 @@ export const OverviewView = {
 
     if (!runs || runs.length === 0) {
       container.innerHTML = `
-        <div class="modern-empty-state" style="padding:2.5rem 1rem;">
-          <div class="empty-state-icon" style="background:var(--bg-surface-sunken); color:var(--text-muted);">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-            </svg>
+        <div class="modern-empty-state" style="padding:2.5rem 1rem; text-align:center;">
+          <div style="margin-bottom:0.75rem; display:inline-block;">
+            ${renderRobotAvatar({ size: 'badge', state: 'idle' })}
           </div>
-          <h3 class="empty-state-title" style="font-size:0.95rem;">No recent executions</h3>
-          <p class="empty-state-desc" style="font-size:var(--text-xs);">When workflows execute, real-time activity and file downloads appear here.</p>
+          <h3 class="empty-state-title" style="font-size:0.95rem; color:var(--text-primary);">No recent executions</h3>
+          <p class="empty-state-desc" style="font-size:var(--text-xs); color:var(--text-sub);">When agents execute, live telemetry and downloaded assets will stream here.</p>
         </div>
       `;
       return;

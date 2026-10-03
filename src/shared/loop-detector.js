@@ -46,6 +46,18 @@ class LoopDetector {
       };
     }
 
+    // 0b. Exclude standalone dropdowns and form filter inputs (executed once as page setup)
+    if ((tagName === 'select' || step.type === 'SELECT') && role !== 'option' && tagName !== 'option') {
+      return {
+        isLoopCandidate: false,
+        patternType: 'single-element',
+        role: 'SETUP',
+        originalCssPath: cssPath,
+        fingerprint,
+        description: 'Dropdown filter / selection control (executed once as setup)'
+      };
+    }
+
     // 1. Table Row & Data Grid Detection (<tr>, <td>, <th>, [role="row"], [role="gridcell"], .row, .grid-row)
     if (
       /(tr:nth-(?:child|of-type)|tbody\s*>\s*tr|\btr\b|\[role=["']row["']\]|\[role=["']gridcell["']\]|\b(data-row|table-row|grid-row)\b)/i.test(cssPath) ||

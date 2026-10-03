@@ -11,7 +11,7 @@ const { connectToBrowser } = require('../utils/cdp-connector');
 const SelectorResolver = require('../shared/selector-resolver');
 const LoopDetector = require('../shared/loop-detector');
 const logger = require('../utils/logger');
-const { isInternalBrowserUrl, extractWorkflowStartUrl } = require('../utils/url-helper');
+const { isInternalBrowserUrl, isDashboardUrl, extractWorkflowStartUrl } = require('../utils/url-helper');
 
 /**
  * Recursively collect all frames within a page or frame hierarchy at any nesting depth
@@ -67,7 +67,11 @@ class RecorderBridge {
     this.browser = browser;
     this.page = page;
 
-    this.startUrl = this.page.url();
+    try {
+      this.startUrl = (typeof this.page.url === 'function' ? this.page.url() : '') || 'about:blank';
+    } catch {
+      this.startUrl = 'about:blank';
+    }
     this.startedAt = new Date().toISOString();
     this.isRecording = true;
     this.isPaused = false;
@@ -91,30 +95,32 @@ class RecorderBridge {
     this._pageCleanups = [];
     this._handledUids = new Set();
 
-    // 2. Attach to the primary page
-    await this._attachToPage(this.page);
+    // 2. Attach to ALL existing open pages and tabs concurrently so clicks in ANY tab are immediately captured
+    const existingPages = await this.browser.pages().catch(() => [this.page]);
+    await Promise.allSettled(
+      existingPages
+        .filter((p) => p && !p.isClosed())
+        .map((p) => this._attachToPage(p).catch((err) => {
+          logger.warn(`[Recorder] Tab attach warning: ${err?.message || err}`);
+        }))
+    );
 
-    // 3. Also attach to any other already-open pages/tabs in the background (non-blocking)
-    this.browser.pages().then((existingPages) => {
-      for (const p of existingPages) {
-        if (p !== this.page && this.isRecording && !p.isClosed()) {
-          this._attachToPage(p).catch((err) => {
-            logger.warn(`[Recorder] Background tab attach warning: ${err?.message || err}`);
-          });
-        }
-      }
-    }).catch((err) => {
-      logger.warn(`[Recorder] Failed to list browser pages: ${err?.message || err}`);
-    });
-
-    // 4. Auto-attach to newly opened tabs, popups, or auxiliary windows
+    // 3. Auto-attach to newly opened tabs, popups, or auxiliary windows
     this._onTargetCreated = async (target) => {
       if (!this.isRecording) return;
-      if (target.type() === 'page') {
+      const targetType = typeof target?.type === 'function' ? target.type() : target?.type;
+      if (targetType === 'page') {
         try {
-          const newPage = await target.page();
-          if (newPage) {
-            logger.info(`[Recorder] New window/popup detected: ${newPage.url() || target.url()}`);
+          let newPage = await target.page().catch(() => null);
+          if (!newPage) {
+            // Wait briefly for target initialization if page object isn't immediately ready
+            await new Promise((r) => setTimeout(r, 120));
+            newPage = await target.page().catch(() => null);
+          }
+          if (newPage && !newPage.isClosed()) {
+            let pUrl = '';
+            try { pUrl = newPage.url(); } catch { pUrl = target.url(); }
+            logger.info(`[Recorder] New window/popup detected: ${pUrl || 'new tab'}`);
             await this._attachToPage(newPage);
           }
         } catch (err) {
@@ -288,6 +294,12 @@ class RecorderBridge {
    */
   async _attachToPage(page) {
     if (!page || page.isClosed() || this._attachedPages.has(page)) return;
+    try {
+      const pUrl = (typeof page.url === 'function' ? page.url() : '') || '';
+      if (isDashboardUrl(pUrl)) {
+        return; // Never record actions on the workflow capture dashboard itself
+      }
+    } catch {}
     this._attachedPages.add(page);
 
     // 1. PRIMARY BULLETPROOF TRANSPORT: Listen for actions emitted via console
@@ -711,6 +723,33 @@ class RecorderBridge {
 
     const sanitizedName = this.name.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
     const filePath = path.join(this.outputDir, `${sanitizedName}.json`);
+
+    // Guard: If 0 actions were captured and a previous valid recording exists, do NOT overwrite it
+    if (this.actions.length === 0 && fs.existsSync(filePath)) {
+      try {
+        const existingData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        if (Array.isArray(existingData.actions) && existingData.actions.length > 0) {
+          logger.warn(`[Recorder] No new actions captured. Preserving existing recording with ${existingData.actions.length} action(s) for "${sanitizedName}".`);
+          if (this._attachedPages) {
+            const frames = [];
+            for (const page of this._attachedPages) {
+              if (!page || page.isClosed()) continue;
+              frames.push(...getAllFramesRecursive(page));
+            }
+            await Promise.allSettled(frames.map((frame) => frame.evaluate(() => {
+              if (typeof window.__workflowCaptureStopUI === 'function') {
+                window.__workflowCaptureStopUI();
+              }
+            })));
+          }
+          logger.divider();
+          logger.success(`Workflow recording preserved: ${filePath}`);
+          logger.info(`Total actions in workflow: ${existingData.actions.length}`);
+          try { await this.browser.disconnect(); } catch {}
+          return filePath;
+        }
+      } catch {}
+    }
 
     fs.writeFileSync(filePath, JSON.stringify(recording, null, 2), 'utf8');
 

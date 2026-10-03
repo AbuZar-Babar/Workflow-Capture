@@ -14,6 +14,7 @@ import { Api } from '../api.js';
 import { Toast } from './toast.js';
 import { Router } from '../router.js';
 import { Auth } from '../auth.js';
+import { renderRobotAvatar } from './robotAvatar.js';
 
 function escapeHtml(str) {
   if (str == null) return '';
@@ -44,11 +45,11 @@ export const ExecutionModal = {
   preflightError: '',
   discoveryData: null,
   availableFields: [],
-  filterEnabled: true,
-  filterField: 'Type',
+  filterEnabled: false,
+  filterField: '',
   customFieldName: '',
   filterOperator: 'contains', // 'contains' | 'equals'
-  filterValue: 'Invoice',
+  filterValue: '',
   filterPreview: {
     totalCount: 0,
     selectedCount: 0,
@@ -84,29 +85,64 @@ export const ExecutionModal = {
 
   findBestLoopStepIndex(steps) {
     if (!Array.isArray(steps) || !steps.length) return 0;
-    // 1. Explicit loop candidate or sequential iteration
+
+    // 1. Explicit loop candidate or sequential iteration from recorder/backend
     for (let i = 0; i < steps.length; i++) {
       const s = steps[i];
       if (s && (s.isLoopCandidate || s.isLoop || s.role === 'LOOP' || s.role === 'LOOP_TARGET' || s.loopMode === 'sequential_iteration')) {
         return i;
       }
     }
-    // 2. Look for table row, grid cell, or dropdown options
+
+    // 2. Look for table row action (e.g. click on a download link/button or row cell with :nth-of-type / :nth-child)
+    // IMPORTANT: Exclude standalone form dropdowns (SELECT) and text inputs (TYPE) even if wrapped in layout tables
     for (let i = 0; i < steps.length; i++) {
       const s = steps[i];
       if (!s) continue;
+      const type = (s.type || s.action || '').toUpperCase();
+      const tagName = (s.target?.fingerprint?.tagName || '').toLowerCase();
+      if (type === 'SELECT' || tagName === 'select' || type === 'TYPE' || tagName === 'input') {
+        continue;
+      }
+
+      const id = s.target?.fingerprint?.id || '';
+      const name = (s.name || s.elementName || '').toLowerCase();
+      const text = (s.target?.fingerprint?.text || '').toLowerCase();
+      const cssPath = s.target?.candidates?.find(c => c && c.strategy === 'css-path')?.value || '';
+
+      // Skip navigation or chrome
+      if (/menu-|navbar|nav-|toolbar/i.test(id) || /(^|\s|#)menu-|\bnavbar\b|\bnav-/i.test(cssPath) || /i21-menu|nav-top-item/i.test(name)) {
+        continue;
+      }
+
+      // Check if action targets an indexed repeating row structure
+      const isIndexedRow = /tr:nth-(?:child|of-type)|\[role="row"\]:nth/i.test(cssPath);
+      const isItemAction = /download|export|view|detail|select|print|pdf/i.test(name) || /download|export|view|print|pdf/i.test(text);
+
+      if (isIndexedRow || (isItemAction && /table|tbody|tr|td|gridcell|x-grid-cell/i.test(cssPath))) {
+        return i;
+      }
+    }
+
+    // 3. Fallback: Any valid non-setup action inside a table row or grid cell
+    for (let i = 0; i < steps.length; i++) {
+      const s = steps[i];
+      if (!s) continue;
+      const type = (s.type || s.action || '').toUpperCase();
+      const tagName = (s.target?.fingerprint?.tagName || '').toLowerCase();
+      if (type === 'SELECT' || tagName === 'select' || type === 'TYPE') continue;
+
       const id = s.target?.fingerprint?.id || '';
       const name = (s.name || '').toLowerCase();
       const cssPath = s.target?.candidates?.find(c => c && c.strategy === 'css-path')?.value || '';
-      // Skip navigation or chrome
-      if (/menu-|navbar|nav-|toolbar/i.test(id) || /(^|\s|#)menu-|\bnavbar\b|\bnav-/i.test(cssPath) || /i21-menu/i.test(name)) {
-        continue;
-      }
+      if (/menu-|navbar|nav-|toolbar/i.test(id) || /(^|\s|#)menu-|\bnavbar\b|\bnav-/i.test(cssPath)) continue;
+
       if (/table|tbody|tr|td|gridcell|x-grid-cell|mat-option|\[role="option"\]/i.test(cssPath)) {
         return i;
       }
     }
-    // 3. If step 0 is navigation / menu link, skip to step 1
+
+    // 4. If step 0 is navigation / menu link, skip to step 1
     if (steps.length > 1) {
       const s0 = steps[0];
       const s0Id = s0?.target?.fingerprint?.id || '';
@@ -138,11 +174,11 @@ export const ExecutionModal = {
     this.preflightError = '';
     this.discoveryData = null;
     this.availableFields = [];
-    this.filterEnabled = true;
-    this.filterField = 'Type';
+    this.filterEnabled = false;
+    this.filterField = '';
     this.customFieldName = '';
     this.filterOperator = 'contains';
-    this.filterValue = 'Invoice';
+    this.filterValue = '';
     this.filterPreview = {
       totalCount: 0,
       selectedCount: 0,
@@ -161,7 +197,17 @@ export const ExecutionModal = {
       Api.getWorkflow(this.currentWorkflowId).then(wf => {
         if (wf && Array.isArray(wf.steps) && wf.steps.length) {
           this.workflowSteps = wf.steps;
-          if (!hasExplicitLoopStep) {
+          const wfExplicitLoop = Number.isInteger(wf.loopStepIndex) && wf.loopStepIndex >= 0 && wf.loopStepIndex < wf.steps.length;
+          if (wfExplicitLoop && (!hasExplicitLoopStep || this.loopStepIndex !== wf.loopStepIndex)) {
+            this.loopStepIndex = wf.loopStepIndex;
+            if (wf.isLoop || wf.mode === 'LOOP') {
+              this.isLoopConfigured = true;
+              this.selectedMode = 'loop';
+            }
+            if (this.selectedMode === 'loop') {
+              this.runPreflight();
+            }
+          } else if (!hasExplicitLoopStep) {
             const cand = this.findBestLoopStepIndex(wf.steps);
             if (cand !== this.loopStepIndex) {
               this.loopStepIndex = cand;
@@ -215,15 +261,18 @@ export const ExecutionModal = {
     const isLoopSelected = this.selectedMode === 'loop';
 
     this.container.innerHTML = `
-      <div class="modal-dialog exec-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="execModalTitle">
-        <div class="modal-header" style="padding: 1.25rem 1.5rem;">
-          <div style="display:flex; align-items:center; gap:0.6rem;">
-            <div style="width:34px; height:34px; border-radius:10px; background:var(--brand-tint); color:var(--brand-forest); display:flex; align-items:center; justify-content:center;">
-              <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      <div class="modal-dialog exec-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="execModalTitle" style="background:var(--bg-surface); border:1px solid rgba(0,240,255,0.2); box-shadow:0 0 35px rgba(0,240,255,0.12); border-radius:var(--radius-xl);">
+        <div class="modal-header" style="padding: 1.25rem 1.5rem; border-bottom:1px solid rgba(255,255,255,0.06); background:rgba(6,9,19,0.5);">
+          <div style="display:flex; align-items:center; gap:0.75rem;">
+            <div style="flex-shrink:0;">
+              ${renderRobotAvatar({ size: 'badge', state: 'analyzing' })}
             </div>
             <div>
-              <h3 id="execModalTitle" style="margin:0; font-size:1.05rem; font-weight:800; color:var(--text-main);">${escapeHtml(this.workflowName)}</h3>
-              <span style="font-size:0.75rem; color:var(--text-sub);">${this.stepCount > 0 ? `${this.stepCount} steps recorded` : 'Workflow Execution'}</span>
+              <div style="display:flex; align-items:center; gap:0.5rem;">
+                <h3 id="execModalTitle" style="margin:0; font-size:1.05rem; font-weight:800; color:var(--text-primary);">${escapeHtml(this.workflowName)}</h3>
+                <span class="badge-tag info" style="font-size:0.65rem; font-weight:700;">MISSION CONTROL</span>
+              </div>
+              <span style="font-size:0.75rem; color:var(--text-sub); display:block; margin-top:0.15rem;">Autonomous browser worker setup &amp; dynamic DOM inspection</span>
             </div>
           </div>
           <button class="btn-icon" id="btnCloseExecModal" title="Close" aria-label="Close execution dialog" style="background:transparent; border:none; cursor:pointer;">
@@ -354,11 +403,16 @@ export const ExecutionModal = {
   renderPreflightContent() {
     if (this.preflightStatus === 'loading') {
       return `
-        <div class="exec-preflight-loading">
-          <div class="exec-preflight-spinner"></div>
+        <div class="exec-preflight-loading" style="display:flex; align-items:center; gap:1rem; background:rgba(139,92,246,0.08); border:1px solid rgba(139,92,246,0.3); border-radius:var(--radius-lg); padding:1rem 1.25rem;">
+          <div style="flex-shrink:0;">
+            ${renderRobotAvatar({ size: 'badge', state: 'analyzing' })}
+          </div>
           <div>
-            <strong style="display:block; font-size:0.82rem; color:var(--text-main);">Inspecting page and discovering repeatable items…</strong>
-            <span style="display:block; margin-top:0.2rem; font-size:0.72rem; color:var(--text-sub);">Connecting via CDP to evaluate repeating DOM elements and schema fields.</span>
+            <div style="display:flex; align-items:center; gap:0.4rem;">
+              <span class="status-dot analyzing"></span>
+              <strong style="display:block; font-size:0.85rem; color:var(--text-primary); text-transform:uppercase; letter-spacing:0.04em;">AGENT ANALYZING LIVE WEBPAGE…</strong>
+            </div>
+            <span style="display:block; margin-top:0.25rem; font-size:0.75rem; color:var(--text-sub);">Scanning page DOM via CDP to discover repeating entities, action buttons, and schema fields.</span>
           </div>
         </div>
       `;
@@ -366,18 +420,18 @@ export const ExecutionModal = {
 
     if (this.preflightStatus === 'error') {
       return `
-        <div class="exec-preflight-error">
-          <div style="display:flex; align-items:flex-start; gap:0.5rem;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0; margin-top:2px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-            <div style="flex:1;">
-              <strong>Preflight Discovery Failed</strong>
-              <p style="margin:0.2rem 0 0; font-size:0.72rem; line-height:1.4;">${escapeHtml(this.preflightError || 'Target page not available or no repeating items could be found.')}</p>
-            </div>
+        <div class="exec-preflight-error" style="display:flex; align-items:flex-start; gap:1rem; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.3); border-radius:var(--radius-lg); padding:1rem 1.25rem;">
+          <div style="flex-shrink:0;">
+            ${renderRobotAvatar({ size: 'badge', state: 'error' })}
           </div>
-          <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:0.35rem;">
-            <button type="button" class="btn btn-secondary btn-sm" id="btnRetryPreflight" style="font-size:0.72rem; padding:0.25rem 0.65rem;">
-              <span>Retry Preflight Check</span>
-            </button>
+          <div style="flex:1;">
+            <strong style="color:var(--color-danger); font-size:0.85rem;">Agent Discovery Failed</strong>
+            <p style="margin:0.25rem 0 0; font-size:0.75rem; line-height:1.4; color:var(--text-sub);">${escapeHtml(this.preflightError || 'Target page not available or no repeating items could be found.')}</p>
+            <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:0.5rem;">
+              <button type="button" class="btn btn-secondary btn-sm" id="btnRetryPreflight" style="font-size:0.72rem; padding:0.25rem 0.65rem;">
+                <span>Retry Page Analysis</span>
+              </button>
+            </div>
           </div>
         </div>
       `;
@@ -392,7 +446,7 @@ export const ExecutionModal = {
 
       const hasFields = this.availableFields.length > 0;
       const isCustomField = this.filterField === '__custom__' || (!hasFields && !!this.filterField);
-      const currentField = isCustomField ? (this.customFieldName || this.filterField || 'Type') : (this.filterField || 'Type');
+      const currentField = isCustomField ? (this.customFieldName || this.filterField || (this.availableFields[0] || 'Field')) : (this.filterField || (this.availableFields[0] || 'Field'));
       const detectedValues = this.getValuesForField(currentField);
       const isDateField = this.isDateField(currentField, detectedValues);
 
@@ -868,7 +922,7 @@ export const ExecutionModal = {
         const action = pill.dataset.action;
         const hasFields = this.availableFields.length > 0;
         const isCustomField = this.filterField === '__custom__' || (!hasFields && !!this.filterField);
-        const currentField = isCustomField ? (this.customFieldName || this.filterField || 'Type') : (this.filterField || 'Type');
+        const currentField = isCustomField ? (this.customFieldName || this.filterField || (this.availableFields[0] || 'Field')) : (this.filterField || (this.availableFields[0] || 'Field'));
 
         if (action === 'overdue') {
           this.filterEnabled = true;
@@ -925,7 +979,7 @@ export const ExecutionModal = {
           this.filterValue = val;
           const hasFields = this.availableFields.length > 0;
           const isCustomField = this.filterField === '__custom__' || (!hasFields && !!this.filterField);
-          const currentField = isCustomField ? (this.customFieldName || this.filterField || 'Type') : (this.filterField || 'Type');
+          const currentField = isCustomField ? (this.customFieldName || this.filterField || (this.availableFields[0] || 'Field')) : (this.filterField || (this.availableFields[0] || 'Field'));
           const isDate = this.isDateField(currentField, this.getValuesForField(currentField));
           if (isDate && (this.filterOperator === 'contains' || !this.filterOperator)) {
             this.filterOperator = '<=';
@@ -1092,23 +1146,33 @@ export const ExecutionModal = {
         this.updateStepSelectorUI();
       }
 
+      // Resolve target column and action value from server discovery if present
+      const targetCol = data.discovery?.targetColumn || null;
+      const targetVal = data.discovery?.targetActionValue || null;
+
       // If filterField is not set or not in availableFields, pick the best discovered field
       if (this.availableFields.length > 0) {
+        const hasTargetCol = targetCol && this.availableFields.some(f => f.toLowerCase() === targetCol.toLowerCase());
         const hasField = this.availableFields.some(f => f.toLowerCase() === (this.filterField || '').toLowerCase());
-        if (!hasField || !this.filterField) {
-          const hasType = this.availableFields.some(f => f.toLowerCase() === 'type');
+        if (hasTargetCol && (!this.filterField || this.filterField === 'Type')) {
+          this.filterField = this.availableFields.find(f => f.toLowerCase() === targetCol.toLowerCase()) || targetCol;
+        } else if (!hasField || !this.filterField) {
+          const hasType = this.availableFields.find(f => f.toLowerCase() === 'type');
           const hasInv = this.availableFields.find(f => f.toLowerCase().includes('invoice'));
-          this.filterField = hasType ? 'Type' : (hasInv || this.availableFields[0]);
+          this.filterField = hasTargetCol ? targetCol : (hasType || hasInv || this.availableFields.find(f => !/^#$|^index$/i.test(f)) || this.availableFields[0]);
         }
       }
 
       const activeField = (this.filterField === '__custom__' ? this.customFieldName : this.filterField).trim();
       const detectedVals = this.getValuesForField(activeField);
       if (detectedVals && detectedVals.length > 0) {
+        const hasTargetVal = targetVal && detectedVals.some(v => v.toLowerCase() === targetVal.toLowerCase());
         const hasCurrentVal = detectedVals.some(v => v.toLowerCase() === (this.filterValue || '').toLowerCase());
-        if (!hasCurrentVal || !this.filterValue) {
-          const hasInvoice = detectedVals.some(v => v.toLowerCase() === 'invoice');
-          this.filterValue = hasInvoice ? 'Invoice' : detectedVals[0];
+        if (hasTargetVal && (!this.filterValue || this.filterValue === 'Invoice')) {
+          this.filterValue = detectedVals.find(v => v.toLowerCase() === targetVal.toLowerCase()) || targetVal;
+        } else if (!hasCurrentVal || !this.filterValue) {
+          const hasInvoice = detectedVals.find(v => v.toLowerCase() === 'invoice');
+          this.filterValue = hasTargetVal ? targetVal : (hasInvoice || detectedVals[0]);
         }
       }
 

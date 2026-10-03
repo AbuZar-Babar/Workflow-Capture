@@ -122,12 +122,25 @@ function listWorkflows(req, res) {
     if (!seenIds.has(cleanId) && !seenIds.has(w.id)) {
       seenIds.add(cleanId);
       seenIds.add(w.id);
+      const actions = Array.isArray(w.steps) ? w.steps : (w.recordingData && Array.isArray(w.recordingData.actions) ? w.recordingData.actions : []);
+      const meta = w.recordingData?.metadata || {};
+      const loopStepIndex = w.loopStepIndex ?? meta.loopStepIndex ?? null;
+      const isLoop = w.isLoop ?? meta.isLoop ?? (Number.isInteger(loopStepIndex) && loopStepIndex >= 0);
+      const mode = w.mode ?? meta.mode ?? (isLoop ? 'LOOP' : 'STANDARD');
+      const loopConfidence = w.loopConfidence ?? meta.loopConfidence ?? 0;
+      const patternType = w.patternType ?? meta.patternType ?? 'single-element';
+
       workflows.push({
         id: cleanId,
         name: w.name,
         description: w.description || '',
         targetUrl: w.targetUrl || '',
-        stepCount: Array.isArray(w.steps) ? w.steps.length : (w.recordingData && Array.isArray(w.recordingData.actions) ? w.recordingData.actions.length : 0),
+        stepCount: actions.length,
+        loopStepIndex,
+        isLoop,
+        mode,
+        loopConfidence,
+        patternType,
         createdAt: w.createdAt,
         updatedAt: w.updatedAt
       });
@@ -187,10 +200,22 @@ function getWorkflowById(req, res, workflowId) {
   }
 
   const steps = workflow.steps || (workflow.recordingData && workflow.recordingData.actions) || [];
+  const meta = workflow.recordingData?.metadata || {};
+  const loopStepIndex = workflow.loopStepIndex ?? meta.loopStepIndex ?? null;
+  const isLoop = workflow.isLoop ?? meta.isLoop ?? (Number.isInteger(loopStepIndex) && loopStepIndex >= 0);
+  const mode = workflow.mode ?? meta.mode ?? (isLoop ? 'LOOP' : 'STANDARD');
+  const loopConfidence = workflow.loopConfidence ?? meta.loopConfidence ?? 0;
+  const patternType = workflow.patternType ?? meta.patternType ?? 'single-element';
+
   return sendJson(res, 200, {
     success: true,
     workflow: {
       ...workflow,
+      loopStepIndex,
+      isLoop,
+      mode,
+      loopConfidence,
+      patternType,
       steps
     }
   });

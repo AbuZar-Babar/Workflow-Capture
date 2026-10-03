@@ -27,6 +27,27 @@ function isInternalBrowserUrl(url) {
 }
 
 /**
+ * Checks if a given URL belongs to the Workflow Capture dashboard itself
+ * @param {string} url
+ * @returns {boolean}
+ */
+function isDashboardUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname;
+    const port = parsed.port;
+    if ((host === '127.0.0.1' || host === 'localhost') && (port === '3000' || !port)) {
+      const pathname = parsed.pathname;
+      if (['/app', '/dashboard', '/workflows', '/console', '/login', '/landing', '/api', '/secrets', '/artifacts'].some(p => pathname.startsWith(p)) || pathname === '/' || pathname === '/index.html') {
+        return true;
+      }
+    }
+  } catch {}
+  return false;
+}
+
+/**
  * Resolves a workflow target URL to a valid navigable browser URL
  * @param {string} targetUrl - Raw target URL or file path from workflow metadata
  * @returns {string|null} Resolved navigable URL
@@ -120,6 +141,7 @@ function extractWorkflowStartUrl(workflow) {
 
 module.exports = {
   isInternalBrowserUrl,
+  isDashboardUrl,
   resolveTargetUrl,
   extractWorkflowStartUrl
 };

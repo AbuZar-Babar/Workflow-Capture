@@ -10,6 +10,7 @@ import { Toast } from '../components/toast.js';
 import { Router } from '../router.js';
 import { ExecutionModal } from '../components/executionModal.js';
 import { Modal } from '../components/modal.js';
+import { renderRobotAvatar } from '../components/robotAvatar.js';
 
 function escapeHtml(str) {
   if (!str) return '';
@@ -87,26 +88,26 @@ export const WorkflowsView = {
 
         <!-- Top Header: Workflows & + New Workflow CTA -->
         <header class="wf-header-hero">
-          <div class="wf-header-title-group">
-            <h1>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent-primary);">
-                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                <line x1="8" y1="21" x2="16" y2="21"></line>
-                <line x1="12" y1="17" x2="12" y2="21"></line>
-                <circle cx="12" cy="10" r="3"></circle>
-              </svg>
-              <span>Workflows</span>
-            </h1>
-            <p>Create, manage and run your browser workflows.</p>
+          <div class="wf-header-title-group" style="display:flex; align-items:center; gap:0.85rem;">
+            <div>
+              ${renderRobotAvatar({ size: 'badge', state: 'idle' })}
+            </div>
+            <div>
+              <div style="display:flex; align-items:center; gap:0.5rem;">
+                <h1 style="margin:0; font-size:1.35rem; font-weight:800; letter-spacing:-0.02em;">AGENT WORKFLOWS</h1>
+                <span class="badge-tag info" style="font-size:0.68rem; font-weight:700;">AUTONOMOUS LIBRARY</span>
+              </div>
+              <p style="margin:0.2rem 0 0; font-size:var(--text-xs); color:var(--text-sub);">Autonomous agent sequence library, learned navigation maps, and repeating loops.</p>
+            </div>
           </div>
 
           <div style="display:flex; align-items:center; gap:0.75rem;">
-            <button class="btn btn-primary" id="btnHeaderNewWorkflow" title="Create a new workflow">
+            <button class="btn btn-primary" id="btnHeaderNewWorkflow" title="Train a new agent" style="box-shadow:0 0 14px rgba(0,240,255,0.3);">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
               </svg>
-              <span>New Workflow</span>
+              <span>+ Train New Agent</span>
             </button>
           </div>
         </header>
@@ -190,26 +191,21 @@ export const WorkflowsView = {
           `}
         </div>
 
-        <!-- Modern Empty State -->
-        <div id="wfEmptyStateContainer" class="modern-empty-state hidden">
-          <div class="empty-state-icon">
-            <svg width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-              <line x1="8" y1="21" x2="16" y2="21"></line>
-              <line x1="12" y1="17" x2="12" y2="21"></line>
-              <circle cx="12" cy="10" r="3"></circle>
-            </svg>
+        <!-- Robotic Empty State -->
+        <div id="wfEmptyStateContainer" class="modern-empty-state hidden" style="text-align:center; padding:3rem 1.5rem;">
+          <div style="margin-bottom:1rem; display:inline-block;">
+            ${renderRobotAvatar({ size: 'medium', state: 'waving' })}
           </div>
-          <h3 class="empty-state-title">No workflows found</h3>
-          <p class="empty-state-desc" id="wfEmptyStateDesc">
-            You haven't recorded any browser automation workflows yet. Teach the system a repeated task once to automate it indefinitely.
+          <h3 class="empty-state-title" style="font-size:1.1rem; color:var(--text-primary); font-weight:700;">No agent workflows found</h3>
+          <p class="empty-state-desc" id="wfEmptyStateDesc" style="color:var(--text-sub); max-width:420px; margin:0.4rem auto 1.25rem;">
+            Teach the agent how the task should be done once on any website. The autonomous agent will learn the navigation path and repeat it flawlessly.
           </p>
-          <button class="btn btn-primary" id="btnEmptyNewWorkflow">
+          <button class="btn btn-primary" id="btnEmptyNewWorkflow" style="box-shadow:0 0 14px rgba(0,240,255,0.3);">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <line x1="12" y1="5" x2="12" y2="19"></line>
               <line x1="5" y1="12" x2="19" y2="12"></line>
             </svg>
-            <span>New Workflow</span>
+            <span>+ Train New Agent</span>
           </button>
         </div>
 
@@ -322,7 +318,8 @@ export const WorkflowsView = {
             workflowName: wf.name || wfId,
             stepCount: wf.stepCount || 0,
             loopStepIndex: wf.loopStepIndex,
-            isLoop: wf.isLoop || wf.mode === 'LOOP'
+            isLoop: wf.isLoop || wf.mode === 'LOOP' || (Number.isInteger(wf.loopStepIndex) && wf.loopStepIndex >= 0),
+            steps: wf.steps || []
           });
           return;
         }
@@ -584,31 +581,26 @@ export const WorkflowsView = {
     const stepCount = wf.stepCount || (wf.steps?.length || 0);
 
     return `
-      <div class="wf-card" data-id="${escapeHtml(wf.id)}">
+      <div class="wf-card" data-id="${escapeHtml(wf.id)}" style="background:rgba(13,19,36,0.72); border:1px solid rgba(255,255,255,0.08); border-radius:var(--radius-xl); transition:all 0.25s ease;">
         <div>
-          <div class="wf-card-top">
-            <div class="wf-card-icon" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                <line x1="8" y1="21" x2="16" y2="21"></line>
-                <line x1="12" y1="17" x2="12" y2="21"></line>
-                <circle cx="12" cy="10" r="3"></circle>
-              </svg>
+          <div class="wf-card-top" style="align-items:flex-start;">
+            <div style="flex-shrink:0;">
+              ${renderRobotAvatar({ size: 'badge', state: status === 'running' ? 'running' : 'idle' })}
             </div>
 
-            <div class="wf-card-info">
-              <div class="wf-card-title-row">
-                <h3 class="wf-card-title" title="${escapeHtml(wf.name || 'Untitled Workflow')}">
+            <div class="wf-card-info" style="min-width:0;">
+              <div class="wf-card-title-row" style="flex-wrap:wrap; gap:0.4rem;">
+                <h3 class="wf-card-title" title="${escapeHtml(wf.name || 'Untitled Workflow')}" style="font-size:0.98rem; font-weight:700; color:var(--text-primary);">
                   ${escapeHtml(wf.name || 'Untitled Workflow')}
                 </h3>
-                <span class="wf-card-status-badge ${status}">
+                <span class="wf-card-status-badge ${status}" style="font-weight:700; letter-spacing:0.03em;">
                   <span style="font-size:0.6rem;">●</span>
                   <span>${statusLabel}</span>
                 </span>
               </div>
 
               ${domain !== '—' ? `
-                <div class="wf-card-domain" title="${escapeHtml(wf.targetUrl || domain)}">
+                <div class="wf-card-domain" title="${escapeHtml(wf.targetUrl || domain)}" style="background:rgba(0,240,255,0.08); border:1px solid rgba(0,240,255,0.2); color:var(--accent-cyan); display:inline-flex; padding:0.15rem 0.55rem; border-radius:var(--radius-pill); margin-top:0.3rem;">
                   <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <circle cx="12" cy="12" r="10"></circle>
                     <line x1="2" y1="12" x2="22" y2="12"></line>
@@ -619,24 +611,24 @@ export const WorkflowsView = {
             </div>
           </div>
 
-          <p class="wf-card-desc">
-            ${escapeHtml(wf.description || `Automated sequence on ${domain}. Captures and executes steps deterministically.`)}
+          <p class="wf-card-desc" style="color:var(--text-sub); font-size:var(--text-xs); line-height:1.5; margin:0.75rem 0 0;">
+            ${escapeHtml(wf.description || `Autonomous agent sequence trained on ${domain}. Navigates and extracts data dynamically.`)}
           </p>
         </div>
 
-        <div class="wf-card-bottom">
-          <div class="wf-card-meta">
+        <div class="wf-card-bottom" style="margin-top:1.15rem; border-top:1px solid rgba(255,255,255,0.05); padding-top:0.85rem;">
+          <div class="wf-card-meta" style="font-size:var(--text-xs); color:var(--text-muted);">
             <span>${stepCount} step${stepCount === 1 ? '' : 's'}</span>
             <span class="wf-card-meta-dot">·</span>
-            <span>${escapeHtml(lastRunText)}</span>
+            <span style="color:var(--accent-cyan); font-weight:600;">${escapeHtml(lastRunText)}</span>
           </div>
 
           <div class="wf-card-action-group">
-            <button class="btn-wf-run" data-id="${escapeHtml(wf.id)}" title="Run workflow">
+            <button class="btn-wf-run" data-id="${escapeHtml(wf.id)}" title="Run agent" style="font-weight:700; letter-spacing:0.04em;">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
                 <polygon points="5 3 19 12 5 21 5 3"></polygon>
               </svg>
-              <span>Run</span>
+              <span>RUN AGENT</span>
             </button>
 
             <div class="wf-dropdown-wrapper">
@@ -701,25 +693,20 @@ export const WorkflowsView = {
     const stepCount = wf.stepCount || (wf.steps?.length || 0);
 
     return `
-      <div class="wf-row" data-id="${escapeHtml(wf.id)}">
-        <div class="wf-row-name-cell">
-          <div class="wf-row-icon" aria-hidden="true">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-              <line x1="8" y1="21" x2="16" y2="21"></line>
-              <line x1="12" y1="17" x2="12" y2="21"></line>
-              <circle cx="12" cy="10" r="3"></circle>
-            </svg>
+      <div class="wf-row" data-id="${escapeHtml(wf.id)}" style="background:rgba(13,19,36,0.65); border:1px solid rgba(255,255,255,0.07); border-radius:var(--radius-lg); margin-bottom:0.5rem; transition:all 0.2s ease;">
+        <div class="wf-row-name-cell" style="display:flex; align-items:center; gap:0.75rem;">
+          <div style="flex-shrink:0;">
+            ${renderRobotAvatar({ size: 'mini', state: status === 'running' ? 'running' : 'idle' })}
           </div>
           <div class="wf-row-title-block">
-            <div class="wf-row-title" title="${escapeHtml(wf.name || 'Untitled')}">${escapeHtml(wf.name || 'Untitled')}</div>
-            <div class="wf-row-desc">${escapeHtml(wf.description || domain)}</div>
+            <div class="wf-row-title" title="${escapeHtml(wf.name || 'Untitled')}" style="font-weight:700; color:var(--text-primary);">${escapeHtml(wf.name || 'Untitled')}</div>
+            <div class="wf-row-desc" style="color:var(--text-sub);">${escapeHtml(wf.description || domain)}</div>
           </div>
         </div>
 
         <div>
           ${domain !== '—' ? `
-            <span class="wf-card-domain">
+            <span class="wf-card-domain" style="background:rgba(0,240,255,0.08); border:1px solid rgba(0,240,255,0.2); color:var(--accent-cyan); display:inline-flex; padding:0.1rem 0.5rem; border-radius:var(--radius-pill);">
               <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <circle cx="12" cy="12" r="10"></circle>
                 <line x1="2" y1="12" x2="22" y2="12"></line>
@@ -730,7 +717,7 @@ export const WorkflowsView = {
         </div>
 
         <div>
-          <span class="wf-card-status-badge ${status}">
+          <span class="wf-card-status-badge ${status}" style="font-weight:700;">
             <span style="font-size:0.6rem;">●</span>
             <span>${statusLabel}</span>
           </span>
@@ -740,17 +727,17 @@ export const WorkflowsView = {
           <span style="font-size:var(--text-xs); color:var(--text-secondary); display:block; font-weight:500;">
             ${stepCount} step${stepCount === 1 ? '' : 's'}
           </span>
-          <span style="font-size:var(--text-2xs); color:var(--text-muted);">
+          <span style="font-size:var(--text-2xs); color:var(--accent-cyan); font-weight:600;">
             ${escapeHtml(lastRunText)}
           </span>
         </div>
 
         <div style="display:flex; justify-content:flex-end; align-items:center; gap:0.5rem;">
-          <button class="btn-wf-run" data-id="${escapeHtml(wf.id)}" title="Run workflow">
+          <button class="btn-wf-run" data-id="${escapeHtml(wf.id)}" title="Run agent" style="font-weight:700; letter-spacing:0.04em;">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
               <polygon points="5 3 19 12 5 21 5 3"></polygon>
             </svg>
-            <span>Run</span>
+            <span>RUN AGENT</span>
           </button>
 
           <div class="wf-dropdown-wrapper">

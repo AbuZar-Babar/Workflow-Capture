@@ -12,6 +12,7 @@ const http = require('http');
 const { spawn } = require('child_process');
 const puppeteer = require('puppeteer-core');
 const { CDPConnectionError } = require('./errors');
+const { isDashboardUrl } = require('./url-helper');
 const logger = require('./logger');
 
 /**
@@ -125,10 +126,21 @@ async function connectToBrowser(options = {}) {
 
   let browser;
   try {
-    browser = await puppeteer.connect({
-      browserURL,
-      defaultViewport: null // Keep existing browser viewport
-    });
+    browser = await Promise.race([
+      puppeteer.connect({
+        browserURL,
+        defaultViewport: null, // Keep existing browser viewport
+        targetFilter: (target) => {
+          const type = typeof target?.type === 'function' ? target.type() : target?.type;
+          const rawUrl = typeof target?.url === 'function' ? target.url() : target?.url;
+          const url = typeof rawUrl === 'string' ? rawUrl : '';
+          if (type === 'browser_ui' || type === 'other') return false;
+          if (url && (url.startsWith('chrome://') || url.startsWith('devtools://'))) return false;
+          return true;
+        }
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('CDP connection timed out after 6000ms')), 6000))
+    ]);
   } catch (err) {
     throw new CDPConnectionError(
       `Failed to connect to Chrome at ${browserURL}. Please ensure Chrome is running.\n` +
@@ -139,19 +151,59 @@ async function connectToBrowser(options = {}) {
 
   logger.success('Connected to Chrome via CDP.');
 
-  const pages = await browser.pages();
+  // Helper to safely get URL without throwing "Requesting main frame too early!"
+  const getSafeUrl = (p) => {
+    try {
+      return (typeof p?.url === 'function' ? p.url() : '') || '';
+    } catch {
+      return '';
+    }
+  };
+
+  // Wait briefly for at least one target page to be known by Puppeteer
+  let pages = [];
+  for (let attempt = 0; attempt < 15; attempt++) {
+    pages = await browser.pages().catch(() => []);
+    if (pages.length > 0) break;
+    await new Promise(r => setTimeout(r, 200));
+  }
+
   let targetPage = null;
 
   if (options.targetUrlSubstring) {
-    targetPage = pages.find(p => p.url().includes(options.targetUrlSubstring));
+    targetPage = pages.find(p => getSafeUrl(p).includes(options.targetUrlSubstring));
     if (!targetPage) {
       logger.warn(`No tab found matching '${options.targetUrlSubstring}'. Falling back to active tab.`);
     }
   }
 
   if (!targetPage) {
-    // Find first non-empty, non-devtools page or active page
-    targetPage = pages.find(p => !p.url().startsWith('devtools://') && !p.url().startsWith('chrome-extension://') && !p.url().startsWith('chrome://'));
+    // Find all valid non-internal, non-dashboard portal pages
+    const validPages = pages.filter(p => {
+      const u = getSafeUrl(p);
+      return !u.startsWith('devtools://') && !u.startsWith('chrome-extension://') && !u.startsWith('chrome://') && !isDashboardUrl(u);
+    });
+
+    if (validPages.length > 0) {
+      // Find the portal tab the user is actively viewing (visibilityState === 'visible')
+      for (const p of validPages) {
+        try {
+          const isVisible = await Promise.race([
+            p.evaluate(() => document.visibilityState === 'visible'),
+            new Promise(r => setTimeout(() => r(false), 150))
+          ]);
+          if (isVisible) {
+            targetPage = p;
+            break;
+          }
+        } catch {}
+      }
+
+      // If no portal tab explicitly claims visible, pick the most recent portal tab
+      if (!targetPage) {
+        targetPage = validPages[validPages.length - 1];
+      }
+    }
   }
 
   if (!targetPage) {
@@ -159,11 +211,33 @@ async function connectToBrowser(options = {}) {
       targetPage = pages[0];
     } else {
       logger.info('No open tabs found. Creating a new tab...');
-      targetPage = await browser.newPage();
+      try {
+        targetPage = await browser.newPage();
+      } catch (npErr) {
+        // If createTarget collided with Chrome startup window creation, wait and retry
+        await new Promise(r => setTimeout(r, 500));
+        pages = await browser.pages().catch(() => []);
+        if (pages.length > 0) {
+          targetPage = pages[0];
+        } else {
+          targetPage = await browser.newPage();
+        }
+      }
     }
   }
 
-  logger.info(`Attached to tab: ${targetPage.url() || 'about:blank'}`);
+  // Ensure targetPage's main frame has initialized
+  if (targetPage) {
+    for (let i = 0; i < 20; i++) {
+      try {
+        if (targetPage.mainFrame && targetPage.mainFrame()) break;
+      } catch {}
+      await new Promise(r => setTimeout(r, 100));
+    }
+  }
+
+  const attachedUrl = getSafeUrl(targetPage) || 'about:blank';
+  logger.info(`Attached to tab: ${attachedUrl}`);
 
   return { browser, page: targetPage };
 }

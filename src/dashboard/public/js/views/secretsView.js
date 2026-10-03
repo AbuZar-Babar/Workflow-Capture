@@ -11,6 +11,7 @@
 
 import { Api } from '../api.js';
 import { Toast } from '../components/toast.js';
+import { renderRobotAvatar } from '../components/robotAvatar.js';
 
 function escapeHtml(str) {
   if (!str) return '';
@@ -46,9 +47,17 @@ export const SecretsView = {
 
         <!-- Page Header -->
         <div class="wf-page-header">
-          <div>
-            <h1 class="wf-page-title">Secrets Vault</h1>
-            <p class="wf-page-subtitle">Encrypted credentials injected into browser automation via {{secret:name}} tokens.</p>
+          <div style="display:flex; align-items:center; gap:0.85rem;">
+            <div>
+              ${renderRobotAvatar({ size: 'badge', state: 'idle' })}
+            </div>
+            <div>
+              <div style="display:flex; align-items:center; gap:0.5rem;">
+                <h1 class="wf-page-title" style="margin:0; font-size:1.35rem; font-weight:800; letter-spacing:-0.02em;">AGENT SECRETS VAULT</h1>
+                <span class="badge-tag info" style="font-size:0.68rem; font-weight:700;">ENCRYPTED TOKENS</span>
+              </div>
+              <p class="wf-page-subtitle" style="margin:0.2rem 0 0;">Encrypted credentials and auth tokens injected securely into agent workflows via {{secret:name}}.</p>
+            </div>
           </div>
           <div style="display:flex; align-items:center; gap:0.6rem;">
             <button class="btn btn-primary btn-sm" id="btnOpenAddSecretModal">
@@ -247,12 +256,12 @@ export const SecretsView = {
           <tr>
             <td colspan="6" style="padding:3.5rem 1.5rem; text-align:center;">
               <div class="modern-empty-state" style="border:none; padding:1rem 0;">
-                <div class="empty-state-icon">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                <div style="margin-bottom:1rem; display:inline-block;">
+                  ${renderRobotAvatar({ size: 'medium', state: 'idle' })}
                 </div>
-                <h3 class="empty-state-title">No credentials stored yet</h3>
-                <p class="empty-state-desc">Store login passwords or tokens to safely inject them into workflows with {{secret:name}}.</p>
-                <button class="btn btn-primary btn-sm" onclick="document.getElementById('btnOpenAddSecretModal')?.click()">+ Add Secret</button>
+                <h3 class="empty-state-title" style="font-size:1.05rem; color:var(--text-primary); font-weight:700;">No credentials stored yet</h3>
+                <p class="empty-state-desc" style="color:var(--text-sub); max-width:380px; margin:0.35rem auto 1rem;">Store passwords and auth keys to safely inject them into autonomous agent workflows using {{secret:name}}.</p>
+                <button class="btn btn-primary btn-sm" onclick="document.getElementById('btnOpenAddSecretModal')?.click()">+ Add First Secret</button>
               </div>
             </td>
           </tr>

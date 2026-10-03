@@ -43,18 +43,19 @@
   
   <style>
     body {
-      background-color: #f8f9fe;
+      background-color: #060913;
       background-image: 
-        radial-gradient(at 10% 15%, rgba(228, 235, 255, 0.9) 0px, transparent 55%),
-        radial-gradient(at 85% 20%, rgba(236, 233, 254, 0.85) 0px, transparent 50%),
-        radial-gradient(at 50% 60%, rgba(243, 246, 255, 0.8) 0px, transparent 65%);
+        radial-gradient(at 10% 12%, rgba(0, 240, 255, 0.08) 0px, transparent 50%),
+        radial-gradient(at 88% 18%, rgba(99, 102, 241, 0.1) 0px, transparent 50%),
+        radial-gradient(at 50% 60%, rgba(56, 189, 248, 0.05) 0px, transparent 60%);
+      color: #f8fafc;
       min-height: 100vh;
       overflow-x: hidden;
     }
 
     .robot-ambient-glow {
-      background: radial-gradient(circle, rgba(165, 180, 252, 0.5) 0%, rgba(199, 210, 254, 0.25) 50%, transparent 70%);
-      filter: blur(32px);
+      background: radial-gradient(circle, rgba(0, 240, 255, 0.45) 0%, rgba(99, 102, 241, 0.25) 50%, transparent 70%);
+      filter: blur(36px);
     }
 
     .text-gradient-purple-blue {
@@ -506,38 +507,44 @@
     }
   </style>
 </head>
-<body class="text-slate-800 antialiased font-sans selection:bg-indigo-100 selection:text-indigo-800">
+<body class="text-slate-100 antialiased font-sans selection:bg-cyan-500/20 selection:text-cyan-300">
 
   <!-- Top Notification Bar -->
-  <div class="bg-gradient-to-r from-indigo-950 via-indigo-900 to-purple-950 text-white text-xs py-2 px-4 text-center font-medium flex items-center justify-center gap-2">
-    <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-    <span>Connected to Local Automation Engine &middot; Deterministic Browser Mode</span>
+  <div class="bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 text-slate-300 text-xs py-2 px-4 text-center font-medium flex items-center justify-center gap-2 border-b border-white/5">
+    <span class="inline-block w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+    <span class="text-slate-200">Connected to Local Automation Engine &middot; Autonomous Robotic Worker Online</span>
   </div>
 
   <!-- Main Header -->
   <header class="w-full max-w-7xl mx-auto px-6 lg:px-12 pt-4 pb-3 flex items-center justify-between relative z-20">
     <!-- Brand Logo -->
     <a aria-label="FlowMind Home" class="flex items-center gap-2.5 group focus:outline-none" href="#">
-      <div class="relative w-9 h-9 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-500 flex items-center justify-center shadow-md shadow-indigo-500/20 transition-transform duration-300 group-hover:scale-105">
-        <div class="w-4 h-4 rounded-full bg-white opacity-90 blur-[0.4px]"></div>
+      <div class="relative w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 via-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 transition-transform duration-300 group-hover:scale-105 border border-cyan-400/30">
+        <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="10" rx="4"></rect>
+          <circle cx="9" cy="16" r="1.5" fill="#00f0ff"></circle>
+          <circle cx="15" cy="16" r="1.5" fill="#00f0ff"></circle>
+          <path d="M8 7l4-4 4 4"></path>
+          <line x1="12" y1="3" x2="12" y2="11"></line>
+        </svg>
       </div>
       <div class="flex flex-col">
-        <span class="text-xl font-extrabold tracking-tight text-slate-900 leading-none">FlowMind</span>
-        <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-500">AI Automation</span>
+        <span class="text-xl font-extrabold tracking-tight text-white leading-none">FlowMind</span>
+        <span class="text-[10px] font-bold uppercase tracking-wider text-cyan-400">AI Automation</span>
       </div>
     </a>
 
     <!-- Navigation Links -->
     <nav aria-label="Main Navigation" class="hidden md:flex items-center gap-8">
-      <a class="text-sm font-semibold text-indigo-600 relative py-1 after:content-[''] after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:w-5 after:h-0.5 after:bg-indigo-600 after:rounded-full" href="#">Home</a>
-      <a class="text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors" href="#how-it-works">How It Works</a>
-      <a class="text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors" href="#analytics">Live Stats</a>
-      <a class="text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors" href="#features">Features</a>
+      <a class="text-sm font-semibold text-cyan-400 relative py-1 after:content-[''] after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:w-5 after:h-0.5 after:bg-cyan-400 after:rounded-full" href="#">Home</a>
+      <a class="text-sm font-medium text-slate-300 hover:text-white transition-colors" href="#how-it-works">How It Works</a>
+      <a class="text-sm font-medium text-slate-300 hover:text-white transition-colors" href="#analytics">Live Stats</a>
+      <a class="text-sm font-medium text-slate-300 hover:text-white transition-colors" href="#features">Features</a>
     </nav>
 
     <!-- Header Actions -->
     <div class="flex items-center gap-3">
-      <a href="/app" class="px-5 py-2 text-xs sm:text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-brand-500 hover:from-indigo-700 hover:to-indigo-600 transition-all rounded-full shadow-glow flex items-center gap-1.5 hover:shadow-indigo-500/35">
+      <a href="/app" class="px-5 py-2 text-xs sm:text-sm font-semibold text-white bg-gradient-to-r from-cyan-500 via-indigo-600 to-purple-600 hover:from-cyan-400 hover:to-indigo-500 transition-all rounded-full shadow-lg shadow-cyan-500/20 flex items-center gap-1.5 hover:scale-105 border border-cyan-400/40">
         <span>Get Started</span>
         <svg class="w-3.5 h-3.5 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" stroke-linecap="round" stroke-linejoin="round"></path></svg>
       </a>
@@ -578,29 +585,31 @@
         <!-- Left Column: Copy & Direct CTAs -->
         <div class="lg:col-span-6 flex flex-col items-start">
           <!-- AI Badge Pill -->
-          <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-semibold tracking-wide mb-5 backdrop-blur-md">
-            <svg class="w-3.5 h-3.5 text-indigo-400" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2l2.4 6.9 6.9 2.4-6.9 2.4L12 20.6l-2.4-6.9-6.9-2.4 6.9-2.4z"></path>
-            </svg>
-            <span>Autonomous AI Browser Agent &middot; Live Video Stream</span>
+          <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-400/30 text-cyan-300 text-xs font-semibold tracking-wide mb-5 backdrop-blur-md">
+            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+            <span style="letter-spacing:0.06em; text-transform:uppercase;">AUTONOMOUS WORKFLOW AGENT</span>
           </div>
 
           <!-- Main Headline -->
           <h1 class="text-4xl sm:text-5xl lg:text-[3.8rem] font-extrabold tracking-tight text-white leading-[1.1] mb-5">
-            Show it once.<br />
-            <span class="text-gradient-purple-blue">It knows next time.</span>
+            Teach it once.<br />
+            <span class="text-gradient-purple-blue">Let it work.</span>
           </h1>
 
           <!-- Subheading -->
           <p class="text-base sm:text-lg text-slate-300 max-w-lg leading-relaxed mb-7 font-normal">
-            Teach your AI how you work. FlowMind observes your clicks, learns your workflows, and repeats them automatically with zero code.
+            Capture how you work once. Our intelligent agent learns the workflow direction, understands the live website, and performs the task again when you need it.
           </p>
 
           <!-- CTA Action Group -->
           <div class="flex flex-wrap items-center gap-3.5 mb-7">
-            <a class="px-7 py-3.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold text-sm transition-all shadow-glow flex items-center gap-2 hover:scale-105" href="/app">
-              <span>Start Teaching</span>
+            <a class="px-7 py-3.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold text-sm transition-all shadow-glow flex items-center gap-2 hover:scale-105" href="/app">
+              <span>Create Workflow</span>
               <svg class="w-4 h-4 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+            </a>
+            <a class="px-6 py-3.5 rounded-full bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-white/10 text-sm font-semibold transition-all hover:scale-105 flex items-center gap-2" href="#demo-sim">
+              <svg class="w-4 h-4 text-cyan-400" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              <span>Watch the Agent</span>
             </a>
           </div>
 
@@ -729,23 +738,23 @@
 
   <!-- BEGIN: Interactive AI Workflow Simulator Showcase ("You show. It learns. It does.") -->
   <section class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 py-8" id="how-it-works">
-    <div class="w-full rounded-[2.5rem] bg-gradient-to-b from-white/95 via-[#faf9ff] to-white/90 backdrop-blur-xl border border-white/95 p-6 sm:p-10 shadow-soft-card relative overflow-hidden">
+    <div class="w-full rounded-[2.5rem] bg-slate-950/80 backdrop-blur-2xl border border-cyan-500/20 p-6 sm:p-10 shadow-2xl relative overflow-hidden">
       
-      <!-- Subtle Ambient Shimmer Background (Soft Lavender to White) -->
-      <div class="absolute -right-20 -top-20 w-96 h-96 bg-indigo-100/40 rounded-full blur-3xl pointer-events-none"></div>
-      <div class="absolute -left-20 -bottom-20 w-96 h-96 bg-purple-100/35 rounded-full blur-3xl pointer-events-none"></div>
+      <!-- Subtle Ambient Shimmer Background -->
+      <div class="absolute -right-20 -top-20 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="absolute -left-20 -bottom-20 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
       <!-- Section Title & Subtitle -->
       <div class="text-center max-w-2xl mx-auto mb-8 relative z-10">
-        <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-600 text-[11px] font-bold tracking-wider uppercase mb-2.5 shadow-sm">
-          <span class="w-2 h-2 rounded-full bg-indigo-500 animate-ping"></span>
+        <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-500/15 border border-cyan-400/30 text-cyan-300 text-[11px] font-bold tracking-wider uppercase mb-2.5 shadow-sm">
+          <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
           HOW IT WORKS
         </div>
-        <h2 class="text-3xl sm:text-4xl lg:text-[2.6rem] font-extrabold text-slate-900 tracking-tight leading-tight">
+        <h2 class="text-3xl sm:text-4xl lg:text-[2.6rem] font-extrabold text-white tracking-tight leading-tight">
           You show. It learns. It does.
         </h2>
-        <p class="text-xs sm:text-sm text-slate-500 mt-2.5 max-w-xl mx-auto leading-relaxed">
-          A clean, modern SaaS workflow demo. Watch FlowMind map UI geometry, record manual actions, and instantly switch to 24x autonomous replay.
+        <p class="text-xs sm:text-sm text-slate-400 mt-2.5 max-w-xl mx-auto leading-relaxed">
+          Watch FlowMind map UI geometry, record human actions, and instantly switch to 24x autonomous robotic replay.
         </p>
       </div>
 
@@ -753,162 +762,162 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 relative z-10">
         
         <!-- Step 1 Card: Show it -->
-        <div class="sync-step-1 group relative bg-white/95 rounded-2xl p-5 border border-slate-200/80 shadow-sm transition-all duration-300 overflow-hidden" data-step="1">
+        <div class="sync-step-1 group relative bg-slate-900/80 backdrop-blur-md rounded-2xl p-5 border border-slate-700/60 shadow-sm transition-all duration-300 overflow-hidden" data-step="1">
           <div class="flex items-center justify-between mb-3">
-            <span class="text-[10px] font-extrabold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">STEP 01</span>
-            <span class="text-[10px] text-indigo-500 font-mono font-semibold">0.0s – 1.8s</span>
+            <span class="text-[10px] font-extrabold text-cyan-400 bg-cyan-500/10 border border-cyan-500/30 px-2 py-0.5 rounded-full">STEP 01</span>
+            <span class="text-[10px] text-cyan-400 font-mono font-semibold">0.0s – 1.8s</span>
           </div>
-          <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-indigo-50 to-indigo-100/80 border border-indigo-200/60 flex items-center justify-center text-indigo-600 mb-3 shadow-inner group-hover:scale-110 transition-transform">
-            <svg class="w-5 h-5 rotate-[-45deg] -translate-y-0.5 fill-indigo-600" viewBox="0 0 24 24"><polygon points="3 3 10.5 21 13.5 13.5 21 10.5 3 3"></polygon></svg>
+          <div class="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 mb-3 shadow-inner group-hover:scale-110 transition-transform">
+            <svg class="w-5 h-5 rotate-[-45deg] -translate-y-0.5 fill-cyan-400" viewBox="0 0 24 24"><polygon points="3 3 10.5 21 13.5 13.5 21 10.5 3 3"></polygon></svg>
           </div>
-          <h3 class="text-sm font-bold text-slate-900 mb-1 flex items-center justify-between">
+          <h3 class="text-sm font-bold text-white mb-1 flex items-center justify-between">
             <span>Show it</span>
-            <span class="text-indigo-500 text-[11px] font-semibold">● Recording</span>
+            <span class="text-cyan-400 text-[11px] font-semibold">● Recording</span>
           </h3>
-          <p class="text-xs text-slate-500 leading-relaxed">Perform the workflow once in Chrome as you normally do.</p>
-          <div class="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
-            <div class="bg-indigo-500 h-full w-full rounded-full"></div>
+          <p class="text-xs text-slate-400 leading-relaxed">Perform the workflow once in Chrome as you normally do.</p>
+          <div class="w-full bg-slate-800 h-1.5 rounded-full mt-3 overflow-hidden">
+            <div class="bg-cyan-400 h-full w-full rounded-full"></div>
           </div>
         </div>
 
         <!-- Step 2 Card: Learn -->
-        <div class="sync-step-2 group relative bg-white/95 rounded-2xl p-5 border border-slate-200/80 shadow-sm transition-all duration-300 overflow-hidden" data-step="2">
+        <div class="sync-step-2 group relative bg-slate-900/80 backdrop-blur-md rounded-2xl p-5 border border-slate-700/60 shadow-sm transition-all duration-300 overflow-hidden" data-step="2">
           <div class="flex items-center justify-between mb-3">
-            <span class="text-[10px] font-extrabold text-purple-600 bg-purple-50 border border-purple-100 px-2 py-0.5 rounded-full">STEP 02</span>
-            <span class="text-[10px] text-purple-500 font-mono font-semibold">1.8s – 3.0s</span>
+            <span class="text-[10px] font-extrabold text-purple-400 bg-purple-500/10 border border-purple-500/30 px-2 py-0.5 rounded-full">STEP 02</span>
+            <span class="text-[10px] text-purple-400 font-mono font-semibold">1.8s – 3.0s</span>
           </div>
-          <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-purple-50 to-purple-100/80 border border-purple-200/60 flex items-center justify-center text-purple-600 mb-3 shadow-inner group-hover:scale-110 transition-transform">
-            <svg class="w-5 h-5 stroke-[2] text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" stroke-linecap="round" stroke-linejoin="round"></path><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+          <div class="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 mb-3 shadow-inner group-hover:scale-110 transition-transform">
+            <svg class="w-5 h-5 stroke-[2] text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" stroke-linecap="round" stroke-linejoin="round"></path><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round"></path></svg>
           </div>
-          <h3 class="text-sm font-bold text-slate-900 mb-1 flex items-center justify-between">
+          <h3 class="text-sm font-bold text-white mb-1 flex items-center justify-between">
             <span>Learn</span>
-            <span class="text-purple-500 text-[11px] font-semibold">● Mapping</span>
+            <span class="text-purple-400 text-[11px] font-semibold">● Mapping</span>
           </h3>
-          <p class="text-xs text-slate-500 leading-relaxed">AI maps selectors, detects iframes, and understands clicks.</p>
-          <div class="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
+          <p class="text-xs text-slate-400 leading-relaxed">Agent maps selectors, detects iframes, and understands clicks.</p>
+          <div class="w-full bg-slate-800 h-1.5 rounded-full mt-3 overflow-hidden">
             <div class="bg-purple-500 h-full w-full rounded-full"></div>
           </div>
         </div>
 
         <!-- Step 3 Card: Remember -->
-        <div class="sync-step-3 group relative bg-white/95 rounded-2xl p-5 border border-slate-200/80 shadow-sm transition-all duration-300 overflow-hidden" data-step="3">
+        <div class="sync-step-3 group relative bg-slate-900/80 backdrop-blur-md rounded-2xl p-5 border border-slate-700/60 shadow-sm transition-all duration-300 overflow-hidden" data-step="3">
           <div class="flex items-center justify-between mb-3">
-            <span class="text-[10px] font-extrabold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">STEP 03</span>
-            <span class="text-[10px] text-emerald-600 font-mono font-semibold">3.0s – 3.8s</span>
+            <span class="text-[10px] font-extrabold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">STEP 03</span>
+            <span class="text-[10px] text-emerald-400 font-mono font-semibold">3.0s – 3.8s</span>
           </div>
-          <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-emerald-50 to-emerald-100/80 border border-emerald-200/60 flex items-center justify-center text-emerald-600 mb-3 shadow-inner group-hover:scale-110 transition-transform">
-            <svg class="w-5 h-5 stroke-[2] text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+          <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-3 shadow-inner group-hover:scale-110 transition-transform">
+            <svg class="w-5 h-5 stroke-[2] text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" stroke-linecap="round" stroke-linejoin="round"></path></svg>
           </div>
-          <h3 class="text-sm font-bold text-slate-900 mb-1 flex items-center justify-between">
+          <h3 class="text-sm font-bold text-white mb-1 flex items-center justify-between">
             <span>Remember</span>
-            <span class="text-emerald-500 text-[11px] font-semibold">● Saved ✓</span>
+            <span class="text-emerald-400 text-[11px] font-semibold">● Saved ✓</span>
           </h3>
-          <p class="text-xs text-slate-500 leading-relaxed">Saves as a self-healing bot resilient to web changes.</p>
-          <div class="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
+          <p class="text-xs text-slate-400 leading-relaxed">Saves as an autonomous bot resilient to live site updates.</p>
+          <div class="w-full bg-slate-800 h-1.5 rounded-full mt-3 overflow-hidden">
             <div class="bg-emerald-500 h-full w-full rounded-full"></div>
           </div>
         </div>
 
         <!-- Step 4 Card: Run -->
-        <div class="sync-step-4 group relative bg-white/95 rounded-2xl p-5 border border-slate-200/80 shadow-sm transition-all duration-300 overflow-hidden" data-step="4">
+        <div class="sync-step-4 group relative bg-slate-900/80 backdrop-blur-md rounded-2xl p-5 border border-slate-700/60 shadow-sm transition-all duration-300 overflow-hidden" data-step="4">
           <div class="flex items-center justify-between mb-3">
-            <span class="text-[10px] font-extrabold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">STEP 04</span>
-            <span class="text-[10px] text-emerald-600 font-mono font-semibold">3.8s – 5.6s</span>
+            <span class="text-[10px] font-extrabold text-cyan-400 bg-cyan-500/10 border border-cyan-500/30 px-2 py-0.5 rounded-full">STEP 04</span>
+            <span class="text-[10px] text-cyan-400 font-mono font-semibold">3.8s – 5.6s</span>
           </div>
-          <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-emerald-50 to-emerald-100/80 border border-emerald-200/60 flex items-center justify-center text-emerald-600 mb-3 shadow-inner group-hover:scale-110 transition-transform">
-            <svg class="w-5 h-5 translate-x-0.5 fill-emerald-600" viewBox="0 0 24 24"><polygon points="6 4 19 12 6 20 6 4"></polygon></svg>
+          <div class="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 mb-3 shadow-inner group-hover:scale-110 transition-transform">
+            <svg class="w-5 h-5 translate-x-0.5 fill-cyan-400" viewBox="0 0 24 24"><polygon points="6 4 19 12 6 20 6 4"></polygon></svg>
           </div>
-          <h3 class="text-sm font-bold text-slate-900 mb-1 flex items-center justify-between">
+          <h3 class="text-sm font-bold text-white mb-1 flex items-center justify-between">
             <span>Run</span>
-            <span class="text-emerald-500 text-[11px] font-semibold">● 24x Auto</span>
+            <span class="text-cyan-400 text-[11px] font-semibold">● 24x Auto</span>
           </h3>
-          <p class="text-xs text-slate-500 leading-relaxed">Next time, FlowMind executes everything automatically.</p>
-          <div class="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
-            <div class="bg-gradient-to-r from-emerald-500 to-indigo-500 h-full w-full rounded-full"></div>
+          <p class="text-xs text-slate-400 leading-relaxed">FlowMind executes the full workflow autonomously.</p>
+          <div class="w-full bg-slate-800 h-1.5 rounded-full mt-3 overflow-hidden">
+            <div class="bg-gradient-to-r from-cyan-500 to-indigo-500 h-full w-full rounded-full"></div>
           </div>
         </div>
 
       </div>
 
-      <!-- Centerpiece: Clean Modern SaaS Product Demo Animation Window (Light Lavender to White UI Aesthetic) -->
-      <div class="w-full rounded-3xl bg-white border border-slate-200/90 shadow-2xl overflow-hidden relative">
+      <!-- Centerpiece: Clean Modern Robotic Automation Window -->
+      <div class="w-full rounded-3xl bg-slate-950 border border-cyan-500/25 shadow-2xl overflow-hidden relative">
         
         <!-- Browser Window Minimal Header Bar -->
-        <div class="bg-slate-50/90 px-4 sm:px-6 py-3.5 flex items-center justify-between border-b border-slate-200/80 backdrop-blur-md">
-          <!-- Window Controls (macOS Flat Rounded Aesthetic) -->
+        <div class="bg-slate-900/90 px-4 sm:px-6 py-3.5 flex items-center justify-between border-b border-slate-800 backdrop-blur-md">
+          <!-- Window Controls -->
           <div class="flex items-center gap-2">
-            <span class="w-3 h-3 rounded-full bg-rose-400 inline-block shadow-sm"></span>
-            <span class="w-3 h-3 rounded-full bg-amber-400 inline-block shadow-sm"></span>
-            <span class="w-3 h-3 rounded-full bg-emerald-400 inline-block shadow-sm"></span>
+            <span class="w-3 h-3 rounded-full bg-rose-500/80 inline-block shadow-sm"></span>
+            <span class="w-3 h-3 rounded-full bg-amber-500/80 inline-block shadow-sm"></span>
+            <span class="w-3 h-3 rounded-full bg-emerald-500/80 inline-block shadow-sm"></span>
           </div>
 
           <!-- Browser Address Bar Pill -->
-          <div class="bg-white text-slate-500 text-xs px-4 py-1.5 rounded-full font-mono flex items-center gap-2 max-w-md w-full justify-center border border-slate-200 shadow-sm">
-            <svg class="w-3 h-3 text-emerald-500 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
-            <span class="truncate text-slate-700 font-medium">https://app.flowmind.ai/workspace/invoices</span>
+          <div class="bg-slate-900 text-slate-300 text-xs px-4 py-1.5 rounded-full font-mono flex items-center gap-2 max-w-md w-full justify-center border border-slate-700/80 shadow-sm">
+            <svg class="w-3 h-3 text-cyan-400 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+            <span class="truncate text-slate-200 font-medium">https://app.flowmind.ai/workspace/invoices</span>
           </div>
 
           <!-- Live Dynamic Phase Indicator Switcher -->
           <div class="relative flex items-center justify-end min-w-[170px] h-6 overflow-hidden">
             <!-- Phase 1: Human Teaching -->
-            <div class="animate-phase-human absolute right-0 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-600 text-[10px] font-bold">
-              <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping"></span>
+            <div class="animate-phase-human absolute right-0 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-400/40 text-cyan-300 text-[10px] font-bold">
+              <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span>
               <span>1. Human Teaching</span>
             </div>
             <!-- Phase Saved Confirmation -->
-            <div class="animate-phase-saved absolute right-0 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-700 text-[10px] font-bold shadow-sm">
-              <span class="text-emerald-600">✓</span>
+            <div class="animate-phase-saved absolute right-0 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400 text-emerald-300 text-[10px] font-bold shadow-sm">
+              <span class="text-emerald-400">✓</span>
               <span>Workflow Saved</span>
             </div>
             <!-- Phase 2: Full Automation Replay -->
-            <div class="animate-phase-auto absolute right-0 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-50 border border-purple-200 text-purple-700 text-[10px] font-bold shadow-sm">
-              <span class="text-emerald-500">⚡</span>
+            <div class="animate-phase-auto absolute right-0 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-500/20 border border-purple-400 text-purple-300 text-[10px] font-bold shadow-sm">
+              <span class="text-cyan-400">⚡</span>
               <span>2. 24x Auto Replay</span>
             </div>
           </div>
         </div>
 
-        <!-- Simulated SaaS Dashboard Interface Surface (Soft Lavender to White Minimalist UI) -->
-        <div class="relative bg-gradient-to-br from-indigo-50/40 via-[#faf9ff] to-white p-6 sm:p-8 min-h-[340px] sm:min-h-[380px] overflow-hidden select-none">
+        <!-- Simulated Robotic Dashboard Interface Surface -->
+        <div class="relative bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6 sm:p-8 min-h-[340px] sm:min-h-[380px] overflow-hidden select-none">
           
-          <!-- Subtle Glowing Purple-Blue Scan Lines (Sweeping across screen as AI maps interface) -->
-          <div class="absolute inset-x-0 h-16 bg-gradient-to-b from-indigo-500/0 via-indigo-500/15 to-purple-500/25 pointer-events-none animate-saas-scanline blur-[2px]"></div>
-          <div class="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-indigo-500 to-transparent pointer-events-none animate-saas-scanline shadow-[0_0_16px_rgba(99,102,241,0.9)]"></div>
+          <!-- Subtle Glowing Purple-Blue Scan Lines -->
+          <div class="absolute inset-x-0 h-16 bg-gradient-to-b from-cyan-500/0 via-cyan-500/15 to-indigo-500/20 pointer-events-none animate-saas-scanline blur-[2px]"></div>
+          <div class="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent pointer-events-none animate-saas-scanline shadow-[0_0_16px_rgba(0,240,255,0.9)]"></div>
 
           <!-- Top Interactive Dashboard Action Bar -->
-          <div class="flex flex-wrap items-center justify-between gap-4 pb-5 mb-5 border-b border-indigo-100/70 relative z-10">
+          <div class="flex flex-wrap items-center justify-between gap-4 pb-5 mb-5 border-b border-slate-800 relative z-10">
             <div class="flex items-center gap-3">
-              <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-indigo-500/20">
+              <div class="w-9 h-9 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-400/30 flex items-center justify-center font-bold text-sm shadow-md">
                 FM
               </div>
               <div>
-                <h4 class="text-sm font-extrabold text-slate-900 tracking-tight">Financial Batches &amp; Invoice Export</h4>
-                <p class="text-[11px] text-slate-500 font-medium">Auto-detecting nested table iframes &amp; download modals</p>
+                <h4 class="text-sm font-extrabold text-white tracking-tight">Financial Batches &amp; Invoice Export</h4>
+                <p class="text-[11px] text-slate-400 font-medium">Auto-detecting nested table iframes &amp; download modals</p>
               </div>
             </div>
 
             <!-- Action Controls Group -->
             <div class="flex items-center gap-2.5">
-              <!-- Filter Button (Highlights on manual click & auto replay) -->
-              <button class="animate-filter-btn px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 shadow-sm flex items-center gap-1.5 transition-all">
-                <svg class="w-3.5 h-3.5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+              <!-- Filter Button -->
+              <button class="animate-filter-btn px-3.5 py-1.5 rounded-xl border border-slate-700 bg-slate-900 text-xs font-semibold text-slate-200 shadow-sm flex items-center gap-1.5 transition-all">
+                <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
                 <span>Filter by Date</span>
               </button>
 
-              <!-- Form Input Field (Types text in manual phase & auto fills in replay) -->
-              <div class="animate-input-field relative px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-mono text-slate-700 shadow-sm flex items-center gap-1.5 transition-all min-w-[170px]">
-                <span class="text-indigo-400 font-bold">$</span>
-                <span class="text-slate-400">ID:</span>
-                <span class="animate-typing-text text-indigo-600 font-semibold font-mono">INV-2026-Q3</span>
-                <span class="w-1.5 h-3 bg-indigo-500 animate-pulse inline-block -ml-0.5"></span>
+              <!-- Form Input Field -->
+              <div class="animate-input-field relative px-3.5 py-1.5 rounded-xl border border-slate-700 bg-slate-900 text-xs font-mono text-slate-200 shadow-sm flex items-center gap-1.5 transition-all min-w-[170px]">
+                <span class="text-cyan-400 font-bold">$</span>
+                <span class="text-slate-500">ID:</span>
+                <span class="animate-typing-text text-cyan-300 font-semibold font-mono">INV-2026-Q3</span>
+                <span class="w-1.5 h-3 bg-cyan-400 animate-pulse inline-block -ml-0.5"></span>
               </div>
             </div>
           </div>
 
-          <!-- Minimalist SaaS Data Table Layout -->
-          <div class="rounded-2xl border border-slate-200/90 bg-white/95 shadow-sm overflow-hidden relative z-10">
+          <!-- Minimalist Robotic Data Table Layout -->
+          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 shadow-sm overflow-hidden relative z-10">
             <!-- Table Header -->
-            <div class="grid grid-cols-12 gap-3 px-5 py-3 bg-slate-50/90 border-b border-slate-200/80 text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+            <div class="grid grid-cols-12 gap-3 px-5 py-3 bg-slate-950/90 border-b border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono">
               <div class="col-span-3">INVOICE BATCH</div>
               <div class="col-span-3">VENDOR / ACCOUNT</div>
               <div class="col-span-2">AMOUNT</div>
@@ -917,56 +926,54 @@
             </div>
 
             <!-- Table Rows -->
-            <div class="divide-y divide-slate-100 text-xs">
+            <div class="divide-y divide-slate-800/80 text-xs">
               
               <!-- Row 1 -->
-              <div class="grid grid-cols-12 gap-3 px-5 py-3.5 items-center hover:bg-slate-50/60 transition-colors">
-                <div class="col-span-3 font-mono font-semibold text-slate-800">#INV-8491</div>
-                <div class="col-span-3 text-slate-600 font-medium">Stripe Billing Services</div>
-                <div class="col-span-2 font-mono text-slate-700 font-semibold">$1,240.00</div>
+              <div class="grid grid-cols-12 gap-3 px-5 py-3.5 items-center hover:bg-slate-800/40 transition-colors">
+                <div class="col-span-3 font-mono font-semibold text-slate-200">#INV-8491</div>
+                <div class="col-span-3 text-slate-400 font-medium">Stripe Billing Services</div>
+                <div class="col-span-2 font-mono text-slate-300 font-semibold">$1,240.00</div>
                 <div class="col-span-2">
-                  <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold">Processed</span>
+                  <span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 text-[10px] font-bold">Processed</span>
                 </div>
                 <div class="col-span-2 text-right">
-                  <button class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold transition-colors">
+                  <button class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold transition-colors">
                     Export
                   </button>
                 </div>
               </div>
 
-              <!-- Row 2: TARGET ELEMENT (Clicks & Lights Up with Soft Outline Pulse) -->
+              <!-- Row 2: TARGET ELEMENT -->
               <div class="animate-table-row-highlight grid grid-cols-12 gap-3 px-5 py-3.5 items-center transition-all border-l-4 border-transparent">
-                <div class="col-span-3 font-mono font-bold text-indigo-700 flex items-center gap-1.5">
-                  <span class="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
+                <div class="col-span-3 font-mono font-bold text-cyan-300 flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
                   <span>#INV-8492</span>
                 </div>
-                <div class="col-span-3 text-slate-800 font-semibold">AWS Enterprise Cloud</div>
-                <div class="col-span-2 font-mono text-indigo-700 font-bold">$4,892.50</div>
+                <div class="col-span-3 text-white font-semibold">AWS Enterprise Cloud</div>
+                <div class="col-span-2 font-mono text-cyan-300 font-bold">$4,892.50</div>
                 <div class="col-span-2">
-                  <span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold inline-flex items-center gap-1">
-                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                  <span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[10px] font-bold inline-flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
                     <span>Ready</span>
                   </span>
                 </div>
                 <div class="col-span-2 text-right">
-                  <!-- The Animated Action Button -->
-                  <button class="animate-export-btn px-3 py-1 rounded-lg text-white text-[11px] font-bold transition-all inline-flex items-center gap-1 shadow-sm">
-                    <svg class="w-3 h-3 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                    <span>Export PDF</span>
+                  <button class="animate-export-btn px-2.5 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-[11px] font-bold shadow-md transition-all">
+                    Export
                   </button>
                 </div>
               </div>
 
               <!-- Row 3 -->
-              <div class="grid grid-cols-12 gap-3 px-5 py-3.5 items-center hover:bg-slate-50/60 transition-colors">
-                <div class="col-span-3 font-mono font-semibold text-slate-800">#INV-8493</div>
-                <div class="col-span-3 text-slate-600 font-medium">Figma Organization</div>
-                <div class="col-span-2 font-mono text-slate-700 font-semibold">$750.00</div>
+              <div class="grid grid-cols-12 gap-3 px-5 py-3.5 items-center hover:bg-slate-800/40 transition-colors">
+                <div class="col-span-3 font-mono font-semibold text-slate-200">#INV-8493</div>
+                <div class="col-span-3 text-slate-400 font-medium">Figma Organization</div>
+                <div class="col-span-2 font-mono text-slate-300 font-semibold">$750.00</div>
                 <div class="col-span-2">
-                  <span class="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold">In Queue</span>
+                  <span class="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-bold">In Queue</span>
                 </div>
                 <div class="col-span-2 text-right">
-                  <button class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold transition-colors">
+                  <button class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold transition-colors">
                     Export
                   </button>
                 </div>
@@ -975,26 +982,24 @@
             </div>
           </div>
 
-          <!-- The Checkmark Icon Gently Fading In with a Soft Green Glow (Indicating workflow has been saved) -->
-          <div class="animate-saved-checkmark absolute top-1/2 left-1/2 z-40 px-6 py-5 rounded-2xl bg-white/95 backdrop-blur-xl border border-emerald-300 shadow-[0_20px_50px_rgba(16,185,129,0.3)] flex flex-col items-center justify-center text-center">
-            <!-- Glowing Mint Green Checkmark Badge -->
-            <div class="w-14 h-14 rounded-full bg-gradient-to-tr from-emerald-400 to-teal-400 text-white flex items-center justify-center mb-2.5 shadow-[0_0_24px_rgba(52,211,153,0.7)] animate-bounce">
+          <!-- Saved Checkmark Modal -->
+          <div class="animate-saved-checkmark absolute top-1/2 left-1/2 z-40 px-6 py-5 rounded-2xl bg-slate-900/95 backdrop-blur-xl border border-emerald-400/50 shadow-[0_20px_50px_rgba(16,185,129,0.3)] flex flex-col items-center justify-center text-center">
+            <div class="w-14 h-14 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 text-white flex items-center justify-center mb-2.5 shadow-[0_0_24px_rgba(52,211,153,0.7)] animate-bounce">
               <svg class="w-7 h-7 stroke-[3]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
             </div>
-            <span class="text-sm font-extrabold text-slate-900 tracking-tight">Workflow Mapped &amp; Saved!</span>
-            <span class="text-[11px] font-semibold text-emerald-600 mt-0.5">Self-healing selectors saved in 0.75s</span>
-            <div class="mt-2 text-[10px] font-mono text-slate-400 bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200">
+            <span class="text-sm font-extrabold text-white tracking-tight">Workflow Mapped &amp; Saved!</span>
+            <span class="text-[11px] font-semibold text-emerald-400 mt-0.5">Self-healing selectors saved in 0.75s</span>
+            <div class="mt-2 text-[10px] font-mono text-slate-400 bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
               bot: invoice_export_v1 &middot; deterministic
             </div>
           </div>
 
-          <!-- Animated Simulated Cursor (Smoothly clicks in Phase 1, vanishes in Phase 2 Automation) -->
+          <!-- Animated Simulated Cursor -->
           <div class="animate-saas-cursor absolute top-0 left-0 pointer-events-none z-50 transition-transform">
-            <svg class="w-6 h-6 text-slate-900 filter drop-shadow-[0_4px_10px_rgba(0,0,0,0.35)]" viewBox="0 0 24 24" fill="currentColor">
+            <svg class="w-6 h-6 text-white filter drop-shadow-[0_4px_10px_rgba(0,0,0,0.5)]" viewBox="0 0 24 24" fill="currentColor">
               <path d="M4 0l16 12.279-6.951 1.17 4.325 8.817-3.596 1.734-4.35-8.879-5.428 5.438z"/>
             </svg>
-            <!-- Cursor Click Soft Outline Pulse -->
-            <div class="w-5 h-5 -mt-3 -ml-2 rounded-full border-2 border-indigo-500 animate-ping opacity-75"></div>
+            <div class="w-5 h-5 -mt-3 -ml-2 rounded-full border-2 border-cyan-400 animate-ping opacity-75"></div>
           </div>
 
         </div>
@@ -1005,104 +1010,104 @@
   </section>
   <!-- END: Interactive AI Workflow Simulator Showcase -->
 
-  <!-- BEGIN: Live Performance Metrics (Soft Gradient Background & Realtime Animating Counters) -->
+  <!-- BEGIN: Live Performance Metrics -->
   <section id="analytics" class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 py-6">
     <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
       
       <!-- Metric Card 1: Execution Speed -->
-      <div class="group relative bg-gradient-to-br from-indigo-50/50 via-white to-purple-50/30 backdrop-blur-md rounded-3xl p-6 sm:p-7 border border-white/90 shadow-soft-card hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+      <div class="group relative bg-slate-900/80 backdrop-blur-md rounded-3xl p-6 sm:p-7 border border-slate-700/60 shadow-xl hover:shadow-cyan-500/10 transition-all duration-300 hover:-translate-y-1">
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs shadow-inner">⚡</div>
-            <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Execution Speed</span>
+            <div class="w-8 h-8 rounded-lg bg-cyan-500/15 text-cyan-400 flex items-center justify-center font-bold text-xs shadow-inner">⚡</div>
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Execution Speed</span>
           </div>
-          <span class="animate-live-pill text-xs font-extrabold px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-300/80 shadow-sm">24x Faster</span>
+          <span class="animate-live-pill text-xs font-extrabold px-3 py-1 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-400/40 shadow-sm">24x Faster</span>
         </div>
         <div class="flex items-baseline gap-2 mb-1">
-          <h3 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">0.75s</h3>
+          <h3 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">0.75s</h3>
           <span class="text-xs font-semibold text-slate-400">per step</span>
         </div>
-        <p class="text-xs text-slate-500 mb-4 font-normal">Eliminates human delay and lag with seamless browser dispatch.</p>
+        <p class="text-xs text-slate-400 mb-4 font-normal">Eliminates human delay and lag with direct CDP browser dispatch.</p>
         
-        <!-- Live Animated Comparison Bar with Smooth Liquid Shimmer -->
-        <div class="space-y-2 pt-2 border-t border-slate-100">
+        <!-- Live Animated Comparison Bar -->
+        <div class="space-y-2 pt-2 border-t border-slate-800">
           <div>
-            <div class="flex justify-between text-[11px] font-semibold text-slate-500 mb-1">
+            <div class="flex justify-between text-[11px] font-semibold text-slate-400 mb-1">
               <span>Manual Human Click</span>
               <span>18.4s</span>
             </div>
-            <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-              <div class="bg-slate-300 h-2 rounded-full" style="width: 82%;"></div>
+            <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+              <div class="bg-slate-600 h-2 rounded-full" style="width: 82%;"></div>
             </div>
           </div>
           <div>
-            <div class="flex justify-between text-[11px] font-bold text-indigo-600 mb-1">
+            <div class="flex justify-between text-[11px] font-bold text-cyan-400 mb-1">
               <span>FlowMind Autonomous Replay</span>
               <span>0.75s</span>
             </div>
-            <div class="w-full bg-indigo-50 rounded-full h-2 overflow-hidden border border-indigo-100/80">
-              <div class="bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-400 h-2 rounded-full animate-count-bar-smooth"></div>
+            <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden border border-cyan-500/30">
+              <div class="bg-gradient-to-r from-cyan-400 via-indigo-500 to-emerald-400 h-2 rounded-full animate-count-bar-smooth"></div>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Metric Card 2: Reliability Rate -->
-      <div class="group relative bg-gradient-to-br from-indigo-50/50 via-white to-purple-50/30 backdrop-blur-md rounded-3xl p-6 sm:p-7 border border-white/90 shadow-soft-card hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+      <div class="group relative bg-slate-900/80 backdrop-blur-md rounded-3xl p-6 sm:p-7 border border-slate-700/60 shadow-xl hover:shadow-cyan-500/10 transition-all duration-300 hover:-translate-y-1">
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs shadow-inner">🛡️</div>
-            <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Reliability Rate</span>
+            <div class="w-8 h-8 rounded-lg bg-indigo-500/15 text-indigo-400 flex items-center justify-center font-bold text-xs shadow-inner">🛡️</div>
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Reliability Rate</span>
           </div>
-          <span class="animate-live-pill text-xs font-extrabold px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-300/80 shadow-sm">Zero Break</span>
+          <span class="animate-live-pill text-xs font-extrabold px-3 py-1 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-400/40 shadow-sm">Zero Break</span>
         </div>
         <div class="flex items-baseline gap-2 mb-1">
-          <h3 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">99.8%</h3>
-          <span class="text-xs font-semibold text-emerald-600">Success</span>
+          <h3 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">99.8%</h3>
+          <span class="text-xs font-semibold text-emerald-400">Success</span>
         </div>
-        <p class="text-xs text-slate-500 mb-4 font-normal">Tested on nested dynamic ERP iframes, late-rendering DOMs &amp; canvases.</p>
+        <p class="text-xs text-slate-400 mb-4 font-normal">Tested on nested dynamic ERP iframes, late-rendering DOMs &amp; canvases.</p>
 
         <!-- Dynamic Success Ring Bar -->
-        <div class="pt-2 border-t border-slate-100">
-          <div class="flex items-center justify-between text-[11px] font-semibold text-slate-600 mb-1.5">
+        <div class="pt-2 border-t border-slate-800">
+          <div class="flex items-center justify-between text-[11px] font-semibold text-slate-300 mb-1.5">
             <span>Selector Self-Healing Resilience</span>
-            <span class="text-emerald-600 font-bold">100% Injected</span>
+            <span class="text-emerald-400 font-bold">100% Injected</span>
           </div>
-          <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-            <div class="bg-gradient-to-r from-indigo-500 to-emerald-400 h-2 rounded-full" style="width: 99.8%;"></div>
+          <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+            <div class="bg-gradient-to-r from-cyan-400 to-emerald-400 h-2 rounded-full" style="width: 99.8%;"></div>
           </div>
           <div class="flex items-center justify-between text-[10px] text-slate-400 mt-2 font-mono">
-            <span>DevExpress &middot; Canvas &middot; ShadowDOM</span>
-            <span class="text-emerald-600 font-bold">Deterministic</span>
+            <span>Dynamic Grids &middot; ShadowDOM</span>
+            <span class="text-emerald-400 font-bold">Autonomous</span>
           </div>
         </div>
       </div>
 
       <!-- Metric Card 3: Monthly Task Volume -->
-      <div class="group relative bg-gradient-to-br from-indigo-50/50 via-white to-purple-50/30 backdrop-blur-md rounded-3xl p-6 sm:p-7 border border-white/90 shadow-soft-card hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+      <div class="group relative bg-slate-900/80 backdrop-blur-md rounded-3xl p-6 sm:p-7 border border-slate-700/60 shadow-xl hover:shadow-cyan-500/10 transition-all duration-300 hover:-translate-y-1">
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-xs shadow-inner">📈</div>
-            <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Task Volume</span>
+            <div class="w-8 h-8 rounded-lg bg-purple-500/15 text-purple-400 flex items-center justify-center font-bold text-xs shadow-inner">📈</div>
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Task Volume</span>
           </div>
-          <span class="animate-live-pill text-xs font-extrabold px-3 py-1 rounded-full bg-purple-50 text-purple-600 border border-purple-300/80 shadow-sm">1,480 Tasks</span>
+          <span class="animate-live-pill text-xs font-extrabold px-3 py-1 rounded-full bg-purple-500/15 text-purple-300 border border-purple-400/40 shadow-sm">1,480 Tasks</span>
         </div>
         <div class="flex items-baseline gap-2 mb-1">
-          <h3 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">142.5 hrs</h3>
-          <span class="text-xs font-semibold text-purple-600">Saved/Mo</span>
+          <h3 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">142.5 hrs</h3>
+          <span class="text-xs font-semibold text-purple-400">Saved/Mo</span>
         </div>
-        <p class="text-xs text-slate-500 mb-4 font-normal">Invoices, reports &amp; table loops automated with zero maintenance.</p>
+        <p class="text-xs text-slate-400 mb-4 font-normal">Invoices, reports &amp; table loops automated with zero maintenance.</p>
 
         <!-- Live Equalizer Wave Activity Bars -->
-        <div class="pt-2 border-t border-slate-100">
+        <div class="pt-2 border-t border-slate-800">
           <div class="flex items-end justify-between gap-1.5 h-7">
-            <div class="flex-1 bg-indigo-300 rounded-t wave-bar-1 transition-all"></div>
-            <div class="flex-1 bg-indigo-400 rounded-t wave-bar-2 transition-all"></div>
+            <div class="flex-1 bg-cyan-600 rounded-t wave-bar-1 transition-all"></div>
+            <div class="flex-1 bg-cyan-500 rounded-t wave-bar-2 transition-all"></div>
             <div class="flex-1 bg-indigo-500 rounded-t wave-bar-3 transition-all"></div>
             <div class="flex-1 bg-purple-500 rounded-t wave-bar-4 transition-all"></div>
-            <div class="flex-1 bg-indigo-600 rounded-t wave-bar-5 transition-all"></div>
+            <div class="flex-1 bg-cyan-400 rounded-t wave-bar-5 transition-all"></div>
             <div class="flex-1 bg-emerald-400 rounded-t wave-bar-2 transition-all"></div>
-            <div class="flex-1 bg-indigo-400 rounded-t wave-bar-1 transition-all"></div>
+            <div class="flex-1 bg-cyan-600 rounded-t wave-bar-1 transition-all"></div>
           </div>
           <div class="flex justify-between text-[9px] text-slate-400 font-mono mt-1">
             <span>MON</span><span>WED</span><span>FRI</span><span>SUN</span>
@@ -1117,13 +1122,13 @@
   <!-- BEGIN: Core Features Grid ("Everything you need. Nothing broken.") -->
   <section id="features" class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 py-8">
     <div class="text-center max-w-2xl mx-auto mb-8">
-      <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-600 text-[11px] font-bold tracking-wider uppercase mb-2.5 shadow-sm">
+      <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-[11px] font-bold tracking-wider uppercase mb-2.5 shadow-sm">
         <span>ENGINEERED FOR RELIABILITY</span>
       </div>
-      <h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
         Everything you need. Nothing broken.
       </h2>
-      <p class="text-xs sm:text-sm text-slate-500 mt-2">
+      <p class="text-xs sm:text-sm text-slate-400 mt-2">
         Engineered specifically to solve the fragile edge-cases that cause standard web macros to fail.
       </p>
     </div>
@@ -1131,102 +1136,102 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
       
       <!-- Feature 1: Deep Iframe Navigation -->
-      <div class="group relative bg-gradient-to-br from-indigo-50/40 via-white to-purple-50/20 backdrop-blur-md rounded-3xl p-6 border border-slate-100/90 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1.5 overflow-hidden">
-        <div class="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
+      <div class="group relative bg-slate-900/80 backdrop-blur-md rounded-3xl p-6 border border-slate-700/60 shadow-xl hover:shadow-cyan-500/10 transition-all duration-300 hover:-translate-y-1.5 overflow-hidden">
+        <div class="w-11 h-11 rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/25 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
           <svg class="w-5 h-5 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h18"/></svg>
         </div>
-        <h3 class="text-base font-bold text-slate-900 mb-1.5 group-hover:text-indigo-600 transition-colors">Deep Iframe Navigation</h3>
-        <p class="text-xs text-slate-500 leading-relaxed mb-3">Captures and executes clicks inside nested multi-level iframes with zero injection failures.</p>
+        <h3 class="text-base font-bold text-white mb-1.5 group-hover:text-cyan-400 transition-colors">Deep Iframe Navigation</h3>
+        <p class="text-xs text-slate-400 leading-relaxed mb-3">Captures and executes clicks inside nested multi-level iframes with zero injection failures.</p>
         
-        <!-- Live Micro-Graphic: Radar Scan for Iframes -->
-        <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-[10px] font-mono text-slate-600">
+        <!-- Live Micro-Graphic -->
+        <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between text-[10px] font-mono text-slate-300">
           <div class="flex items-center gap-1.5">
-            <div class="w-3 h-3 rounded-full border border-indigo-400 animate-radar flex items-center justify-center">
-              <div class="w-1 h-1 bg-indigo-600 rounded-full"></div>
+            <div class="w-3 h-3 rounded-full border border-cyan-400 animate-radar flex items-center justify-center">
+              <div class="w-1 h-1 bg-cyan-400 rounded-full"></div>
             </div>
             <span>iframe#nested_0</span>
           </div>
-          <span class="text-emerald-600 font-bold">100% Injected</span>
+          <span class="text-emerald-400 font-bold">100% Injected</span>
         </div>
       </div>
 
       <!-- Feature 2: No Duplicate Downloads -->
-      <div class="group relative bg-gradient-to-br from-indigo-50/40 via-white to-purple-50/20 backdrop-blur-md rounded-3xl p-6 border border-slate-100/90 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1.5 overflow-hidden">
-        <div class="w-11 h-11 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
+      <div class="group relative bg-slate-900/80 backdrop-blur-md rounded-3xl p-6 border border-slate-700/60 shadow-xl hover:shadow-purple-500/10 transition-all duration-300 hover:-translate-y-1.5 overflow-hidden">
+        <div class="w-11 h-11 rounded-2xl bg-purple-500/10 text-purple-400 border border-purple-500/25 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
           <svg class="w-5 h-5 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
         </div>
-        <h3 class="text-base font-bold text-slate-900 mb-1.5 group-hover:text-purple-600 transition-colors">No Duplicate Downloads</h3>
-        <p class="text-xs text-slate-500 leading-relaxed mb-3">Invoices and PDFs are sorted into clean date-stamped folders; duplicate exports are skipped.</p>
+        <h3 class="text-base font-bold text-white mb-1.5 group-hover:text-purple-400 transition-colors">No Duplicate Downloads</h3>
+        <p class="text-xs text-slate-400 leading-relaxed mb-3">Invoices and PDFs are sorted into clean date-stamped folders; duplicate exports are skipped.</p>
 
-        <!-- Live Micro-Graphic: Hash verification -->
-        <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-[10px] font-mono text-slate-600">
+        <!-- Live Micro-Graphic -->
+        <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between text-[10px] font-mono text-slate-300">
           <span class="truncate max-w-[130px]">invoice_2026.pdf</span>
-          <span class="text-purple-600 font-bold">✓ Hash Matched</span>
+          <span class="text-purple-400 font-bold">✓ Hash Matched</span>
         </div>
       </div>
 
       <!-- Feature 3: Self-Healing Selectors -->
-      <div class="group relative bg-gradient-to-br from-indigo-50/40 via-white to-purple-50/20 backdrop-blur-md rounded-3xl p-6 border border-slate-100/90 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1.5 overflow-hidden">
-        <div class="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
+      <div class="group relative bg-slate-900/80 backdrop-blur-md rounded-3xl p-6 border border-slate-700/60 shadow-xl hover:shadow-cyan-500/10 transition-all duration-300 hover:-translate-y-1.5 overflow-hidden">
+        <div class="w-11 h-11 rounded-2xl bg-blue-500/10 text-cyan-400 border border-blue-500/25 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
           <svg class="w-5 h-5 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
         </div>
-        <h3 class="text-base font-bold text-slate-900 mb-1.5 group-hover:text-blue-600 transition-colors">Self-Healing Selectors</h3>
-        <p class="text-xs text-slate-500 leading-relaxed mb-3">Multi-strategy candidate matching survives web redesigns and dynamic ID changes.</p>
+        <h3 class="text-base font-bold text-white mb-1.5 group-hover:text-cyan-400 transition-colors">Self-Healing Selectors</h3>
+        <p class="text-xs text-slate-400 leading-relaxed mb-3">Multi-strategy candidate matching survives web redesigns and dynamic ID changes.</p>
 
-        <!-- Live Micro-Graphic: Fallback recovery -->
-        <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-[10px] font-mono text-slate-600">
-          <span class="text-slate-400 line-through">btn#391</span>
-          <span class="text-emerald-600 font-bold">→ [title="Save"]</span>
+        <!-- Live Micro-Graphic -->
+        <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between text-[10px] font-mono text-slate-300">
+          <span class="text-slate-500 line-through">btn#391</span>
+          <span class="text-emerald-400 font-bold">→ [title="Save"]</span>
         </div>
       </div>
 
       <!-- Feature 4: Stealth Human Curves -->
-      <div class="group relative bg-gradient-to-br from-indigo-50/40 via-white to-purple-50/20 backdrop-blur-md rounded-3xl p-6 border border-slate-100/90 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1.5 overflow-hidden">
-        <div class="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
+      <div class="group relative bg-slate-900/80 backdrop-blur-md rounded-3xl p-6 border border-slate-700/60 shadow-xl hover:shadow-emerald-500/10 transition-all duration-300 hover:-translate-y-1.5 overflow-hidden">
+        <div class="w-11 h-11 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
           <svg class="w-5 h-5 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"/></svg>
         </div>
-        <h3 class="text-base font-bold text-slate-900 mb-1.5 group-hover:text-emerald-600 transition-colors">Stealth Human Curves</h3>
-        <p class="text-xs text-slate-500 leading-relaxed mb-3">Smooth Bezier mouse movements and human typing cadence keep your bots undetected.</p>
+        <h3 class="text-base font-bold text-white mb-1.5 group-hover:text-emerald-400 transition-colors">Stealth Human Curves</h3>
+        <p class="text-xs text-slate-400 leading-relaxed mb-3">Smooth Bezier mouse movements and human typing cadence keep your bots undetected.</p>
 
-        <!-- Live Micro-Graphic: Bezier spline visualization -->
-        <div class="relative h-7 rounded-xl bg-slate-50 border border-slate-200/80 overflow-hidden flex items-center px-3">
+        <!-- Live Micro-Graphic -->
+        <div class="relative h-7 rounded-xl bg-slate-950 border border-slate-800 overflow-hidden flex items-center px-3">
           <svg class="w-full h-5" viewBox="0 0 150 40">
-            <path d="M 10 35 C 40 10, 80 50, 140 20" fill="none" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="3 3"/>
+            <path d="M 10 35 C 40 10, 80 50, 140 20" fill="none" stroke="#334155" stroke-width="2" stroke-dasharray="3 3"/>
             <circle class="animate-bezier-dot" r="4" fill="#10b981" filter="drop-shadow(0 0 4px #10b981)"/>
           </svg>
         </div>
       </div>
 
       <!-- Feature 5: Canvas Click Precision -->
-      <div class="group relative bg-gradient-to-br from-indigo-50/40 via-white to-purple-50/20 backdrop-blur-md rounded-3xl p-6 border border-slate-100/90 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1.5 overflow-hidden">
-        <div class="w-11 h-11 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
+      <div class="group relative bg-slate-900/80 backdrop-blur-md rounded-3xl p-6 border border-slate-700/60 shadow-xl hover:shadow-amber-500/10 transition-all duration-300 hover:-translate-y-1.5 overflow-hidden">
+        <div class="w-11 h-11 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/25 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
           <svg class="w-5 h-5 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4z"/></svg>
         </div>
-        <h3 class="text-base font-bold text-slate-900 mb-1.5 group-hover:text-amber-600 transition-colors">Canvas Click Precision</h3>
-        <p class="text-xs text-slate-500 leading-relaxed mb-3">Toolbars on HTML5 Canvas are captured with relative coordinate math (0–1 normalized).</p>
+        <h3 class="text-base font-bold text-white mb-1.5 group-hover:text-amber-400 transition-colors">Canvas Click Precision</h3>
+        <p class="text-xs text-slate-400 leading-relaxed mb-3">Toolbars on HTML5 Canvas are captured with relative coordinate math (0–1 normalized).</p>
 
-        <!-- Live Micro-Graphic: Normalized relative math coordinates -->
-        <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-[10px] font-mono text-slate-600">
+        <!-- Live Micro-Graphic -->
+        <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between text-[10px] font-mono text-slate-300">
           <span>reticle: (x: 0.42, y: 0.81)</span>
-          <span class="text-amber-600 font-bold">● Pixel Lock</span>
+          <span class="text-amber-400 font-bold">● Pixel Lock</span>
         </div>
       </div>
 
       <!-- Feature 6: Visual Node Editor -->
-      <div class="group relative bg-gradient-to-br from-indigo-50/40 via-white to-purple-50/20 backdrop-blur-md rounded-3xl p-6 border border-slate-100/90 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1.5 overflow-hidden">
-        <div class="w-11 h-11 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
+      <div class="group relative bg-slate-900/80 backdrop-blur-md rounded-3xl p-6 border border-slate-700/60 shadow-xl hover:shadow-teal-500/10 transition-all duration-300 hover:-translate-y-1.5 overflow-hidden">
+        <div class="w-11 h-11 rounded-2xl bg-teal-500/10 text-teal-400 border border-teal-500/25 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
           <svg class="w-5 h-5 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/></svg>
         </div>
-        <h3 class="text-base font-bold text-slate-900 mb-1.5 group-hover:text-teal-600 transition-colors">Visual Node Editor</h3>
-        <p class="text-xs text-slate-500 leading-relaxed mb-3">Inspect, drag, and modify recorded actions in an n8n-style node graph editor.</p>
+        <h3 class="text-base font-bold text-white mb-1.5 group-hover:text-teal-400 transition-colors">Visual Node Editor</h3>
+        <p class="text-xs text-slate-400 leading-relaxed mb-3">Inspect, drag, and modify recorded actions in an n8n-style node graph editor.</p>
 
-        <!-- Live Micro-Graphic: Connected flow pulse -->
-        <div class="relative p-2 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-[9px] font-mono text-slate-600 overflow-hidden">
-          <span class="px-1.5 py-0.5 rounded bg-white shadow-xs border border-slate-200">Start</span>
-          <div class="relative flex-1 mx-2 h-0.5 bg-slate-200">
-            <div class="animate-node-pulse absolute top-[-3px] w-2 h-2 rounded-full bg-teal-500 shadow-[0_0_6px_#14b8a6]"></div>
+        <!-- Live Micro-Graphic -->
+        <div class="relative p-2 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between text-[9px] font-mono text-slate-300 overflow-hidden">
+          <span class="px-1.5 py-0.5 rounded bg-slate-900 shadow-xs border border-slate-700">Start</span>
+          <div class="relative flex-1 mx-2 h-0.5 bg-slate-800">
+            <div class="animate-node-pulse absolute top-[-3px] w-2 h-2 rounded-full bg-teal-400 shadow-[0_0_6px_#14b8a6]"></div>
           </div>
-          <span class="px-1.5 py-0.5 rounded bg-teal-50 text-teal-700 shadow-xs border border-teal-200 font-bold">Export</span>
+          <span class="px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300 shadow-xs border border-teal-500/40 font-bold">Export</span>
         </div>
       </div>
 
@@ -1236,35 +1241,47 @@
 
   <!-- BEGIN: Bottom CTA Banner (Ready to automate your workflows?) -->
   <section class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 py-8">
-    <div class="rounded-[2.5rem] bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 text-white p-8 sm:p-12 text-center shadow-2xl relative overflow-hidden">
+    <div class="rounded-[2.5rem] bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 text-white p-8 sm:p-12 text-center shadow-2xl border border-cyan-500/30 relative overflow-hidden">
       <!-- Ambient Glow Orbs -->
-      <div class="absolute -top-24 -left-24 w-72 h-72 bg-indigo-400/25 rounded-full blur-3xl pointer-events-none"></div>
-      <div class="absolute -bottom-24 -right-24 w-72 h-72 bg-purple-400/25 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="absolute -top-24 -left-24 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="absolute -bottom-24 -right-24 w-72 h-72 bg-purple-500/20 rounded-full blur-3xl pointer-events-none"></div>
 
       <div class="relative z-10 max-w-2xl mx-auto">
-        <h2 class="text-2xl sm:text-4xl font-extrabold tracking-tight mb-3">
+        <h2 class="text-2xl sm:text-4xl font-extrabold tracking-tight mb-3 text-white">
           Ready to automate your workflows?
         </h2>
-        <p class="text-indigo-100 text-xs sm:text-sm mb-7 max-w-lg mx-auto leading-relaxed">
-          Launch the FlowMind dashboard and start teaching your AI bot in seconds.
+        <p class="text-slate-300 text-xs sm:text-sm mb-7 max-w-lg mx-auto leading-relaxed">
+          Launch the FlowMind operations center and train your robotic AI agent in seconds.
         </p>
-        <a href="/app" class="px-8 py-3.5 rounded-full bg-white text-indigo-700 hover:bg-indigo-50 font-bold text-xs sm:text-sm shadow-xl transition-all hover:scale-105 inline-flex items-center gap-2 group">
-          <span>Launch FlowMind Dashboard</span>
+        <a href="/app" class="px-8 py-3.5 rounded-full bg-gradient-to-r from-cyan-400 to-indigo-500 text-slate-950 hover:from-cyan-300 hover:to-indigo-400 font-extrabold text-xs sm:text-sm shadow-xl transition-all hover:scale-105 inline-flex items-center gap-2 group">
+          <span>Launch Agent Operations Center</span>
           <svg class="w-4 h-4 stroke-[2.5] transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" stroke-linecap="round" stroke-linejoin="round"></path></svg>
         </a>
 
         <!-- Micro-Trust Badges -->
-        <div class="flex flex-wrap items-center justify-center gap-5 mt-7 text-[11px] font-semibold text-indigo-200">
-          <span class="flex items-center gap-1.5">✓ 100% Local Execution</span>
-          <span class="flex items-center gap-1.5">✓ Zero Browser Extensions Required</span>
-          <span class="flex items-center gap-1.5">✓ Headless Chrome Compatible</span>
+        <div class="flex flex-wrap items-center justify-center gap-5 mt-7 text-[11px] font-semibold text-slate-400">
+          <span class="flex items-center gap-1.5"><span class="text-cyan-400">✓</span> 100% Local Execution</span>
+          <span class="flex items-center gap-1.5"><span class="text-cyan-400">✓</span> Zero Browser Extensions Required</span>
+          <span class="flex items-center gap-1.5"><span class="text-cyan-400">✓</span> Autonomous Selector Healing</span>
         </div>
       </div>
     </div>
   </section>
 
   <!-- Footer -->
-  <footer class="w-full max-w-7xl mx-auto px-6 lg:px-12 py-6 border-t border-slate-200/70 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-3">
+  <footer class="w-full max-w-7xl mx-auto px-6 lg:px-12 py-6 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-3">
+    <div class="flex items-center gap-2">
+      <div class="w-5 h-5 rounded-md bg-cyan-500/20 text-cyan-400 border border-cyan-400/30 flex items-center justify-center text-[10px] font-bold">F</div>
+      <span class="font-bold text-white">FlowMind AI</span>
+      <span>&copy; 2026. All rights reserved.</span>
+    </div>
+    <div class="flex items-center gap-5">
+      <a href="#how-it-works" class="hover:text-cyan-400 transition-colors">How It Works</a>
+      <a href="#analytics" class="hover:text-cyan-400 transition-colors">Metrics</a>
+      <a href="#features" class="hover:text-cyan-400 transition-colors">Features</a>
+      <a href="/app" class="text-cyan-400 font-semibold hover:underline">Open Operations Center</a>
+    </div>
+  </footer>
     <div class="flex items-center gap-2">
       <div class="w-5 h-5 rounded-full bg-indigo-600 flex items-center justify-center text-white text-[10px] font-bold">F</div>
       <span class="font-bold text-slate-700">FlowMind AI</span>

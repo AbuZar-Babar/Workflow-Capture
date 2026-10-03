@@ -781,13 +781,15 @@ input[type="range"] {
   width: 100%;
 }
 
-.quixotic-table {
+.quixotic-table,
+.data-table {
   width: 100%;
   text-align: left;
   border-collapse: collapse;
 }
 
-.quixotic-table th {
+.quixotic-table th,
+.data-table th {
   padding: 0.65rem 0.75rem;
   font-size: var(--text-2xs);
   font-weight: 700;
@@ -798,14 +800,16 @@ input[type="range"] {
   background-color: var(--bg-surface-sunken);
 }
 
-.quixotic-table td {
+.quixotic-table td,
+.data-table td {
   padding: 0.75rem;
   font-size: var(--text-sm);
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border-light);
 }
 
-.quixotic-table tr:hover td {
+.quixotic-table tr:hover td,
+.data-table tr:hover td {
   background-color: var(--state-hover-bg);
 }
 
@@ -918,13 +922,15 @@ input[type="range"] {
   position: relative;
 }
 
-:root:not([data-theme="dark"]) .theme-toggle-btn .theme-icon-sun {
+:root:not([data-theme="dark"]) .theme-toggle-btn .theme-icon-sun,
+[data-theme="light"] .theme-toggle-btn .theme-icon-sun {
   display: none !important;
 }
 
-:root:not([data-theme="dark"]) .theme-toggle-btn .theme-icon-moon {
+:root:not([data-theme="dark"]) .theme-toggle-btn .theme-icon-moon,
+[data-theme="light"] .theme-toggle-btn .theme-icon-moon {
   display: inline-block !important;
-  color: var(--text-secondary);
+  color: #2563eb;
 }
 
 [data-theme="dark"] .theme-toggle-btn .theme-icon-sun {
@@ -934,6 +940,54 @@ input[type="range"] {
 
 [data-theme="dark"] .theme-toggle-btn .theme-icon-moon {
   display: none !important;
+}
+
+/* Global Quick Search Component */
+.global-quick-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 320px;
+}
+
+.global-quick-search .search-icon {
+  position: absolute;
+  left: 0.75rem;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.global-search-input {
+  width: 100%;
+  height: 32px;
+  padding: 0 2rem 0 2.2rem;
+  background-color: var(--bg-surface-sunken);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  color: var(--text-primary);
+  transition: all 0.15s ease;
+}
+
+.global-search-input:focus {
+  background-color: var(--card-bg-solid);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+  outline: none;
+}
+
+.search-kbd {
+  position: absolute;
+  right: 0.6rem;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.65rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  background-color: var(--card-bg-solid);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-xs);
+  pointer-events: none;
 }
 
 /* -------------------------------------------------------------
@@ -2088,4 +2142,454 @@ input[type="range"] {
   border-top: 1px dashed var(--border-light);
   font-size: var(--text-xs);
   color: var(--text-muted);
+}
+
+/* ===================================================================
+   FlowMind / Workflow Agent — Futuristic Robotic UI Component Suite
+   =================================================================== */
+
+/* 1. Robot Avatar Animations & Micro-interactions */
+@keyframes robotFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes robotCorePulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.85;
+    filter: drop-shadow(0 0 4px var(--accent-cyan));
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+    filter: drop-shadow(0 0 10px var(--accent-cyan));
+  }
+}
+
+@keyframes robotArmWave {
+  0%, 100% {
+    transform: rotate(0deg);
+    transform-origin: 216px 220px;
+  }
+  20%, 60% {
+    transform: rotate(14deg);
+    transform-origin: 216px 220px;
+  }
+  40%, 80% {
+    transform: rotate(-6deg);
+    transform-origin: 216px 220px;
+  }
+}
+
+@keyframes robotScanBeam {
+  0%, 100% {
+    transform: translateX(0);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateX(12px);
+    opacity: 1;
+  }
+}
+
+@keyframes orbitalRotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes scanlineSweep {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.8;
+  }
+  80% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(400%);
+    opacity: 0;
+  }
+}
+
+.robot-avatar-wrap {
+  animation: robotFloat 4.2s ease-in-out infinite;
+  transform-origin: center bottom;
+  filter: drop-shadow(0 8px 16px rgba(0, 240, 255, 0.15));
+  transition: transform 0.25s ease, filter 0.25s ease;
+}
+
+.robot-avatar-wrap:hover {
+  transform: translateY(-8px) scale(1.04);
+  filter: drop-shadow(0 12px 24px rgba(0, 240, 255, 0.3));
+}
+
+.robot-avatar-wrap .robot-core-glow {
+  animation: robotCorePulse 2.4s ease-in-out infinite;
+  transform-origin: 160px 245px;
+}
+
+.robot-avatar-wrap .robot-arm-wave {
+  animation: robotArmWave 4s ease-in-out infinite;
+}
+
+/* 2. Central Agent Status Hub (Dashboard Command Center) */
+.agent-status-hub {
+  position: relative;
+  background: rgba(11, 16, 32, 0.85);
+  border: 1px solid rgba(0, 240, 255, 0.18);
+  border-radius: var(--radius-2xl);
+  padding: 1.75rem 2rem;
+  margin-bottom: 2rem;
+  overflow: hidden;
+  box-shadow: 0 12px 36px -4px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+}
+
+.agent-status-hub::before {
+  content: '';
+  position: absolute;
+  top: -80px;
+  right: -60px;
+  width: 280px;
+  height: 280px;
+  background: radial-gradient(circle, rgba(0, 240, 255, 0.12) 0%, rgba(59, 130, 246, 0.06) 50%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(24px);
+}
+
+.agent-status-hub-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  position: relative;
+  z-index: 2;
+  flex-wrap: wrap;
+}
+
+.agent-status-left {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.agent-status-avatar-box {
+  position: relative;
+  width: 80px;
+  height: 88px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.agent-status-avatar-box .orbital-ring {
+  position: absolute;
+  inset: -8px;
+  border: 1px dashed rgba(0, 240, 255, 0.3);
+  border-radius: 50%;
+  animation: orbitalRotate 24s linear infinite;
+  pointer-events: none;
+}
+
+.agent-status-info h2 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.agent-status-info p {
+  font-size: var(--text-xs);
+  color: var(--text-sub);
+  margin: 0;
+}
+
+.agent-telemetry-strip {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  background: rgba(6, 9, 19, 0.7);
+  padding: 0.85rem 1.25rem;
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.telemetry-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.telemetry-cell .telemetry-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.telemetry-cell .telemetry-val {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* 3. Futuristic Robotic Cards */
+.robot-card {
+  background: rgba(13, 19, 36, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-xl);
+  padding: 1.35rem 1.5rem;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(16px);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.robot-card:hover {
+  border-color: rgba(0, 240, 255, 0.35);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5), 0 0 20px -3px rgba(0, 240, 255, 0.18);
+  transform: translateY(-2px);
+}
+
+/* 4. Robotic Workflow Card in Library */
+.wf-robot-card {
+  background: rgba(13, 19, 36, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-xl);
+  padding: 1.35rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1.15rem;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  backdrop-filter: blur(16px);
+}
+
+.wf-robot-card:hover {
+  border-color: rgba(0, 240, 255, 0.38);
+  box-shadow: 0 14px 40px -4px rgba(0, 0, 0, 0.6), 0 0 24px -4px rgba(0, 240, 255, 0.22);
+  transform: translateY(-3px);
+}
+
+.wf-robot-card-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.wf-robot-card-header {
+  flex: 1;
+  min-width: 0;
+}
+
+.wf-robot-title {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wf-robot-domain {
+  font-size: 0.75rem;
+  color: var(--accent-cyan);
+  font-family: var(--font-mono);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.wf-robot-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: rgba(0, 240, 255, 0.1);
+  color: var(--accent-cyan);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+}
+
+.wf-robot-status-pill.ready {
+  background: rgba(0, 240, 255, 0.1);
+  color: var(--accent-cyan);
+  border-color: rgba(0, 240, 255, 0.3);
+}
+
+.wf-robot-status-pill.running {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.wf-robot-status-pill.success {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.wf-robot-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.74rem;
+  color: var(--text-sub);
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.wf-btn-run-agent {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius-lg);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.15) 0%, rgba(59, 130, 246, 0.2) 100%);
+  color: var(--accent-cyan);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.wf-btn-run-agent:hover {
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.3) 0%, rgba(59, 130, 246, 0.4) 100%);
+  color: #ffffff;
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 16px rgba(0, 240, 255, 0.35);
+  transform: translateY(-1px);
+}
+
+/* 5. Robotic Mission Control (Execution View) */
+.agent-mission-control-box {
+  background: rgba(8, 12, 24, 0.88);
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  border-radius: var(--radius-xl);
+  padding: 1.5rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 0 40px rgba(0, 240, 255, 0.05);
+  margin-bottom: 1.5rem;
+}
+
+.agent-mission-control-box .scanline-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 0%, rgba(0, 240, 255, 0.06) 50%, transparent 100%);
+  animation: scanlineSweep 4s linear infinite;
+  pointer-events: none;
+}
+
+.mission-progress-bar-wrap {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  margin: 1rem 0;
+  position: relative;
+}
+
+.mission-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6 0%, #00f0ff 100%);
+  border-radius: var(--radius-pill);
+  box-shadow: 0 0 12px var(--accent-cyan);
+  transition: width 0.3s ease;
+}
+
+/* 6. Robotic Timeline Nodes (Activity View) */
+.robotic-activity-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  position: relative;
+  padding-left: 1.5rem;
+}
+
+.robotic-activity-timeline::before {
+  content: '';
+  position: absolute;
+  left: 9px;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  background: linear-gradient(180deg, rgba(0, 240, 255, 0.6) 0%, rgba(59, 130, 246, 0.3) 100%);
+}
+
+.robotic-timeline-node {
+  position: relative;
+  background: rgba(13, 19, 36, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-lg);
+  padding: 0.85rem 1.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  transition: all 0.2s ease;
+}
+
+.robotic-timeline-node:hover {
+  border-color: rgba(0, 240, 255, 0.3);
+  transform: translateX(4px);
+}
+
+.robotic-timeline-dot {
+  position: absolute;
+  left: -1.75rem;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--bg-page);
+  border: 2px solid var(--accent-cyan);
+  box-shadow: 0 0 8px var(--accent-cyan);
+}
+
+.robotic-timeline-dot.success {
+  border-color: #10b981;
+  box-shadow: 0 0 8px #10b981;
+}
+
+.robotic-timeline-dot.analyzing {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 8px #8b5cf6;
 }
