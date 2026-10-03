@@ -10,7 +10,6 @@ import { Toast } from '../components/toast.js';
 import { Router } from '../router.js';
 import { ExecutionModal } from '../components/executionModal.js';
 import { Modal } from '../components/modal.js';
-import { renderRobotAvatar } from '../components/robotAvatar.js';
 import { escapeHtml } from '../utils/dom.js';
 
 function formatDomain(url) {
@@ -577,19 +576,19 @@ export const WorkflowsView = {
     if (this.viewMode === 'grid') {
       container.innerHTML = `
         <div class="wf-grid">
-          ${items.map(wf => this.renderWorkflowCard(wf)).join('')}
+          ${items.map((wf, index) => this.renderWorkflowCard(wf, index + 1)).join('')}
         </div>
       `;
     } else {
       container.innerHTML = `
         <div class="wf-list">
-          ${items.map(wf => this.renderWorkflowRow(wf)).join('')}
+          ${items.map((wf, index) => this.renderWorkflowRow(wf, index + 1)).join('')}
         </div>
       `;
     }
   },
 
-  renderWorkflowCard(wf) {
+  renderWorkflowCard(wf, index) {
     const domain = formatDomain(wf.targetUrl);
     const lastRunInfo = this.lastRunMap.get(wf.id);
     const lastRunText = lastRunInfo ? formatRelativeTime(lastRunInfo.date) : 'Never run';
@@ -601,9 +600,7 @@ export const WorkflowsView = {
       <div class="wf-card" data-id="${escapeHtml(wf.id)}" style="background:rgba(13,19,36,0.72); border:1px solid rgba(255,255,255,0.08); border-radius:var(--radius-xl); transition:all 0.25s ease;">
         <div>
           <div class="wf-card-top" style="align-items:flex-start;">
-            <div style="flex-shrink:0;">
-              ${renderRobotAvatar({ size: 'badge', state: status === 'running' ? 'running' : 'idle' })}
-            </div>
+            <div class="wf-index" aria-label="Workflow ${index}">${index}</div>
 
             <div class="wf-card-info" style="min-width:0;">
               <div class="wf-card-title-row" style="flex-wrap:wrap; gap:0.4rem;">
@@ -701,7 +698,7 @@ export const WorkflowsView = {
     `;
   },
 
-  renderWorkflowRow(wf) {
+  renderWorkflowRow(wf, index) {
     const domain = formatDomain(wf.targetUrl);
     const lastRunInfo = this.lastRunMap.get(wf.id);
     const lastRunText = lastRunInfo ? formatRelativeTime(lastRunInfo.date) : 'Never run';
@@ -712,9 +709,7 @@ export const WorkflowsView = {
     return `
       <div class="wf-row" data-id="${escapeHtml(wf.id)}" style="background:rgba(13,19,36,0.65); border:1px solid rgba(255,255,255,0.07); border-radius:var(--radius-lg); margin-bottom:0.5rem; transition:all 0.2s ease;">
         <div class="wf-row-name-cell" style="display:flex; align-items:center; gap:0.75rem;">
-          <div style="flex-shrink:0;">
-            ${renderRobotAvatar({ size: 'mini', state: status === 'running' ? 'running' : 'idle' })}
-          </div>
+          <div class="wf-index" aria-label="Workflow ${index}">${index}</div>
           <div class="wf-row-title-block">
             <div class="wf-row-title" title="${escapeHtml(wf.name || 'Untitled')}" style="font-weight:700; color:var(--text-primary);">${escapeHtml(wf.name || 'Untitled')}</div>
             <div class="wf-row-desc" style="color:var(--text-sub);">${escapeHtml(wf.description || domain)}</div>
