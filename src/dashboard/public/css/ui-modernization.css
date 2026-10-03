@@ -1578,3 +1578,7 @@ body {
 
 /* UI sync visible test */
 .dashboard-header { box-shadow: inset 0 2px 0 var(--color-primary) !important; }
+
+/* LIVE RELOAD TEST: intentionally obvious temporary marker. */
+.dashboard-page.overview-page,
+[data-view="overview"] .dashboard-page { background: #fff3cd !important; }
