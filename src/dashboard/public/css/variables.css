@@ -1,297 +1,60 @@
-/* ===================================================================
-   FlowMind / Workflow Agent — Futuristic Robotic Design Tokens
-   Robotic AI Automation Platform (Deep Dark Space & Cyber Cyan)
-   =================================================================== */
-
-:root,
-[data-theme="dark"] {
-  /* Theme Identity */
-  --theme-mode: 'dark';
-
-  /* Deep Dark Space Environment Hierarchy */
-  --bg-page: #060913;               /* Near-black navy */
-  --bg-secondary: #0b0f1d;          /* Deep blue-black */
-  --bg-surface: rgba(13, 19, 36, 0.82); /* Dark glass panel */
-  --bg-surface-elevated: rgba(18, 26, 48, 0.92); /* Elevated glass modal / popover */
-  --bg-surface-sunken: rgba(8, 12, 24, 0.75);     /* Sunken panel / console */
-  --bg-surface-hover: rgba(24, 34, 62, 0.82);
-  --surface-overlay: rgba(3, 6, 15, 0.82);
-
-  /* Robotic Accents (Cyber Cyan, Electric Blue, Violet) */
-  --accent-cyan: #00f0ff;           /* Primary Robotic Energy */
-  --accent-primary: #00f0ff;
-  --accent-blue: #3b82f6;
-  --accent-hover: #38bdf8;
-  --accent-active: #0284c7;
-  --accent-subtle: rgba(0, 240, 255, 0.12);
-  --accent-ring: rgba(0, 240, 255, 0.35);
-  --accent-glow: 0 0 24px rgba(0, 240, 255, 0.3);
-  --accent-gradient: linear-gradient(135deg, #00f0ff 0%, #3b82f6 50%, #8b5cf6 100%);
-  --tech-cyan: #00f0ff;
-  --tech-emerald: #10b981;
-  --tech-amber: #f59e0b;
-  --tech-purple: #8b5cf6;
-
-  /* Semantic Aliases for Compatibility */
-  --canvas: var(--bg-page);
-  --canvas-from: #060913;
-  --canvas-to: #0b0f1d;
-  --panel: rgba(13, 19, 36, 0.82);
-  --panel-solid: #0d1324;
-  --panel-border: rgba(0, 240, 255, 0.16);
-  --card-bg: var(--bg-surface);
-  --card-bg-solid: #0d1324;
-  --modal-bg: var(--bg-surface-elevated);
-  --toast-bg: rgba(18, 26, 48, 0.96);
-  --sidebar-bg: rgba(8, 12, 24, 0.94);
-  --topbar-bg: rgba(6, 9, 19, 0.92);
-  --input-bg: var(--bg-surface-sunken);
-
-  /* Border Tokens */
-  --border-subtle: rgba(255, 255, 255, 0.05);
-  --border-light: rgba(255, 255, 255, 0.1);
-  --border-default: rgba(255, 255, 255, 0.14);
-  --border-hover: rgba(0, 240, 255, 0.35);
-  --border-focus: #00f0ff;
-  --card-border: rgba(255, 255, 255, 0.09);
-  --card-border-glow: rgba(0, 240, 255, 0.3);
-  --card-hover-border: rgba(0, 240, 255, 0.45);
-  --input-border: rgba(255, 255, 255, 0.14);
-  --input-focus-border: #00f0ff;
-  --modal-border: rgba(0, 240, 255, 0.22);
-  --toast-border: rgba(0, 240, 255, 0.25);
-
-  /* Typography Colors (WCAG AA Compliant on Dark Canvas) */
-  --text-primary: #f8fafc;          /* High contrast clean white */
-  --text-main: #f8fafc;
-  --text-secondary: #cbd5e1;        /* Light slate */
-  --text-body: #cbd5e1;
-  --text-sub: #94a3b8;              /* Secondary labels */
-  --text-muted: #64748b;            /* Muted microcopy */
-  --text-tertiary: #64748b;
-  --text-dim: #475569;
-  --text-disabled: #475569;
-
-  /* Brand Aliases */
-  --brand-primary: var(--accent-primary);
-  --brand-forest: #00f0ff;          /* Map legacy forest alias to cyber cyan */
-  --brand-dark: #38bdf8;
-  --brand-accent: #38bdf8;
-  --brand-accent-hover: #7dd3fc;
-  --brand-cyan: #00f0ff;
-  --brand-cyan-light: #7dd3fc;
-  --brand-emerald: #10b981;
-  --brand-light: rgba(0, 240, 255, 0.12);
-  --brand-tint: rgba(0, 240, 255, 0.12);
-  --brand-cyan-tint: rgba(0, 240, 255, 0.15);
-  --brand-sage: #0f2744;
-  --brand-stripe: rgba(0, 240, 255, 0.18);
-  --brand-stripe-dark: #00f0ff;
-
-  /* Status Colors */
-  --color-success: #10b981;         /* Emerald 500 */
-  --color-success-bg: rgba(16, 185, 129, 0.12);
-  --color-success-border: rgba(16, 185, 129, 0.3);
-  --color-warning: #f59e0b;         /* Amber 500 */
-  --color-warning-bg: rgba(245, 158, 11, 0.12);
-  --color-warning-border: rgba(245, 158, 11, 0.3);
-  --color-danger: #ef4444;          /* Red 500 */
-  --color-danger-bg: rgba(239, 68, 68, 0.12);
-  --color-danger-border: rgba(239, 68, 68, 0.3);
-  --color-info: #00f0ff;            /* Cyan 400 */
-  --color-info-bg: rgba(0, 240, 255, 0.12);
-  --color-info-border: rgba(0, 240, 255, 0.3);
-
-  /* Interaction & Focus States */
-  --state-hover-bg: rgba(255, 255, 255, 0.05);
-  --state-active-bg: rgba(255, 255, 255, 0.09);
-  --state-disabled-opacity: 0.5;
-  --focus-ring: 0 0 0 2px #060913, 0 0 0 4px var(--accent-primary);
-  --input-focus-ring: rgba(0, 240, 255, 0.25);
-
-  /* Tooltip */
-  --tooltip-bg: #121a30;
-  --tooltip-text: #f8fafc;
-  --tooltip-border: rgba(0, 240, 255, 0.25);
-
-  /* Radius Scale */
-  --radius-xs: 4px;
+/* Workflow Capture — Clean SaaS Design Tokens
+ * UI-only modernization. Keep interaction and workflow logic unchanged.
+ */
+:root {
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-subtle: #eff6ff;
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f1f5f9;
+  --color-border: #e2e8f0;
+  --color-border-strong: #cbd5e1;
+  --color-text: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: #64748b;
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-danger: #dc2626;
   --radius-sm: 6px;
   --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-2xl: 20px;
-  --radius-3xl: 24px;
-  --radius-4xl: 32px;
-  --radius-pill: 9999px;
-
-  /* Spacing Scale */
-  --space-3xs: 0.125rem;            /* 2px */
-  --space-2xs: 0.25rem;             /* 4px */
-  --space-xs: 0.5rem;               /* 8px */
-  --space-sm: 0.75rem;              /* 12px */
-  --space-md: 1rem;                 /* 16px */
-  --space-lg: 1.25rem;              /* 20px */
-  --space-xl: 1.5rem;               /* 24px */
-  --space-2xl: 2rem;                /* 32px */
-  --space-3xl: 2.5rem;              /* 40px */
-
-  /* Atmospheric Shadows & Glows */
-  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.35);
-  --shadow-sm: 0 2px 6px 0 rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 6px 16px -2px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 12px 28px -4px rgba(0, 0, 0, 0.6);
-  --shadow-xl: 0 20px 40px -8px rgba(0, 0, 0, 0.7);
-  --shadow-dashboard: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
-  --shadow-card: 0 8px 24px -4px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
-  --shadow-card-hover: 0 12px 32px -4px rgba(0, 0, 0, 0.6), 0 0 24px -4px rgba(0, 240, 255, 0.22), inset 0 0 0 1px rgba(0, 240, 255, 0.35);
-  --shadow-dropdown: 0 16px 36px -6px rgba(0, 0, 0, 0.7), inset 0 0 0 1px rgba(255, 255, 255, 0.1);
-  --shadow-stat-card: var(--shadow-card);
-  --shadow-sidebar: 1px 0 0 var(--border-light);
-  --shadow-hero: 0 20px 50px -10px rgba(0, 240, 255, 0.18);
-
-  /* Typography Ramp */
-  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
-  --text-2xs: 0.75rem;              /* 12px */
-  --text-xs: 0.8125rem;             /* 13px */
-  --text-sm: 0.875rem;              /* 14px */
-  --text-base: 0.9375rem;           /* 15px */
-  --text-md: 1.0625rem;             /* 17px */
-  --text-lg: 1.25rem;               /* 20px */
-  --text-xl: 1.5rem;                /* 24px */
-  --text-2xl: 1.875rem;             /* 30px */
-
-  --glass-blur: blur(16px);
-  --header-height: 60px;
-  --sidebar-width-expanded: 220px;
-  --sidebar-width-collapsed: 64px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --transition-fast: 120ms ease;
+  --transition-normal: 180ms ease;
 }
-
-/* ===================================================================
-   Futuristic Robotic Lightish-Blue Theme Variant
-   Illuminated Robotic Laboratory Aesthetic
-   =================================================================== */
-
-[data-theme="light"] {
-  --theme-mode: 'light';
-
-  /* Lightish Blue Robotic Environment Hierarchy */
-  --bg-page: #ebf4fc;                  /* Crisp Arctic Ice / Light Sky Blue */
-  --bg-secondary: #e1effa;             /* Soft Light Azure Tint */
-  --bg-surface: rgba(255, 255, 255, 0.88); /* Frosted White Glass on Light Blue */
-  --bg-surface-elevated: #ffffff;      /* Pure White Surface */
-  --bg-surface-sunken: rgba(220, 236, 253, 0.8); /* Distinct Light Sky Blue Sunken Panels */
-  --bg-surface-hover: rgba(235, 245, 255, 0.95);
-  --surface-overlay: rgba(12, 28, 48, 0.45);
-
-  /* Robotic Accents (Electric Ocean Cyan, Robotic Blue, Violet) */
-  --accent-cyan: #0284c7;              /* Deep Vibrant Electric Robotic Sky Blue */
-  --accent-primary: #0284c7;
-  --accent-blue: #2563eb;
-  --accent-hover: #0369a1;
-  --accent-active: #075985;
-  --accent-subtle: rgba(2, 132, 199, 0.10);
-  --accent-ring: rgba(2, 132, 199, 0.28);
-  --accent-glow: 0 0 24px rgba(2, 132, 199, 0.22);
-  --accent-gradient: linear-gradient(135deg, #0284c7 0%, #2563eb 50%, #6366f1 100%);
-  --tech-cyan: #0284c7;
-  --tech-emerald: #059669;
-  --tech-amber: #d97706;
-  --tech-purple: #7c3aed;
-
-  /* Semantic Aliases for Compatibility */
-  --canvas: var(--bg-page);
-  --canvas-from: #ebf4fc;
-  --canvas-to: #e1effa;
-  --panel: rgba(255, 255, 255, 0.88);
-  --panel-solid: #ffffff;
-  --panel-border: rgba(186, 215, 242, 0.85);
-  --card-bg: rgba(255, 255, 255, 0.92);
-  --card-bg-solid: #ffffff;
-  --modal-bg: #ffffff;
-  --toast-bg: rgba(255, 255, 255, 0.96);
-  --sidebar-bg: rgba(235, 244, 253, 0.95);
-  --topbar-bg: rgba(238, 246, 255, 0.94);
-  --input-bg: rgba(228, 240, 253, 0.85);
-
-  /* Border Tokens (Crisp Ice Blue Precision Lines) */
-  --border-subtle: rgba(203, 226, 248, 0.65);
-  --border-light: rgba(186, 215, 242, 0.85);
-  --border-default: rgba(147, 197, 243, 0.85);
-  --border-hover: #38bdf8;
-  --border-focus: #0284c7;
-  --card-border: rgba(186, 215, 242, 0.8);
-  --card-border-glow: rgba(2, 132, 199, 0.25);
-  --card-hover-border: rgba(2, 132, 199, 0.55);
-  --input-border: rgba(186, 215, 242, 0.9);
-  --input-focus-border: #0284c7;
-  --modal-border: rgba(186, 215, 242, 0.9);
-  --toast-border: rgba(186, 215, 242, 0.9);
-
-  /* High-Contrast Deep Navy Typography (WCAG AA Compliant on Light Blue) */
-  --text-primary: #0b192c;             /* High contrast deep midnight navy */
-  --text-main: #0b192c;
-  --text-secondary: #1e3a5f;           /* Slate navy body */
-  --text-body: #1e3a5f;
-  --text-sub: #33537a;                 /* Secondary slate blue labels */
-  --text-muted: #52749e;               /* Clear muted blue-slate */
-  --text-tertiary: #52749e;
-  --text-dim: #7392b5;
-  --text-disabled: #94a9c2;
-
-  /* Brand Aliases */
-  --brand-primary: var(--accent-primary);
-  --brand-forest: #0284c7;
-  --brand-dark: #0369a1;
-  --brand-accent: #0284c7;
-  --brand-accent-hover: #38bdf8;
-  --brand-cyan: #0284c7;
-  --brand-cyan-light: #38bdf8;
-  --brand-emerald: #059669;
-  --brand-light: rgba(2, 132, 199, 0.10);
-  --brand-tint: rgba(2, 132, 199, 0.10);
-  --brand-cyan-tint: rgba(2, 132, 199, 0.12);
-  --brand-sage: #e1effa;
-  --brand-stripe: rgba(2, 132, 199, 0.15);
-  --brand-stripe-dark: #0284c7;
-
-  /* Status Colors */
-  --color-success: #059669;
-  --color-success-bg: rgba(5, 150, 105, 0.10);
-  --color-success-border: rgba(5, 150, 105, 0.28);
-  --color-warning: #d97706;
-  --color-warning-bg: rgba(217, 119, 6, 0.10);
-  --color-warning-border: rgba(217, 119, 6, 0.28);
-  --color-danger: #dc2626;
-  --color-danger-bg: rgba(220, 38, 38, 0.10);
-  --color-danger-border: rgba(220, 38, 38, 0.28);
-  --color-info: #0284c7;
-  --color-info-bg: rgba(2, 132, 199, 0.10);
-  --color-info-border: rgba(2, 132, 199, 0.28);
-
-  /* Interaction & Focus States */
-  --state-hover-bg: rgba(2, 132, 199, 0.06);
-  --state-active-bg: rgba(2, 132, 199, 0.12);
-  --focus-ring: 0 0 0 2px #ebf4fc, 0 0 0 4px var(--accent-primary);
-  --input-focus-ring: rgba(2, 132, 199, 0.25);
-
-  /* Tooltip */
-  --tooltip-bg: #0c1e33;
-  --tooltip-text: #f8fafc;
-  --tooltip-border: rgba(2, 132, 199, 0.3);
-
-  /* Atmospheric Shadows */
-  --shadow-xs: 0 1px 2px 0 rgba(11, 25, 44, 0.05);
-  --shadow-sm: 0 2px 6px 0 rgba(11, 25, 44, 0.06);
-  --shadow-md: 0 6px 16px -2px rgba(11, 25, 44, 0.08);
-  --shadow-lg: 0 12px 28px -4px rgba(11, 25, 44, 0.10);
-  --shadow-xl: 0 20px 40px -8px rgba(11, 25, 44, 0.12);
-  --shadow-dashboard: 0 8px 32px 0 rgba(11, 25, 44, 0.06);
-  --shadow-card: 0 8px 24px -4px rgba(11, 25, 44, 0.06), inset 0 0 0 1px rgba(255, 255, 255, 0.85);
-  --shadow-card-hover: 0 12px 32px -4px rgba(11, 25, 44, 0.10), 0 0 20px -2px rgba(2, 132, 199, 0.18), inset 0 0 0 1px rgba(2, 132, 199, 0.3);
-  --shadow-dropdown: 0 16px 36px -6px rgba(11, 25, 44, 0.14), inset 0 0 0 1px rgba(255, 255, 255, 0.9);
-  --shadow-stat-card: var(--shadow-card);
-  --shadow-sidebar: 1px 0 0 var(--border-light);
-  --shadow-hero: 0 20px 50px -10px rgba(2, 132, 199, 0.14);
+:root[data-theme="dark"],
+.dark-theme {
+  --color-primary: #60a5fa;
+  --color-primary-hover: #93c5fd;
+  --color-primary-subtle: rgba(59, 130, 246, 0.12);
+  --color-bg: #0f172a;
+  --color-surface: #111827;
+  --color-surface-muted: #1e293b;
+  --color-border: #334155;
+  --color-border-strong: #475569;
+  --color-text: #f8fafc;
+  --color-text-secondary: #cbd5e1;
+  --color-text-muted: #94a3b8;
+  --color-success: #4ade80;
+  --color-warning: #fbbf24;
+  --color-danger: #f87171;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.22);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.28);
 }
