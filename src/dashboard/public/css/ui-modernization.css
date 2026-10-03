@@ -1989,3 +1989,38 @@ body {
     width: 180px !important;
   }
 }
+
+
+/* --- Topbar robot home control --------------------------------------- */
+.header-logo-icon.topbar-robot-avatar {
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  min-height: 34px !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  background: transparent !important;
+  border: 0 !important;
+  color: inherit !important;
+  cursor: pointer;
+}
+
+.topbar-robot-avatar .topbar-robot-render {
+  width: 30px !important;
+  height: 34px !important;
+}
+
+.topbar-robot-avatar .topbar-robot-render svg {
+  width: 30px !important;
+  height: 34px !important;
+}
+
+.flowmind-topbar-brand:hover .topbar-robot-avatar {
+  transform: translateY(-1px);
+}
+
+.flowmind-topbar-brand:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
