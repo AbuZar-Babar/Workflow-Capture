@@ -65,7 +65,7 @@ export const OverviewView = {
     }[c]));
   },
 
-  async render(container, router) {
+  async render(container, router, routeArg) {
     this.router = router;
     window.OverviewView = this;
 
@@ -306,6 +306,23 @@ export const OverviewView = {
 
     this.bindEvents(router);
     await this.loadData();
+
+    if (routeArg === 'create' || routeArg === 'new') {
+      this.openCreateModal();
+    }
+  },
+
+  openCreateModal() {
+    const modalCreate = document.getElementById('overviewCreateModal');
+    const inputRecName = document.getElementById('overviewRecName');
+    if (modalCreate) {
+      modalCreate.classList.remove('hidden');
+      modalCreate.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      if (inputRecName) {
+        inputRecName.focus();
+        inputRecName.select?.();
+      }
+    }
   },
 
   bindEvents(router) {
@@ -319,10 +336,7 @@ export const OverviewView = {
       btnCreate.onclick = () => {
         const isHidden = modalCreate.classList.contains('hidden');
         if (isHidden) {
-          modalCreate.classList.remove('hidden');
-          if (inputRecName) {
-            inputRecName.focus();
-          }
+          this.openCreateModal();
         } else {
           modalCreate.classList.add('hidden');
         }

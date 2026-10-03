@@ -233,14 +233,23 @@ export const WorkflowsView = {
     const catalogContainer = document.getElementById('wfCatalogContainer');
 
     const triggerRecordFlow = () => {
-      Router.navigate('overview');
+      Router.navigate('overview/create');
       setTimeout(() => {
-        const input = document.getElementById('overviewRecName');
-        if (input) {
-          input.focus();
-          input.select?.();
+        if (window.OverviewView && typeof window.OverviewView.openCreateModal === 'function') {
+          window.OverviewView.openCreateModal();
+        } else {
+          const modalCreate = document.getElementById('overviewCreateModal');
+          if (modalCreate) {
+            modalCreate.classList.remove('hidden');
+            modalCreate.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+          const input = document.getElementById('overviewRecName');
+          if (input) {
+            input.focus();
+            input.select?.();
+          }
         }
-      }, 120);
+      }, 100);
     };
 
     if (btnHeaderNew) btnHeaderNew.onclick = triggerRecordFlow;
