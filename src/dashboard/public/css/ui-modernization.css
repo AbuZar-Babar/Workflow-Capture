@@ -2362,3 +2362,70 @@ body {
     width: 100% !important;
   }
 }
+
+/* Keep the two editor metadata fields together and visually identical. */
+.workflow-editor-header {
+  justify-content: flex-start !important;
+}
+.workflow-editor-header > div:first-child {
+  flex: 0 0 auto !important;
+  width: 280px !important;
+}
+.workflow-editor-header > div:last-child {
+  flex: 0 0 auto !important;
+  margin-left: 0 !important;
+  gap: 0.6rem !important;
+}
+.wf-header-title-wrap,
+.wf-header-target-box {
+  width: 260px !important;
+  min-width: 260px !important;
+  max-width: 260px !important;
+}
+.wf-header-title-wrap {
+  margin-left: 0 !important;
+}
+.wf-header-target-box {
+  margin-left: 0 !important;
+}
+.wf-header-target-box > div,
+.wf-title-input {
+  width: 260px !important;
+  min-width: 260px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  box-sizing: border-box !important;
+}
+.wf-title-input {
+  padding: 3px 8px !important;
+}
+.wf-header-target-box > div {
+  padding: 0 0.6rem !important;
+  display: flex !important;
+  align-items: center !important;
+}
+.wf-header-target-box input {
+  height: 30px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+@media (max-width: 900px) {
+  .workflow-editor-header {
+    justify-content: space-between !important;
+  }
+  .workflow-editor-header > div:first-child {
+    width: auto !important;
+    flex: 1 1 0 !important;
+  }
+  .workflow-editor-header > div:last-child {
+    flex: 1 1 0 !important;
+  }
+  .wf-header-title-wrap,
+  .wf-header-target-box,
+  .wf-header-target-box > div,
+  .wf-title-input {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+}
