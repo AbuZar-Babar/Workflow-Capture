@@ -203,8 +203,8 @@ class IntentResolver {
 
     if (/\blast\s*month\b/i.test(lower)) {
       // First day of previous month to last day of previous month
-      const firstDayPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const lastDayPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+      const firstDayPrevMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+      const lastDayPrevMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0));
       return {
         concept: 'date',
         operator: 'dateBetween',
@@ -215,7 +215,7 @@ class IntentResolver {
     }
 
     if (/\bthis\s*month\b/i.test(lower)) {
-      const firstDayThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const firstDayThisMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
       return {
         concept: 'date',
         operator: 'dateBetween',

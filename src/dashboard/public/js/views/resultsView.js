@@ -226,6 +226,12 @@ export const ResultsView = {
           </div>
           <div class="execution-hero-actions">
             <span class="run-status-badge ${String(status).toLowerCase()}">${escapeHtml(formatStatusLabel(status))}</span>
+            ${files.length > 0 ? `
+              <button class="btn btn-secondary btn-sm" id="btnResultsExportZip" title="Download all files and artifacts in a ZIP archive">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                <span>Download All (ZIP)</span>
+              </button>
+            ` : ''}
             <button class="btn btn-secondary btn-sm" id="btnResultsBackWorkflows">
               <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
               <span>Workflows</span>
@@ -425,6 +431,19 @@ export const ResultsView = {
         }).join('');
       }
 
+      // Business fields badges
+      let businessBadges = '';
+      const fields = item.fields || item.data || item.raw?.fields;
+      if (fields && typeof fields === 'object') {
+        const badges = Object.entries(fields)
+          .filter(([k, v]) => v != null && v !== '' && typeof v !== 'object')
+          .slice(0, 5)
+          .map(([k, v]) => `<span class="badge-tag info" style="font-size:var(--text-2xs); padding:0.1rem 0.45rem;"><strong>${escapeHtml(k)}:</strong> ${escapeHtml(String(v))}</span>`);
+        if (badges.length > 0) {
+          businessBadges = `<div class="record-business-fields" style="display:flex; align-items:center; gap:0.35rem; flex-wrap:wrap; margin-top:0.3rem;">${badges.join('')}</div>`;
+        }
+      }
+
       return `
         <div class="execution-item-row ${formatted.cls}" role="listitem">
           <span class="execution-item-icon" aria-hidden="true">${formatted.icon}</span>
@@ -433,6 +452,7 @@ export const ResultsView = {
               <strong>${title}</strong>
             </div>
             <span>${escapeHtml(detailText)}</span>
+            ${businessBadges}
             ${fileChip}
           </div>
           <span class="execution-item-status status-${formatted.cls}">${formatted.label}</span>
@@ -539,6 +559,11 @@ export const ResultsView = {
 
     document.getElementById('btnBottomFiles')?.addEventListener('click', () => {
       this.router.navigate('artifacts');
+    });
+
+    // Export single-run ZIP
+    document.getElementById('btnResultsExportZip')?.addEventListener('click', () => {
+      window.location.href = `/api/downloads/export?runId=${encodeURIComponent(this.runId)}`;
     });
 
     // Run Again: Must open ExecutionModal and NOT direct-execute!

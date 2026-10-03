@@ -824,7 +824,8 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/api/downloads/export' && req.method === 'GET') {
       if (!requireAuth(req, res)) return;
-      return runController.exportAllDownloadsZip(req, res);
+      const runId = urlObj.searchParams.get('runId');
+      return runController.exportAllDownloadsZip(req, res, runId);
     }
 
     const dlFileMatch = pathname.match(/^\/api\/downloads\/([^/]+)\/file$/);

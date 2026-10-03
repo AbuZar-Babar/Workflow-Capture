@@ -2254,6 +2254,87 @@
   line-height: 1.4;
 }
 
+.exec-filter-rules-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.exec-pill-match-mode {
+  padding: 0.18rem 0.55rem;
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  border: none;
+  background: transparent;
+  color: var(--text-sub);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.exec-pill-match-mode.active {
+  background: var(--brand-forest);
+  color: #ffffff;
+}
+
+.exec-condition-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.6rem;
+  background: var(--bg-surface-secondary, rgba(0, 0, 0, 0.02));
+  border: 1px solid var(--border-light, #e2e8f0);
+  border-radius: var(--radius-md, 6px);
+  flex-wrap: wrap;
+}
+
+.exec-condition-connector {
+  font-size: var(--text-2xs);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--brand-forest);
+  min-width: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem 0.35rem;
+  background: rgba(12, 92, 63, 0.08);
+  border-radius: 4px;
+}
+
+.exec-condition-connector.initial {
+  color: var(--text-main);
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.btn-remove-cond {
+  color: var(--color-danger, #ef4444);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background 0.15s ease;
+}
+
+.btn-remove-cond:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.record-business-fields {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  margin-top: 0.3rem;
+}
+
 .exec-preview-counts-bar {
   display: flex;
   flex-wrap: wrap;

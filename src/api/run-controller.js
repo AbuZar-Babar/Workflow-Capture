@@ -626,18 +626,47 @@ function deleteDownload(req, res, downloadId) {
 }
 
 /**
- * Export all downloads as a consolidated ZIP archive
- * GET /api/downloads/export
+ * Export all downloads or run-specific downloads as a consolidated ZIP archive
+ * GET /api/downloads/export[?runId=...]
  */
-function exportAllDownloadsZip(req, res) {
-  const downloadsDir = path.resolve(process.cwd(), 'downloads');
-  const runDir = path.resolve(process.cwd(), 'Run');
-  const targetDirs = [];
-  if (fs.existsSync(runDir)) targetDirs.push('Run');
-  if (fs.existsSync(downloadsDir)) targetDirs.push('downloads');
+function exportAllDownloadsZip(req, res, runIdParam = null) {
+  const urlObj = req.url ? new URL(req.url, 'http://localhost') : null;
+  const runId = runIdParam || urlObj?.searchParams.get('runId') || null;
+
+  let targetDirs = [];
+  let zipFilename = 'workflow-artifacts.zip';
+
+  if (runId) {
+    zipFilename = `run-${runId}-artifacts.zip`;
+    const candidateRunPaths = [
+      path.join('runs', runId),
+      path.join('Run', runId),
+      path.join('downloads', runId)
+    ];
+    for (const p of candidateRunPaths) {
+      if (fs.existsSync(path.resolve(process.cwd(), p))) {
+        targetDirs.push(p);
+      }
+    }
+
+    const downloads = db.find('downloads', d => d.runId === runId);
+    for (const d of downloads) {
+      const rel = d.runPath || d.relativeFilePath || d.filePath;
+      if (rel && fs.existsSync(path.resolve(process.cwd(), rel)) && !targetDirs.includes(rel)) {
+        targetDirs.push(rel);
+      }
+    }
+  }
 
   if (targetDirs.length === 0) {
-    return sendJson(res, 404, { error: 'No downloads directory found' });
+    const downloadsDir = path.resolve(process.cwd(), 'downloads');
+    const runDir = path.resolve(process.cwd(), 'Run');
+    if (fs.existsSync(runDir)) targetDirs.push('Run');
+    if (fs.existsSync(downloadsDir)) targetDirs.push('downloads');
+  }
+
+  if (targetDirs.length === 0) {
+    return sendJson(res, 404, { error: 'No downloads directory or artifacts found' });
   }
 
   const recordingsDir = path.resolve(process.cwd(), 'recordings');
@@ -657,7 +686,7 @@ function exportAllDownloadsZip(req, res) {
       const stat = fs.statSync(tempZipPath);
       res.writeHead(200, {
         'Content-Type': 'application/zip',
-        'Content-Disposition': 'attachment; filename="workflow-artifacts.zip"',
+        'Content-Disposition': `attachment; filename="${zipFilename}"`,
         'Content-Length': stat.size
       });
 

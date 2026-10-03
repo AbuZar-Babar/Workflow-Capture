@@ -36,9 +36,13 @@ export const ExecutionModal = {
   discoveryData: null,
   availableFields: [],
   filterEnabled: false,
+  matchMode: 'all', // 'all' | 'any'
+  filterConditions: [
+    { id: 1, field: '', operator: 'contains', value: '', dateFrom: '', dateTo: '' }
+  ],
   filterField: '',
   customFieldName: '',
-  filterOperator: 'contains', // 'contains' | 'equals'
+  filterOperator: 'contains', // 'contains' | 'equals' | 'dateBetween'
   filterValue: '',
   filterPreview: {
     totalCount: 0,
@@ -165,6 +169,10 @@ export const ExecutionModal = {
     this.discoveryData = null;
     this.availableFields = [];
     this.filterEnabled = false;
+    this.matchMode = 'all';
+    this.filterConditions = [
+      { id: 1, field: '', operator: 'contains', value: '', dateFrom: '', dateTo: '' }
+    ];
     this.filterField = '';
     this.customFieldName = '';
     this.filterOperator = 'contains';
@@ -390,6 +398,112 @@ export const ExecutionModal = {
     this.updateExecuteButton();
   },
 
+  syncPrimaryCondition() {
+    if (this.filterConditions && this.filterConditions.length > 0) {
+      const first = this.filterConditions[0];
+      this.filterField = first.field;
+      this.filterOperator = first.operator;
+      this.filterValue = first.operator === 'dateBetween' ? `${first.dateFrom || ''}..${first.dateTo || ''}` : (first.value || '');
+    }
+  },
+
+  renderConditionRows() {
+    const hasFields = this.availableFields.length > 0;
+    return (this.filterConditions || []).map((cond, idx) => {
+      const isFirst = idx === 0;
+      const connectorText = isFirst ? 'Where' : (this.matchMode === 'all' ? 'AND' : 'OR');
+      const currentField = cond.field || (this.availableFields[0] || 'Field');
+      const detectedValues = this.getValuesForField(currentField);
+      const isDate = this.isDateField(currentField, detectedValues);
+      const isDateBetween = cond.operator === 'dateBetween';
+
+      return `
+        <div class="exec-condition-row" data-cond-index="${idx}">
+          <span class="exec-condition-connector ${isFirst ? 'initial' : ''}">${connectorText}</span>
+
+          <!-- Field selector -->
+          <div style="flex:1; min-width:140px;">
+            ${hasFields ? `
+              <select class="exec-control-select exec-cond-field-select" data-cond-index="${idx}" style="font-size:0.78rem; width:100%;">
+                ${this.availableFields.map(f => `<option value="${escapeHtml(f)}" ${f.toLowerCase() === currentField.toLowerCase() ? 'selected' : ''}>${escapeHtml(f)}</option>`).join('')}
+                <option value="__custom__" ${cond.field === '__custom__' ? 'selected' : ''}>Custom field…</option>
+              </select>
+            ` : `
+              <input type="text" class="exec-control-input exec-cond-field-input" data-cond-index="${idx}" value="${escapeHtml(currentField)}" placeholder="Field name" style="font-size:0.78rem; width:100%;">
+            `}
+          </div>
+
+          <!-- Operator selector -->
+          <div style="flex:0 0 130px;">
+            <select class="exec-control-select exec-cond-operator-select" data-cond-index="${idx}" style="font-size:0.78rem; width:100%;">
+              <option value="contains" ${cond.operator === 'contains' ? 'selected' : ''}>contains</option>
+              <option value="equals" ${cond.operator === 'equals' ? 'selected' : ''}>equals</option>
+              <option value="dateBetween" ${cond.operator === 'dateBetween' ? 'selected' : ''}>date between</option>
+            </select>
+          </div>
+
+          <!-- Value input(s) -->
+          <div style="flex:1.2; min-width:160px; display:flex; align-items:center; gap:0.35rem;">
+            ${isDateBetween ? `
+              <input type="date" class="exec-control-input exec-cond-date-from" data-cond-index="${idx}" value="${escapeHtml(this.normalizeDateValue(cond.dateFrom || ''))}" title="From date" style="font-size:0.75rem; flex:1;">
+              <span style="font-size:var(--text-2xs); color:var(--text-sub);">to</span>
+              <input type="date" class="exec-control-input exec-cond-date-to" data-cond-index="${idx}" value="${escapeHtml(this.normalizeDateValue(cond.dateTo || ''))}" title="To date" style="font-size:0.75rem; flex:1;">
+            ` : (isDate ? `
+              <input type="date" class="exec-control-input exec-cond-val-input" data-cond-index="${idx}" value="${escapeHtml(this.normalizeDateValue(cond.value || ''))}" placeholder="YYYY-MM-DD" style="font-size:0.78rem; width:100%;">
+            ` : `
+              <input type="text" class="exec-control-input exec-cond-val-input" data-cond-index="${idx}" value="${escapeHtml(cond.value || '')}" placeholder="Match value…" style="font-size:0.78rem; width:100%;">
+            `)}
+          </div>
+
+          <!-- Remove button -->
+          ${this.filterConditions.length > 1 ? `
+            <button type="button" class="btn-remove-cond" data-cond-index="${idx}" title="Remove rule #${idx + 1}" aria-label="Remove condition">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
+  },
+
+  buildItemFilterPayload() {
+    if (!this.filterEnabled || !this.filterConditions || !this.filterConditions.length) {
+      return null;
+    }
+    const conditions = [];
+    for (const cond of this.filterConditions) {
+      const field = (cond.field === '__custom__' ? this.customFieldName : cond.field).trim();
+      if (!field) continue;
+      const op = cond.operator || 'contains';
+      let val = cond.value;
+      if (op === 'dateBetween') {
+        const from = this.normalizeDateValue(cond.dateFrom || '1970-01-01');
+        const to = this.normalizeDateValue(cond.dateTo || '2099-12-31');
+        val = { from, to };
+      } else if (this.isDateField(field, this.getValuesForField(field))) {
+        val = this.normalizeDateValue(cond.value);
+      } else {
+        val = String(cond.value || '').trim();
+      }
+      conditions.push({ field, operator: op, value: val });
+    }
+
+    if (conditions.length === 0) return null;
+
+    const payload = {
+      matchMode: this.matchMode || 'all',
+      conditions
+    };
+
+    if (conditions.length === 1) {
+      payload.field = conditions[0].field;
+      payload.operator = conditions[0].operator;
+      payload.value = conditions[0].value;
+    }
+
+    return payload;
+  },
+
   renderPreflightContent() {
     if (this.preflightStatus === 'loading') {
       return `
@@ -486,11 +600,11 @@ export const ExecutionModal = {
           <!-- Filter Condition Controls (visible when filter is enabled) -->
           <div id="execFilterControlsWrapper" style="display:${this.filterEnabled ? 'flex' : 'none'}; flex-direction:column; gap:0.65rem;">
 
-            <!-- Section 2a: Which column or field to fetch? -->
+            <!-- Section 2a: Quick Column / Field Pills -->
             <div style="display:flex; flex-direction:column; gap:0.25rem;">
               <div style="display:flex; align-items:center; justify-content:space-between;">
                 <label style="font-size:0.75rem; font-weight:700; color:var(--text-main);">
-                  📋 Which column or field to fetch / filter on?
+                  📋 Quick Pick: Discovered Columns
                 </label>
                 <span style="font-size:var(--text-2xs); color:var(--text-sub);">${this.availableFields.length} detected</span>
               </div>
@@ -513,15 +627,15 @@ export const ExecutionModal = {
               <div class="exec-smart-date-box" style="margin-top:0.15rem;">
                 <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.35rem;">
                   <span style="font-size:0.75rem; font-weight:800; color:var(--text-main); display:flex; align-items:center; gap:0.35rem;">
-                    <span>📅 Smart Date &amp; Lifecycle Logic for &ldquo;${escapeHtml(currentField)}&rdquo;:</span>
+                    <span>📅 Quick Date Filter for &ldquo;${escapeHtml(currentField)}&rdquo;:</span>
                   </span>
                   <span style="font-size:var(--text-2xs); color:var(--brand-forest); font-weight:700;">Live Runtime Filtering</span>
                 </div>
                 <div class="exec-pill-group" id="execSmartDatePills">
-                  <button type="button" class="exec-pill exec-pill-smart-date ${this.filterEnabled && this.filterOperator === '<=' && (this.filterValue === 'today' || this.isTodayValue(this.filterValue)) ? 'active' : ''}" data-action="overdue" title="Due date has passed (Due Date <= Today)">
+                  <button type="button" class="exec-pill exec-pill-smart-date ${this.filterEnabled && this.filterConditions[0]?.operator === 'dateBetween' && this.filterConditions[0]?.dateTo === this.normalizeDateValue('today') ? 'active' : ''}" data-action="overdue" title="Due date has passed (Due Date <= Today)">
                     🔴 Overdue (on or before today)
                   </button>
-                  <button type="button" class="exec-pill exec-pill-smart-date ${this.filterEnabled && this.filterOperator === '>=' && (this.filterValue === 'today' || this.isTodayValue(this.filterValue)) ? 'active' : ''}" data-action="upcoming" title="Due date has not arrived yet (Due Date >= Today)">
+                  <button type="button" class="exec-pill exec-pill-smart-date ${this.filterEnabled && this.filterConditions[0]?.operator === 'dateBetween' && this.filterConditions[0]?.dateFrom === this.normalizeDateValue('today') ? 'active' : ''}" data-action="upcoming" title="Due date has not arrived yet (Due Date >= Today)">
                     🟢 Upcoming (after today)
                   </button>
                   <button type="button" class="exec-pill exec-pill-smart-date ${this.itemMode === 'old' ? 'active' : ''}" data-action="in_folder" title="Process only items already downloaded in folder">
@@ -534,7 +648,7 @@ export const ExecutionModal = {
               </div>
             ` : ''}
 
-            <!-- Section 2c: Which value or option to fetch? -->
+            <!-- Section 2c: Quick Detected Options for current field -->
             ${detectedValues.length > 0 ? `
               <div style="display:flex; flex-direction:column; gap:0.25rem; margin-top:0.15rem;">
                 <div style="display:flex; align-items:center; justify-content:space-between;">
@@ -545,7 +659,7 @@ export const ExecutionModal = {
                 </div>
                 <div class="exec-pill-group" id="execValuePills">
                   ${detectedValues.map(v => `
-                    <button type="button" class="exec-pill exec-pill-val ${this.filterEnabled && this.filterValue.toLowerCase() === v.toLowerCase() ? 'active' : ''}" data-value="${escapeHtml(v)}" title="Filter by '${escapeHtml(v)}'">
+                    <button type="button" class="exec-pill exec-pill-val ${this.filterEnabled && (this.filterConditions[0]?.value || '').toLowerCase() === v.toLowerCase() ? 'active' : ''}" data-value="${escapeHtml(v)}" title="Filter by '${escapeHtml(v)}'">
                       ${escapeHtml(v)}
                     </button>
                   `).join('')}
@@ -553,67 +667,43 @@ export const ExecutionModal = {
                     Fetch All
                   </button>
                 </div>
-                ${isDateField && this.filterEnabled && this.filterValue && this.filterValue !== 'today' && this.isDateString(this.filterValue) ? `
-                  <div style="display:flex; align-items:center; flex-wrap:wrap; gap:0.4rem; padding:0.35rem 0.6rem; background:rgba(0,0,0,0.03); border-radius:6px; font-size:0.72rem; margin-top:0.25rem;">
-                    <span style="color:var(--text-sub); font-weight:700;">Condition for &ldquo;${escapeHtml(this.filterValue)}&rdquo;:</span>
-                    <button type="button" class="exec-pill exec-pill-date-op ${this.filterOperator === '<=' ? 'active' : ''}" data-op="<=" title="Due date is on or before ${escapeHtml(this.filterValue)}">
-                      📅 Overdue (on or before ${escapeHtml(this.filterValue)})
-                    </button>
-                    <button type="button" class="exec-pill exec-pill-date-op ${this.filterOperator === '>=' ? 'active' : ''}" data-op=">=" title="Due date is on or after ${escapeHtml(this.filterValue)}">
-                      📅 Upcoming (on or after ${escapeHtml(this.filterValue)})
-                    </button>
-                    <button type="button" class="exec-pill exec-pill-date-op ${this.filterOperator === 'equals' ? 'active' : ''}" data-op="equals" title="Exact match on ${escapeHtml(this.filterValue)}">
-                      🎯 Exact (= ${escapeHtml(this.filterValue)})
-                    </button>
-                  </div>
-                ` : ''}
               </div>
             ` : ''}
 
-            <div class="exec-filter-inputs-grid">
-
-              <!-- Field Selector -->
-              <div class="exec-field-group">
-                <label for="execFilterFieldSelect">Target Field</label>
-                ${hasFields ? `
-                  <select id="execFilterFieldSelect" class="exec-control-select">
-                    ${this.availableFields.map(f => `<option value="${escapeHtml(f)}" ${f.toLowerCase() === currentField.toLowerCase() ? 'selected' : ''}>${escapeHtml(f)}</option>`).join('')}
-                    <option value="__custom__" ${this.filterField === '__custom__' ? 'selected' : ''}>Custom field…</option>
-                  </select>
-                ` : `
-                  <input type="text" id="execFilterCustomField" class="exec-control-input" value="${escapeHtml(currentField)}" placeholder="e.g. Type, Status…">
-                `}
+            <!-- Section 2d: Natural Language Filter Condition Rules -->
+            <div class="exec-filter-rules-container" style="display:flex; flex-direction:column; gap:0.45rem; margin-top:0.25rem;">
+              <div class="exec-filter-rules-header">
+                <div style="display:flex; align-items:center; gap:0.45rem;">
+                  <span style="font-size:0.75rem; font-weight:700; color:var(--text-main);">Match Condition:</span>
+                  <div class="btn-group" role="group" style="display:inline-flex; border:1px solid var(--border-light); border-radius:var(--radius-pill); overflow:hidden; background:var(--bg-surface);">
+                    <button type="button" class="exec-pill-match-mode ${this.matchMode === 'all' ? 'active' : ''}" data-mode="all" title="All conditions must match (AND)">
+                      ALL rules (AND)
+                    </button>
+                    <button type="button" class="exec-pill-match-mode ${this.matchMode === 'any' ? 'active' : ''}" data-mode="any" title="Any condition may match (OR)">
+                      ANY rule (OR)
+                    </button>
+                  </div>
+                </div>
+                <button type="button" class="btn btn-secondary btn-xs" id="btnAddFilterRule" style="font-size:var(--text-2xs); padding:0.2rem 0.6rem; display:inline-flex; align-items:center; gap:0.3rem;">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                  <span>Add Rule</span>
+                </button>
               </div>
 
-              <!-- Operator Selector -->
-              <div class="exec-field-group">
-                <label for="execFilterOperatorSelect">Operator</label>
-                <select id="execFilterOperatorSelect" class="exec-control-select">
-                  <option value="contains" ${this.filterOperator === 'contains' ? 'selected' : ''}>contains</option>
-                  <option value="equals" ${this.filterOperator === 'equals' ? 'selected' : ''}>equals</option>
-                  <option value="<=" ${this.filterOperator === '<=' ? 'selected' : ''}>&lt;= (On or before)</option>
-                  <option value=">=" ${this.filterOperator === '>=' ? 'selected' : ''}>&gt;= (On or after)</option>
-                  <option value="<" ${this.filterOperator === '<' ? 'selected' : ''}>&lt; (before or &lt;)</option>
-                  <option value=">" ${this.filterOperator === '>' ? 'selected' : ''}>&gt; (after or &gt;)</option>
-                </select>
-              </div>
-
-              <!-- Value Input -->
-              <div class="exec-field-group">
-                <label for="execFilterValueInput">Match Value</label>
-                <input type="${isDateField ? 'date' : 'text'}" id="execFilterValueInput" class="exec-control-input" value="${escapeHtml(isDateField ? this.normalizeDateValue(this.filterValue) : this.filterValue)}" placeholder="${isDateField ? 'YYYY-MM-DD' : 'e.g. Invoice, Paid, or text…'}">
+              <div class="exec-filter-rules-list" id="execFilterRulesList">
+                ${this.renderConditionRows()}
               </div>
             </div>
 
-            <!-- Custom field name input if '__custom__' selected with available fields -->
-            <div id="execCustomFieldContainer" style="display:${this.filterField === '__custom__' ? 'flex' : 'none'}; flex-direction:column; gap:0.25rem;">
+            <!-- Custom field name input if '__custom__' selected -->
+            <div id="execCustomFieldContainer" style="display:${this.filterConditions.some(c => c.field === '__custom__') || this.filterField === '__custom__' ? 'flex' : 'none'}; flex-direction:column; gap:0.25rem;">
               <label for="execFilterCustomFieldInput" style="font-size:0.7rem; font-weight:700; color:var(--text-sub);">Custom Column / Field Name</label>
               <input type="text" id="execFilterCustomFieldInput" class="exec-control-input" value="${escapeHtml(this.customFieldName)}" placeholder="Enter exact column name...">
             </div>
 
             <!-- Explanatory rule text -->
             <p class="exec-filter-rule-explainer" id="execFilterExplanation">
-              ${this.renderFilterExplanation(currentField, isDateField)}
+              ${this.renderFilterExplanation()}
             </p>
           </div>
 
@@ -890,10 +980,25 @@ export const ExecutionModal = {
 
         const activeFieldName = fieldName === '__custom__' ? this.customFieldName : fieldName;
         const values = this.getValuesForField(activeFieldName);
-        if (values && values.length > 0) {
-          this.filterValue = values[0];
-          this.filterEnabled = true;
+        const firstVal = (values && values.length > 0) ? values[0] : '';
+        const isDate = this.isDateField(activeFieldName, values);
+
+        if (!this.filterConditions.length) {
+          this.filterConditions = [{
+            id: Date.now(),
+            field: activeFieldName,
+            operator: isDate ? 'dateBetween' : 'contains',
+            value: firstVal,
+            dateFrom: isDate ? this.normalizeDateValue('today') : '',
+            dateTo: isDate ? this.normalizeDateValue('today') : ''
+          }];
+        } else {
+          this.filterConditions[0].field = activeFieldName;
+          if (firstVal && !this.filterConditions[0].value) {
+            this.filterConditions[0].value = firstVal;
+          }
         }
+        this.syncPrimaryCondition();
 
         if (this.discoveryData) {
           this.discoveryData.filterPreview = null;
@@ -916,14 +1021,26 @@ export const ExecutionModal = {
 
         if (action === 'overdue') {
           this.filterEnabled = true;
-          this.filterField = currentField;
-          this.filterOperator = '<=';
-          this.filterValue = this.normalizeDateValue('today');
+          this.filterConditions = [{
+            id: Date.now(),
+            field: currentField,
+            operator: 'dateBetween',
+            value: '',
+            dateFrom: '1970-01-01',
+            dateTo: this.normalizeDateValue('today')
+          }];
+          this.syncPrimaryCondition();
         } else if (action === 'upcoming') {
           this.filterEnabled = true;
-          this.filterField = currentField;
-          this.filterOperator = '>=';
-          this.filterValue = this.normalizeDateValue('today');
+          this.filterConditions = [{
+            id: Date.now(),
+            field: currentField,
+            operator: 'dateBetween',
+            value: '',
+            dateFrom: this.normalizeDateValue('today'),
+            dateTo: '2099-12-31'
+          }];
+          this.syncPrimaryCondition();
         } else if (action === 'in_folder') {
           this.itemMode = 'old';
           const r = this.container.querySelector('input[name="execDataModeRadio"][value="old"]');
@@ -946,17 +1063,6 @@ export const ExecutionModal = {
       };
     });
 
-    // Quick Date Operator Pills (<=, >=, equals)
-    const dateOpPills = preflightContainer.querySelectorAll('.exec-pill-date-op');
-    dateOpPills.forEach(pill => {
-      pill.onclick = () => {
-        this.filterOperator = pill.dataset.op;
-        preflightContainer.innerHTML = this.renderPreflightContent();
-        this.bindPreflightEvents();
-        this.evaluateFilterPreview();
-      };
-    });
-
     // Interactive Option / Value Pills
     const valPills = preflightContainer.querySelectorAll('.exec-pill-val');
     valPills.forEach(pill => {
@@ -966,17 +1072,29 @@ export const ExecutionModal = {
           this.filterEnabled = false;
         } else {
           this.filterEnabled = true;
-          this.filterValue = val;
           const hasFields = this.availableFields.length > 0;
           const isCustomField = this.filterField === '__custom__' || (!hasFields && !!this.filterField);
           const currentField = isCustomField ? (this.customFieldName || this.filterField || (this.availableFields[0] || 'Field')) : (this.filterField || (this.availableFields[0] || 'Field'));
-          const isDate = this.isDateField(currentField, this.getValuesForField(currentField));
-          if (isDate && (this.filterOperator === 'contains' || !this.filterOperator)) {
-            this.filterOperator = '<=';
+
+          if (!this.filterConditions.length) {
+            this.filterConditions = [{
+              id: Date.now(),
+              field: currentField,
+              operator: 'contains',
+              value: val,
+              dateFrom: '',
+              dateTo: ''
+            }];
+          } else {
+            this.filterConditions[0].field = currentField;
+            this.filterConditions[0].value = val;
+            this.filterConditions[0].operator = 'contains';
           }
+          this.syncPrimaryCondition();
+
           // If specific clicked item is already downloaded and itemMode is 'new', auto-enable forceRedownload
           const items = Array.isArray(this.discoveryData?.discovery?.items) ? this.discoveryData.discovery.items : [];
-          const activeField = (this.filterField === '__custom__' ? this.customFieldName : this.filterField).trim();
+          const activeField = currentField.trim();
           const targetItem = items.find(it => {
             const ext = this.extractFieldValue(it, activeField);
             return ext.found && String(ext.value).toLowerCase() === val.toLowerCase();
@@ -1009,36 +1127,46 @@ export const ExecutionModal = {
       };
     });
 
-    // Field Selector
-    const fieldSelect = preflightContainer.querySelector('#execFilterFieldSelect');
-    const customFieldWrapper = preflightContainer.querySelector('#execCustomFieldContainer');
-    const customFieldInput = preflightContainer.querySelector('#execFilterCustomFieldInput');
-    const standaloneCustomField = preflightContainer.querySelector('#execFilterCustomField');
+    // Match Mode Toggle Buttons (ALL vs ANY)
+    const matchModePills = preflightContainer.querySelectorAll('.exec-pill-match-mode');
+    matchModePills.forEach(pill => {
+      pill.onclick = () => {
+        this.matchMode = pill.dataset.mode;
+        matchModePills.forEach(p => p.classList.toggle('active', p === pill));
+        const list = preflightContainer.querySelector('#execFilterRulesList');
+        if (list) {
+          list.innerHTML = this.renderConditionRows();
+          this.bindRuleRowEvents(preflightContainer);
+        }
+        this.evaluateFilterPreview();
+      };
+    });
 
-    if (fieldSelect) {
-      fieldSelect.onchange = () => {
-        this.filterField = fieldSelect.value;
-        if (this.discoveryData) {
-          this.discoveryData.filterPreview = null;
+    // Add Rule Button
+    const btnAddRule = preflightContainer.querySelector('#btnAddFilterRule');
+    if (btnAddRule) {
+      btnAddRule.onclick = () => {
+        const nextField = this.availableFields[0] || '';
+        this.filterConditions.push({
+          id: Date.now(),
+          field: nextField,
+          operator: 'contains',
+          value: '',
+          dateFrom: '',
+          dateTo: ''
+        });
+        this.syncPrimaryCondition();
+        const list = preflightContainer.querySelector('#execFilterRulesList');
+        if (list) {
+          list.innerHTML = this.renderConditionRows();
+          this.bindRuleRowEvents(preflightContainer);
         }
-        if (this.filterField === '__custom__') {
-          if (customFieldWrapper) customFieldWrapper.style.display = 'flex';
-          this.customFieldName = customFieldInput?.value.trim() || '';
-        } else {
-          if (customFieldWrapper) customFieldWrapper.style.display = 'none';
-        }
-        const activeFieldName = this.filterField === '__custom__' ? this.customFieldName : this.filterField;
-        const values = this.getValuesForField(activeFieldName);
-        if (values && values.length > 0) {
-          this.filterValue = values[0];
-          this.filterEnabled = true;
-        }
-        preflightContainer.innerHTML = this.renderPreflightContent();
-        this.bindPreflightEvents();
         this.evaluateFilterPreview();
       };
     }
 
+    // Custom field name input
+    const customFieldInput = preflightContainer.querySelector('#execFilterCustomFieldInput');
     if (customFieldInput) {
       customFieldInput.oninput = () => {
         this.customFieldName = customFieldInput.value;
@@ -1047,45 +1175,123 @@ export const ExecutionModal = {
       };
     }
 
-    if (standaloneCustomField) {
-      standaloneCustomField.oninput = () => {
-        this.filterField = standaloneCustomField.value;
-        if (this.discoveryData) this.discoveryData.filterPreview = null;
-        this.evaluateFilterPreview();
-      };
-    }
+    this.bindRuleRowEvents(preflightContainer);
+  },
 
-    // Operator Selector
-    const operatorSelect = preflightContainer.querySelector('#execFilterOperatorSelect');
-    if (operatorSelect) {
-      operatorSelect.onchange = () => {
-        this.filterOperator = operatorSelect.value;
-        if (this.discoveryData) this.discoveryData.filterPreview = null;
-        this.evaluateFilterPreview();
-      };
-    }
+  bindRuleRowEvents(preflightContainer) {
+    if (!preflightContainer) return;
 
-    // Value Input
-    const valInput = preflightContainer.querySelector('#execFilterValueInput');
-    if (valInput) {
-      valInput.oninput = () => {
-        let val = valInput.value;
-        const currentField = (this.filterField === '__custom__' ? this.customFieldName : this.filterField).trim();
-        if (this.isDateField(currentField, this.getValuesForField(currentField))) {
-          val = this.normalizeDateValue(val);
-        }
-        this.filterValue = val;
-        if (this.discoveryData) this.discoveryData.filterPreview = null;
-        const pills = preflightContainer.querySelectorAll('.exec-pill-val');
-        pills.forEach(p => {
-          const pVal = p.dataset.value;
-          if (pVal !== '__all__') {
-            p.classList.toggle('active', pVal.toLowerCase() === this.filterValue.trim().toLowerCase());
+    // Remove Condition Buttons
+    const removeBtns = preflightContainer.querySelectorAll('.btn-remove-cond');
+    removeBtns.forEach(btn => {
+      btn.onclick = () => {
+        const idx = parseInt(btn.dataset.condIndex, 10);
+        if (Number.isInteger(idx) && this.filterConditions[idx]) {
+          this.filterConditions.splice(idx, 1);
+          if (!this.filterConditions.length) {
+            this.filterConditions = [{
+              id: Date.now(),
+              field: this.availableFields[0] || '',
+              operator: 'contains',
+              value: '',
+              dateFrom: '',
+              dateTo: ''
+            }];
           }
-        });
-        this.evaluateFilterPreview();
+          this.syncPrimaryCondition();
+          const list = preflightContainer.querySelector('#execFilterRulesList');
+          if (list) {
+            list.innerHTML = this.renderConditionRows();
+            this.bindRuleRowEvents(preflightContainer);
+          }
+          this.evaluateFilterPreview();
+        }
       };
-    }
+    });
+
+    // Condition Field Selects
+    const fieldSelects = preflightContainer.querySelectorAll('.exec-cond-field-select, .exec-cond-field-input');
+    fieldSelects.forEach(el => {
+      const handler = () => {
+        const idx = parseInt(el.dataset.condIndex, 10);
+        if (Number.isInteger(idx) && this.filterConditions[idx]) {
+          this.filterConditions[idx].field = el.value;
+          if (idx === 0) this.syncPrimaryCondition();
+          const isDate = this.isDateField(el.value, this.getValuesForField(el.value));
+          if (isDate && this.filterConditions[idx].operator === 'contains') {
+            this.filterConditions[idx].operator = 'dateBetween';
+            const list = preflightContainer.querySelector('#execFilterRulesList');
+            if (list) {
+              list.innerHTML = this.renderConditionRows();
+              this.bindRuleRowEvents(preflightContainer);
+            }
+          }
+          this.evaluateFilterPreview();
+        }
+      };
+      el.onchange = handler;
+      el.oninput = handler;
+    });
+
+    // Condition Operator Selects
+    const opSelects = preflightContainer.querySelectorAll('.exec-cond-operator-select');
+    opSelects.forEach(el => {
+      el.onchange = () => {
+        const idx = parseInt(el.dataset.condIndex, 10);
+        if (Number.isInteger(idx) && this.filterConditions[idx]) {
+          this.filterConditions[idx].operator = el.value;
+          if (idx === 0) this.syncPrimaryCondition();
+          const list = preflightContainer.querySelector('#execFilterRulesList');
+          if (list) {
+            list.innerHTML = this.renderConditionRows();
+            this.bindRuleRowEvents(preflightContainer);
+          }
+          this.evaluateFilterPreview();
+        }
+      };
+    });
+
+    // Condition Value Inputs
+    const valInputs = preflightContainer.querySelectorAll('.exec-cond-val-input');
+    valInputs.forEach(el => {
+      el.oninput = () => {
+        const idx = parseInt(el.dataset.condIndex, 10);
+        if (Number.isInteger(idx) && this.filterConditions[idx]) {
+          this.filterConditions[idx].value = el.value;
+          if (idx === 0) this.syncPrimaryCondition();
+          this.evaluateFilterPreview();
+        }
+      };
+    });
+
+    // Condition Date Range Inputs
+    const dateFromInputs = preflightContainer.querySelectorAll('.exec-cond-date-from');
+    dateFromInputs.forEach(el => {
+      const handler = () => {
+        const idx = parseInt(el.dataset.condIndex, 10);
+        if (Number.isInteger(idx) && this.filterConditions[idx]) {
+          this.filterConditions[idx].dateFrom = el.value;
+          if (idx === 0) this.syncPrimaryCondition();
+          this.evaluateFilterPreview();
+        }
+      };
+      el.oninput = handler;
+      el.onchange = handler;
+    });
+
+    const dateToInputs = preflightContainer.querySelectorAll('.exec-cond-date-to');
+    dateToInputs.forEach(el => {
+      const handler = () => {
+        const idx = parseInt(el.dataset.condIndex, 10);
+        if (Number.isInteger(idx) && this.filterConditions[idx]) {
+          this.filterConditions[idx].dateTo = el.value;
+          if (idx === 0) this.syncPrimaryCondition();
+          this.evaluateFilterPreview();
+        }
+      };
+      el.oninput = handler;
+      el.onchange = handler;
+    });
   },
 
   async runPreflight() {
@@ -1380,23 +1586,23 @@ export const ExecutionModal = {
     return items.filter(it => it.isDownloaded).length;
   },
 
-  renderFilterExplanation(currentField, isDateField) {
+  renderFilterExplanation() {
     if (!this.filterEnabled) {
       return `⚡ All discovered items will be processed sequentially (no filter).`;
     }
-    const op = this.filterOperator;
-    const val = this.filterValue;
-    if (isDateField) {
-      if (op === '<=') {
-        const desc = val === 'today' ? 'today (overdue)' : `"${val}" (on or before)`;
-        return `⚡ Loop will inspect each item: only rows where <strong style="color:var(--brand-forest);">${escapeHtml(currentField)} &le; ${escapeHtml(desc)}</strong> will execute. Other rows are skipped.`;
-      }
-      if (op === '>=') {
-        const desc = val === 'today' ? 'today (upcoming)' : `"${val}" (on or after)`;
-        return `⚡ Loop will inspect each item: only rows where <strong style="color:var(--brand-forest);">${escapeHtml(currentField)} &ge; ${escapeHtml(desc)}</strong> will execute. Other rows are skipped.`;
-      }
+    const conditions = this.filterConditions || [];
+    if (!conditions.length) {
+      return `⚡ No rules configured.`;
     }
-    return `⚡ Loop will inspect each item: only rows where <strong style="color:var(--brand-forest);">${escapeHtml(currentField)} ${escapeHtml(this.filterOperator)} "${escapeHtml(this.filterValue)}"</strong> will execute. Other rows are skipped.`;
+    const mode = (this.matchMode === 'any') ? 'ANY' : 'ALL';
+    const ruleDescs = conditions.map((c) => {
+      const field = (c.field === '__custom__' ? this.customFieldName : c.field).trim() || 'Field';
+      if (c.operator === 'dateBetween') {
+        return `[${field} between ${c.dateFrom || '...'} and ${c.dateTo || '...'}]`;
+      }
+      return `[${field} ${c.operator} "${c.value || '...'}"]`;
+    });
+    return `⚡ Loop will execute on items matching <strong>${mode}</strong> of the following rules: ${escapeHtml(ruleDescs.join(this.matchMode === 'any' ? ' OR ' : ' AND '))}. Other rows are skipped.`;
   },
 
   updateDataModeStyles() {
@@ -1462,23 +1668,32 @@ export const ExecutionModal = {
       return;
     }
 
-    const field = (this.filterField === '__custom__' ? this.customFieldName : this.filterField).trim();
-    const value = this.filterValue.trim();
-    const operator = this.filterOperator || 'contains';
     const errors = [];
+    const conditions = this.filterConditions || [];
 
-    if (!field) {
-      errors.push('Filter field is required');
+    if (!conditions.length) {
+      errors.push('At least one filter condition is required');
     }
-    if (!value && value !== '0') {
-      errors.push('Filter value is required');
-    }
-    if (this.availableFields.length > 0 && field && !this.availableFields.some(f => f.toLowerCase() === field.toLowerCase())) {
-      errors.push(`Field "${field}" not found in discovered fields (${this.availableFields.join(', ')})`);
-    }
-    const validOps = ['contains', 'equals', '<=', '>=', '<', '>', 'before', 'after', 'starts_with', 'ends_with'];
-    if (!validOps.includes(operator)) {
-      errors.push(`Unsupported operator "${operator}". Use contains, equals, <=, >=, <, or >.`);
+
+    for (let i = 0; i < conditions.length; i++) {
+      const cond = conditions[i];
+      const field = (cond.field === '__custom__' ? this.customFieldName : cond.field).trim();
+      const op = cond.operator || 'contains';
+      if (!field) {
+        errors.push(`Rule #${i + 1}: Filter field is required`);
+      }
+      if (op === 'dateBetween') {
+        const from = this.normalizeDateValue(cond.dateFrom);
+        const to = this.normalizeDateValue(cond.dateTo);
+        if (!from || !to) {
+          errors.push(`Rule #${i + 1}: Both "From" and "To" dates are required`);
+        }
+      } else {
+        const val = String(cond.value ?? '').trim();
+        if (!val && val !== '0') {
+          errors.push(`Rule #${i + 1}: Match value is required`);
+        }
+      }
     }
 
     if (errors.length > 0) {
@@ -1494,109 +1709,80 @@ export const ExecutionModal = {
       return;
     }
 
-    // Client-side pure evaluation across discovered items matching shared filter contract
     const selectedList = [];
     const skippedList = [];
-    const normTargetVal = value.toLowerCase();
-
-    // Check if at least one item provides the configured field
-    const anyItemHasField = items.some(it => this.extractFieldValue(it, field).found);
-    if (items.length > 0 && !anyItemHasField) {
-      errors.push(`Configured field "${field}" was not found on any discovered items.`);
-    }
+    const matchMode = this.matchMode || 'all';
 
     items.forEach((item, idx) => {
       const itemIndex = idx + 1;
       const label = this.getItemLabel(item, itemIndex);
-      const extracted = this.extractFieldValue(item, field);
 
-      if (!extracted.found) {
-        // Individual item lacking the configured field (e.g. summary or footer row) simply does not match
-        skippedList.push({
-          index: itemIndex,
-          label,
-          field,
-          fieldValue: undefined,
-          reason: `Field "${field}" not found on item`,
-          raw: item
-        });
-        return;
-      }
+      const condResults = conditions.map((cond) => {
+        const field = (cond.field === '__custom__' ? this.customFieldName : cond.field).trim();
+        const op = cond.operator || 'contains';
+        const extracted = this.extractFieldValue(item, field);
 
-      const itemVal = String(extracted.value ?? '').trim().toLowerCase();
+        if (!extracted.found) {
+          return { pass: false, reason: `Field "${field}" not found on item` };
+        }
+
+        const itemVal = String(extracted.value ?? '').trim().toLowerCase();
+
+        if (op === 'dateBetween') {
+          const from = this.normalizeDateValue(cond.dateFrom);
+          const to = this.normalizeDateValue(cond.dateTo);
+          const itemDate = Date.parse(extracted.value);
+          const fromDate = Date.parse(from);
+          const toDate = Date.parse(to);
+
+          if (isNaN(itemDate)) {
+            return { pass: false, reason: `Date "${extracted.value}" could not be parsed` };
+          }
+          const itemD = new Date(itemDate);
+          itemD.setHours(12, 0, 0, 0);
+          const fromD = new Date(fromDate);
+          fromD.setHours(0, 0, 0, 0);
+          const toD = new Date(toDate);
+          toD.setHours(23, 59, 59, 999);
+
+          const inRange = itemD.getTime() >= fromD.getTime() && itemD.getTime() <= toD.getTime();
+          return {
+            pass: inRange,
+            reason: inRange ? 'Matches date range' : `Date "${extracted.value}" is outside range [${from} to ${to}]`
+          };
+        } else if (op === 'equals') {
+          const targetVal = String(cond.value ?? '').trim().toLowerCase();
+          const pass = itemVal === targetVal;
+          return { pass, reason: pass ? 'Matches exact filter' : `Field "${field}" does not equal "${cond.value}"` };
+        } else {
+          // contains
+          const targetVal = String(cond.value ?? '').trim().toLowerCase();
+          const pass = itemVal.includes(targetVal);
+          return { pass, reason: pass ? 'Matches contains filter' : `Field "${field}" does not contain "${cond.value}"` };
+        }
+      });
+
       let matches = false;
       let reason = '';
 
-      const isDateOrNumOp = ['<=', '>=', '<', '>', 'before', 'after'].includes(operator);
-      if (isDateOrNumOp) {
-        let isDateComp = false;
-        let itemDate = null;
-        let targetDate = null;
-
-        if (this.isDateString(extracted.value) || this.isDateString(value)) {
-          const rawItem = Date.parse(extracted.value);
-          if (!isNaN(rawItem)) {
-            itemDate = new Date(rawItem);
-            if (value.toLowerCase() === 'today' || value.toLowerCase() === 'now') {
-              targetDate = new Date();
-            } else if (value.toLowerCase() === 'yesterday') {
-              targetDate = new Date();
-              targetDate.setDate(targetDate.getDate() - 1);
-            } else if (value.toLowerCase() === 'tomorrow') {
-              targetDate = new Date();
-              targetDate.setDate(targetDate.getDate() + 1);
-            } else {
-              const rawTarget = Date.parse(value);
-              if (!isNaN(rawTarget)) targetDate = new Date(rawTarget);
-            }
-            if (itemDate && targetDate) {
-              isDateComp = true;
-            }
-          }
-        }
-
-        if (isDateComp) {
-          if (operator === '<' || operator === 'before') {
-            targetDate.setHours(0, 0, 0, 0);
-            itemDate.setHours(0, 0, 0, 0);
-            matches = itemDate.getTime() < targetDate.getTime();
-          } else if (operator === '<=') {
-            targetDate.setHours(23, 59, 59, 999);
-            itemDate.setHours(23, 59, 59, 999);
-            matches = itemDate.getTime() <= targetDate.getTime();
-          } else if (operator === '>' || operator === 'after') {
-            targetDate.setHours(23, 59, 59, 999);
-            itemDate.setHours(23, 59, 59, 999);
-            matches = itemDate.getTime() > targetDate.getTime();
-          } else if (operator === '>=') {
-            targetDate.setHours(0, 0, 0, 0);
-            itemDate.setHours(0, 0, 0, 0);
-            matches = itemDate.getTime() >= targetDate.getTime();
-          }
-          reason = matches ? 'Matches date filter' : `Date "${extracted.value}" does not satisfy ${operator} "${value}"`;
+      if (matchMode === 'any') {
+        const passedCond = condResults.find(r => r.pass);
+        if (passedCond) {
+          matches = true;
         } else {
-          const itemNum = parseFloat(String(extracted.value).replace(/[^0-9.-]/g, ''));
-          const targetNum = parseFloat(String(value).replace(/[^0-9.-]/g, ''));
-          if (!isNaN(itemNum) && !isNaN(targetNum)) {
-            if (operator === '<') matches = itemNum < targetNum;
-            else if (operator === '<=') matches = itemNum <= targetNum;
-            else if (operator === '>') matches = itemNum > targetNum;
-            else if (operator === '>=') matches = itemNum >= targetNum;
-            reason = matches ? 'Matches numeric filter' : `Value "${extracted.value}" does not satisfy ${operator} "${value}"`;
-          } else {
-            matches = itemVal === normTargetVal;
-            reason = matches ? 'Matches filter' : `Cannot compare "${extracted.value}" with "${value}"`;
-          }
+          matches = false;
+          reason = condResults.map(r => r.reason).join(' OR ');
         }
-      } else if (operator === 'contains') {
-        matches = itemVal.includes(normTargetVal);
-        reason = matches ? 'Matches filter' : `Field "${field}" ("${extracted.value}") does not contain "${value}"`;
-      } else if (operator === 'equals') {
-        matches = itemVal === normTargetVal;
-        reason = matches ? 'Matches filter' : `Field "${field}" ("${extracted.value}") does not equal "${value}"`;
+      } else {
+        const failedCond = condResults.find(r => !r.pass);
+        if (!failedCond) {
+          matches = true;
+        } else {
+          matches = false;
+          reason = failedCond.reason;
+        }
       }
 
-      // Check itemMode requirement (New data only vs Old data only)
       if (matches) {
         if (this.itemMode === 'new' && item.isDownloaded && !this.forceRedownload) {
           matches = false;
@@ -1611,16 +1797,12 @@ export const ExecutionModal = {
         selectedList.push({
           index: itemIndex,
           label,
-          field,
-          fieldValue: extracted.value,
           raw: item
         });
       } else {
         skippedList.push({
           index: itemIndex,
           label,
-          field,
-          fieldValue: extracted.value,
           reason,
           raw: item
         });
@@ -1832,37 +2014,29 @@ export const ExecutionModal = {
     let rowFilter = null;
 
     if (isLoopMode && this.filterEnabled) {
-      const field = (this.filterField === '__custom__' ? this.customFieldName : this.filterField).trim();
-      const operator = this.filterOperator || 'contains';
-      const rawValue = this.filterValue.trim();
-      const isDate = this.isDateField(field, this.getValuesForField(field));
-      const value = isDate ? this.normalizeDateValue(rawValue) : rawValue;
+      itemFilter = this.buildItemFilterPayload();
 
       // Guard against zero-match or invalid filter execution
-      if (!field || (!value && value !== '0') || this.filterPreview.selectedCount === 0 || (Array.isArray(this.filterPreview.errors) && this.filterPreview.errors.length > 0)) {
+      if (!itemFilter || this.filterPreview.selectedCount === 0 || (Array.isArray(this.filterPreview.errors) && this.filterPreview.errors.length > 0)) {
         Toast.error('Cannot execute: filter has errors, zero matches, or invalid field.');
         return;
       }
 
-      // Agreed itemFilter contract shape
-      itemFilter = {
-        field,
-        operator,
-        value
-      };
-
       // Legacy rowFilter shape for backward compatibility
-      rowFilter = {
-        column: field,
-        value
-      };
+      if (itemFilter.field && typeof itemFilter.value === 'string') {
+        rowFilter = {
+          column: itemFilter.field,
+          value: itemFilter.value
+        };
+      }
     }
 
     if (confirmBtn) confirmBtn.disabled = true;
     if (confirmText) confirmText.textContent = 'Launching…';
 
+    const condCount = this.filterConditions?.length || 1;
     const launchDesc = isLoopMode
-      ? (itemFilter ? `loop (${itemFilter.field} ${itemFilter.operator} "${itemFilter.value}")` : 'batch loop (all items)')
+      ? (itemFilter ? `loop (${condCount} rule${condCount === 1 ? '' : 's'})` : 'batch loop (all items)')
       : 'single macro';
     Toast.info(`Starting ${launchDesc} execution…`);
 
