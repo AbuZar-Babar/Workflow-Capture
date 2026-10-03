@@ -102,7 +102,7 @@ let devReloadWatcher = null;
 function broadcastDevReload() {
   for (const client of devReloadClients) {
     try {
-      client.write('event: reload\\ndata: {}\\n\\n');
+      client.write('event: reload\ndata: {}\n\n');
     } catch {
       devReloadClients.delete(client);
     }
@@ -353,7 +353,7 @@ const server = http.createServer(async (req, res) => {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Connection': 'keep-alive'
       });
-      res.write(': connected\\n\\n');
+      res.write(': connected\n\n');
       devReloadClients.add(res);
       req.on('close', () => devReloadClients.delete(res));
       return;
