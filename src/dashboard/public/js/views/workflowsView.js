@@ -10,6 +10,7 @@ import { Toast } from '../components/toast.js';
 import { Router } from '../router.js';
 import { ExecutionModal } from '../components/executionModal.js';
 import { Modal } from '../components/modal.js';
+import { renderRobotAvatar } from '../components/robotAvatar.js';
 import { escapeHtml } from '../utils/dom.js';
 
 function formatDomain(url) {
