@@ -81,55 +81,6 @@ export const OverviewView = {
           </div>
         </div>
 
-        <!-- Central Agent Status Area (Operations Hub) -->
-        <section class="agent-status-hub" aria-label="Digital Agent Status" style="margin-bottom:1.5rem;">
-          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1.5rem;">
-            <div style="display:flex; align-items:center; gap:1.25rem;">
-              <div class="agent-status-avatar-box">
-                <div class="orbital-ring"></div>
-                ${renderRobotAvatar({ size: 'card', state: 'idle' })}
-              </div>
-              <div>
-                <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.25rem;">
-                  <span style="font-size:0.75rem; font-weight:800; letter-spacing:0.12em; color:var(--accent-cyan); text-transform:uppercase;">AUTOMATION</span>
-                  <span class="status-dot online"></span>
-                  <span style="font-size:0.72rem; font-weight:700; color:var(--color-success); text-transform:uppercase;">OPERATIONAL</span>
-                </div>
-                <div style="font-size:1.15rem; font-weight:700; color:var(--text-primary); margin-bottom:0.25rem;">Ready to build and run workflows</div>
-                <div style="font-size:0.8rem; color:var(--text-sub);">Create a workflow once, then run it whenever you need.</div>
-              </div>
-            </div>
-
-            <!-- Agent Telemetry Metrics Strip -->
-            <div style="display:flex; align-items:center; gap:1.75rem; background:rgba(6,9,19,0.6); padding:0.85rem 1.25rem; border-radius:var(--radius-lg); border:1px solid rgba(255,255,255,0.06); flex-wrap:wrap;">
-              <div>
-                <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.15rem;">Browser</div>
-                <strong style="font-size:0.88rem; color:var(--accent-cyan);" id="hubBrowserStatus">Connected</strong>
-              </div>
-              <div style="width:1px; height:24px; background:rgba(255,255,255,0.1);"></div>
-              <div>
-                <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.15rem;">Scanner</div>
-                <strong style="font-size:0.88rem; color:var(--color-success);" id="hubScannerStatus">Ready</strong>
-              </div>
-              <div style="width:1px; height:24px; background:rgba(255,255,255,0.1);"></div>
-              <div>
-                <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.15rem;">Agent</div>
-                <strong style="font-size:0.88rem; color:#a78bfa;" id="hubAgentStatus">Ready</strong>
-              </div>
-              <div style="width:1px; height:24px; background:rgba(255,255,255,0.1);"></div>
-              <div>
-                <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.15rem;">Tasks</div>
-                <strong style="font-size:0.88rem; color:var(--text-primary);" id="hubTaskCount">0</strong>
-              </div>
-              <div style="width:1px; height:24px; background:rgba(255,255,255,0.1);"></div>
-              <div>
-                <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.15rem;">Success</div>
-                <strong style="font-size:0.88rem; color:var(--color-success);" id="hubSuccessRate">100%</strong>
-              </div>
-            </div>
-          </div>
-        </section>
-
         <!-- Inline Train Agent Modal / Recording Banner -->
         <div id="overviewCreateModal" class="card hidden" style="margin-bottom:1.5rem; padding:1.25rem 1.5rem; border-left:4px solid var(--accent-cyan); background:var(--card-bg);">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
@@ -173,107 +124,67 @@ export const OverviewView = {
           <span id="overviewRecActionCount" class="hidden" aria-hidden="true">0</span>
         </div>
 
-        <!-- Intelligent Operations Statistics (4 Cards) -->
-        <section class="dashboard-stat-grid" aria-label="Workflow Statistics" style="margin-bottom:1.75rem;">
-          <!-- 1. WORKFLOWS -->
+        <!-- Overview Statistics -->
+        <section class="dashboard-stat-grid overview-summary-grid" aria-label="Workflow Statistics">
           <article class="dashboard-stat-card" id="cardTotalWorkflows">
             <div class="stat-card-header">
               <span class="dashboard-stat-label">WORKFLOWS</span>
-              <div class="stat-card-icon" style="color:var(--accent-cyan);">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                  <line x1="8" y1="21" x2="16" y2="21"></line>
-                  <line x1="12" y1="17" x2="12" y2="21"></line>
-                </svg>
-              </div>
+              <span class="stat-card-icon" aria-hidden="true">↗</span>
             </div>
             <strong class="dashboard-stat-value" id="overviewWorkflowCount">0</strong>
-            <span class="dashboard-stat-meta" id="overviewWorkflowMeta">Saved workflows ready to run</span>
+            <span class="dashboard-stat-meta">Saved workflows</span>
           </article>
 
-          <!-- 2. ACTIVE RUNS -->
-          <article class="dashboard-stat-card" id="cardActiveRuns">
+          <article class="dashboard-stat-card" id="cardTotalRuns">
             <div class="stat-card-header">
-              <span class="dashboard-stat-label">ACTIVE AGENTS</span>
-              <div class="stat-card-icon" style="color:var(--color-success);">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                </svg>
-              </div>
+              <span class="dashboard-stat-label">TOTAL RUNS</span>
+              <span class="stat-card-icon" aria-hidden="true">▶</span>
             </div>
-            <div style="display:flex; align-items:baseline; gap:0.5rem;">
-              <strong class="dashboard-stat-value" id="overviewActiveRunsCount">0</strong>
-              <span id="overviewActiveRunsBadge" class="status-dot online" style="display:none;" title="Active execution running"></span>
-            </div>
-            <span class="dashboard-stat-meta" id="overviewActiveRunsMeta">Workflows currently running</span>
+            <strong class="dashboard-stat-value" id="overviewTotalRunsCount">0</strong>
+            <span class="dashboard-stat-meta">Workflow executions</span>
           </article>
 
-          <!-- 3. SUCCESSFUL RUNS -->
+          <article class="dashboard-stat-card" id="cardDownloadedFiles">
+            <div class="stat-card-header">
+              <span class="dashboard-stat-label">FILES DOWNLOADED</span>
+              <span class="stat-card-icon" aria-hidden="true">↓</span>
+            </div>
+            <strong class="dashboard-stat-value" id="overviewDownloadedFilesCount">0</strong>
+            <span class="dashboard-stat-meta">Files captured by runs</span>
+          </article>
+
           <article class="dashboard-stat-card" id="cardSuccessfulRuns">
             <div class="stat-card-header">
-              <span class="dashboard-stat-label">SUCCESSFUL RUNS</span>
-              <div class="stat-card-icon" style="color:var(--color-success);">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                  <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                </svg>
-              </div>
+              <span class="dashboard-stat-label">SUCCESS RATE</span>
+              <span class="stat-card-icon" aria-hidden="true">✓</span>
             </div>
-            <strong class="dashboard-stat-value" id="overviewSuccessfulRunsCount">0</strong>
-            <span class="dashboard-stat-meta" id="overviewSuccessRateMeta">100% completion rate</span>
-          </article>
-
-          <!-- 4. TASKS PROCESSED -->
-          <article class="dashboard-stat-card" id="cardRecentActivity">
-            <div class="stat-card-header">
-              <span class="dashboard-stat-label">TASKS PROCESSED</span>
-              <div class="stat-card-icon" style="color:var(--accent-purple);">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-                </svg>
-              </div>
-            </div>
-            <strong class="dashboard-stat-value" id="overviewRecentActivityTitle" style="font-size:1.15rem; font-weight:700;">Idle</strong>
-            <span class="dashboard-stat-meta" id="overviewRecentActivityMeta">Records extracted &amp; completed</span>
+            <strong class="dashboard-stat-value" id="overviewSuccessRate">100%</strong>
+            <span class="dashboard-stat-meta" id="overviewSuccessRateMeta">No runs yet</span>
           </article>
         </section>
 
-        <!-- Main Dashboard Split: Recent Workflows (Left) & Recent Activity (Right) -->
-        <div style="display:grid; grid-template-columns: 1.6fr 1fr; gap:1.5rem; align-items:start;">
-
-          <!-- Recent Workflows -->
-          <section class="card" style="padding:1.25rem 1.5rem; border-radius:var(--radius-lg);" aria-labelledby="headingRecentWorkflows">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.15rem;">
+        <!-- Overview Charts -->
+        <section class="overview-chart-grid" aria-label="Workflow Analytics">
+          <article class="overview-chart-card">
+            <div class="overview-chart-header">
               <div>
-                <h2 id="headingRecentWorkflows" style="font-size:1rem; font-weight:700; color:var(--text-primary); margin:0;">Recent Workflows</h2>
-                <p style="font-size:var(--text-xs); color:var(--text-sub); margin:0.15rem 0 0;">Browser workflows available for automated execution</p>
+                <h2>Run outcomes</h2>
+                <p>Completed, failed, and active workflow runs.</p>
               </div>
-              <button class="btn btn-secondary btn-sm" id="btnDashboardViewAllWorkflows">View All</button>
             </div>
+            <div id="overviewRunOutcomesChart" class="overview-bar-chart" aria-label="Workflow run outcomes chart"></div>
+          </article>
 
-            <!-- Workflow items list -->
-            <div id="overviewWorkflowsContainer" class="wf-list" style="margin-top:0.5rem;">
-              <div style="padding:2rem; text-align:center; color:var(--text-muted); font-size:var(--text-sm);">Loading workflows…</div>
-            </div>
-          </section>
-
-          <!-- Recent Activity Timeline -->
-          <section class="card" style="padding:1.25rem 1.5rem; border-radius:var(--radius-lg);" aria-labelledby="headingRecentActivity">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.15rem;">
+          <article class="overview-chart-card">
+            <div class="overview-chart-header">
               <div>
-                <h2 id="headingRecentActivity" style="font-size:1rem; font-weight:700; color:var(--text-primary); margin:0;">Recent Activity</h2>
-                <p style="font-size:var(--text-xs); color:var(--text-sub); margin:0.15rem 0 0;">Latest execution timeline</p>
+                <h2>Files downloaded</h2>
+                <p>Downloads recorded by the latest workflow runs.</p>
               </div>
-              <button class="btn btn-secondary btn-sm" id="btnDashboardViewAllActivity">View All</button>
             </div>
-
-            <!-- Activity Items -->
-            <div id="overviewActivityContainer" class="act-timeline">
-              <div style="padding:2rem; text-align:center; color:var(--text-muted); font-size:var(--text-sm);">Loading activity…</div>
-            </div>
-          </section>
-
-        </div>
+            <div id="overviewDownloadsChart" class="overview-bar-chart" aria-label="Files downloaded chart"></div>
+          </article>
+        </section>
 
       </div>
     `;
@@ -448,66 +359,104 @@ export const OverviewView = {
   },
 
   updateStats(workflows, runs, status) {
-    // 1. Total Workflows
-    const elWfCount = document.getElementById('overviewWorkflowCount');
-    if (elWfCount) elWfCount.textContent = workflows.length;
-
-    // 2. Active Runs
-    const activeRuns = runs.filter(r => r.status === 'RUNNING' || r.status === 'STARTING' || r.status === 'PROCESSING_ITEMS');
-    const elActiveCount = document.getElementById('overviewActiveRunsCount');
-    const elActiveBadge = document.getElementById('overviewActiveRunsBadge');
-    const elActiveMeta = document.getElementById('overviewActiveRunsMeta');
-
-    if (elActiveCount) elActiveCount.textContent = activeRuns.length;
-    if (elActiveBadge) elActiveBadge.style.display = activeRuns.length > 0 ? 'inline-block' : 'none';
-    if (elActiveMeta) {
-      elActiveMeta.textContent = activeRuns.length > 0
-        ? `${activeRuns.length} agent${activeRuns.length === 1 ? '' : 's'} executing live`
-        : 'Autonomous tasks running';
-    }
-
-    // 3. Successful Runs
     const completedRuns = runs.filter(r => r.status === 'COMPLETED' || r.status === 'SUCCESS');
-    const elSuccessCount = document.getElementById('overviewSuccessfulRunsCount');
-    const elSuccessRate = document.getElementById('overviewSuccessRateMeta');
-    let rate = 100;
-    if (runs.length > 0) {
-      rate = Math.round((completedRuns.length / runs.length) * 100);
-    }
-    if (elSuccessCount) elSuccessCount.textContent = completedRuns.length;
-    if (elSuccessRate && runs.length > 0) {
-      elSuccessRate.textContent = `${rate}% completion rate (${runs.length} total)`;
-    }
+    const failedRuns = runs.filter(r => r.status === 'FAILED');
+    const activeRuns = runs.filter(r => ['RUNNING', 'STARTING', 'PROCESSING_ITEMS'].includes(r.status));
 
-    // 4. Tasks Processed / Recent Activity
-    const elActivityTitle = document.getElementById('overviewRecentActivityTitle');
-    const elActivityMeta = document.getElementById('overviewRecentActivityMeta');
-    let totalItems = 0;
-    runs.forEach(r => {
-      totalItems += (r.processedCount || r.itemsProcessed || (r.downloads ? r.downloads.length : 0) || 0);
-    });
-    if (elActivityTitle) {
-      elActivityTitle.textContent = totalItems > 0 ? `${totalItems} items` : (runs.length > 0 ? `${runs.length} runs` : 'Idle');
-    }
-    if (elActivityMeta) {
-      elActivityMeta.textContent = totalItems > 0 ? 'Extracted & processed autonomously' : 'Records extracted & completed';
-    }
+    const downloadCount = (run) => {
+      if (Array.isArray(run?.downloads)) return run.downloads.length;
+      if (Number.isFinite(run?.downloadCount)) return run.downloadCount;
+      if (Number.isFinite(run?.filesDownloaded)) return run.filesDownloaded;
+      return 0;
+    };
 
-    // Hub Telemetry updates
-    const hubTask = document.getElementById('hubTaskCount');
-    if (hubTask) hubTask.textContent = workflows.length;
+    const totalDownloads = runs.reduce((sum, run) => sum + downloadCount(run), 0);
+    const successRate = runs.length > 0 ? Math.round((completedRuns.length / runs.length) * 100) : 100;
 
-    const hubSuccess = document.getElementById('hubSuccessRate');
-    if (hubSuccess) hubSuccess.textContent = `${rate}%`;
+    const setText = (id, value) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = String(value);
+    };
 
-    const hubAgent = document.getElementById('hubAgentStatus');
-    if (hubAgent) hubAgent.textContent = activeRuns.length > 0 ? 'Executing' : 'Autonomous';
+    setText('overviewWorkflowCount', workflows.length);
+    setText('overviewTotalRunsCount', runs.length);
+    setText('overviewDownloadedFilesCount', totalDownloads);
+    setText('overviewSuccessRate', `${successRate}%`);
+    setText(
+      'overviewSuccessRateMeta',
+      runs.length > 0 ? `${completedRuns.length} of ${runs.length} runs completed` : 'No runs yet'
+    );
 
-    const hubBrowser = document.getElementById('hubBrowserStatus');
-    if (hubBrowser && status && status.browser) {
-      hubBrowser.textContent = status.browser.connected ? 'Connected' : 'Offline';
+    this.renderOverviewCharts({
+      completed: completedRuns.length,
+      failed: failedRuns.length,
+      active: activeRuns.length,
+      runs
+    }, downloadCount);
+
+    // Keep the existing recording state synchronized with the backend.
+    if (status?.recorder && status.recorder.isRecording && !this.isRecording) {
+      this.setRecordingState(true, {
+        name: status.recorder.name,
+        startedAt: status.recorder.startedAt,
+        actionCount: status.recorder.actionCount
+      });
     }
   },
+
+  renderOverviewCharts(outcomes, getDownloadCount) {
+    const renderBars = (containerId, rows, emptyText) => {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+
+      const max = Math.max(...rows.map(row => row.value), 0);
+      if (max === 0) {
+        container.innerHTML = `<div class="overview-chart-empty">${emptyText}</div>`;
+        return;
+      }
+
+      container.innerHTML = rows.map(row => {
+        const width = Math.max(4, Math.round((row.value / max) * 100));
+        return `
+          <div class="overview-bar-row">
+            <div class="overview-bar-label" title="${this.escapeHtml(row.label)}">${this.escapeHtml(row.label)}</div>
+            <div class="overview-bar-track">
+              <div class="overview-bar-fill" style="width:${width}%"></div>
+            </div>
+            <strong class="overview-bar-value">${row.value}</strong>
+          </div>
+        `;
+      }).join('');
+    };
+
+    renderBars(
+      'overviewRunOutcomesChart',
+      [
+        { label: 'Completed', value: outcomes.completed },
+        { label: 'Failed', value: outcomes.failed },
+        { label: 'Active', value: outcomes.active }
+      ],
+      'No workflow runs yet.'
+    );
+
+    const latestRuns = outcomes.runs
+      .slice()
+      .sort((a, b) => new Date(b.completedAt || b.startedAt || b.createdAt || 0) - new Date(a.completedAt || a.startedAt || a.createdAt || 0))
+      .slice(0, 7)
+      .reverse();
+
+    const downloadRows = latestRuns.map((run, index) => ({
+      label: run.workflowName || run.workflowId || `Run ${index + 1}`,
+      value: getDownloadCount(run)
+    }));
+
+    renderBars(
+      'overviewDownloadsChart',
+      downloadRows,
+      'No downloaded files yet.'
+    );
+  },
+
 
   renderRecentWorkflows(workflows) {
     const container = document.getElementById('overviewWorkflowsContainer');
