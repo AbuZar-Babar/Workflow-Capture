@@ -1572,3 +1572,6 @@ body {
 /* --- UI sync test marker -------------------------------------------- */
 /* Sync watcher verification marker; no visual or functional effect. */
 .ui-sync-test-marker { display: contents; }
+
+/* UI sync watcher second test: harmless marker. */
+.ui-sync-test-marker-2 { display: contents; }
