@@ -72,3 +72,7 @@ export const Auth = {
     return response;
   }
 };
+
+if (typeof window !== 'undefined') {
+  window.Auth = Auth;
+}

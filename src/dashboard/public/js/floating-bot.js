@@ -290,7 +290,16 @@
       btnStopReplay.disabled = true;
       btnStopReplay.innerHTML = '<span>Stopping...</span>';
       try {
-        await fetch('/api/replay/stop', { method: 'POST' });
+        const token = localStorage.getItem('workflow_capture_jwt');
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        if (window.Auth && typeof window.Auth.authenticatedFetch === 'function') {
+          await window.Auth.authenticatedFetch('/api/replay/stop', { method: 'POST' });
+        } else {
+          await fetch('/api/replay/stop', { method: 'POST', headers });
+        }
         if (bubbleMsg) {
           bubbleMsg.innerHTML = 'Automated replay <strong>stopped</strong>. You have manual control of the page.';
         }
