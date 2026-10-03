@@ -1939,3 +1939,53 @@ body {
     gap: 0.45rem;
   }
 }
+
+/* --- Topbar simplification ------------------------------------------- */
+/* Keep the header focused on the product name; the page breadcrumb is unnecessary. */
+.topbar-breadcrumb-separator,
+.topbar-breadcrumb {
+  display: none !important;
+}
+
+.flowmind-topbar-left {
+  gap: 0 !important;
+}
+
+.status-indicator-pill.flowmind-engine-pill {
+  height: 26px !important;
+  min-height: 26px !important;
+  padding: 0 0.5rem !important;
+  gap: 0.35rem !important;
+  border-radius: 6px !important;
+}
+
+.status-indicator-pill.flowmind-engine-pill .status-dot {
+  width: 6px !important;
+  height: 6px !important;
+}
+
+.status-indicator-pill.flowmind-engine-pill #cdpText {
+  font-size: 0.66rem !important;
+  font-weight: 500 !important;
+  white-space: nowrap;
+}
+
+.topbar-search-trigger {
+  width: min(360px, 100%) !important;
+  min-width: 300px !important;
+  justify-content: flex-start !important;
+}
+
+@media (max-width: 900px) {
+  .topbar-search-trigger {
+    min-width: 240px !important;
+    width: min(300px, 100%) !important;
+  }
+}
+
+@media (max-width: 700px) {
+  .topbar-search-trigger {
+    min-width: 0 !important;
+    width: 180px !important;
+  }
+}
