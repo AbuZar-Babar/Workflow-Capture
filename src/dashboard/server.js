@@ -92,6 +92,37 @@ if (!fs.existsSync(RECORDINGS_DIR)) {
 // SSE Clients
 const sseClients = new Set();
 
+// Development-only live reload for local dashboard UI iteration.
+// Enabled only on loopback hosts; production/network deployments are unaffected.
+const devReloadClients = new Set();
+const DEV_RELOAD_ENABLED = isLoopback;
+const DEV_RELOAD_WATCH_PATH = PUBLIC_DIR;
+let devReloadWatcher = null;
+
+function broadcastDevReload() {
+  for (const client of devReloadClients) {
+    try {
+      client.write('event: reload\\ndata: {}\\n\\n');
+    } catch {
+      devReloadClients.delete(client);
+    }
+  }
+}
+
+function startDevReloadWatcher() {
+  if (!DEV_RELOAD_ENABLED || devReloadWatcher) return;
+  try {
+    devReloadWatcher = fs.watch(DEV_RELOAD_WATCH_PATH, { recursive: true }, (_eventType, filename) => {
+      if (!filename || String(filename).includes('node_modules')) return;
+      clearTimeout(startDevReloadWatcher._timer);
+      startDevReloadWatcher._timer = setTimeout(broadcastDevReload, 150);
+    });
+  } catch (err) {
+    logger.warn('Development live reload watcher unavailable:', err.message);
+  }
+}
+
+
 function broadcast(type, payload) {
   const message = `event: ${type}\ndata: ${JSON.stringify(payload)}\n\n`;
   for (const client of sseClients) {
@@ -311,6 +342,23 @@ const server = http.createServer(async (req, res) => {
     // -------------------------------------------------------------
     // SSE Stream
     // -------------------------------------------------------------
+    if (pathname === '/api/dev-reload') {
+      if (!DEV_RELOAD_ENABLED) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Not Found');
+        return;
+      }
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Connection': 'keep-alive'
+      });
+      res.write(': connected\\n\\n');
+      devReloadClients.add(res);
+      req.on('close', () => devReloadClients.delete(res));
+      return;
+    }
+
     if (pathname === '/api/events') {
       if (!requireAuth(req, res)) return;
 
@@ -1425,6 +1473,8 @@ function logStartupBanner(port, host) {
  * (up to maxRetries times) so the fallback retry can complete cleanly instead
  * of rejecting and triggering process exit.
  */
+startDevReloadWatcher();
+
 function startServer(port = currentPort, host = HOST, maxRetries = 10) {
   return new Promise((resolve, reject) => {
     let attemptPort = Number(port);
