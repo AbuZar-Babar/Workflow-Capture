@@ -10,8 +10,23 @@ import { Modal } from './components/modal.js';
 import { Toast } from './components/toast.js';
 import { AuthView } from './views/authView.js';
 import { Theme } from './theme.js';
+import { renderRobotAvatar } from './components/robotAvatar.js';
 
 function bootstrap() {
+  // The robot logo doubles as the home control.
+  const topbarRobot = document.getElementById('topbarRobotAvatar');
+  if (topbarRobot) {
+    topbarRobot.innerHTML = renderRobotAvatar({
+      size: 'badge',
+      state: 'idle',
+      className: 'topbar-robot-render'
+    });
+    topbarRobot.parentElement?.addEventListener('click', (event) => {
+      event.preventDefault();
+      Router.navigate('overview');
+    });
+  }
+
   // 1. Initialize Global Theme, Notifications & Modals
   Theme.init();
   Toast.init();
