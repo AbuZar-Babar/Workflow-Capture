@@ -611,7 +611,7 @@ export const ExecutionModal = {
               <!-- Value Input -->
               <div class="exec-field-group">
                 <label for="execFilterValueInput">Match Value</label>
-                <input type="text" id="execFilterValueInput" class="exec-control-input" value="${escapeHtml(this.filterValue)}" placeholder="e.g. Invoice, today, 9/12/2026">
+                <input type="${isDateField ? 'date' : 'text'}" id="execFilterValueInput" class="exec-control-input" value="${escapeHtml(isDateField ? this.normalizeDateValue(this.filterValue) : this.filterValue)}" placeholder="${isDateField ? 'YYYY-MM-DD' : 'e.g. Invoice, Paid, or text…'}">
               </div>
             </div>
 
@@ -928,12 +928,12 @@ export const ExecutionModal = {
           this.filterEnabled = true;
           this.filterField = currentField;
           this.filterOperator = '<=';
-          this.filterValue = 'today';
+          this.filterValue = this.normalizeDateValue('today');
         } else if (action === 'upcoming') {
           this.filterEnabled = true;
           this.filterField = currentField;
           this.filterOperator = '>=';
-          this.filterValue = 'today';
+          this.filterValue = this.normalizeDateValue('today');
         } else if (action === 'in_folder') {
           this.itemMode = 'old';
           const r = this.container.querySelector('input[name="execDataModeRadio"][value="old"]');
@@ -1079,7 +1079,12 @@ export const ExecutionModal = {
     const valInput = preflightContainer.querySelector('#execFilterValueInput');
     if (valInput) {
       valInput.oninput = () => {
-        this.filterValue = valInput.value;
+        let val = valInput.value;
+        const currentField = (this.filterField === '__custom__' ? this.customFieldName : this.filterField).trim();
+        if (this.isDateField(currentField, this.getValuesForField(currentField))) {
+          val = this.normalizeDateValue(val);
+        }
+        this.filterValue = val;
         if (this.discoveryData) this.discoveryData.filterPreview = null;
         const pills = preflightContainer.querySelectorAll('.exec-pill-val');
         pills.forEach(p => {
@@ -1104,10 +1109,14 @@ export const ExecutionModal = {
 
     try {
       // Build request body according to preview contract: { loopStepIndex, itemFilter }
+      const currentField = (this.filterField === '__custom__' ? this.customFieldName : this.filterField).trim();
+      const isDate = this.isDateField(currentField, this.getValuesForField(currentField));
+      const cleanVal = isDate ? this.normalizeDateValue(this.filterValue.trim()) : this.filterValue.trim();
+
       const itemFilterPayload = (this.filterEnabled && this.filterField && this.filterValue) ? {
-        field: (this.filterField === '__custom__' ? this.customFieldName : this.filterField).trim(),
+        field: currentField,
         operator: this.filterOperator,
-        value: this.filterValue.trim()
+        value: cleanVal
       } : null;
 
       const requestedField = itemFilterPayload ? itemFilterPayload.field : null;
@@ -1341,6 +1350,39 @@ export const ExecutionModal = {
     if (isNaN(d.getTime())) return false;
     const now = new Date();
     return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  },
+
+  normalizeDateValue(val) {
+    if (!val || typeof val !== 'string') return val;
+    const trimmed = val.trim();
+    if (trimmed.toLowerCase() === 'today' || trimmed.toLowerCase() === 'now') {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+
+    // Support M/D/YYYY or MM/DD/YYYY
+    const slashMatch = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(trimmed);
+    if (slashMatch) {
+      const m = slashMatch[1].padStart(2, '0');
+      const d = slashMatch[2].padStart(2, '0');
+      const y = slashMatch[3];
+      return `${y}-${m}-${d}`;
+    }
+
+    // Support M-D-YYYY or MM-DD-YYYY
+    const dashMatch = /^(\d{1,2})-(\d{1,2})-(\d{4})$/.exec(trimmed);
+    if (dashMatch) {
+      const m = dashMatch[1].padStart(2, '0');
+      const d = dashMatch[2].padStart(2, '0');
+      const y = dashMatch[3];
+      return `${y}-${m}-${d}`;
+    }
+
+    return trimmed;
   },
 
   getDownloadedCount() {
@@ -1802,7 +1844,9 @@ export const ExecutionModal = {
     if (isLoopMode && this.filterEnabled) {
       const field = (this.filterField === '__custom__' ? this.customFieldName : this.filterField).trim();
       const operator = this.filterOperator || 'contains';
-      const value = this.filterValue.trim();
+      const rawValue = this.filterValue.trim();
+      const isDate = this.isDateField(field, this.getValuesForField(field));
+      const value = isDate ? this.normalizeDateValue(rawValue) : rawValue;
 
       // Guard against zero-match or invalid filter execution
       if (!field || (!value && value !== '0') || this.filterPreview.selectedCount === 0 || (Array.isArray(this.filterPreview.errors) && this.filterPreview.errors.length > 0)) {
