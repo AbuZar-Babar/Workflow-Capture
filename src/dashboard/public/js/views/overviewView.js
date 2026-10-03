@@ -75,10 +75,10 @@ export const OverviewView = {
             </div>
             <div>
               <div style="display:flex; align-items:center; gap:0.5rem;">
-                <h1 class="wf-page-title" style="margin:0; font-size:1.4rem; letter-spacing:-0.02em;">WORKFLOW AGENT</h1>
-                <span class="badge-tag success" style="font-size:var(--text-2xs); padding:0.15rem 0.55rem; box-shadow:0 0 10px rgba(16,185,129,0.3); font-weight:700;">● SYSTEM ONLINE</span>
+                <h1 class="wf-page-title" style="margin:0; font-size:1.4rem; letter-spacing:-0.02em;">Workflow Capture</h1>
+                <span class="badge-tag success" style="font-size:var(--text-2xs); padding:0.15rem 0.55rem; box-shadow:0 0 10px rgba(16,185,129,0.3); font-weight:700;">● READY</span>
               </div>
-              <p class="wf-page-subtitle" style="margin:0.2rem 0 0;">Autonomous browser AI operations center &amp; live workflow telemetry.</p>
+              <p class="wf-page-subtitle" style="margin:0.2rem 0 0;">Build, run, and monitor browser workflows from one place.</p>
             </div>
           </div>
           <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
@@ -112,12 +112,12 @@ export const OverviewView = {
               </div>
               <div>
                 <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.25rem;">
-                  <span style="font-size:0.75rem; font-weight:800; letter-spacing:0.12em; color:var(--accent-cyan); text-transform:uppercase;">DIGITAL AGENT</span>
+                  <span style="font-size:0.75rem; font-weight:800; letter-spacing:0.12em; color:var(--accent-cyan); text-transform:uppercase;">AUTOMATION</span>
                   <span class="status-dot online"></span>
                   <span style="font-size:0.72rem; font-weight:700; color:var(--color-success); text-transform:uppercase;">OPERATIONAL</span>
                 </div>
-                <div style="font-size:1.15rem; font-weight:700; color:var(--text-primary); margin-bottom:0.25rem;">Monitoring autonomous workflows</div>
-                <div style="font-size:0.8rem; color:var(--text-sub);">Ready to inspect live pages, discover repeating entities, and execute tasks.</div>
+                <div style="font-size:1.15rem; font-weight:700; color:var(--text-primary); margin-bottom:0.25rem;">Ready to build and run workflows</div>
+                <div style="font-size:0.8rem; color:var(--text-sub);">Create a workflow once, then run it whenever you need.</div>
               </div>
             </div>
 
@@ -135,7 +135,7 @@ export const OverviewView = {
               <div style="width:1px; height:24px; background:rgba(255,255,255,0.1);"></div>
               <div>
                 <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.15rem;">Agent</div>
-                <strong style="font-size:0.88rem; color:#a78bfa;" id="hubAgentStatus">Autonomous</strong>
+                <strong style="font-size:0.88rem; color:#a78bfa;" id="hubAgentStatus">Ready</strong>
               </div>
               <div style="width:1px; height:24px; background:rgba(255,255,255,0.1);"></div>
               <div>
@@ -209,10 +209,10 @@ export const OverviewView = {
               </div>
             </div>
             <strong class="dashboard-stat-value" id="overviewWorkflowCount">0</strong>
-            <span class="dashboard-stat-meta" id="overviewWorkflowMeta">Autonomous sequences ready</span>
+            <span class="dashboard-stat-meta" id="overviewWorkflowMeta">Saved workflows ready to run</span>
           </article>
 
-          <!-- 2. ACTIVE AGENTS -->
+          <!-- 2. ACTIVE RUNS -->
           <article class="dashboard-stat-card" id="cardActiveRuns">
             <div class="stat-card-header">
               <span class="dashboard-stat-label">ACTIVE AGENTS</span>
@@ -226,7 +226,7 @@ export const OverviewView = {
               <strong class="dashboard-stat-value" id="overviewActiveRunsCount">0</strong>
               <span id="overviewActiveRunsBadge" class="status-dot online" style="display:none;" title="Active execution running"></span>
             </div>
-            <span class="dashboard-stat-meta" id="overviewActiveRunsMeta">Autonomous tasks running</span>
+            <span class="dashboard-stat-meta" id="overviewActiveRunsMeta">Workflows currently running</span>
           </article>
 
           <!-- 3. SUCCESSFUL RUNS -->
