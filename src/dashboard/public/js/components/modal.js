@@ -40,9 +40,9 @@ export const Modal = {
 
     if (this.elMeta) {
       this.elMeta.innerHTML = `
-        <div><span style="font-size:0.68rem; color:var(--text-sub); display:block;">Total Actions</span><strong style="font-size:1.1rem; color:var(--brand-forest);">${workflow.actionCount || (workflow.actions ? workflow.actions.length : 0)}</strong></div>
-        <div><span style="font-size:0.68rem; color:var(--text-sub); display:block;">Start URL</span><strong style="font-size:0.75rem; word-break:break-all;">${escapeHtml(workflow.startUrl || 'N/A')}</strong></div>
-        <div><span style="font-size:0.68rem; color:var(--text-sub); display:block;">Captured Date</span><strong style="font-size:0.75rem;">${workflow.startedAt ? new Date(workflow.startedAt).toLocaleString() : 'N/A'}</strong></div>
+        <div><span style="font-size:var(--text-2xs); color:var(--text-sub); display:block;">Total Actions</span><strong style="font-size:1.1rem; color:var(--brand-forest);">${workflow.actionCount || (workflow.actions ? workflow.actions.length : 0)}</strong></div>
+        <div><span style="font-size:var(--text-2xs); color:var(--text-sub); display:block;">Start URL</span><strong style="font-size:0.75rem; word-break:break-all;">${escapeHtml(workflow.startUrl || 'N/A')}</strong></div>
+        <div><span style="font-size:var(--text-2xs); color:var(--text-sub); display:block;">Captured Date</span><strong style="font-size:0.75rem;">${workflow.startedAt ? new Date(workflow.startedAt).toLocaleString() : 'N/A'}</strong></div>
       `;
     }
 
@@ -78,10 +78,10 @@ export const Modal = {
             ${act.value !== undefined ? `<span style="font-size:0.72rem; color:var(--text-sub); font-family:var(--font-mono);">Value: "<strong>${escapeHtml(act.value)}</strong>"</span>` : ''}
           </div>
           <div style="display:flex; flex-direction:column; gap:0.35rem; margin-top:0.25rem;">
-            <span style="font-size:0.7rem; color:var(--text-sub); font-weight:700;">Element location selectors:</span>
+            <span style="font-size:var(--text-2xs); color:var(--text-sub); font-weight:700;">Element location selectors:</span>
             ${candidatesHtml || '<span style="font-size:0.72rem; color:var(--text-sub);">(No candidates recorded)</span>'}
           </div>
-          <div style="font-size:0.68rem; color:var(--text-sub); margin-top:0.25rem; font-family:var(--font-mono); background:var(--input-bg); padding:0.35rem 0.5rem; border-radius:6px; border:1px solid var(--border-light);">
+          <div style="font-size:var(--text-2xs); color:var(--text-sub); margin-top:0.25rem; font-family:var(--font-mono); background:var(--input-bg); padding:0.35rem 0.5rem; border-radius:6px; border:1px solid var(--border-light);">
             Tag: <code>&lt;${escapeHtml(fp.tagName || 'elem')}&gt;</code> | Text: <em>"${escapeHtml(fp.innerText || '')}"</em> | Classes: <code>${escapeHtml((fp.classList || []).join(', ') || 'none')}</code>
           </div>
         `;

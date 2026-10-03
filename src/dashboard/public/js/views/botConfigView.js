@@ -34,7 +34,7 @@ export const BotConfigView = {
             <div>
               <div style="display:flex; align-items:center; gap:0.5rem;">
                 <h1 class="wf-page-title" style="margin:0; font-size:1.35rem; font-weight:800; letter-spacing:-0.02em;">AGENT SETTINGS</h1>
-                <span class="badge-tag info" style="font-size:0.68rem; font-weight:700;">ENGINE CONFIG</span>
+                <span class="badge-tag info" style="font-size:var(--text-2xs); font-weight:700;">ENGINE CONFIG</span>
               </div>
               <p class="wf-page-subtitle" style="margin:0.2rem 0 0;">Agent worker tuning, browser CDP connection parameters, anti-detection, and vault security.</p>
             </div>

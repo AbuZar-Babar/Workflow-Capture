@@ -366,7 +366,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.02em;
   color: #fbbf24;
@@ -428,7 +428,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   color: #94a3b8;
 }
 
@@ -442,7 +442,7 @@
 }
 
 .flowmind-bubble-time {
-  font-size: 0.66rem;
+  font-size: 0.75rem;
   color: #64748b;
 }
 

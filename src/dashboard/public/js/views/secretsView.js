@@ -44,7 +44,7 @@ export const SecretsView = {
             <div>
               <div style="display:flex; align-items:center; gap:0.5rem;">
                 <h1 class="wf-page-title" style="margin:0; font-size:1.35rem; font-weight:800; letter-spacing:-0.02em;">AGENT SECRETS VAULT</h1>
-                <span class="badge-tag info" style="font-size:0.68rem; font-weight:700;">ENCRYPTED TOKENS</span>
+                <span class="badge-tag info" style="font-size:var(--text-2xs); font-weight:700;">ENCRYPTED TOKENS</span>
               </div>
               <p class="wf-page-subtitle" style="margin:0.2rem 0 0;">Store credentials securely. Reference them in workflow steps using {{secret:name}}.</p>
             </div>

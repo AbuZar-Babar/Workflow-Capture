@@ -144,8 +144,8 @@ export const WorkflowEditorView = {
             <!-- Editable Workflow Name -->
             <div class="wf-header-title-wrap" style="display:flex; flex-direction:column; gap:2px; min-width:180px; max-width:320px; flex:1;">
               <div style="display:flex; align-items:center; gap:0.4rem;">
-                <label for="wfNameInput" style="font-size:0.65rem; font-weight:700; color:var(--accent-cyan); text-transform:uppercase; letter-spacing:0.04em;">AGENT WORKFLOW</label>
-                <span class="badge-tag success" style="font-size:0.6rem; padding:0.1rem 0.35rem;">● READY</span>
+                <label for="wfNameInput" style="font-size:var(--text-2xs); font-weight:700; color:var(--accent-cyan); text-transform:uppercase; letter-spacing:0.04em;">AGENT WORKFLOW</label>
+                <span class="badge-tag success" style="font-size:var(--text-2xs); padding:0.12rem 0.4rem;">● READY</span>
               </div>
               <input
                 type="text"
@@ -165,7 +165,7 @@ export const WorkflowEditorView = {
 
             <!-- Visible Target Website -->
             <div class="wf-header-target-box" style="display:flex; flex-direction:column; gap:2px;">
-              <label for="wfTargetUrlInput" style="font-size:0.65rem; font-weight:700; color:var(--text-sub); text-transform:uppercase; letter-spacing:0.04em;">Target Website</label>
+              <label for="wfTargetUrlInput" style="font-size:var(--text-2xs); font-weight:700; color:var(--text-sub); text-transform:uppercase; letter-spacing:0.04em;">Target Website</label>
               <div style="display:flex; align-items:center; gap:0.35rem; background:rgba(6,9,19,0.6); border:1px solid rgba(255,255,255,0.08); border-radius:var(--radius-md); padding:0.25rem 0.6rem;">
                 <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color:var(--accent-cyan); flex-shrink:0;">
                   <circle cx="12" cy="12" r="10"></circle>
@@ -209,7 +209,7 @@ export const WorkflowEditorView = {
             <div class="wf-steps-header">
               <div style="display:flex; align-items:center; gap:0.4rem;">
                 <span style="font-size:0.75rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-sub);">Step Sequence</span>
-                <span class="badge-tag info" id="wfSequenceCountBadge" style="font-size:0.65rem;">0 steps</span>
+                <span class="badge-tag info" id="wfSequenceCountBadge" style="font-size:var(--text-2xs);">0 steps</span>
               </div>
               <button type="button" class="btn btn-ghost btn-xs" id="btnToggleStepsSidebar" title="Toggle steps sidebar">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
@@ -955,14 +955,14 @@ export const WorkflowEditorView = {
           <div class="df-input-group">
             <label style="display:flex; justify-content:space-between; align-items:center;">
               <span>Step Description</span>
-              <span style="font-size:0.62rem; color:var(--text-sub); font-weight:normal;">User-facing</span>
+              <span style="font-size:var(--text-2xs); color:var(--text-sub); font-weight:normal;">User-facing</span>
             </label>
             <input type="text" class="df-name-input" value="${this.escapeHtml(friendlyName)}" placeholder="e.g. Invoice Button" spellcheck="false" />
           </div>
 
           <!-- Execution Role: Clearly distinguish 'Run once' from 'Repeats for each record' -->
           <div class="df-input-group df-role-group ${isLoopAnchor ? 'is-anchor' : (isLoopStep ? 'is-loop' : 'is-setup')}">
-            <label style="font-weight:700; font-size:0.7rem; display:flex; justify-content:space-between; align-items:center;">
+            <label style="font-weight:700; font-size:var(--text-2xs); display:flex; justify-content:space-between; align-items:center;">
               <span>Execution Role</span>
               <span class="df-role-helper">${isLoopAnchor ? 'Finds records here' : (isLoopStep ? 'Repeats for each record' : 'Runs once')}</span>
             </label>
@@ -979,7 +979,7 @@ export const WorkflowEditorView = {
           <div class="df-input-group" style="background:var(--bg-surface-sunken); padding:0.6rem; border-radius:var(--radius-md); border:1px solid var(--border-light);">
             <label style="display:flex; justify-content:space-between; align-items:center;">
               <span>Available Options</span>
-              <span style="font-size:0.65rem; color:var(--text-sub);">${availableOptions.length} Items</span>
+              <span style="font-size:var(--text-2xs); color:var(--text-sub);">${availableOptions.length} Items</span>
             </label>
             <select class="df-option-select" style="background:var(--bg-surface); font-weight:600;">
               ${availableOptions.map((opt, optIdx) => {
@@ -996,7 +996,7 @@ export const WorkflowEditorView = {
                 Repeats for each record (Iterate sequentially)
               </option>
             </select>
-            <small style="font-size:0.65rem; color:var(--text-sub); margin-top:2px;">Select fixed choice or choose to repeat for each record.</small>
+            <small style="font-size:var(--text-2xs); color:var(--text-sub); margin-top:2px;">Select fixed choice or choose to repeat for each record.</small>
           </div>
         `;
       }
@@ -1036,13 +1036,12 @@ export const WorkflowEditorView = {
           <div class="df-input-group df-checkbox-group" style="background:var(--accent-subtle); padding:0.6rem; border-radius:var(--radius-md); border:1px solid rgba(37,99,235,0.2);">
             <label style="color:var(--accent-primary); font-weight:700; font-size:0.75rem; display:flex; justify-content:space-between; align-items:center;">
               <span>Checkbox Target State</span>
-              <span class="badge-tag info" style="font-size:0.62rem;" title="This action can safely be repeated if the run is retried.">Safe to retry</span>
+              <span class="badge-tag info" style="font-size:var(--text-2xs);" title="This action can safely be repeated if the run is retried.">Safe to retry</span>
             </label>
             <select class="df-checkbox-select" style="font-size:0.75rem; font-weight:600; background:var(--bg-surface); color:var(--text-primary); width:100%; border-radius:var(--radius-sm); padding:0.35rem 0.5rem; margin-top:4px;">
               <option value="true" ${desiredCheckboxState !== false ? 'selected' : ''}>Ensure checked (ON)</option>
               <option value="false" ${desiredCheckboxState === false ? 'selected' : ''}>Ensure unchecked (OFF)</option>
             </select>
-            <small style="font-size:0.66rem; color:var(--text-sub); display:block; margin-top:3px;">Safe to retry: this action can safely be repeated if the run is retried.</small>
           </div>
         `;
       }
@@ -1056,16 +1055,16 @@ export const WorkflowEditorView = {
             </summary>
             <div class="df-advanced-body">
               <div class="df-input-group">
-                <label style="font-size:0.68rem; color:var(--text-sub); font-weight:600;">Element location</label>
+                <label style="font-size:var(--text-2xs); color:var(--text-sub); font-weight:600;">Element location</label>
                 <input type="text" class="df-target-input" value="${this.escapeHtml(targetSelector)}" placeholder="#element-id or .class or //xpath" spellcheck="false" />
-                <span style="font-size:0.65rem; color:var(--text-muted); display:block; margin-top:2px;">Browser locator path (CSS or XPath)</span>
+                <span style="font-size:var(--text-2xs); color:var(--text-muted); display:block; margin-top:2px;">Browser locator path (CSS or XPath)</span>
               </div>
               ${candidates.length > 1 ? `
                 <div style="margin-top:0.45rem;">
-                  <span style="font-size:0.66rem; font-weight:700; color:var(--text-sub); display:block; margin-bottom:0.25rem;">Candidate locators (${candidates.length})</span>
+                  <span style="font-size:var(--text-2xs); font-weight:700; color:var(--text-sub); display:block; margin-bottom:0.25rem;">Candidate locators (${candidates.length})</span>
                   <div style="display:flex; flex-direction:column; gap:0.25rem; max-height:80px; overflow-y:auto;">
                     ${candidates.slice(0, 4).map(c => `
-                      <div style="font-size:0.67rem; font-family:var(--font-mono); background:var(--bg-surface-sunken); padding:2px 6px; border-radius:4px; border:1px solid var(--border-light); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;" title="${this.escapeHtml(c.value)}">
+                      <div style="font-size:var(--text-2xs); font-family:var(--font-mono); background:var(--bg-surface-sunken); padding:2px 6px; border-radius:4px; border:1px solid var(--border-light); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;" title="${this.escapeHtml(c.value)}">
                         [${this.escapeHtml(c.strategy)}] ${this.escapeHtml(c.value)}
                       </div>
                     `).join('')}
@@ -1290,9 +1289,9 @@ export const WorkflowEditorView = {
               View Details
             </summary>
             <div style="margin-top:0.4rem; display:flex; flex-direction:column; gap:0.3rem; color:var(--text-sub);">
-              <div><span>Target:</span> <code class="mono" style="font-size:0.65rem; word-break:break-all;">${this.escapeHtml(targetStr)}</code></div>
+              <div><span>Target:</span> <code class="mono" style="font-size:var(--text-2xs); word-break:break-all;">${this.escapeHtml(targetStr)}</code></div>
               ${step.value ? `<div><span>Input Value:</span> <strong style="color:var(--text-primary);">${this.escapeHtml(step.value)}</strong></div>` : ''}
-              <div><span>Execution:</span> <span class="badge-tag info" style="font-size:0.6rem;">${step.role || 'SETUP'}</span></div>
+              <div><span>Execution:</span> <span class="badge-tag info" style="font-size:var(--text-2xs);">${step.role || 'SETUP'}</span></div>
             </div>
           </details>
         </div>

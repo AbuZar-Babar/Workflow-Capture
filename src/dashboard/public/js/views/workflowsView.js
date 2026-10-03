@@ -87,7 +87,7 @@ export const WorkflowsView = {
             <div>
               <div style="display:flex; align-items:center; gap:0.5rem;">
                 <h1 style="margin:0; font-size:1.35rem; font-weight:800; letter-spacing:-0.02em;">AGENT WORKFLOWS</h1>
-                <span class="badge-tag info" style="font-size:0.68rem; font-weight:700;">AUTONOMOUS LIBRARY</span>
+                <span class="badge-tag info" style="font-size:var(--text-2xs); font-weight:700;">AUTONOMOUS LIBRARY</span>
               </div>
               <p style="margin:0.2rem 0 0; font-size:var(--text-xs); color:var(--text-sub);">Autonomous agent sequence library, learned navigation maps, and repeating loops.</p>
             </div>

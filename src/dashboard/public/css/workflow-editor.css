@@ -159,7 +159,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.68rem;
+  font-size: var(--text-2xs);
   font-weight: 700;
   padding: 2px 8px;
   border-radius: var(--radius-pill);
@@ -254,7 +254,7 @@
 }
 
 .df-role-helper {
-  font-size: 0.66rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
   color: var(--text-sub);
 }
@@ -316,7 +316,7 @@
 }
 
 .df-input-group label {
-  font-size: 0.68rem !important;
+  font-size: var(--text-2xs) !important;
   font-weight: 700 !important;
   text-transform: uppercase !important;
   letter-spacing: 0.04em !important;

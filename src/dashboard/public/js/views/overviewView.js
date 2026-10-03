@@ -76,7 +76,7 @@ export const OverviewView = {
             <div>
               <div style="display:flex; align-items:center; gap:0.5rem;">
                 <h1 class="wf-page-title" style="margin:0; font-size:1.4rem; letter-spacing:-0.02em;">WORKFLOW AGENT</h1>
-                <span class="badge-tag success" style="font-size:0.68rem; padding:0.15rem 0.55rem; box-shadow:0 0 10px rgba(16,185,129,0.3); font-weight:700;">● SYSTEM ONLINE</span>
+                <span class="badge-tag success" style="font-size:var(--text-2xs); padding:0.15rem 0.55rem; box-shadow:0 0 10px rgba(16,185,129,0.3); font-weight:700;">● SYSTEM ONLINE</span>
               </div>
               <p class="wf-page-subtitle" style="margin:0.2rem 0 0;">Autonomous browser AI operations center &amp; live workflow telemetry.</p>
             </div>
@@ -157,7 +157,7 @@ export const OverviewView = {
             <div style="display:flex; align-items:center; gap:0.65rem;">
               ${renderRobotAvatar({ size: 'mini', state: 'analyzing' })}
               <span style="font-size:0.95rem; font-weight:700; color:var(--text-primary);">TRAIN YOUR AGENT</span>
-              <span class="badge-tag info" style="font-size:0.68rem;">Interactive Training</span>
+              <span class="badge-tag info" style="font-size:var(--text-2xs);">Interactive Training</span>
             </div>
             <button class="btn-icon" id="btnCloseCreateModal" title="Close" aria-label="Close">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>

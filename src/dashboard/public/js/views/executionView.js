@@ -192,9 +192,9 @@ export const ExecutionView = {
             </div>
             <div>
               <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.25rem;">
-                <span class="eyebrow" style="color:var(--accent-cyan); font-weight:800; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.1em;">AGENT MISSION CONTROL</span>
-                <span class="badge-tag info" id="executionModeBadge" style="font-size:0.62rem; text-transform:uppercase;">AUTONOMOUS AGENT</span>
-                <span class="badge-tag secondary" id="executionDomainBadge" style="display:none; font-size:0.62rem;"></span>
+                <span class="eyebrow" style="color:var(--accent-cyan); font-weight:800; font-size:var(--text-2xs); text-transform:uppercase; letter-spacing:0.1em;">AGENT MISSION CONTROL</span>
+                <span class="badge-tag info" id="executionModeBadge" style="font-size:var(--text-2xs); text-transform:uppercase;">AUTONOMOUS AGENT</span>
+                <span class="badge-tag secondary" id="executionDomainBadge" style="display:none; font-size:var(--text-2xs);"></span>
               </div>
               <h1 id="executionTitle" style="font-size:1.4rem; font-weight:800; margin:0.15rem 0; color:var(--text-primary);">Workflow Run</h1>
               <p style="margin:0.25rem 0 0; color:var(--text-sub); font-size:0.75rem; display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
@@ -267,8 +267,8 @@ export const ExecutionView = {
         <section class="card" id="engineUnderstandingCard" style="padding:0.85rem 1.25rem; border-radius:var(--radius-lg); background:rgba(6,9,19,0.7); border:1px solid rgba(255,255,255,0.06); margin-bottom:0.85rem;">
           <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.45rem; flex-wrap:wrap; gap:0.5rem;">
             <div style="display:flex; align-items:center; gap:0.5rem;">
-              <span style="font-size:0.72rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--accent-cyan);">Robotic Intelligence Engine</span>
-              <span class="badge-tag success" id="engineLoopBadge" style="font-size:0.62rem;">Dynamic Pattern Detected ✓</span>
+              <span style="font-size:0.75rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--accent-cyan);">Robotic Intelligence Engine</span>
+              <span class="badge-tag success" id="engineLoopBadge" style="font-size:var(--text-2xs);">Dynamic Pattern Detected ✓</span>
             </div>
             <span id="engineCollectionTag" style="font-size:0.72rem; color:var(--text-sub); font-family:var(--font-mono); font-weight:600;">Collection: Repeating Grid / Table</span>
           </div>
@@ -1075,8 +1075,8 @@ export const ExecutionView = {
             <div class="execution-item-copy">
               <div style="display:flex; align-items:center; gap:0.4rem;">
                 <strong>Step #${s + 1}</strong>
-                <span class="badge-tag info" style="font-size:0.6rem; padding:1px 5px; background:#f1f5f9; color:#475569;">${escapeHtml(stepType)}</span>
-                <span class="df-role-badge role-setup" style="font-size:0.58rem; padding:1px 6px;">SETUP</span>
+                <span class="badge-tag info" style="font-size:var(--text-2xs); padding:1px 6px; background:#f1f5f9; color:#475569;">${escapeHtml(stepType)}</span>
+                <span class="df-role-badge role-setup" style="font-size:var(--text-2xs); padding:1px 6px;">SETUP</span>
               </div>
               <span>${escapeHtml(targetDetail)}</span>
             </div>
@@ -1149,7 +1149,7 @@ export const ExecutionView = {
       if (res && Array.isArray(res.downloadedFiles) && res.downloadedFiles.length > 0) {
         const firstFile = typeof res.downloadedFiles[0] === 'string' ? { filename: res.downloadedFiles[0] } : res.downloadedFiles[0];
         fileBadge = `
-          <div style="margin-top:0.3rem; display:inline-flex; align-items:center; gap:0.4rem; padding:0.15rem 0.5rem; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:4px; font-size:0.68rem; color:#065f46;">
+          <div style="margin-top:0.3rem; display:inline-flex; align-items:center; gap:0.4rem; padding:0.15rem 0.5rem; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:4px; font-size:var(--text-2xs); color:#065f46;">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
             <strong style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(firstFile.filename)}</strong>
           </div>

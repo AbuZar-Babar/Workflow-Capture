@@ -991,7 +991,7 @@ input[type="range"] {
   position: absolute;
   right: 0.6rem;
   padding: 0.1rem 0.35rem;
-  font-size: 0.65rem;
+  font-size: var(--text-2xs);
   font-family: var(--font-mono);
   color: var(--text-muted);
   background-color: var(--card-bg-solid);
@@ -2342,7 +2342,7 @@ input[type="range"] {
 }
 
 .telemetry-cell .telemetry-label {
-  font-size: 0.65rem;
+  font-size: var(--text-2xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -2434,7 +2434,7 @@ input[type="range"] {
   gap: 0.4rem;
   padding: 0.2rem 0.55rem;
   border-radius: var(--radius-pill);
-  font-size: 0.68rem;
+  font-size: var(--text-2xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;

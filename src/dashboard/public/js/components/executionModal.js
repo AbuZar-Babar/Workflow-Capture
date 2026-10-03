@@ -260,9 +260,9 @@ export const ExecutionModal = {
             <div>
               <div style="display:flex; align-items:center; gap:0.5rem;">
                 <h3 id="execModalTitle" style="margin:0; font-size:1.05rem; font-weight:800; color:var(--text-primary);">${escapeHtml(this.workflowName)}</h3>
-                <span class="badge-tag info" style="font-size:0.65rem; font-weight:700;">MISSION CONTROL</span>
+                <span class="badge-tag info" style="font-size:var(--text-2xs); font-weight:700;">MISSION CONTROL</span>
               </div>
-              <span style="font-size:0.75rem; color:var(--text-sub); display:block; margin-top:0.15rem;">Autonomous browser worker setup &amp; dynamic DOM inspection</span>
+              <span style="font-size:var(--text-2xs); color:var(--text-sub); display:block; margin-top:0.15rem;">Autonomous browser worker setup &amp; dynamic DOM inspection</span>
             </div>
           </div>
           <button class="btn-icon" id="btnCloseExecModal" title="Close" aria-label="Close execution dialog" style="background:transparent; border:none; cursor:pointer;">
@@ -281,7 +281,7 @@ export const ExecutionModal = {
               <div style="display:flex; flex-direction:column; gap:0.2rem;">
                 <div style="display:flex; align-items:center; gap:0.5rem;">
                   <strong style="font-size:0.9rem; color:var(--text-main);">⚡ Run Once (Single Workflow)</strong>
-                  <span class="badge-tag success" style="font-size:0.65rem; padding:0.12rem 0.4rem;">Standard</span>
+                  <span class="badge-tag success" style="font-size:var(--text-2xs); padding:0.15rem 0.45rem;">Standard</span>
                 </div>
                 <span style="font-size:0.76rem; color:var(--text-sub);">Replays the exact recorded workflow once from start to finish. Does not iterate through other rows.</span>
               </div>
@@ -293,7 +293,7 @@ export const ExecutionModal = {
               <div style="display:flex; flex-direction:column; gap:0.2rem;">
                 <div style="display:flex; align-items:center; gap:0.5rem;">
                   <strong style="font-size:0.9rem; color:var(--text-main);">🔁 Run as Loop (Batch / Filtered Items)</strong>
-                  ${hasLoopConfigured ? '<span class="badge-tag success" style="font-size:0.65rem; padding:0.12rem 0.4rem;">Configured</span>' : '<span class="badge-tag primary" style="font-size:0.65rem; padding:0.12rem 0.4rem;">Auto-Discovery</span>'}
+                  ${hasLoopConfigured ? '<span class="badge-tag success" style="font-size:var(--text-2xs); padding:0.15rem 0.45rem;">Configured</span>' : '<span class="badge-tag primary" style="font-size:var(--text-2xs); padding:0.15rem 0.45rem;">Auto-Discovery</span>'}
                 </div>
                 <span style="font-size:0.76rem; color:var(--text-sub);">Automatically detects table records and processes matching items based on your filter criteria.</span>
               </div>
@@ -308,9 +308,9 @@ export const ExecutionModal = {
               <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.35rem;">
                 <label for="selExecLoopStep" style="font-size:0.8rem; font-weight:700; color:var(--text-main); display:flex; align-items:center; gap:0.4rem;">
                   <span>📍 Repeating Step</span>
-                  <span style="font-size:0.72rem; font-weight:normal; color:var(--text-sub);">(Choose which step repeats for each item in the list)</span>
+                  <span style="font-size:var(--text-2xs); font-weight:normal; color:var(--text-sub);">(Choose which step repeats for each item in the list)</span>
                 </label>
-                <span class="badge-tag primary" style="font-size:0.65rem;">Loop Target Step</span>
+                <span class="badge-tag primary" style="font-size:var(--text-2xs);">Loop Target Step</span>
               </div>
               <select id="selExecLoopStep" class="exec-control-select" style="font-size:0.8rem; font-weight:600;">
                 ${this.renderStepOptions()}
@@ -331,8 +331,8 @@ export const ExecutionModal = {
                 <label class="exec-data-radio-label ${this.itemMode === 'new' ? 'active' : ''}">
                   <input type="radio" name="execDataModeRadio" value="new" ${this.itemMode === 'new' ? 'checked' : ''} style="accent-color:var(--brand-forest); margin-top:0.15rem;">
                   <div>
-                    <strong style="font-size:0.82rem; color:var(--text-main);">Skip previously downloaded files <span class="badge-tag success" style="font-size:0.62rem; padding:0.05rem 0.35rem;">Recommended</span></strong>
-                    <span style="font-size:0.74rem; color:var(--text-sub); display:block;">Only download new files from this run</span>
+                    <strong style="font-size:0.82rem; color:var(--text-main);">Skip previously downloaded files <span class="badge-tag success" style="font-size:var(--text-2xs); padding:0.1rem 0.4rem;">Recommended</span></strong>
+                    <span style="font-size:var(--text-2xs); color:var(--text-sub); display:block;">Only download new files from this run</span>
                   </div>
                 </label>
 
@@ -466,9 +466,9 @@ export const ExecutionModal = {
           <div style="display:flex; align-items:center; justify-content:space-between;">
             <div style="display:flex; align-items:center; gap:0.45rem;">
               <span style="font-size:0.82rem; font-weight:800; color:var(--text-main);">🎯 Item Filter Rules</span>
-              <span class="badge-tag primary" style="font-size:0.65rem; padding:0.1rem 0.4rem;">Filter by Field Criteria</span>
+              <span class="badge-tag primary" style="font-size:var(--text-2xs); padding:0.12rem 0.45rem;">Filter by Field Criteria</span>
             </div>
-            <span style="font-size:0.72rem; color:var(--text-sub);">Configure item selection criteria</span>
+            <span style="font-size:var(--text-2xs); color:var(--text-sub);">Configure item selection criteria</span>
           </div>
 
           <!-- Explicit Filter Mode Toggle -->
@@ -492,7 +492,7 @@ export const ExecutionModal = {
                 <label style="font-size:0.75rem; font-weight:700; color:var(--text-main);">
                   📋 Which column or field to fetch / filter on?
                 </label>
-                <span style="font-size:0.68rem; color:var(--text-sub);">${this.availableFields.length} detected</span>
+                <span style="font-size:var(--text-2xs); color:var(--text-sub);">${this.availableFields.length} detected</span>
               </div>
               ${hasFields ? `
                 <div class="exec-pill-group" id="execFieldPills">
@@ -515,7 +515,7 @@ export const ExecutionModal = {
                   <span style="font-size:0.75rem; font-weight:800; color:var(--text-main); display:flex; align-items:center; gap:0.35rem;">
                     <span>📅 Smart Date &amp; Lifecycle Logic for &ldquo;${escapeHtml(currentField)}&rdquo;:</span>
                   </span>
-                  <span style="font-size:0.68rem; color:var(--brand-forest); font-weight:700;">Live Runtime Filtering</span>
+                  <span style="font-size:var(--text-2xs); color:var(--brand-forest); font-weight:700;">Live Runtime Filtering</span>
                 </div>
                 <div class="exec-pill-group" id="execSmartDatePills">
                   <button type="button" class="exec-pill exec-pill-smart-date ${this.filterEnabled && this.filterOperator === '<=' && (this.filterValue === 'today' || this.isTodayValue(this.filterValue)) ? 'active' : ''}" data-action="overdue" title="Due date has passed (Due Date <= Today)">
@@ -538,10 +538,10 @@ export const ExecutionModal = {
             ${detectedValues.length > 0 ? `
               <div style="display:flex; flex-direction:column; gap:0.25rem; margin-top:0.15rem;">
                 <div style="display:flex; align-items:center; justify-content:space-between;">
-                  <span style="font-size:0.72rem; font-weight:700; color:var(--text-sub);">
+                  <span style="font-size:0.75rem; font-weight:700; color:var(--text-sub);">
                     🔍 Detected Options for &ldquo;${escapeHtml(currentField)}&rdquo;:
                   </span>
-                  <span style="font-size:0.68rem; color:var(--text-sub);">${detectedValues.length} option(s)</span>
+                  <span style="font-size:var(--text-2xs); color:var(--text-sub);">${detectedValues.length} option(s)</span>
                 </div>
                 <div class="exec-pill-group" id="execValuePills">
                   ${detectedValues.map(v => `
@@ -689,7 +689,7 @@ export const ExecutionModal = {
             ${skipped.map(item => `
               <span class="exec-sample-chip skipped" title="${escapeHtml(item.reason || 'Skipped by filter')}">
                 <span>↷ ${escapeHtml(item.label || item.text || item.id || `Item #${item.index || ''}`)}</span>
-                <span style="opacity:0.8; font-size:0.65rem;">(${escapeHtml(item.reason || 'skipped')})</span>
+                <span style="opacity:0.85; font-size:var(--text-2xs);">(${escapeHtml(item.reason || 'skipped')})</span>
               </span>
             `).join('')}
           </div>

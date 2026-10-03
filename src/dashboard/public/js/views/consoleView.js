@@ -62,7 +62,7 @@ export const ConsoleView = {
             <div>
               <div style="display:flex; align-items:center; gap:0.5rem;">
                 <h1 class="wf-page-title" style="margin:0; font-size:1.35rem; font-weight:800; letter-spacing:-0.02em;">AGENT ACTIVITY</h1>
-                <span class="badge-tag info" style="font-size:0.68rem; font-weight:700;">LIVE TELEMETRY</span>
+                <span class="badge-tag info" style="font-size:var(--text-2xs); font-weight:700;">LIVE TELEMETRY</span>
               </div>
               <p class="wf-page-subtitle" style="margin:0.2rem 0 0;">Autonomous agent timeline, website stage analysis, and streaming execution logs.</p>
             </div>
@@ -144,7 +144,7 @@ export const ConsoleView = {
             <div class="card-header-row" style="margin-bottom:0.75rem; flex-wrap:wrap; gap:0.6rem;">
               <div style="display:flex; align-items:center; gap:0.5rem;">
                 <h2 style="font-size:0.95rem; font-weight:700; color:var(--text-primary); margin:0;">Live Engine Stream</h2>
-                <span class="badge-tag info" style="display:inline-flex; align-items:center; gap:0.35rem; font-size:0.65rem;">
+                <span class="badge-tag info" style="display:inline-flex; align-items:center; gap:0.35rem; font-size:var(--text-2xs);">
                   <span class="status-dot online" style="width:6px; height:6px;"></span>
                   <span>STREAMING</span>
                 </span>
