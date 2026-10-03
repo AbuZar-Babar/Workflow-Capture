@@ -2488,3 +2488,119 @@ body {
   order: 3 !important;
   margin-left: 0.5rem !important;
 }
+
+/* --- Visual node refinement: compact, calm workflow cards ------------- */
+.drawflow .drawflow-node {
+  min-width: 280px !important;
+  max-width: 300px !important;
+  border-radius: 8px !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+.drawflow .drawflow-node:hover {
+  border-color: var(--border-medium) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+.drawflow .drawflow-node.selected {
+  border-width: 1px !important;
+  box-shadow: 0 0 0 2px var(--accent-subtle), var(--shadow-md) !important;
+}
+.df-node-header {
+  padding: 8px 10px !important;
+  border-top-left-radius: 8px !important;
+  border-top-right-radius: 8px !important;
+}
+.df-action-badge {
+  gap: 4px !important;
+  font-size: 0.68rem !important;
+  padding: 2px 6px !important;
+  border-radius: 5px !important;
+}
+.df-step-number {
+  font-size: 0.68rem !important;
+  padding: 2px 6px !important;
+  border-radius: 5px !important;
+}
+.df-role-badge {
+  font-size: 0.64rem !important;
+  padding: 2px 6px !important;
+}
+.df-node-hero {
+  padding: 9px 10px 8px !important;
+}
+.df-node-title {
+  font-size: 0.88rem !important;
+  line-height: 1.25 !important;
+}
+.df-node-desc {
+  font-size: 0.72rem !important;
+  line-height: 1.35 !important;
+  margin-top: 2px !important;
+}
+.df-node-body {
+  padding: 10px !important;
+  gap: 8px !important;
+  border-bottom-left-radius: 8px !important;
+  border-bottom-right-radius: 8px !important;
+}
+.df-input-group {
+  gap: 4px !important;
+}
+.df-input-group label {
+  font-size: 0.64rem !important;
+}
+.df-input-group input,
+.df-input-group select {
+  padding: 6px 8px !important;
+  border-radius: 6px !important;
+  font-size: 0.72rem !important;
+}
+.df-advanced-details {
+  border-radius: 6px !important;
+}
+.df-advanced-summary {
+  padding: 6px 8px !important;
+  font-size: 0.68rem !important;
+}
+.df-advanced-body {
+  padding: 8px 9px 9px !important;
+}
+.df-role-group.is-setup,
+.df-role-group.is-loop,
+.df-role-group.is-anchor {
+  padding: 0.4rem 0.5rem !important;
+  border-radius: 6px !important;
+}
+.df-role-helper {
+  font-size: 0.64rem !important;
+}
+.df-btn-delete-node {
+  width: 22px !important;
+  height: 22px !important;
+}
+.drawflow .drawflow-node .input,
+.drawflow .drawflow-node .output {
+  width: 14px !important;
+  height: 14px !important;
+  border-width: 2px !important;
+}
+.drawflow .drawflow-node .input {
+  left: -7px !important;
+}
+.drawflow .drawflow-node .output {
+  right: -7px !important;
+}
+.drawflow .drawflow-node .output:hover,
+.drawflow .drawflow-node .input:hover {
+  transform: scale(1.2) !important;
+}
+.drawflow .connection .main-path {
+  stroke-width: 3px !important;
+  filter: none !important;
+}
+.drawflow .connection:hover .main-path,
+.drawflow .connection .main-path:hover,
+.drawflow .connection.selected .main-path,
+.drawflow .connection .main-path.selected {
+  stroke-width: 4px !important;
+  filter: none !important;
+}
