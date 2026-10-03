@@ -95,17 +95,6 @@ body {
   scrollbar-color: var(--border-hover) transparent;
 }
 
-/* Specificity overrides ensuring view containers scroll on standard and compact viewports */
-html body .dashboard-wrapper .app-view-container,
-html body .dashboard-wrapper .app-view-container[data-current-view="overview"],
-html body .dashboard-wrapper .app-view-container[data-current-view="dashboard"] {
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  height: auto !important;
-  min-height: 0 !important;
-  max-height: none !important;
-}
-
 .app-view-container::-webkit-scrollbar {
   width: 6px;
   height: 6px;

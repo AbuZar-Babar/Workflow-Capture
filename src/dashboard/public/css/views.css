@@ -2,13 +2,11 @@
    Workflow Capture — Dedicated View Layouts (Overview, Workflows, Console, Portals, Tests)
    =================================================================== */
 
-/* ---------------- View 1: Overview Dashboard & Visual Workflow Editor (Fixed / Full Height) ---------------- */
-.app-view-container[data-current-view="overview"],
-.app-view-container[data-current-view="dashboard"],
+/* ---------------- Visual Workflow Editor (Full Height / Pan-Zoom Canvas) ---------------- */
 .app-view-container[data-current-view="workflow-editor"] {
-  overflow: hidden !important;
-  height: 100% !important;
-  padding-right: 0 !important;
+  overflow: hidden;
+  height: 100%;
+  padding: 0;
 }
 
 .overview-fixed-grid {
