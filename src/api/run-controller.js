@@ -116,9 +116,26 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
   if (rawFilterInput !== undefined && rawFilterInput !== null) {
     const filterValidation = validateItemFilter(rawFilterInput);
     if (!filterValidation.valid) {
-      return sendJson(res, 400, { error: filterValidation.error || 'Invalid itemFilter configuration' });
+      // Check if this is an extended operator supported by ConditionEvaluator (e.g. <=, >=, <, >, before, after)
+      const op = String(rawFilterInput.operator || rawFilterInput.op || rawFilterInput.conditions?.[0]?.operator || '').toLowerCase().trim();
+      const isExtendedOp = ['<=', '>=', '<', '>', 'before', 'after', 'starts_with', 'ends_with', 'in', 'not_in', '!=', 'not_equals', 'date_before', 'date_after', 'date_on_or_after', 'date_on_or_before', 'date_between'].includes(op);
+      const field = String(rawFilterInput.field || rawFilterInput.column || rawFilterInput.conditions?.[0]?.field || '').trim();
+      const val = rawFilterInput.value !== undefined ? rawFilterInput.value : rawFilterInput.conditions?.[0]?.value;
+
+      if (isExtendedOp && field && val !== undefined && val !== null && String(val).trim() !== '') {
+        normalizedFilter = {
+          matchMode: 'all',
+          field,
+          operator: op,
+          value: val,
+          conditions: [{ field, operator: op, value: val }]
+        };
+      } else {
+        return sendJson(res, 400, { error: filterValidation.error || 'Invalid itemFilter configuration' });
+      }
+    } else {
+      normalizedFilter = filterValidation.filter;
     }
-    normalizedFilter = filterValidation.filter;
   }
 
   // Preserve legacy rowFilter where applicable

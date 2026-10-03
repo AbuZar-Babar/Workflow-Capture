@@ -46,6 +46,7 @@ const LoopDetector = require('../shared/loop-detector');
 const LoopReplayRunner = require('../replay/loop-replay-runner');
 const ItemDiscovery = require('../shared/item-discovery');
 const { extractAvailableFields, evaluateFilterPreview } = require('../shared/item-filter');
+const { ConditionEvaluator } = require('../shared/condition-evaluator');
 const { PageInspector } = require('../shared/page-inspector');
 const { connectToBrowser } = require('../utils/cdp-connector');
 const { extractWorkflowStartUrl } = require('../utils/url-helper');
@@ -527,7 +528,11 @@ const server = http.createServer(async (req, res) => {
           const pageSummary = pageInspection.summary || null;
 
           // 3. Multi-table disambiguation: elevate real data tables with explicit headers & action controls
-          if ((!discovery.success || discovery.collection?.itemTag === 'li') && pageSummary?.entities?.length > 0) {
+          const discoveryHasWeakHeaders = !discovery.collection?.headerColumns || discovery.collection.headerColumns.length === 0;
+          const discoveryItemsLackFields = Array.isArray(discovery.items) && discovery.items.length > 0 &&
+            discovery.items.every(it => !it.fields || Object.keys(it.fields).filter(k => !k.startsWith('_') && k !== 'Text' && k !== 'Date').length === 0);
+
+          if ((!discovery.success || discovery.collection?.itemTag === 'li' || discoveryHasWeakHeaders || discoveryItemsLackFields) && pageSummary?.entities?.length > 0) {
             const targetText = String(targetStep.target?.fingerprint?.text || targetStep.target?.candidates?.[0]?.value || '').toLowerCase();
             let tableEntity = null;
             if (targetText) {
@@ -548,26 +553,45 @@ const server = http.createServer(async (req, res) => {
             if (tableEntity) {
               const targetCol = tableEntity.actionColumn || (tableEntity.columns || []).find(c => /download|file|link|export/i.test(c)) || null;
               const targetVal = tableEntity.actionText || 'Download';
-              discovery = {
-                success: true,
-                confidence: 0.95,
-                itemCount: tableEntity.itemCount,
-                targetColumn: targetCol,
-                targetActionValue: targetVal,
-                collection: {
-                  itemTag: 'tr',
-                  ancestorTag: 'tbody',
-                  ancestorSelector: 'table tbody',
-                  headerColumns: tableEntity.columns
-                },
-                items: (tableEntity.rows || tableEntity.sampleRows).map((row, idx) => ({
-                  index: idx,
-                  text: Object.values(row).filter(Boolean).join(' '),
-                  fields: row,
-                  tagName: 'tr'
-                })),
-                availableFields: tableEntity.columns
-              };
+              if (!discovery.success || discovery.collection?.itemTag === 'li') {
+                discovery = {
+                  success: true,
+                  confidence: 0.95,
+                  itemCount: tableEntity.itemCount,
+                  targetColumn: targetCol,
+                  targetActionValue: targetVal,
+                  collection: {
+                    itemTag: 'tr',
+                    ancestorTag: 'tbody',
+                    ancestorSelector: 'table tbody',
+                    headerColumns: tableEntity.columns
+                  },
+                  items: (tableEntity.rows || tableEntity.sampleRows).map((row, idx) => ({
+                    index: idx,
+                    text: Object.values(row).filter(Boolean).join(' '),
+                    fields: row,
+                    tagName: 'tr'
+                  })),
+                  availableFields: tableEntity.columns
+                };
+              } else {
+                // Enrich existing discovery collection and items with the complete headers & row fields
+                discovery.collection = discovery.collection || {};
+                discovery.collection.headerColumns = tableEntity.columns;
+                discovery.availableFields = Array.from(new Set([...(discovery.availableFields || []), ...tableEntity.columns]));
+                if (targetCol && !discovery.targetColumn) discovery.targetColumn = targetCol;
+                if (targetVal && !discovery.targetActionValue) discovery.targetActionValue = targetVal;
+
+                const tableRows = tableEntity.rows || tableEntity.sampleRows || [];
+                if (Array.isArray(discovery.items) && tableRows.length > 0) {
+                  discovery.items.forEach((item, idx) => {
+                    const rowObj = tableRows[idx];
+                    if (rowObj) {
+                      item.fields = Object.assign({}, rowObj, item.fields || {});
+                    }
+                  });
+                }
+              }
             }
           }
 
@@ -677,10 +701,54 @@ const server = http.createServer(async (req, res) => {
               : (body.rowFilter || (body.filterValue ? { column: body.filterColumn || discovery.targetColumn || 'Type', value: body.filterValue } : defaultFilter));
 
             try {
-              filterPreview = evaluateFilterPreview(effectiveFilter, itemsWithFields, {
-                loopLimit: body.loopLimit !== undefined ? body.loopLimit : null,
-                previewLimit: 10
-              });
+              const rawOp = String(effectiveFilter?.operator || effectiveFilter?.op || '').toLowerCase().trim();
+              const isRelational = ['<=', '>=', '<', '>', 'before', 'after', 'starts_with', 'ends_with', 'in', 'not_in', '!=', 'not_equals', 'date_before', 'date_after', 'date_on_or_after', 'date_on_or_before', 'date_between'].includes(rawOp);
+
+              if (isRelational) {
+                let matchingCount = 0;
+                let selectedCount = 0;
+                let skippedFilterCount = 0;
+                let skippedLimitCount = 0;
+                const selectedPreview = [];
+                const skippedFilterPreview = [];
+                const limit = Number.isInteger(body.loopLimit) && body.loopLimit > 0 ? body.loopLimit : null;
+
+                for (let i = 0; i < itemsWithFields.length; i++) {
+                  const item = itemsWithFields[i];
+                  const fieldsMap = item?.fields || item || {};
+                  const evalRes = ConditionEvaluator.evaluate(fieldsMap, effectiveFilter);
+                  if (evalRes.matches) {
+                    matchingCount++;
+                    if (limit === null || selectedCount < limit) {
+                      selectedCount++;
+                      if (selectedPreview.length < 10) selectedPreview.push(item);
+                    } else {
+                      skippedLimitCount++;
+                    }
+                  } else {
+                    skippedFilterCount++;
+                    if (skippedFilterPreview.length < 10) skippedFilterPreview.push(item);
+                  }
+                }
+                filterPreview = {
+                  totalCount: itemsWithFields.length,
+                  matchingCount,
+                  selectedCount,
+                  skippedFilterCount,
+                  skippedLimitCount,
+                  skippedCount: skippedFilterCount,
+                  selectedPreview,
+                  skippedFilterPreview,
+                  skippedPreview: skippedFilterPreview,
+                  availableFields: discovery.availableFields || [],
+                  errors: []
+                };
+              } else {
+                filterPreview = evaluateFilterPreview(effectiveFilter, itemsWithFields, {
+                  loopLimit: body.loopLimit !== undefined ? body.loopLimit : null,
+                  previewLimit: 10
+                });
+              }
             } catch (err) {
               logger.warn(`[Preflight] evaluateFilterPreview error: ${err.message}`);
             }

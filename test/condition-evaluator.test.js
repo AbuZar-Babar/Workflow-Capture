@@ -73,4 +73,51 @@ assert.strictEqual(missingRes.matches, false);
 assert.ok(missingRes.reason.includes('missing or unreadable'));
 console.log('  ✅ Missing field guard passed');
 
+// Test 6: Citymart/iRely Voucher Due Date filtering with positional text fallback
+console.log('🔹 Test 6: Voucher Due Date filtering (upcoming & overdue)');
+const voucherUpcoming = {
+  text: '1099 adjustment 10/1/2026 10/10/2099 10/1/2026 none 10/2/2026',
+  fields: {
+    'Voucher Type': '1099 adjustment',
+    '_rawText': '1099 adjustment 10/1/2026 10/10/2099 10/1/2026 none 10/2/2026'
+  }
+};
+const voucherOverdue = {
+  text: '1099 adjustment 1/1/2020 1/10/2020 1/1/2020 none 1/2/2020',
+  fields: {
+    'Voucher Type': '1099 adjustment',
+    '_rawText': '1099 adjustment 1/1/2020 1/10/2020 1/1/2020 none 1/2/2020'
+  }
+};
+
+// Upcoming test: Due Date >= today
+const upcomingFilter = { field: 'Due Date', operator: '>=', value: 'today' };
+assert.strictEqual(ConditionEvaluator.evaluate(voucherUpcoming, upcomingFilter).matches, true, 'Voucher with 2099 due date should match upcoming');
+assert.strictEqual(ConditionEvaluator.evaluate(voucherOverdue, upcomingFilter).matches, false, 'Voucher with 2020 due date should not match upcoming');
+
+// Overdue test: Due Date <= today
+const overdueFilter = { field: 'Due Date', operator: '<=', value: 'today' };
+assert.strictEqual(ConditionEvaluator.evaluate(voucherUpcoming, overdueFilter).matches, false, 'Voucher with 2099 due date should not match overdue');
+assert.strictEqual(ConditionEvaluator.evaluate(voucherOverdue, overdueFilter).matches, true, 'Voucher with 2020 due date should match overdue');
+console.log('  ✅ Voucher Due Date filtering passed');
+
+// Test 7: Nested ExtJS item data with direct and alias fields
+console.log('🔹 Test 7: Nested ExtJS item with alias resolution');
+const extjsItem = {
+  index: 0,
+  fields: {
+    'Transaction Date': '10/01/2026',
+    'Due Date': '10/10/2026',
+    'Voucher No.': 'V-9901',
+    'Total': '$1,500.00'
+  }
+};
+assert.strictEqual(ConditionEvaluator.extractFieldValue(extjsItem, 'Due Date'), '10/10/2026');
+assert.strictEqual(ConditionEvaluator.extractFieldValue(extjsItem, 'due_date'), '10/10/2026');
+assert.strictEqual(ConditionEvaluator.extractFieldValue(extjsItem, 'DueDate'), '10/10/2026');
+assert.strictEqual(ConditionEvaluator.extractFieldValue(extjsItem, 'Total'), '$1,500.00');
+assert.strictEqual(ConditionEvaluator.evaluate(extjsItem, { field: 'Due Date', operator: '>=', value: '2026-10-01' }).matches, true);
+assert.strictEqual(ConditionEvaluator.evaluate(extjsItem, { field: 'Due Date', operator: '<=', value: '2026-10-05' }).matches, false);
+console.log('  ✅ Nested ExtJS item with alias resolution passed');
+
 console.log('\n🎉 ALL CONDITION EVALUATOR TESTS PASSED SUCCESSFULLY!');

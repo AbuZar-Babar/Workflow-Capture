@@ -480,20 +480,84 @@ class ConditionEvaluator {
   static extractFieldValue(itemData, targetFieldName) {
     if (!itemData || !targetFieldName) return null;
     const cleanTarget = String(targetFieldName).toLowerCase().trim();
+    const normTarget = cleanTarget.replace(/[^a-z0-9]/g, '');
 
-    // 1. Direct key match
-    if (itemData[targetFieldName] !== undefined) {
+    // 1. Direct key match on itemData
+    if (itemData[targetFieldName] !== undefined && itemData[targetFieldName] !== null) {
       return itemData[targetFieldName];
     }
 
-    // 2. Case-insensitive key match
+    // 2. Direct key match on itemData.fields
+    if (itemData.fields && typeof itemData.fields === 'object') {
+      if (itemData.fields[targetFieldName] !== undefined && itemData.fields[targetFieldName] !== null) {
+        return itemData.fields[targetFieldName];
+      }
+    }
+
+    // 3. Case-insensitive & normalized key match on itemData
     for (const key of Object.keys(itemData)) {
-      if (key.toLowerCase().trim() === cleanTarget) {
+      const cleanKey = key.toLowerCase().trim();
+      if ((cleanKey === cleanTarget || cleanKey.replace(/[^a-z0-9]/g, '') === normTarget) && itemData[key] !== undefined && itemData[key] !== null) {
         return itemData[key];
       }
     }
 
-    // 3. Fallback for label / text / identifier / type on single-value items (e.g. dropdown options)
+    // 4. Case-insensitive & normalized key match on itemData.fields
+    if (itemData.fields && typeof itemData.fields === 'object') {
+      for (const key of Object.keys(itemData.fields)) {
+        const cleanKey = key.toLowerCase().trim();
+        if ((cleanKey === cleanTarget || cleanKey.replace(/[^a-z0-9]/g, '') === normTarget) && itemData.fields[key] !== undefined && itemData.fields[key] !== null) {
+          return itemData.fields[key];
+        }
+      }
+    }
+
+    // 5. Semantic alias resolution
+    const source = (itemData.fields && typeof itemData.fields === 'object') ? Object.assign({}, itemData, itemData.fields) : itemData;
+    // Due Date
+    if (normTarget.includes('due') || normTarget.includes('duedate')) {
+      for (const [k, v] of Object.entries(source)) {
+        if (/\bdue\b/i.test(k) && v !== undefined && v !== null && v !== '') return v;
+      }
+    }
+    // Transaction Date
+    if (normTarget.includes('trans') || normTarget.includes('txdate')) {
+      for (const [k, v] of Object.entries(source)) {
+        if (/\btrans(action)?\b/i.test(k) && v !== undefined && v !== null && v !== '') return v;
+      }
+    }
+    // Post Date
+    if (normTarget.includes('post') || normTarget.includes('posting')) {
+      for (const [k, v] of Object.entries(source)) {
+        if (/\bpost(ing)?\b/i.test(k) && v !== undefined && v !== null && v !== '') return v;
+      }
+    }
+    // Invoice / Voucher Number
+    if (normTarget.includes('invoice') || normTarget.includes('voucher')) {
+      for (const [k, v] of Object.entries(source)) {
+        if (/\b(invoice|voucher)\b/i.test(k) && v !== undefined && v !== null && v !== '') return v;
+      }
+    }
+
+    // 6. Positional dates fallback from text if target is a date field
+    const textVal = itemData.text || itemData.fullText || itemData._rawText || (itemData.fields && (itemData.fields.Text || itemData.fields._rawText)) || '';
+    if (textVal && (normTarget.includes('date') || normTarget.includes('due'))) {
+      const dates = String(textVal).match(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b|\b\d{4}-\d{2}-\d{2}\b/g) || [];
+      if (dates.length > 0) {
+        if (normTarget.includes('due')) {
+          return dates.length > 1 ? dates[1] : dates[0];
+        }
+        if (normTarget.includes('trans') || normTarget === 'date') {
+          return dates[0];
+        }
+        if (normTarget.includes('post')) {
+          return dates.length > 2 ? dates[2] : dates[dates.length - 1];
+        }
+        return dates[0];
+      }
+    }
+
+    // 7. Fallback for label / text / identifier / type on single-value items (e.g. dropdown options)
     if (cleanTarget === 'label' || cleanTarget === 'text' || cleanTarget === 'title' || cleanTarget === 'type' || cleanTarget === 'document type' || cleanTarget === 'option') {
       return itemData.Type || itemData.type || itemData.Option || itemData.option || itemData.label || itemData.text || itemData.itemLabel || itemData.name || itemData.fullText || null;
     }

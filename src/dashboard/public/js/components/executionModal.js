@@ -1502,7 +1502,10 @@ export const ExecutionModal = {
         let targetDate = null;
 
         if (this.isDateString(extracted.value) || this.isDateString(value)) {
-          const rawItem = Date.parse(extracted.value);
+          let dateStr = String(extracted.value ?? '').trim();
+          const dMatch = dateStr.match(/\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b|\b\d{4}[/-]\d{1,2}[/-]\d{1,2}\b|\b[A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4}\b/);
+          if (dMatch) dateStr = dMatch[0];
+          const rawItem = Date.parse(dateStr);
           if (!isNaN(rawItem)) {
             itemDate = new Date(rawItem);
             if (value.toLowerCase() === 'today' || value.toLowerCase() === 'now') {
@@ -1638,26 +1641,107 @@ export const ExecutionModal = {
   extractFieldValue(item, fieldName) {
     if (!item || !fieldName) return { found: false, value: undefined };
     const targetKey = fieldName.trim().toLowerCase();
+    const normTarget = targetKey.replace(/[^a-z0-9]/g, '');
 
-    // Check item.fields object
+    // 1. Check item.fields object
     if (item.fields && typeof item.fields === 'object') {
+      // 1a. Direct or case-insensitive match
       for (const [k, v] of Object.entries(item.fields)) {
-        if (k.trim().toLowerCase() === targetKey) {
+        if (k.trim().toLowerCase() === targetKey && v !== undefined && v !== null && v !== '') {
+          return { found: true, value: v };
+        }
+      }
+      // 1b. Normalized match
+      for (const [k, v] of Object.entries(item.fields)) {
+        if (k.replace(/[^a-z0-9]/gi, '').toLowerCase() === normTarget && v !== undefined && v !== null && v !== '') {
           return { found: true, value: v };
         }
       }
     }
 
-    // Check direct properties of item
+    // 2. Check direct properties of item
     if (typeof item === 'object') {
       for (const [k, v] of Object.entries(item)) {
-        if (k.trim().toLowerCase() === targetKey) {
+        if (k.trim().toLowerCase() === targetKey && v !== undefined && v !== null && v !== '') {
+          return { found: true, value: v };
+        }
+      }
+      for (const [k, v] of Object.entries(item)) {
+        if (k.replace(/[^a-z0-9]/gi, '').toLowerCase() === normTarget && v !== undefined && v !== null && v !== '') {
           return { found: true, value: v };
         }
       }
     }
 
-    // Fallback derivation for Document Type
+    // 3. Semantic aliases on item.fields or item
+    const sourceObj = (item.fields && typeof item.fields === 'object') ? Object.assign({}, item, item.fields) : item;
+    if (normTarget.includes('due') || normTarget.includes('duedate')) {
+      for (const [k, v] of Object.entries(sourceObj)) {
+        if (/\bdue\b/i.test(k) && v !== undefined && v !== null && v !== '') {
+          return { found: true, value: v };
+        }
+      }
+    }
+    if (normTarget.includes('trans') || normTarget.includes('txdate')) {
+      for (const [k, v] of Object.entries(sourceObj)) {
+        if (/\btrans(action)?\b/i.test(k) && v !== undefined && v !== null && v !== '') {
+          return { found: true, value: v };
+        }
+      }
+    }
+    if (normTarget.includes('post') || normTarget.includes('posting')) {
+      for (const [k, v] of Object.entries(sourceObj)) {
+        if (/\bpost(ing)?\b/i.test(k) && v !== undefined && v !== null && v !== '') {
+          return { found: true, value: v };
+        }
+      }
+    }
+    if (normTarget.includes('invoice') || normTarget.includes('voucher')) {
+      for (const [k, v] of Object.entries(sourceObj)) {
+        if (/\b(invoice|voucher)\b/i.test(k) && v !== undefined && v !== null && v !== '') {
+          return { found: true, value: v };
+        }
+      }
+    }
+
+    // 4. Positional fallback if availableFields or headerColumns exist
+    const cols = (this.availableFields && this.availableFields.length > 0)
+      ? this.availableFields
+      : (this.discoveryData?.discovery?.collection?.headerColumns || []);
+
+    if (cols.length > 0) {
+      const colIdx = cols.findIndex(c => c.trim().toLowerCase() === targetKey || c.replace(/[^a-z0-9]/gi, '').toLowerCase() === normTarget);
+
+      // If item._cells array exists
+      if (colIdx >= 0 && Array.isArray(item._cells) && item._cells[colIdx] !== undefined && item._cells[colIdx] !== '') {
+        return { found: true, value: item._cells[colIdx] };
+      }
+
+      // If item.text contains dates and this is a date column:
+      const itemText = String(item.text || item._rawText || (item.fields && (item.fields.Text || item.fields._rawText)) || '').trim();
+      if (itemText && (normTarget.includes('date') || normTarget.includes('due'))) {
+        const dates = itemText.match(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b|\b\d{4}-\d{2}-\d{2}\b/g) || [];
+        if (dates.length > 0) {
+          const dateCols = cols.filter(c => this.isDateField(c));
+          const dateIdx = dateCols.findIndex(c => c.trim().toLowerCase() === targetKey || c.replace(/[^a-z0-9]/gi, '').toLowerCase() === normTarget);
+          if (dateIdx >= 0 && dateIdx < dates.length) {
+            return { found: true, value: dates[dateIdx] };
+          }
+          if (normTarget.includes('due') && dates.length > 1) {
+            return { found: true, value: dates[1] };
+          }
+          if ((normTarget.includes('trans') || normTarget === 'date') && dates.length > 0) {
+            return { found: true, value: dates[0] };
+          }
+          if (normTarget.includes('post') && dates.length > 2) {
+            return { found: true, value: dates[2] };
+          }
+          return { found: true, value: dates[0] };
+        }
+      }
+    }
+
+    // 5. Fallback derivation for Document Type
     if ((targetKey === 'type' || targetKey === 'document type') && item.text) {
       if (/\bcredit\s*memo\b/i.test(item.text)) return { found: true, value: 'Credit Memo' };
       if (/\binvoice\b/i.test(item.text)) return { found: true, value: 'Invoice' };
@@ -1665,14 +1749,14 @@ export const ExecutionModal = {
       if (/\bstatement\b/i.test(item.text)) return { found: true, value: 'Statement' };
     }
 
-    // Fallback derivation for Invoice / Record Number
+    // 6. Fallback derivation for Invoice / Record Number
     if ((targetKey === 'invoice number' || targetKey === 'invoice no' || targetKey === 'invoice') && item.text) {
       const match = item.text.match(/\b((?:SI|INV|DR|TX|CM)-\d+(?:[-_]\w+)*|\b\d{5,10}\b)/i);
       if (match) return { found: true, value: match[1] };
     }
 
-    // If targetKey is 'text' or 'label'
-    if (['text', 'label', 'name'].includes(targetKey)) {
+    // 7. If targetKey is 'text' or 'label'
+    if (['text', 'label', 'name', 'fulltext', '_rawtext'].includes(targetKey)) {
       const v = item.text || item.label || (typeof item === 'string' ? item : undefined);
       if (v !== undefined) return { found: true, value: v };
     }
