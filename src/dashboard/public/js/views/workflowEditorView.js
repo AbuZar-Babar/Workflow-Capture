@@ -1034,13 +1034,7 @@ export const WorkflowEditorView = {
 
           <!-- Node Footer with Accessible Delete Action -->
           <div class="df-node-footer">
-            <button type="button" class="df-btn-delete-text" title="Delete this step from workflow" aria-label="Delete step #${index + 1}">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="3 6 5 6 21 6"></polyline>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-              </svg>
-              <span>Delete Step</span>
-            </button>
+
           </div>
         </div>
       `;
@@ -1182,7 +1176,6 @@ export const WorkflowEditorView = {
 
         // Wire Delete Step buttons
         const deleteBtnHeader = nodeEl.querySelector('.df-btn-delete-node');
-        const deleteBtnFooter = nodeEl.querySelector('.df-btn-delete-text');
         const triggerDelete = (e) => {
           e.stopPropagation();
           e.preventDefault();
@@ -1190,7 +1183,6 @@ export const WorkflowEditorView = {
           this.promptDeleteNode(nodeId, currentName);
         };
         if (deleteBtnHeader) deleteBtnHeader.onclick = triggerDelete;
-        if (deleteBtnFooter) deleteBtnFooter.onclick = triggerDelete;
       }
 
       previousNodeId = nodeId;
