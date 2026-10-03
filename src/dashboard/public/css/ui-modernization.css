@@ -2320,3 +2320,45 @@ body {
     max-width: 280px !important;
   }
 }
+
+/* --- Visual editor header alignment --------------------------------- */
+.workflow-editor-header > div:first-child {
+  align-items: center !important;
+}
+.wf-header-title-wrap,
+.wf-header-target-box {
+  width: 280px !important;
+  min-width: 280px !important;
+  max-width: 280px !important;
+}
+.wf-header-target-box > div {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  min-height: 32px !important;
+}
+.wf-header-target-box input {
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+.wf-title-input {
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+#btnBack {
+  order: 10 !important;
+}
+@media (max-width: 900px) {
+  .wf-header-title-wrap,
+  .wf-header-target-box {
+    width: 260px !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+}
+@media (max-width: 700px) {
+  .wf-header-title-wrap,
+  .wf-header-target-box {
+    width: 100% !important;
+  }
+}
