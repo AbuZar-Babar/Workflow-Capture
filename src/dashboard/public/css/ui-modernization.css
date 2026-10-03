@@ -1416,3 +1416,107 @@ body {
     padding: 0.75rem;
   }
 }
+
+/* --- Overview viewport layout fix ------------------------------------ */
+/* Keep the Overview composition inside the available viewport.
+   Long workflow/activity lists scroll inside their own panels. */
+.dashboard-shell {
+  width: 100% !important;
+  max-width: 1440px !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  padding-bottom: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.85rem !important;
+  overflow: hidden !important;
+}
+
+.dashboard-shell > .wf-page-header {
+  flex: 0 0 auto !important;
+  margin-bottom: 0 !important;
+}
+
+.dashboard-shell > .agent-status-hub {
+  flex: 0 0 auto !important;
+  margin-bottom: 0 !important;
+}
+
+.dashboard-shell > .dashboard-stat-grid {
+  flex: 0 0 auto !important;
+  margin-bottom: 0 !important;
+}
+
+.dashboard-shell > .dashboard-stat-grid + div {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.dashboard-shell > .dashboard-stat-grid + div > .card {
+  min-height: 0 !important;
+  height: 100% !important;
+  overflow: hidden !important;
+}
+
+.dashboard-shell .wf-list,
+.dashboard-shell .act-timeline {
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  scrollbar-width: thin;
+}
+
+.dashboard-shell .wf-list {
+  max-height: none !important;
+}
+
+.dashboard-shell .act-timeline {
+  max-height: none !important;
+}
+
+@media (min-width: 1101px) {
+  .dashboard-shell {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .dashboard-shell > .dashboard-stat-grid {
+    gap: 0.75rem !important;
+  }
+
+  .dashboard-shell > .dashboard-stat-grid .dashboard-stat-card {
+    min-height: 86px !important;
+  }
+
+  .dashboard-shell > .dashboard-stat-grid + div {
+    grid-template-columns: 1.45fr 1fr !important;
+    gap: 0.85rem !important;
+  }
+}
+
+@media (max-width: 1100px) {
+  .dashboard-shell {
+    height: auto !important;
+    min-height: 100% !important;
+    overflow: visible !important;
+  }
+
+  .dashboard-shell > .dashboard-stat-grid + div {
+    overflow: visible !important;
+  }
+
+  .dashboard-shell > .dashboard-stat-grid + div > .card {
+    height: auto !important;
+  }
+
+  .dashboard-shell .wf-list,
+  .dashboard-shell .act-timeline {
+    overflow: visible !important;
+  }
+}
+
+@media (max-width: 700px) {
+  .dashboard-shell {
+    gap: 0.7rem !important;
+  }
+}
