@@ -128,12 +128,8 @@ export const WorkflowEditorView = {
         <!-- Modernized Robotic Editor Header -->
         <header class="workflow-editor-header" role="region" aria-label="Workflow Editor Header" style="background:rgba(13,19,36,0.85); border-bottom:1px solid rgba(255,255,255,0.08);">
           <div style="display:flex; align-items:center; gap:1rem; flex:1; min-width:0;">
-            <button class="btn btn-secondary btn-sm" id="btnBack" title="Back to Workflow Library" aria-label="Back to Workflow Library">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <line x1="19" y1="12" x2="5" y2="12"></line>
-                <polyline points="12 19 5 12 12 5"></polyline>
-              </svg>
-              <span>Back</span>
+            <button class="btn btn-secondary btn-sm" id="btnBack" title="Cancel and return to Workflow Library" aria-label="Cancel and return to Workflow Library">
+              <span>Cancel</span>
             </button>
 
             <!-- Robot Assistant Indicator -->
@@ -144,8 +140,7 @@ export const WorkflowEditorView = {
             <!-- Editable Workflow Name -->
             <div class="wf-header-title-wrap" style="display:flex; flex-direction:column; gap:2px; min-width:180px; max-width:320px; flex:1;">
               <div style="display:flex; align-items:center; gap:0.4rem;">
-                <label for="wfNameInput" style="font-size:var(--text-2xs); font-weight:700; color:var(--accent-cyan); text-transform:uppercase; letter-spacing:0.04em;">AGENT WORKFLOW</label>
-                <span class="badge-tag success" style="font-size:var(--text-2xs); padding:0.12rem 0.4rem;">● READY</span>
+                <label for="wfNameInput" style="font-size:var(--text-2xs); font-weight:700; color:var(--text-sub); text-transform:uppercase; letter-spacing:0.04em;">Workflow Name</label>
               </div>
               <input
                 type="text"
@@ -181,8 +176,6 @@ export const WorkflowEditorView = {
                 />
               </div>
             </div>
-
-            <span id="wfStepCounter" class="badge-tag info" style="margin-top:auto; height:32px; display:inline-flex; align-items:center;">0 Steps</span>
 
             <button class="btn btn-secondary btn-sm" id="btnSaveFlow" style="margin-top:auto;" title="Save changes to this workflow (Ctrl+S)">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
