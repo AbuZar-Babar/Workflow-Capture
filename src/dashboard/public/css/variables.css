@@ -90,3 +90,47 @@
   --space-lg: var(--space-6);
   --space-xl: var(--space-8);
 }
+
+/* Existing component aliases kept intentionally so this visual pass does not alter behavior. */
+:root {
+  --topbar-bg: var(--color-surface);
+  --bg-surface-sunken: var(--color-surface-muted);
+  --card-bg-solid: var(--color-surface);
+  --card-bg: var(--color-surface);
+  --card-border: var(--color-border);
+  --card-hover-border: var(--color-border-strong);
+  --border-light: var(--color-border);
+  --border-subtle: var(--color-surface-muted);
+  --input-bg: var(--color-surface);
+  --input-border: var(--color-border);
+  --input-focus-border: var(--color-primary);
+  --input-focus-ring: rgba(37, 99, 235, 0.14);
+  --state-hover-bg: var(--color-surface-muted);
+  --state-disabled-opacity: 0.5;
+  --color-success-bg: rgba(22, 163, 74, 0.10);
+  --color-success-border: rgba(22, 163, 74, 0.22);
+  --color-warning-bg: rgba(217, 119, 6, 0.10);
+  --color-warning-border: rgba(217, 119, 6, 0.22);
+  --color-danger-bg: rgba(220, 38, 38, 0.10);
+  --color-danger-border: rgba(220, 38, 38, 0.22);
+  --color-info: var(--color-primary);
+  --color-info-bg: var(--color-primary-subtle);
+  --color-info-border: rgba(37, 99, 235, 0.20);
+  --text-disabled: #94a3b8;
+  --text-2xs: 11px;
+  --text-base: 14px;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-card: var(--shadow-sm);
+  --shadow-card-hover: var(--shadow-md);
+  --shadow-lg: 0 10px 24px rgba(15, 23, 42, 0.12);
+  --shadow-xl: 0 20px 40px rgba(15, 23, 42, 0.16);
+  --surface-overlay: rgba(15, 23, 42, 0.45);
+  --modal-bg: var(--color-surface);
+  --modal-border: var(--color-border);
+  --toast-bg: var(--color-surface);
+  --toast-border: var(--color-border);
+  --tooltip-bg: var(--color-text);
+  --tooltip-text: var(--color-surface);
+  --tooltip-border: var(--color-border);
+}
