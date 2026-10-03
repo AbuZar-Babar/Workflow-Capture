@@ -2029,3 +2029,17 @@ body {
 .flowmind-topbar-brand {
   cursor: pointer;
 }
+
+/* Workflow search: keep the shortcut on the far right of the field. */
+.wf-search-box {
+  display: flex !important;
+  align-items: center !important;
+}
+.wf-search-kbd {
+  margin-left: auto !important;
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+  font-family: inherit !important;
+  font-size: 0.68rem !important;
+  font-weight: 500 !important;
+}
