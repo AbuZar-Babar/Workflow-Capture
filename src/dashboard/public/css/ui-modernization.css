@@ -1,0 +1,2041 @@
+/* ===================================================================
+   Workflow Capture — UI Modernization Overrides
+   Visual-only layer: no behavior, routes, APIs, or interaction logic.
+   =================================================================== */
+
+:root {
+  --ui-content-max: 1440px;
+}
+
+/* --- Application shell ------------------------------------------------ */
+.dashboard-wrapper {
+  background: var(--bg-page);
+  color: var(--text-primary);
+}
+
+.app-header,
+.flowmind-app-topbar {
+  height: 56px;
+  min-height: 56px;
+  padding: 0 1rem;
+  background: var(--bg-surface) !important;
+  border-bottom: 1px solid var(--border-light) !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+}
+
+.header-left,
+.flowmind-topbar-left,
+.header-right,
+.flowmind-topbar-right {
+  gap: 0.5rem;
+}
+
+.header-brand,
+.flowmind-topbar-brand {
+  gap: 0.55rem;
+}
+
+.header-logo-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  background: var(--accent-subtle) !important;
+  border: 1px solid var(--border-light) !important;
+  color: var(--accent-primary) !important;
+}
+
+.header-logo-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.header-brand-title {
+  font-size: 0.95rem;
+  letter-spacing: -0.015em !important;
+}
+
+.flowmind-brand-text {
+  display: flex;
+  align-items: center;
+}
+
+.flowmind-brand-text .badge-tag {
+  display: none !important;
+}
+
+.topbar-breadcrumb {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.topbar-breadcrumb-separator {
+  color: var(--border-color);
+}
+
+.status-indicator-pill,
+.flowmind-engine-pill {
+  height: 32px;
+  padding: 0 0.65rem;
+  border-radius: 7px !important;
+  background: var(--bg-surface-alt) !important;
+  border: 1px solid var(--border-light) !important;
+}
+
+.status-indicator-pill .status-dot {
+  width: 7px;
+  height: 7px;
+  box-shadow: none !important;
+  animation: none !important;
+}
+
+.status-indicator-pill #cdpText {
+  color: var(--text-secondary) !important;
+  font-size: 0.72rem !important;
+}
+
+.btn-topbar-nav {
+  height: 32px;
+  padding: 0 0.65rem;
+  border-radius: 7px;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  font-weight: 500;
+}
+
+.btn-topbar-nav:hover {
+  background: var(--state-hover-bg);
+  border-color: var(--border-light);
+}
+
+.theme-toggle-label {
+  display: none;
+}
+
+/* --- Sidebar ---------------------------------------------------------- */
+.app-sidebar,
+.floating-sidebar {
+  width: 216px;
+  padding: 0.75rem 0.6rem;
+  background: var(--bg-surface) !important;
+  border-right: 1px solid var(--border-light) !important;
+}
+
+.sidebar-agent-badge {
+  margin: 0 0 0.65rem !important;
+  padding: 0.55rem 0.65rem !important;
+  border-radius: 7px !important;
+  background: var(--bg-surface-alt) !important;
+  border: 1px solid var(--border-light) !important;
+}
+
+.sidebar-agent-badge .status-dot {
+  background: var(--color-success) !important;
+  box-shadow: none !important;
+  animation: none !important;
+}
+
+.sidebar-agent-badge .sidebar-nav-label {
+  color: var(--text-secondary) !important;
+  font-size: 0.68rem !important;
+  letter-spacing: 0.04em !important;
+}
+
+.sidebar-nav-list,
+.sidebar-nav-icons {
+  gap: 0.15rem;
+}
+
+.sidebar-nav-item,
+.sidebar-icon-btn {
+  height: 38px;
+  padding: 0 0.7rem;
+  border-radius: 7px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.sidebar-nav-item:hover,
+.sidebar-icon-btn:hover {
+  background: var(--state-hover-bg);
+}
+
+.sidebar-nav-item.active,
+.sidebar-icon-btn.active,
+.sidebar-nav-item[aria-current="page"],
+.sidebar-icon-btn[aria-current="page"] {
+  background: var(--accent-subtle) !important;
+  border-color: transparent !important;
+  color: var(--accent-primary) !important;
+}
+
+.sidebar-bottom-section {
+  gap: 0.15rem;
+  padding-top: 0.65rem;
+}
+
+.sidebar-stop-execution.is-active {
+  box-shadow: none;
+}
+
+/* --- Main view spacing ------------------------------------------------ */
+.app-view-container {
+  min-width: 0;
+  background: var(--bg-page);
+}
+
+.app-view-container > * {
+  min-width: 0;
+}
+
+.view-page,
+.view-container,
+.wf-view-container,
+.console-full-view {
+  color: var(--text-primary);
+}
+
+/* --- Cards / widgets -------------------------------------------------- */
+.card,
+.wf-stat-widget,
+.workflows-main-card,
+.settings-panel,
+.settings-nav,
+.robot-card,
+.wf-robot-card,
+.agent-status-hub,
+.agent-mission-control-box {
+  border-radius: 9px !important;
+  box-shadow: var(--shadow-card) !important;
+}
+
+.card:hover,
+.wf-stat-widget:hover,
+.workflows-main-card:hover,
+.robot-card:hover,
+.wf-robot-card:hover {
+  transform: none !important;
+  box-shadow: var(--shadow-card-hover) !important;
+}
+
+.wf-stat-widget,
+.workflows-main-card {
+  background: var(--bg-surface) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: 1px solid var(--border-light) !important;
+  animation: none !important;
+}
+
+.wf-stat-widget:nth-child(n) {
+  border-top: 1px solid var(--border-light) !important;
+}
+
+.wf-widget-title-wrap h4,
+.card-title-wrap h3 {
+  letter-spacing: -0.01em;
+}
+
+/* --- Kill decorative futuristic treatment ---------------------------- */
+.robot-card,
+.wf-robot-card,
+.agent-status-hub,
+.agent-mission-control-box {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-light) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.agent-status-hub::before,
+.agent-status-avatar-box .orbital-ring,
+.agent-mission-control-box .scanline-overlay,
+.robot-avatar-wrap,
+.robot-avatar-wrap .robot-core-glow,
+.robot-avatar-wrap .robot-arm-wave {
+  animation: none !important;
+}
+
+.agent-status-hub::before {
+  display: none !important;
+}
+
+.agent-status-info h2 {
+  text-transform: none;
+  letter-spacing: -0.015em;
+  font-weight: 700;
+}
+
+.agent-telemetry-strip {
+  background: var(--bg-surface-alt) !important;
+  border: 1px solid var(--border-light) !important;
+}
+
+.wf-robot-domain {
+  color: var(--text-sub) !important;
+}
+
+.wf-robot-status-pill,
+.wf-robot-status-pill.ready,
+.wf-robot-status-pill.running,
+.wf-robot-status-pill.success {
+  background: var(--bg-surface-alt) !important;
+  color: var(--text-secondary) !important;
+  border-color: var(--border-light) !important;
+}
+
+.wf-btn-run-agent,
+.btn-replay-flow {
+  background: var(--accent-primary) !important;
+  color: #fff !important;
+  border: 1px solid var(--accent-primary) !important;
+  box-shadow: var(--shadow-xs) !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+}
+
+.wf-btn-run-agent:hover,
+.btn-replay-flow:hover {
+  background: var(--accent-hover) !important;
+  border-color: var(--accent-hover) !important;
+  box-shadow: var(--shadow-xs) !important;
+  transform: none !important;
+}
+
+.wf-avatar {
+  background: var(--accent-subtle) !important;
+  color: var(--accent-primary) !important;
+  border: 1px solid var(--border-light) !important;
+  box-shadow: none !important;
+}
+
+.wf-step-pill {
+  background: var(--bg-surface-alt) !important;
+  color: var(--text-secondary) !important;
+  border: 1px solid var(--border-light) !important;
+}
+
+.btn-edit-flow {
+  background: var(--bg-surface) !important;
+  color: var(--text-secondary) !important;
+  border: 1px solid var(--border-light) !important;
+  box-shadow: none !important;
+}
+
+.btn-edit-flow:hover {
+  background: var(--state-hover-bg) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-hover) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.btn-delete-flow:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* --- Tables ----------------------------------------------------------- */
+.quixotic-table,
+.data-table {
+  border-collapse: collapse !important;
+  border-spacing: 0 !important;
+}
+
+.quixotic-table th,
+.data-table th {
+  background: var(--bg-surface-alt) !important;
+  color: var(--text-sub) !important;
+  border-bottom: 1px solid var(--border-light) !important;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+.quixotic-table td,
+.data-table td {
+  border-bottom: 1px solid var(--border-light) !important;
+}
+
+.quixotic-table tbody tr,
+.quixotic-table tbody tr:hover {
+  box-shadow: none !important;
+  transform: none !important;
+  background: transparent !important;
+}
+
+.quixotic-table tbody tr:hover td,
+.data-table tbody tr:hover td {
+  background: var(--state-hover-bg) !important;
+}
+
+/* --- Search / controls ----------------------------------------------- */
+.search-input-wrap input {
+  width: 280px !important;
+  background: var(--bg-surface) !important;
+  border-radius: 7px !important;
+  box-shadow: none !important;
+}
+
+.search-input-wrap input:focus {
+  width: 280px !important;
+  box-shadow: 0 0 0 3px var(--input-focus-ring) !important;
+  border-color: var(--input-focus-border) !important;
+}
+
+.btn-refresh-wf {
+  border-radius: 7px !important;
+  background: var(--bg-surface) !important;
+  box-shadow: none !important;
+}
+
+.btn-refresh-wf:hover {
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* --- Modals ----------------------------------------------------------- */
+.modal-overlay {
+  background: rgba(15, 23, 42, 0.42) !important;
+  backdrop-filter: blur(2px) !important;
+  -webkit-backdrop-filter: blur(2px) !important;
+}
+
+.modal-dialog,
+.exec-modal-dialog {
+  border-radius: 10px !important;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.18) !important;
+}
+
+.modal-header {
+  background: var(--bg-surface) !important;
+}
+
+/* --- Recording banner: functional state, not decoration ---------------- */
+.global-recording-banner {
+  padding: 0.45rem 1rem;
+  box-shadow: none !important;
+}
+
+/* --- Responsive header/sidebar --------------------------------------- */
+@media (max-width: 1100px) {
+  .app-header,
+  .flowmind-app-topbar {
+    padding: 0 0.75rem;
+  }
+
+  .topbar-breadcrumb,
+  .topbar-breadcrumb-separator,
+  .header-center,
+  .flowmind-topbar-center {
+    display: none;
+  }
+
+  .status-indicator-pill #cdpText {
+    display: none;
+  }
+
+  .status-indicator-pill {
+    width: 32px;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .btn-topbar-nav span {
+    display: none;
+  }
+
+  .btn-topbar-nav {
+    width: 32px;
+    padding: 0;
+  }
+
+  .app-sidebar,
+  .floating-sidebar {
+    width: 64px;
+    padding: 0.75rem 0.45rem;
+  }
+
+  .sidebar-nav-label,
+  .sidebar-agent-badge .sidebar-nav-label {
+    display: none !important;
+  }
+
+  .sidebar-agent-badge {
+    justify-content: center;
+    padding: 0.55rem 0 !important;
+  }
+
+  .sidebar-nav-item,
+  .sidebar-icon-btn {
+    justify-content: center;
+    padding: 0;
+  }
+}
+
+@media (max-width: 700px) {
+  .app-header,
+  .flowmind-app-topbar {
+    height: 52px;
+    min-height: 52px;
+  }
+
+  .header-brand-title {
+    font-size: 0.88rem;
+  }
+
+  .header-logo-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .app-sidebar,
+  .floating-sidebar {
+    width: 52px;
+    padding: 0.6rem 0.35rem;
+  }
+
+  .sidebar-nav-item,
+  .sidebar-icon-btn {
+    height: 36px;
+  }
+
+  .global-recording-banner {
+    flex-wrap: wrap;
+    padding: 0.45rem 0.7rem;
+    gap: 0.35rem 0.75rem;
+  }
+
+  .global-recording-info {
+    margin-left: auto;
+  }
+
+  .global-rec-meta {
+    display: none;
+  }
+
+  .card,
+  .workflows-main-card,
+  .wf-stat-widget {
+    padding: 1rem !important;
+  }
+
+  .settings-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .search-input-wrap,
+  .search-input-wrap input {
+    width: 100% !important;
+  }
+
+  .workflows-header-controls {
+    align-items: stretch;
+  }
+
+  .wf-analytics-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* --- Accessibility / motion ------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* --- Dark mode: neutral slate, restrained blue ----------------------- */
+[data-theme="dark"] .app-header,
+[data-theme="dark"] .flowmind-app-topbar,
+[data-theme="dark"] .app-sidebar,
+[data-theme="dark"] .floating-sidebar,
+[data-theme="dark"] .card,
+[data-theme="dark"] .wf-stat-widget,
+[data-theme="dark"] .workflows-main-card,
+[data-theme="dark"] .robot-card,
+[data-theme="dark"] .wf-robot-card,
+[data-theme="dark"] .agent-status-hub,
+[data-theme="dark"] .agent-mission-control-box,
+[data-theme="dark"] .settings-panel,
+[data-theme="dark"] .settings-nav {
+  background: var(--bg-surface) !important;
+  border-color: var(--border-light) !important;
+}
+
+[data-theme="dark"] .quixotic-table tbody tr,
+[data-theme="dark"] .quixotic-table tbody tr:hover {
+  background: transparent !important;
+}
+
+[data-theme="dark"] .quixotic-table tbody tr:hover td,
+[data-theme="dark"] .data-table tbody tr:hover td {
+  background: var(--state-hover-bg) !important;
+}
+
+[data-theme="dark"] .btn-edit-flow,
+[data-theme="dark"] .btn-refresh-wf,
+[data-theme="dark"] .search-input-wrap input {
+  background: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-light) !important;
+}
+
+[data-theme="dark"] .wf-robot-status-pill,
+[data-theme="dark"] .wf-robot-status-pill.ready,
+[data-theme="dark"] .wf-robot-status-pill.running,
+[data-theme="dark"] .wf-robot-status-pill.success {
+  background: var(--bg-surface-alt) !important;
+  color: var(--text-secondary) !important;
+  border-color: var(--border-light) !important;
+}
+
+
+/* --- Overview / dashboard visual pass -------------------------------- */
+.overview-fixed-grid {
+  gap: 1rem;
+  padding: 1rem;
+  overflow: auto;
+  height: auto;
+  min-height: 100%;
+}
+
+.overview-col {
+  gap: 0.85rem;
+  height: auto;
+  justify-content: flex-start;
+  overflow: visible;
+}
+
+.overview-col .card {
+  padding: 1rem;
+  gap: 0.55rem;
+}
+
+.overview-col .card-header-row {
+  margin-bottom: 0.55rem;
+}
+
+.emerald-cdp-card {
+  background: var(--accent-primary) !important;
+  border: 1px solid var(--accent-primary) !important;
+  border-radius: 9px !important;
+  box-shadow: var(--shadow-card) !important;
+}
+
+.emerald-cdp-card::after {
+  display: none !important;
+}
+
+.cdp-badge-title {
+  color: rgba(255,255,255,0.9) !important;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+.cdp-card-body {
+  margin: 0.8rem 0 0.65rem;
+}
+
+.cdp-card-body .cdp-label,
+.cdp-card-footer {
+  color: rgba(255,255,255,0.78) !important;
+}
+
+.cdp-card-body .cdp-metric {
+  font-size: 1.25rem;
+}
+
+.cdp-card-footer {
+  border-top-color: rgba(255,255,255,0.18);
+}
+
+.chart-grid-lines .line {
+  border-bottom-color: var(--border-light);
+}
+
+.bar-tooltip-bubble {
+  background: var(--text-primary);
+  box-shadow: none;
+}
+
+.bar-label {
+  text-transform: none;
+  font-weight: 600;
+}
+
+/* --- Workflow analytics: quieter, information-first ------------------ */
+.wf-analytics-grid {
+  gap: 0.75rem;
+}
+
+.wf-stat-widget {
+  background: var(--bg-surface) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: 1px solid var(--border-light) !important;
+  border-top: 1px solid var(--border-light) !important;
+  border-radius: 9px !important;
+  padding: 1rem;
+  box-shadow: var(--shadow-card) !important;
+  animation: none !important;
+}
+
+.wf-stat-widget:nth-child(1),
+.wf-stat-widget:nth-child(2),
+.wf-stat-widget:nth-child(3) {
+  border-top: 1px solid var(--border-light) !important;
+}
+
+.wf-stat-widget:hover {
+  transform: none !important;
+  border-color: var(--border-hover) !important;
+  box-shadow: var(--shadow-card-hover) !important;
+}
+
+.wf-widget-title-wrap h4 {
+  color: var(--text-primary);
+  font-weight: 650;
+}
+
+.wf-widget-badge {
+  border-radius: 5px;
+  padding: 0.18rem 0.45rem;
+  font-weight: 600;
+}
+
+.wf-widget-badge.success {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  border-color: var(--color-success-border);
+}
+
+.wf-widget-badge.primary {
+  background: var(--accent-subtle);
+  color: var(--accent-primary);
+  border-color: var(--border-light);
+}
+
+.wf-chart-line {
+  animation: none;
+}
+
+.wf-chart-dot:hover {
+  filter: none;
+}
+
+.wf-progress-track {
+  background: var(--bg-surface-alt);
+}
+
+.wf-progress-fill {
+  animation: none;
+}
+
+.wf-gauge-meter {
+  animation: none;
+}
+
+/* --- Workflow archive ------------------------------------------------- */
+.workflows-main-card {
+  background: var(--bg-surface) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: 9px !important;
+  box-shadow: var(--shadow-card) !important;
+  padding: 1rem;
+  animation: none !important;
+}
+
+.workflows-main-card:hover {
+  border-color: var(--border-light) !important;
+  box-shadow: var(--shadow-card) !important;
+}
+
+.workflows-header-controls {
+  padding-bottom: 0.8rem;
+  gap: 0.75rem;
+}
+
+.search-input-wrap input {
+  background: var(--bg-surface) !important;
+  border-radius: 7px !important;
+  box-shadow: none !important;
+}
+
+.search-input-wrap input:focus {
+  background: var(--bg-surface) !important;
+  width: 320px;
+  box-shadow: 0 0 0 3px var(--input-focus-ring) !important;
+}
+
+.btn-refresh-wf {
+  background: var(--bg-surface) !important;
+  border-radius: 7px !important;
+  color: var(--text-secondary);
+}
+
+.btn-refresh-wf:hover {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+  box-shadow: none;
+  transform: none;
+}
+
+.quixotic-table {
+  border-spacing: 0;
+}
+
+.quixotic-table th {
+  padding: 0.7rem 0.75rem;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-weight: 650;
+  color: var(--text-sub);
+  background: var(--bg-surface-alt);
+}
+
+.quixotic-table tbody tr {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.quixotic-table tbody tr:hover {
+  background: var(--state-hover-bg);
+  box-shadow: none;
+  transform: none;
+}
+
+.quixotic-table td {
+  padding: 0.7rem 0.75rem;
+  border-top: 0;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.quixotic-table td:first-child,
+.quixotic-table td:last-child {
+  border-radius: 0;
+  border-left: 0;
+  border-right: 0;
+}
+
+.wf-avatar {
+  background: var(--accent-subtle);
+  color: var(--accent-primary);
+  border: 1px solid var(--border-light);
+  box-shadow: none;
+}
+
+.quixotic-table tbody tr:hover .wf-avatar {
+  transform: none;
+  box-shadow: none;
+}
+
+.wf-step-pill,
+.wf-status-pill {
+  border-radius: 5px;
+  box-shadow: none;
+}
+
+.wf-step-pill {
+  background: var(--bg-surface-alt);
+  color: var(--text-secondary);
+  border-color: var(--border-light);
+}
+
+.wf-status-pill {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  border-color: var(--color-success-border);
+}
+
+.btn-replay-flow,
+.btn-edit-flow {
+  border-radius: 6px !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.btn-replay-flow {
+  background: var(--accent-primary) !important;
+  border: 1px solid var(--accent-primary) !important;
+}
+
+.btn-replay-flow:hover {
+  background: var(--accent-hover) !important;
+  box-shadow: none !important;
+}
+
+.btn-edit-flow {
+  background: var(--bg-surface) !important;
+  border-color: var(--border-light) !important;
+  color: var(--text-secondary) !important;
+}
+
+.btn-edit-flow:hover {
+  background: var(--state-hover-bg) !important;
+  border-color: var(--border-hover) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Dashboard content should breathe without becoming oversized. */
+@media (min-width: 1101px) {
+  .overview-fixed-grid {
+    max-width: var(--ui-content-max);
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 700px) {
+  .overview-fixed-grid {
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+
+  .workflows-main-card {
+    padding: 0.75rem !important;
+    overflow-x: auto;
+  }
+
+  .workflows-header-controls {
+    align-items: stretch;
+  }
+
+  .search-input-wrap,
+  .search-input-wrap input,
+  .search-input-wrap input:focus {
+    width: 100% !important;
+  }
+
+  .quixotic-table {
+    min-width: 680px;
+  }
+}
+
+
+/* =====================================================================
+   Final product-wide visual pass — UI only
+   ===================================================================== */
+
+/* Page framing */
+.app-view-container {
+  background: var(--bg-page);
+  color: var(--text-primary);
+}
+.wf-page-header {
+  padding: 1.25rem 1rem 1rem;
+  border-bottom: 1px solid var(--border-light);
+  margin-bottom: 1rem;
+}
+.wf-page-title {
+  color: var(--text-primary) !important;
+  letter-spacing: -0.025em !important;
+}
+.wf-page-subtitle {
+  color: var(--text-sub) !important;
+  line-height: 1.45;
+}
+
+/* Remove decorative product/AI branding without removing any controls. */
+.header-brand .badge-tag,
+.sidebar-agent-badge,
+.wf-page-header .robot-avatar,
+.wf-page-header [class*="robot"],
+.wf-page-header [class*="mascot"] {
+  display: none !important;
+}
+.header-logo-icon {
+  background: var(--accent-subtle) !important;
+  border-color: var(--border-light) !important;
+  color: var(--accent-primary) !important;
+}
+.header-brand-title {
+  letter-spacing: -0.02em !important;
+}
+.topbar-breadcrumb-separator {
+  color: var(--text-muted) !important;
+}
+.topbar-search-trigger {
+  border-color: var(--border-light) !important;
+  background: var(--bg-surface) !important;
+  color: var(--text-secondary) !important;
+  box-shadow: none !important;
+}
+.topbar-search-trigger:hover {
+  border-color: var(--border-hover) !important;
+  background: var(--state-hover-bg) !important;
+}
+.theme-toggle-label {
+  display: none !important;
+}
+
+/* Sidebar: quiet navigation, no "agent" dashboard feel. */
+.app-sidebar,
+.floating-sidebar {
+  width: 216px !important;
+  background: var(--bg-surface) !important;
+  border-right-color: var(--border-light) !important;
+}
+.sidebar-nav-list,
+.sidebar-nav-icons {
+  gap: 2px !important;
+}
+.sidebar-nav-item,
+.sidebar-icon-btn {
+  border-radius: 6px !important;
+  height: 38px !important;
+}
+.sidebar-nav-item.active,
+.sidebar-icon-btn.active {
+  background: var(--accent-subtle) !important;
+  border-color: transparent !important;
+}
+.sidebar-bottom-section {
+  gap: 2px !important;
+}
+.sidebar-stop-execution.is-active {
+  box-shadow: none !important;
+}
+
+/* Shared surfaces: eliminate legacy glass / oversized cards. */
+.card,
+.settings-panel,
+.settings-nav,
+.settings-section-pane,
+.wf-toolbar,
+.activity-view-shell > .card,
+.secrets-view-shell > .card {
+  border-color: var(--border-light) !important;
+  box-shadow: var(--shadow-card) !important;
+  border-radius: 9px !important;
+}
+.card:hover {
+  box-shadow: var(--shadow-card) !important;
+  border-color: var(--border-light) !important;
+}
+.badge-tag {
+  border-radius: 5px !important;
+}
+
+/* Activity / Console */
+.activity-view-shell,
+.secrets-view-shell,
+.settings-shell-wrapper {
+  max-width: var(--ui-content-max) !important;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+.activity-view-shell .wf-page-header,
+.secrets-view-shell .wf-page-header,
+.settings-shell-wrapper .wf-page-header {
+  background: transparent;
+}
+.activity-view-shell .toggle-group {
+  background: var(--bg-surface-alt) !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: 7px !important;
+}
+.activity-view-shell .btn-toggle {
+  box-shadow: none !important;
+}
+.activity-view-shell .btn-toggle.active {
+  background: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-light) !important;
+}
+.wf-toolbar {
+  background: var(--bg-surface) !important;
+  padding: 0.75rem !important;
+}
+.console-full-view {
+  background: var(--bg-surface) !important;
+  border-radius: 9px !important;
+}
+.console-filter-pill-group {
+  background: var(--bg-surface-alt) !important;
+  border-color: var(--border-light) !important;
+  border-radius: 7px !important;
+}
+.console-filter-btn {
+  border-radius: 5px !important;
+}
+.console-filter-btn.active {
+  background: var(--accent-primary) !important;
+  color: #fff !important;
+}
+.console-terminal-wrapper {
+  border-radius: 7px !important;
+  box-shadow: none !important;
+  border-color: #273244 !important;
+}
+.log-badge {
+  border-radius: 4px !important;
+}
+
+/* Secrets */
+.secrets-view-shell .wf-toolbar {
+  justify-content: space-between;
+}
+.secrets-view-shell table {
+  border-collapse: collapse;
+}
+.secrets-view-shell table th {
+  background: var(--bg-surface-alt) !important;
+  color: var(--text-sub) !important;
+  border-bottom: 1px solid var(--border-light) !important;
+}
+.secrets-view-shell table td {
+  border-bottom: 1px solid var(--border-light) !important;
+}
+.secrets-view-shell table tr:hover td {
+  background: var(--state-hover-bg) !important;
+}
+#addSecretModal {
+  border-left: 2px solid var(--accent-primary) !important;
+  box-shadow: var(--shadow-card) !important;
+}
+.secrets-view-shell .modern-empty-state {
+  border: 0 !important;
+}
+
+/* Settings */
+.settings-shell {
+  gap: 1rem !important;
+}
+.settings-nav {
+  background: var(--bg-surface) !important;
+  padding: 0.5rem !important;
+}
+.settings-nav-item {
+  border-radius: 6px !important;
+  color: var(--text-secondary) !important;
+}
+.settings-nav-item.active {
+  background: var(--accent-subtle) !important;
+  color: var(--accent-primary) !important;
+  box-shadow: none !important;
+}
+.settings-panel {
+  background: var(--bg-surface) !important;
+  padding: 0 !important;
+}
+.settings-section-pane {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+.settings-panel-header {
+  padding: 1.25rem 1.25rem 0.9rem !important;
+  border-bottom: 1px solid var(--border-light) !important;
+}
+.settings-row {
+  padding: 1rem 1.25rem !important;
+  border-bottom-color: var(--border-light) !important;
+}
+.settings-row:hover {
+  background: var(--state-hover-bg) !important;
+}
+.settings-row-info h4 {
+  color: var(--text-primary) !important;
+}
+.settings-row-info p {
+  color: var(--text-sub) !important;
+}
+
+/* Execution / discovery: information hierarchy over decoration. */
+.execution-hero,
+.results-hero,
+.discovery-modal,
+.exec-modal-dialog,
+.exec-option-label,
+.exec-preflight-container,
+.discovery-options,
+.discovery-metric {
+  border-radius: 9px !important;
+  box-shadow: var(--shadow-card) !important;
+}
+.execution-hero,
+.results-hero {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-light) !important;
+}
+.exec-option-label {
+  border-width: 1px !important;
+  background: var(--bg-surface) !important;
+}
+.exec-option-label.active {
+  background: var(--accent-subtle) !important;
+  border-color: var(--accent-primary) !important;
+}
+.exec-preflight-container,
+.discovery-options {
+  background: var(--bg-surface-alt) !important;
+  border-color: var(--border-light) !important;
+}
+.discovery-modal {
+  background: var(--bg-surface) !important;
+  border-color: var(--border-light) !important;
+}
+.execution-item-row {
+  border-radius: 7px !important;
+  box-shadow: none !important;
+}
+.execution-current,
+.result-file {
+  border-radius: 7px !important;
+  box-shadow: none !important;
+}
+
+/* Workflow editor: professional canvas, simpler nodes and controls. */
+.workflow-editor-canvas,
+.parent-drawflow {
+  background-image: radial-gradient(circle, rgba(100,116,139,0.13) 1px, transparent 1px) !important;
+  background-size: 20px 20px !important;
+}
+.drawflow .drawflow-node {
+  min-width: 280px !important;
+  max-width: 340px !important;
+  border-radius: 8px !important;
+  box-shadow: var(--shadow-card) !important;
+}
+.drawflow .drawflow-node:hover {
+  border-color: var(--border-hover) !important;
+  box-shadow: var(--shadow-card-hover) !important;
+}
+.drawflow .drawflow-node.selected {
+  border-color: var(--accent-primary) !important;
+  box-shadow: 0 0 0 3px var(--accent-subtle), var(--shadow-card) !important;
+}
+.drawflow-canvas-controls {
+  border-radius: 7px !important;
+  box-shadow: var(--shadow-card) !important;
+}
+.drawflow-canvas-controls button {
+  border-radius: 5px !important;
+  background: var(--bg-surface) !important;
+}
+.drawflow-canvas-controls button:hover {
+  background: var(--accent-primary) !important;
+  border-color: var(--accent-primary) !important;
+}
+.wf-title-input {
+  font-weight: 650 !important;
+}
+.workflow-editor-toolbar {
+  background: var(--bg-surface) !important;
+  border-bottom-color: var(--border-light) !important;
+  box-shadow: none !important;
+}
+
+/* Modals and overlays */
+.modal-overlay {
+  background: rgba(15, 23, 42, 0.45) !important;
+  backdrop-filter: blur(2px) !important;
+}
+.modal-dialog {
+  border-radius: 9px !important;
+  border-color: var(--border-light) !important;
+  box-shadow: var(--shadow-xl) !important;
+}
+.modal-header {
+  border-bottom-color: var(--border-light) !important;
+}
+.modal-footer {
+  border-top-color: var(--border-light) !important;
+}
+
+/* Recording state stays visually prominent because it is functional. */
+.global-recording-banner {
+  box-shadow: none !important;
+  padding: 0.45rem 1rem !important;
+}
+.recording-pulse-dot {
+  animation: none !important;
+}
+
+/* Toasts/tooltips */
+.toast,
+.toast-container > * {
+  border-radius: 7px !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+.tooltip {
+  box-shadow: var(--shadow-md) !important;
+}
+
+/* Responsive: don't compress desktop layouts into unusable narrow columns. */
+@media (max-width: 1100px) {
+  .activity-view-shell,
+  .secrets-view-shell,
+  .settings-shell-wrapper {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+  .settings-shell {
+    grid-template-columns: 180px minmax(0, 1fr) !important;
+  }
+}
+@media (max-width: 700px) {
+  .app-sidebar,
+  .floating-sidebar {
+    width: 56px !important;
+    padding-left: 0.35rem !important;
+    padding-right: 0.35rem !important;
+  }
+  .sidebar-nav-item,
+  .sidebar-icon-btn {
+    height: 40px !important;
+  }
+  .activity-view-shell,
+  .secrets-view-shell,
+  .settings-shell-wrapper {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  .wf-page-header {
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+  }
+  .settings-shell {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  .settings-nav {
+    display: flex !important;
+    overflow-x: auto;
+    gap: 0.25rem;
+  }
+  .settings-nav-item {
+    flex: 0 0 auto;
+    min-width: max-content;
+  }
+  .settings-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.65rem !important;
+  }
+  .settings-row-info {
+    max-width: none !important;
+  }
+  .settings-row .form-control {
+    max-width: none !important;
+  }
+  .secrets-view-shell .wf-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .secrets-view-shell .search-input-wrap,
+  .secrets-view-shell .search-input-wrap input {
+    max-width: none !important;
+    width: 100% !important;
+  }
+  .console-terminal-wrapper {
+    height: min(55vh, 480px) !important;
+  }
+  .drawflow .drawflow-node {
+    min-width: 250px !important;
+    max-width: 300px !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .status-dot.running,
+  .status-dot.recording,
+  .recording-pulse-dot,
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* --- Viewport-fit baseline ------------------------------------------- */
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+}
+
+body {
+  overflow: hidden;
+}
+
+.dashboard-wrapper {
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dashboard-body {
+  height: calc(100vh - var(--header-height, 56px));
+  min-height: 0;
+  overflow: hidden;
+}
+
+.app-sidebar,
+.floating-sidebar {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.app-view-container {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 1rem 1.25rem;
+}
+
+/* The page shell fits the viewport; long content scrolls within its view. */
+.view-page,
+.view-container,
+.wf-view-container,
+.activity-view-shell,
+.secrets-view-shell,
+.settings-shell-wrapper {
+  min-height: 0;
+}
+
+/* Dashboard gets a true viewport grid rather than growing the document. */
+.overview-fixed-grid {
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+@media (max-width: 700px) {
+  .app-view-container {
+    padding: 0.75rem;
+  }
+}
+
+/* --- Overview viewport layout fix ------------------------------------ */
+/* Keep the Overview composition inside the available viewport.
+   Long workflow/activity lists scroll inside their own panels. */
+.dashboard-shell {
+  width: 100% !important;
+  max-width: 1440px !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  padding-bottom: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.85rem !important;
+  overflow: hidden !important;
+}
+
+.dashboard-shell > .wf-page-header {
+  flex: 0 0 auto !important;
+  margin-bottom: 0 !important;
+}
+
+.dashboard-shell > .agent-status-hub {
+  flex: 0 0 auto !important;
+  margin-bottom: 0 !important;
+}
+
+.dashboard-shell > .dashboard-stat-grid {
+  flex: 0 0 auto !important;
+  margin-bottom: 0 !important;
+}
+
+.dashboard-shell > .dashboard-stat-grid + div {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.dashboard-shell > .dashboard-stat-grid + div > .card {
+  min-height: 0 !important;
+  height: 100% !important;
+  overflow: hidden !important;
+}
+
+.dashboard-shell .wf-list,
+.dashboard-shell .act-timeline {
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  scrollbar-width: thin;
+}
+
+.dashboard-shell .wf-list {
+  max-height: none !important;
+}
+
+.dashboard-shell .act-timeline {
+  max-height: none !important;
+}
+
+@media (min-width: 1101px) {
+  .dashboard-shell {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .dashboard-shell > .dashboard-stat-grid {
+    gap: 0.75rem !important;
+  }
+
+  .dashboard-shell > .dashboard-stat-grid .dashboard-stat-card {
+    min-height: 86px !important;
+  }
+
+  .dashboard-shell > .dashboard-stat-grid + div {
+    grid-template-columns: 1.45fr 1fr !important;
+    gap: 0.85rem !important;
+  }
+}
+
+@media (max-width: 1100px) {
+  .dashboard-shell {
+    height: auto !important;
+    min-height: 100% !important;
+    overflow: visible !important;
+  }
+
+  .dashboard-shell > .dashboard-stat-grid + div {
+    overflow: visible !important;
+  }
+
+  .dashboard-shell > .dashboard-stat-grid + div > .card {
+    height: auto !important;
+  }
+
+  .dashboard-shell .wf-list,
+  .dashboard-shell .act-timeline {
+    overflow: visible !important;
+  }
+}
+
+@media (max-width: 700px) {
+  .dashboard-shell {
+    gap: 0.7rem !important;
+  }
+}
+
+
+/* --- Overview final viewport adjustment ------------------------------ */
+/* Allow the Overview itself to scroll so no lower content is clipped. */
+.dashboard-shell {
+  height: auto !important;
+  min-height: 100% !important;
+  max-height: none !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding-bottom: 1rem !important;
+  scrollbar-width: thin;
+}
+
+.dashboard-shell > .dashboard-stat-grid + div {
+  flex: 0 0 auto !important;
+  min-height: 320px !important;
+  height: 320px !important;
+}
+
+.dashboard-shell > .dashboard-stat-grid + div > .card {
+  height: 100% !important;
+}
+
+.dashboard-shell .wf-list,
+.dashboard-shell .act-timeline {
+  max-height: 100% !important;
+  overflow-y: auto !important;
+}
+
+@media (max-width: 1100px) {
+  .dashboard-shell {
+    max-height: none !important;
+    overflow-y: visible !important;
+    padding-bottom: 1rem !important;
+  }
+
+  .dashboard-shell > .dashboard-stat-grid + div {
+    height: auto !important;
+    min-height: 0 !important;
+  }
+}
+
+@media (max-width: 700px) {
+  .dashboard-shell {
+    padding-bottom: 0.75rem !important;
+  }
+}
+
+
+
+
+/* --- Overview page: focused product dashboard ----------------------- */
+.dashboard-shell {
+  max-width: 1280px !important;
+  padding: 0.5rem 0 1.25rem !important;
+  gap: 1rem !important;
+}
+
+.dashboard-shell > .wf-page-header {
+  padding: 0.75rem 0 1rem !important;
+  border-bottom: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+.dashboard-shell > .wf-page-header .wf-page-title {
+  font-size: 1.5rem !important;
+  font-weight: 700 !important;
+}
+
+.dashboard-shell > .wf-page-header .wf-page-subtitle {
+  max-width: 620px;
+}
+
+.dashboard-shell > .wf-page-header > div:first-child > div:first-child {
+  display: none !important;
+}
+
+/* The status hub becomes a compact operational summary instead of a hero. */
+.dashboard-shell > .agent-status-hub {
+  margin-bottom: 0 !important;
+  padding: 1rem 1.15rem !important;
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: 10px !important;
+  box-shadow: var(--shadow-card) !important;
+}
+
+.dashboard-shell .agent-status-avatar-box,
+.dashboard-shell .orbital-ring {
+  display: none !important;
+}
+
+.dashboard-shell > .agent-status-hub > div {
+  gap: 1rem !important;
+}
+
+.dashboard-shell > .agent-status-hub > div > div:first-child {
+  gap: 0 !important;
+}
+
+.dashboard-shell > .agent-status-hub > div > div:first-child > div:last-child {
+  min-width: 240px;
+}
+
+.dashboard-shell > .agent-status-hub [style*="DIGITAL"],
+.dashboard-shell > .agent-status-hub [style*="AUTOMATION"] {
+  color: var(--accent-primary) !important;
+  letter-spacing: 0.06em !important;
+}
+
+.dashboard-shell > .agent-status-hub [style*="background:rgba(6,9,19,0.6)"] {
+  background: var(--bg-surface-alt) !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: 8px !important;
+  padding: 0.65rem 0.9rem !important;
+  gap: 1.15rem !important;
+}
+
+.dashboard-shell > .agent-status-hub [style*="background:rgba(6,9,19,0.6)"] > div[style*="width:1px"] {
+  background: var(--border-light) !important;
+}
+
+/* Metrics: fewer visual treatments, clearer numbers. */
+.dashboard-shell > .dashboard-stat-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 0.75rem !important;
+  margin-bottom: 0 !important;
+}
+
+.dashboard-shell .dashboard-stat-card {
+  min-height: 108px !important;
+  padding: 0.9rem 1rem !important;
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: 9px !important;
+  box-shadow: var(--shadow-card) !important;
+}
+
+.dashboard-shell .dashboard-stat-card:hover {
+  transform: none !important;
+  border-color: var(--border-hover) !important;
+  box-shadow: var(--shadow-card-hover) !important;
+}
+
+.dashboard-shell .dashboard-stat-label {
+  font-size: 0.68rem !important;
+  letter-spacing: 0.04em !important;
+  color: var(--text-muted) !important;
+}
+
+.dashboard-shell .dashboard-stat-value {
+  font-size: 1.55rem !important;
+  line-height: 1.15 !important;
+  color: var(--text-primary) !important;
+}
+
+.dashboard-shell .dashboard-stat-meta {
+  color: var(--text-sub) !important;
+  font-size: 0.72rem !important;
+}
+
+/* Recent content is the main working area. */
+.dashboard-shell > .dashboard-stat-grid + div {
+  grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.9fr) !important;
+  gap: 0.75rem !important;
+  height: 360px !important;
+  min-height: 360px !important;
+}
+
+.dashboard-shell > .dashboard-stat-grid + div > .card {
+  padding: 1rem 1.1rem !important;
+  border-radius: 9px !important;
+}
+
+.dashboard-shell > .dashboard-stat-grid + div h2 {
+  font-size: 0.95rem !important;
+  font-weight: 650 !important;
+}
+
+.dashboard-shell > .dashboard-stat-grid + div p {
+  color: var(--text-sub) !important;
+}
+
+.dashboard-shell .wf-list,
+.dashboard-shell .act-timeline {
+  scrollbar-width: thin;
+}
+
+/* Hide decorative robot UI in the overview; the page stays fully functional. */
+.dashboard-shell .robot-avatar,
+.dashboard-shell [class*="robot-avatar"] {
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+@media (max-width: 900px) {
+  .dashboard-shell > .agent-status-hub > div {
+    align-items: flex-start !important;
+    flex-direction: column !important;
+  }
+
+  .dashboard-shell > .agent-status-hub [style*="background:rgba(6,9,19,0.6)"] {
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+
+  .dashboard-shell > .dashboard-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .dashboard-shell > .dashboard-stat-grid + div {
+    grid-template-columns: 1fr !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  .dashboard-shell > .dashboard-stat-grid + div > .card {
+    min-height: 280px !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .dashboard-shell {
+    padding: 0.25rem 0.75rem 1rem !important;
+  }
+
+  .dashboard-shell > .wf-page-header {
+    padding: 0.5rem 0 0.75rem !important;
+  }
+
+  .dashboard-shell > .wf-page-header > div:last-child {
+    width: 100% !important;
+  }
+
+  .dashboard-shell > .wf-page-header > div:last-child .btn {
+    flex: 1 1 0 !important;
+  }
+
+  .dashboard-shell > .agent-status-hub {
+    padding: 0.85rem !important;
+  }
+
+  .dashboard-shell > .agent-status-hub [style*="background:rgba(6,9,19,0.6)"] {
+    gap: 0.75rem !important;
+    flex-wrap: wrap !important;
+  }
+
+  .dashboard-shell > .agent-status-hub [style*="background:rgba(6,9,19,0.6)"] > div[style*="width:1px"] {
+    display: none !important;
+  }
+
+  .dashboard-shell > .dashboard-stat-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.6rem !important;
+  }
+
+  .dashboard-shell .dashboard-stat-card {
+    min-height: 96px !important;
+  }
+
+  .dashboard-shell > .dashboard-stat-grid + div > .card {
+    min-height: 240px !important;
+  }
+}
+
+
+/* --- Overview simplification ----------------------------------------- */
+.dashboard-shell > .wf-page-header {
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 0 0.75rem !important;
+  border: 0 !important;
+}
+.dashboard-shell > .wf-page-header > div:first-child {
+  display: none !important;
+}
+.dashboard-shell > .wf-page-header > div:last-child {
+  justify-content: flex-end !important;
+}
+.dashboard-shell > .dashboard-stat-grid + div {
+  display: none !important;
+}
+#btnOverviewLaunchChrome {
+  margin-top: 0 !important;
+}
+
+
+/* --- Overview analytics ---------------------------------------------- */
+/* The old dashboard hero/status panel is intentionally removed from the Overview. */
+.dashboard-shell > .agent-status-hub {
+  display: none !important;
+}
+
+/* Replace the old Recent Workflows / Recent Activity area with compact analytics. */
+.dashboard-shell > .overview-chart-grid {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+  gap: 0.75rem !important;
+  margin: 0 !important;
+  min-height: 0 !important;
+}
+
+.dashboard-shell > .overview-summary-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 0.75rem !important;
+}
+
+.overview-summary-grid .dashboard-stat-card {
+  min-height: 104px !important;
+}
+
+.overview-chart-card {
+  min-width: 0;
+  padding: 1rem 1.1rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: 9px;
+  box-shadow: var(--shadow-card);
+}
+
+.overview-chart-header {
+  margin-bottom: 1rem;
+}
+
+.overview-chart-header h2 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.overview-chart-header p {
+  margin: 0.2rem 0 0;
+  font-size: 0.72rem;
+  color: var(--text-sub);
+}
+
+.overview-bar-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.overview-bar-row {
+  display: grid;
+  grid-template-columns: minmax(72px, 0.55fr) minmax(80px, 2fr) 32px;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.overview-bar-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+.overview-bar-track {
+  height: 8px;
+  overflow: hidden;
+  background: var(--bg-surface-alt);
+  border-radius: 4px;
+}
+
+.overview-bar-fill {
+  height: 100%;
+  min-width: 4px;
+  background: var(--accent-primary);
+  border-radius: 4px;
+  transition: width 180ms ease;
+}
+
+.overview-bar-value {
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--text-primary);
+}
+
+.overview-chart-empty {
+  min-height: 110px;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  border: 1px dashed var(--border-light);
+  border-radius: 7px;
+}
+
+@media (max-width: 900px) {
+  .dashboard-shell > .overview-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .dashboard-shell > .overview-chart-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .dashboard-shell > .overview-summary-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.6rem !important;
+  }
+
+  .overview-summary-grid .dashboard-stat-card {
+    min-height: 92px !important;
+    padding: 0.8rem !important;
+  }
+
+  .overview-bar-row {
+    grid-template-columns: 68px minmax(60px, 1fr) 28px;
+    gap: 0.45rem;
+  }
+}
+
+/* --- Topbar simplification ------------------------------------------- */
+/* Keep the header focused on the product name; the page breadcrumb is unnecessary. */
+.topbar-breadcrumb-separator,
+.topbar-breadcrumb {
+  display: none !important;
+}
+
+.flowmind-topbar-left {
+  gap: 0 !important;
+}
+
+.status-indicator-pill.flowmind-engine-pill {
+  height: 26px !important;
+  min-height: 26px !important;
+  padding: 0 0.5rem !important;
+  gap: 0.35rem !important;
+  border-radius: 6px !important;
+}
+
+.status-indicator-pill.flowmind-engine-pill .status-dot {
+  width: 6px !important;
+  height: 6px !important;
+}
+
+.status-indicator-pill.flowmind-engine-pill #cdpText {
+  font-size: 0.66rem !important;
+  font-weight: 500 !important;
+  white-space: nowrap;
+}
+
+.topbar-search-trigger {
+  width: min(360px, 100%) !important;
+  min-width: 300px !important;
+  justify-content: flex-start !important;
+}
+
+@media (max-width: 900px) {
+  .topbar-search-trigger {
+    min-width: 240px !important;
+    width: min(300px, 100%) !important;
+  }
+}
+
+@media (max-width: 700px) {
+  .topbar-search-trigger {
+    min-width: 0 !important;
+    width: 180px !important;
+  }
+}
+
+
+/* --- Topbar robot home control --------------------------------------- */
+.header-logo-icon.topbar-robot-avatar {
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  min-height: 34px !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  background: transparent !important;
+  border: 0 !important;
+  color: inherit !important;
+  cursor: pointer;
+}
+
+.topbar-robot-avatar .topbar-robot-render {
+  width: 30px !important;
+  height: 34px !important;
+}
+
+.topbar-robot-avatar .topbar-robot-render svg {
+  width: 30px !important;
+  height: 34px !important;
+}
+
+.flowmind-topbar-brand:hover .topbar-robot-avatar {
+  transform: translateY(-1px);
+}
+
+.flowmind-topbar-brand:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+/* Make the full Workflow Agent brand area the home control. */
+.flowmind-topbar-brand {
+  cursor: pointer;
+}
+
+/* Keep the keyboard shortcut at the far right of the search field. */
+.topbar-search-trigger {
+  display: flex !important;
+  align-items: center !important;
+}
+.topbar-search-trigger kbd {
+  margin-left: auto !important;
+  flex-shrink: 0 !important;
+}
