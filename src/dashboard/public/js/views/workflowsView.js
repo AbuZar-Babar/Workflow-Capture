@@ -95,11 +95,12 @@ export const WorkflowsView = {
 
           <div style="display:flex; align-items:center; gap:0.75rem;">
             <button class="btn btn-primary" id="btnHeaderNewWorkflow" title="Create a new workflow" style="box-shadow:0 0 14px rgba(0,240,255,0.3);">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H10l2 2h5.5A2.5 2.5 0 0 1 20 7.5v9A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5v-11Z"></path>
+                <path d="M8 12h8"></path>
+                <path d="M12 8v8"></path>
               </svg>
-              <span>+ Create a New Workflow</span>
+              <span>Create Workflow</span>
             </button>
           </div>
         </header>
@@ -193,11 +194,12 @@ export const WorkflowsView = {
             Teach the agent how the task should be done once on any website. The autonomous agent will learn the navigation path and repeat it flawlessly.
           </p>
           <button class="btn btn-primary" id="btnEmptyNewWorkflow" style="box-shadow:0 0 14px rgba(0,240,255,0.3);">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <line x1="5" y1="12" x2="19" y2="12"></line>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H10l2 2h5.5A2.5 2.5 0 0 1 20 7.5v9A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5v-11Z"></path>
+              <path d="M8 12h8"></path>
+              <path d="M12 8v8"></path>
             </svg>
-            <span>+ Create a New Workflow</span>
+            <span>Create Workflow</span>
           </button>
         </div>
 
