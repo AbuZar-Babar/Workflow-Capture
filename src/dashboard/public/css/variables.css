@@ -58,3 +58,35 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.22);
   --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.28);
 }
+
+/* Compatibility aliases for existing UI components */
+:root {
+  --bg-page: var(--color-bg);
+  --bg-surface: var(--color-surface);
+  --bg-surface-alt: var(--color-surface-muted);
+  --bg-elevated: var(--color-surface);
+  --text-primary: var(--color-text);
+  --text-secondary: var(--color-text-secondary);
+  --text-sub: var(--color-text-secondary);
+  --text-muted: var(--color-text-muted);
+  --accent-primary: var(--color-primary);
+  --accent-hover: var(--color-primary-hover);
+  --accent-subtle: var(--color-primary-subtle);
+  --border-color: var(--color-border);
+  --border-hover: var(--color-border-strong);
+  --font-sans: var(--font-family);
+  --text-xs: var(--font-size-xs);
+  --text-sm: var(--font-size-sm);
+  --text-md: var(--font-size-md);
+  --text-lg: var(--font-size-lg);
+  --text-xl: var(--font-size-xl);
+  --radius-pill: 999px;
+  --header-height: 60px;
+  --sidebar-width: 240px;
+  --sidebar-collapsed-width: 64px;
+  --space-xs: var(--space-1);
+  --space-sm: var(--space-2);
+  --space-md: var(--space-4);
+  --space-lg: var(--space-6);
+  --space-xl: var(--space-8);
+}
