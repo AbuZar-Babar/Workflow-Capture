@@ -67,32 +67,11 @@ export const OverviewView = {
     container.innerHTML = `
       <div class="dashboard-shell" role="region" aria-label="Dashboard Overview" style="max-width:1440px; margin:0 auto; padding-bottom:2rem;">
 
-        <!-- Top Page Header -->
+        <!-- Overview Actions -->
         <div class="wf-page-header">
-          <div style="display:flex; align-items:center; gap:0.85rem;">
-            <div style="position:relative;">
-              ${renderRobotAvatar({ size: 'badge', state: 'idle' })}
-            </div>
-            <div>
-              <div style="display:flex; align-items:center; gap:0.5rem;">
-                <h1 class="wf-page-title" style="margin:0; font-size:1.4rem; letter-spacing:-0.02em;">Workflow Capture</h1>
-                <span class="badge-tag success" style="font-size:var(--text-2xs); padding:0.15rem 0.55rem; box-shadow:0 0 10px rgba(16,185,129,0.3); font-weight:700;">● READY</span>
-              </div>
-              <p class="wf-page-subtitle" style="margin:0.2rem 0 0;">Build, run, and monitor browser workflows from one place.</p>
-            </div>
-          </div>
+          <div></div>
           <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
-            <button class="btn btn-secondary btn-sm" id="btnOverviewLaunchChrome" title="Launch connected Chrome browser">
-              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="12" cy="12" r="10"></circle>
-                <circle cx="12" cy="12" r="4"></circle>
-                <line x1="21.17" y1="8" x2="12" y2="8"></line>
-                <line x1="3.95" y1="6.06" x2="8.54" y2="14"></line>
-                <line x1="10.88" y1="21.94" x2="15.46" y2="14"></line>
-              </svg>
-              <span id="overviewLaunchChromeLabel">Open Browser</span>
-            </button>
-            <button class="btn btn-primary btn-sm" id="btnOverviewCreateWorkflow" style="box-shadow:0 0 14px rgba(0,240,255,0.3);">
+            <button class="btn btn-primary btn-sm" id="btnOverviewCreateWorkflow">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
