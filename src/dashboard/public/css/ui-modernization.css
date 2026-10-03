@@ -1785,3 +1785,24 @@ body {
     min-height: 240px !important;
   }
 }
+
+
+/* --- Overview simplification ----------------------------------------- */
+.dashboard-shell > .wf-page-header {
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 0 0.75rem !important;
+  border: 0 !important;
+}
+.dashboard-shell > .wf-page-header > div:first-child {
+  display: none !important;
+}
+.dashboard-shell > .wf-page-header > div:last-child {
+  justify-content: flex-end !important;
+}
+.dashboard-shell > .dashboard-stat-grid + div {
+  display: none !important;
+}
+#btnOverviewLaunchChrome {
+  margin-top: 0 !important;
+}
