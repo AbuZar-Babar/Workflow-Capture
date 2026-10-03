@@ -2024,3 +2024,8 @@ body {
   outline-offset: 3px;
   border-radius: 8px;
 }
+
+/* Make the full Workflow Agent brand area the home control. */
+.flowmind-topbar-brand {
+  cursor: pointer;
+}
