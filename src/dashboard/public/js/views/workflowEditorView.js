@@ -127,71 +127,37 @@ export const WorkflowEditorView = {
 
         <!-- Modernized Robotic Editor Header -->
         <header class="workflow-editor-header" role="region" aria-label="Workflow Editor Header" style="background:rgba(13,19,36,0.85); border-bottom:1px solid rgba(255,255,255,0.08);">
-          <div style="display:flex; align-items:center; gap:1rem; flex:1; min-width:0;">
-            <!-- Robot Assistant Indicator -->
-            <div style="flex-shrink:0;">
-              ${renderRobotAvatar({ size: 'badge', state: 'idle' })}
-            </div>
-
+          <div class="wf-editor-metadata-group" style="display:flex; align-items:flex-start; gap:1rem; flex:0 0 auto; min-width:0;">
             <!-- Editable Workflow Name -->
-            <div class="wf-header-title-wrap" style="display:flex; flex-direction:column; gap:2px; min-width:180px; max-width:320px; flex:1;">
-              <div style="display:flex; align-items:center; gap:0.4rem;">
-                <label for="wfNameInput" style="font-size:var(--text-2xs); font-weight:700; color:var(--text-sub); text-transform:uppercase; letter-spacing:0.04em;">Workflow Name</label>
-              </div>
-              <input
-                type="text"
-                id="wfNameInput"
-                class="wf-title-input"
-                value="Loading Workflow…"
-                placeholder="Workflow Name"
-                aria-label="Workflow Name"
-                spellcheck="false"
-                style="color:var(--text-primary); font-weight:700;"
-              />
+            <div class="wf-header-title-wrap" style="display:flex; flex-direction:column; gap:2px; min-width:180px; max-width:320px;">
+              <label for="wfNameInput" style="font-size:var(--text-2xs); font-weight:700; color:var(--text-sub); text-transform:uppercase; letter-spacing:0.04em;">Workflow Name</label>
+              <input type="text" id="wfNameInput" class="wf-title-input" value="Loading Workflow…" placeholder="Workflow Name" aria-label="Workflow Name" spellcheck="false" style="color:var(--text-primary); font-weight:700;" />
             </div>
-          </div>
 
-          <!-- Target URL and Primary Actions -->
-          <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
-
-            <!-- Visible Target Website -->
+            <!-- Target Website -->
             <div class="wf-header-target-box" style="display:flex; flex-direction:column; gap:2px;">
               <label for="wfTargetUrlInput" style="font-size:var(--text-2xs); font-weight:700; color:var(--text-sub); text-transform:uppercase; letter-spacing:0.04em;">Target Website</label>
               <div style="display:flex; align-items:center; gap:0.35rem; background:rgba(6,9,19,0.6); border:1px solid rgba(255,255,255,0.08); border-radius:var(--radius-md); padding:0.25rem 0.6rem;">
-                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color:var(--accent-cyan); flex-shrink:0;">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <line x1="2" y1="12" x2="22" y2="12"></line>
-                </svg>
-                <input
-                  type="text"
-                  id="wfTargetUrlInput"
-                  placeholder="https://example.com"
-                  aria-label="Target Website URL"
-                  style="border:none; background:transparent; font-size:0.78rem; font-family:var(--font-mono); color:var(--text-primary); width:200px; outline:none;"
-                  spellcheck="false"
-                />
+                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color:var(--accent-cyan); flex-shrink:0;"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line></svg>
+                <input type="text" id="wfTargetUrlInput" placeholder="https://example.com" aria-label="Target Website URL" style="border:none; background:transparent; font-size:0.78rem; font-family:var(--font-mono); color:var(--text-primary); width:200px; outline:none;" spellcheck="false" />
               </div>
             </div>
+          </div>
 
-            <button class="btn btn-secondary btn-sm" id="btnBack" title="Cancel and return to Workflow Library" aria-label="Cancel and return to Workflow Library">
-              <span>Cancel</span>
-            </button>
+          <!-- Primary Actions -->
+          <div class="wf-editor-actions" style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+            <button class="btn btn-secondary btn-sm" id="btnBack" title="Cancel and return to Workflow Library" aria-label="Cancel and return to Workflow Library"><span>Cancel</span></button>
 
             <button class="btn btn-secondary btn-sm" id="btnSaveFlow" style="margin-top:auto;" title="Save changes to this workflow (Ctrl+S)">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                <polyline points="7 3 7 8 15 8"></polyline>
-              </svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2v-8"></path><polyline points="7 3 7 8 15 8"></polyline></svg>
               <span>Save</span>
             </button>
 
             <button class="btn btn-primary btn-sm" id="btnExecuteFlowEditor" style="margin-top:auto; font-weight:700; letter-spacing:0.04em;" title="Run this workflow (Ctrl+Enter)">
-              <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <polygon points="5 3 19 12 5 21 5 3"></polygon>
-              </svg>
+              <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
               <span>RUN AGENT</span>
             </button>
+          </div>
           </div>
         </header>
 
