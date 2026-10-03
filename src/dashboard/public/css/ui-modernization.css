@@ -1571,4 +1571,4 @@ body {
 
 
 /* UI sync live-reload verification marker: intentionally obvious and temporary. */
-.dashboard-page.overview-page { background: #dbeafe !important; }
+.dashboard-page.overview-page { background: #ffff00 !important; }
