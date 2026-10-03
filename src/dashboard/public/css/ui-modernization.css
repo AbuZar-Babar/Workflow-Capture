@@ -1354,3 +1354,65 @@
     transition-duration: 0.001ms !important;
   }
 }
+
+/* --- Viewport-fit baseline ------------------------------------------- */
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+}
+
+body {
+  overflow: hidden;
+}
+
+.dashboard-wrapper {
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dashboard-body {
+  height: calc(100vh - var(--header-height, 56px));
+  min-height: 0;
+  overflow: hidden;
+}
+
+.app-sidebar,
+.floating-sidebar {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.app-view-container {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 1rem 1.25rem;
+}
+
+/* The page shell fits the viewport; long content scrolls within its view. */
+.view-page,
+.view-container,
+.wf-view-container,
+.activity-view-shell,
+.secrets-view-shell,
+.settings-shell-wrapper {
+  min-height: 0;
+}
+
+/* Dashboard gets a true viewport grid rather than growing the document. */
+.overview-fixed-grid {
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+@media (max-width: 700px) {
+  .app-view-container {
+    padding: 0.75rem;
+  }
+}
