@@ -2429,3 +2429,31 @@ body {
     max-width: none !important;
   }
 }
+
+/* Editor actions: keep Cancel + Save together, with Run Agent at the far right. */
+.workflow-editor-header > div:last-child {
+  margin-left: auto !important;
+  width: auto !important;
+  flex: 0 0 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 0.6rem !important;
+}
+.workflow-editor-header > div:last-child #btnBack {
+  order: 1 !important;
+}
+.workflow-editor-header > div:last-child #btnSaveWorkflow {
+  order: 2 !important;
+}
+.workflow-editor-header > div:last-child #btnRunWorkflow {
+  order: 3 !important;
+  margin-left: 0.35rem !important;
+}
+@media (max-width: 900px) {
+  .workflow-editor-header > div:last-child {
+    margin-left: auto !important;
+    width: auto !important;
+    flex: 0 0 auto !important;
+  }
+}
