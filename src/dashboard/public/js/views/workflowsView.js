@@ -87,19 +87,19 @@ export const WorkflowsView = {
             <div>
               <div style="display:flex; align-items:center; gap:0.5rem;">
                 <h1 style="margin:0; font-size:1.35rem; font-weight:800; letter-spacing:-0.02em;">AGENT WORKFLOWS</h1>
-                <span class="badge-tag info" style="font-size:var(--text-2xs); font-weight:700;">AUTONOMOUS LIBRARY</span>
+                
               </div>
-              <p style="margin:0.2rem 0 0; font-size:var(--text-xs); color:var(--text-sub);">Autonomous agent sequence library, learned navigation maps, and repeating loops.</p>
+              
             </div>
           </div>
 
           <div style="display:flex; align-items:center; gap:0.75rem;">
-            <button class="btn btn-primary" id="btnHeaderNewWorkflow" title="Train a new agent" style="box-shadow:0 0 14px rgba(0,240,255,0.3);">
+            <button class="btn btn-primary" id="btnHeaderNewWorkflow" title="Create a new workflow" style="box-shadow:0 0 14px rgba(0,240,255,0.3);">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
               </svg>
-              <span>+ Train New Agent</span>
+              <span>+ Create a New Workflow</span>
             </button>
           </div>
         </header>
@@ -197,7 +197,7 @@ export const WorkflowsView = {
               <line x1="12" y1="5" x2="12" y2="19"></line>
               <line x1="5" y1="12" x2="19" y2="12"></line>
             </svg>
-            <span>+ Train New Agent</span>
+            <span>+ Create a New Workflow</span>
           </button>
         </div>
 
