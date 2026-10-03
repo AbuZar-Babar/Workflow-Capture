@@ -55,8 +55,35 @@ class LoopReplayRunner {
       ? options.itemFilter
       : (options.rowFilter || (options.filterValue ? { column: options.filterColumn || 'Type', value: options.filterValue } : null));
     const filterValidation = validateItemFilter(rawFilter);
-    this.itemFilter = filterValidation.valid ? filterValidation.filter : (options.itemFilter || null);
-    this.filterValidationError = filterValidation.valid ? null : filterValidation.error;
+
+    // Support relational, date, and extended operators via ConditionEvaluator
+    const normalizedConditions = ConditionEvaluator.normalizeConditions(rawFilter);
+    const EXTENDED_OPS = new Set([
+      'contains', 'includes', 'equals', 'eq', '==', '===', 'not_equals', 'neq', '!=',
+      'starts_with', 'ends_with', 'in', 'one_of', 'not_in',
+      'greater_than', 'gt', '>', 'after', 'date_after', 'date_gt',
+      'greater_than_or_equal', 'gte', '>=', 'on_or_after', 'date_on_or_after', 'date_gte',
+      'less_than', 'lt', '<', 'before', 'date_before', 'date_lt',
+      'less_than_or_equal', 'lte', '<=', 'on_or_before', 'date_on_or_before', 'date_lte',
+      'date_between', 'between_dates', 'last_n_days'
+    ]);
+    const isSupportedByConditionEvaluator = Boolean(
+      rawFilter &&
+      normalizedConditions.rules.length > 0 &&
+      normalizedConditions.rules.every(r => r.field && EXTENDED_OPS.has(String(r.operator || '').toLowerCase().trim()))
+    );
+
+    const isOperatorError = filterValidation.error && filterValidation.error.includes('Unsupported filter operator');
+    if (filterValidation.valid) {
+      this.itemFilter = filterValidation.filter;
+      this.filterValidationError = null;
+    } else if (isOperatorError && isSupportedByConditionEvaluator) {
+      this.itemFilter = rawFilter;
+      this.filterValidationError = null;
+    } else {
+      this.itemFilter = options.itemFilter || null;
+      this.filterValidationError = filterValidation.error;
+    }
 
     let validatedLimit = null;
     let limitError = null;
@@ -879,7 +906,7 @@ class LoopReplayRunner {
 
     // 1. Fast evaluation from discovery item fields if available
     if (discovery && Array.isArray(discovery.items) && discovery.items[index]?.fields) {
-      const itemRecord = discovery.items[index].fields;
+      const itemRecord = Object.assign({}, discovery.items[index], discovery.items[index].fields);
       const targetCol = String(rawFilter.column || rawFilter.field || 'type').toLowerCase();
       const actualVal = itemRecord[rawFilter.column] || itemRecord[rawFilter.field] || itemRecord.Type || itemRecord.label || itemRecord.fullText || '';
       const evalResult = ConditionEvaluator.evaluate(itemRecord, rawFilter);
@@ -1104,7 +1131,8 @@ class LoopReplayRunner {
         matches = false;
         reason = 'Dropdown "Select All" control excluded from data items';
       } else if (isFilterActive) {
-        const evalResult = ConditionEvaluator.evaluate(item.fields, filter);
+        const itemRecord = Object.assign({}, item, item.fields || {});
+        const evalResult = ConditionEvaluator.evaluate(itemRecord, filter);
         matches = evalResult.matches;
         reason = evalResult.reason || (matches ? 'Matches configured condition' : `Filtered out by "${targetCol}"`);
       }
@@ -2200,8 +2228,11 @@ class LoopReplayRunner {
       }
 
       const effectiveFilter = this.itemFilter || this.rowFilter || null;
-      const rawOp = String(effectiveFilter?.operator || effectiveFilter?.op || '').toLowerCase().trim();
-      const isRelationalOrExtended = ['<=', '>=', '<', '>', 'before', 'after', 'starts_with', 'ends_with', 'in', 'not_in', '!=', 'not_equals', 'date_before', 'date_after', 'date_on_or_after', 'date_on_or_before', 'date_between'].includes(rawOp);
+      const condRules = ConditionEvaluator.normalizeConditions(effectiveFilter).rules;
+      const isRelationalOrExtended = condRules.some(r => {
+        const op = String(r.operator || '').toLowerCase().trim();
+        return ['<=', '>=', '<', '>', 'before', 'after', 'starts_with', 'ends_with', 'in', 'not_in', '!=', 'not_equals', 'date_before', 'date_after', 'date_on_or_after', 'date_on_or_before', 'date_between', 'between_dates', 'last_n_days', 'greater_than', 'less_than', 'greater_than_or_equal', 'less_than_or_equal', 'date_gt', 'date_lt', 'date_gte', 'date_lte', 'on_or_after', 'on_or_before'].includes(op);
+      });
 
       let preview;
       if (isRelationalOrExtended) {
@@ -2212,11 +2243,27 @@ class LoopReplayRunner {
         const selectedPreview = [];
         const skippedFilterPreview = [];
         const limit = this.loopLimit;
+        const errors = [];
+
+        // Check if any rule targets a completely non-existent field across all items
+        if (itemsWithFields.length > 0) {
+          for (const rule of condRules) {
+            const field = rule.field;
+            const fieldFound = itemsWithFields.some(item => {
+              const rec = Object.assign({}, item, item?.fields || {});
+              const val = ConditionEvaluator.extractFieldValue(rec, field);
+              return val !== undefined && val !== null;
+            });
+            if (!fieldFound) {
+              errors.push(`Configured field "${field}" is not available on item`);
+            }
+          }
+        }
 
         for (let i = 0; i < itemsWithFields.length; i++) {
           const item = itemsWithFields[i];
-          const fieldsMap = item?.fields || item || {};
-          const evalRes = ConditionEvaluator.evaluate(fieldsMap, effectiveFilter);
+          const itemRecord = Object.assign({}, item, item?.fields || {});
+          const evalRes = ConditionEvaluator.evaluate(itemRecord, effectiveFilter);
           if (evalRes.matches) {
             matchingCount++;
             if (limit === null || selectedCount < limit) {
@@ -2238,7 +2285,7 @@ class LoopReplayRunner {
           skippedLimitCount,
           selectedPreview,
           skippedFilterPreview,
-          errors: []
+          errors
         };
       } else {
         preview = evaluateFilterPreview(effectiveFilter, itemsWithFields, {

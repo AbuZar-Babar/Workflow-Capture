@@ -13,6 +13,7 @@ const { syncWorkflowsFromDisk } = require('./workflow-controller');
 const LoopReplayRunner = require('../replay/loop-replay-runner');
 const LoopDetector = require('../shared/loop-detector');
 const { normalizeItemFilter, validateItemFilter } = require('../shared/item-filter');
+const { ConditionEvaluator } = require('../shared/condition-evaluator');
 const logger = require('../utils/logger');
 const { extractWorkflowStartUrl } = require('../utils/url-helper');
 
@@ -116,20 +117,29 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
   if (rawFilterInput !== undefined && rawFilterInput !== null) {
     const filterValidation = validateItemFilter(rawFilterInput);
     if (!filterValidation.valid) {
-      // Check if this is an extended operator supported by ConditionEvaluator (e.g. <=, >=, <, >, before, after)
-      const op = String(rawFilterInput.operator || rawFilterInput.op || rawFilterInput.conditions?.[0]?.operator || '').toLowerCase().trim();
-      const isExtendedOp = ['<=', '>=', '<', '>', 'before', 'after', 'starts_with', 'ends_with', 'in', 'not_in', '!=', 'not_equals', 'date_before', 'date_after', 'date_on_or_after', 'date_on_or_before', 'date_between'].includes(op);
-      const field = String(rawFilterInput.field || rawFilterInput.column || rawFilterInput.conditions?.[0]?.field || '').trim();
-      const val = rawFilterInput.value !== undefined ? rawFilterInput.value : rawFilterInput.conditions?.[0]?.value;
+      // Check if this failure was specifically due to an extended operator supported by ConditionEvaluator (e.g. <=, >=, <, >, before, after)
+      const isOperatorError = filterValidation.error && filterValidation.error.includes('Unsupported filter operator');
+      if (isOperatorError) {
+        const normalizedConditions = ConditionEvaluator.normalizeConditions(rawFilterInput);
+        const EXTENDED_OPS = new Set([
+          'contains', 'includes', 'equals', 'eq', '==', '===', 'not_equals', 'neq', '!=',
+          'starts_with', 'ends_with', 'in', 'one_of', 'not_in',
+          'greater_than', 'gt', '>', 'after', 'date_after', 'date_gt',
+          'greater_than_or_equal', 'gte', '>=', 'on_or_after', 'date_on_or_after', 'date_gte',
+          'less_than', 'lt', '<', 'before', 'date_before', 'date_lt',
+          'less_than_or_equal', 'lte', '<=', 'on_or_before', 'date_on_or_before', 'date_lte',
+          'date_between', 'between_dates', 'last_n_days'
+        ]);
+        const isSupportedByConditionEvaluator = Boolean(
+          normalizedConditions.rules.length > 0 &&
+          normalizedConditions.rules.every(r => r.field && EXTENDED_OPS.has(String(r.operator || '').toLowerCase().trim()))
+        );
 
-      if (isExtendedOp && field && val !== undefined && val !== null && String(val).trim() !== '') {
-        normalizedFilter = {
-          matchMode: 'all',
-          field,
-          operator: op,
-          value: val,
-          conditions: [{ field, operator: op, value: val }]
-        };
+        if (isSupportedByConditionEvaluator) {
+          normalizedFilter = rawFilterInput;
+        } else {
+          return sendJson(res, 400, { error: filterValidation.error || 'Invalid itemFilter configuration' });
+        }
       } else {
         return sendJson(res, 400, { error: filterValidation.error || 'Invalid itemFilter configuration' });
       }

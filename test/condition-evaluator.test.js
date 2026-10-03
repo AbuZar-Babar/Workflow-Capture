@@ -120,4 +120,16 @@ assert.strictEqual(ConditionEvaluator.evaluate(extjsItem, { field: 'Due Date', o
 assert.strictEqual(ConditionEvaluator.evaluate(extjsItem, { field: 'Due Date', operator: '<=', value: '2026-10-05' }).matches, false);
 console.log('  ✅ Nested ExtJS item with alias resolution passed');
 
+// Test 8: LoopReplayRunner accepts and evaluates relational/date filter without throwing unsupported operator
+console.log('🔹 Test 8: LoopReplayRunner accepts relational/date filter');
+const LoopReplayRunner = require('../src/replay/loop-replay-runner.js');
+const runnerWithDueDate = new LoopReplayRunner({
+  workflowId: 'test_wf',
+  runId: 'test_run_due_date',
+  itemFilter: { field: 'Due Date', operator: '>=', value: 'today' }
+});
+assert.strictEqual(runnerWithDueDate.filterValidationError, null, 'Runner must not flag valid relational operator as error');
+assert.ok(runnerWithDueDate.itemFilter, 'itemFilter should be preserved');
+console.log('  ✅ LoopReplayRunner accepts relational/date filter passed');
+
 console.log('\n🎉 ALL CONDITION EVALUATOR TESTS PASSED SUCCESSFULLY!');
