@@ -21,6 +21,16 @@
   <link rel="stylesheet" href="/css/workflow-editor.css">
   <link rel="stylesheet" href="/css/ui-modernization.css">
   <script src="/vendor/drawflow.min.js"></script>
+  <script>
+    // Development-only live reload: the dashboard server emits a reload event when public assets change.
+    (() => {
+      const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+      if (!isLocal || !window.EventSource) return;
+      const source = new EventSource('/api/dev-reload');
+      source.addEventListener('reload', () => window.location.reload());
+      source.onerror = () => {};
+    })();
+  </script>
 </head>
 <body>
 
