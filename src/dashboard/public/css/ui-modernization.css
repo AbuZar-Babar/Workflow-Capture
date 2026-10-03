@@ -2607,7 +2607,7 @@ body {
 
 /* Keep node action icons and labels visually separated across every action type. */
 .drawflow .df-action-badge {
-  gap: 8px !important;
+  gap: 12px !important;
 }
 .drawflow .df-action-badge > span:first-child {
   flex: 0 0 auto !important;
