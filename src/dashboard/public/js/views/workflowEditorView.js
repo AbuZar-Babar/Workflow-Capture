@@ -1087,6 +1087,25 @@ export const WorkflowEditorView = {
         const descEl = document.getElementById(`node-desc-${index}`);
         const optionSelect = nodeEl.querySelector('.df-option-select');
 
+        // Use controlled details toggling so open/close animations run on every interaction.
+        const advancedDetails = nodeEl.querySelector('.df-advanced-details');
+        const advancedSummary = advancedDetails?.querySelector('.df-advanced-summary');
+        if (advancedDetails && advancedSummary) {
+          advancedSummary.addEventListener('click', (event) => {
+            event.preventDefault();
+            const willOpen = !advancedDetails.hasAttribute('open');
+            if (willOpen) {
+              advancedDetails.setAttribute('open', '');
+            } else {
+              advancedDetails.classList.add('is-closing');
+              window.setTimeout(() => {
+                advancedDetails.removeAttribute('open');
+                advancedDetails.classList.remove('is-closing');
+              }, 280);
+            }
+          });
+        }
+
         if (nameInput) {
           nameInput.addEventListener('input', (e) => {
             this.markDirty();
