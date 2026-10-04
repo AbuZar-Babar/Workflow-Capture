@@ -2614,32 +2614,41 @@ body {
   margin-right: 1px !important;
 }
 
-/* Keep the Step Sequence toggle accessible when the sidebar is collapsed. */
-.wf-steps-sidebar.collapsed {
-  visibility: visible !important;
-  overflow: visible !important;
+
+/* Persistent Step Sequence toggle: it lives outside the collapsible sidebar. */
+.wf-editor-container {
+  position: relative !important;
 }
-.wf-steps-sidebar.collapsed .wf-steps-header {
+.wf-steps-toggle {
   position: absolute !important;
-  top: 0 !important;
-  right: -38px !important;
-  width: 36px !important;
-  height: 36px !important;
-  min-height: 36px !important;
+  top: 0.55rem !important;
+  left: 292px !important;
+  z-index: 50 !important;
+  width: 30px !important;
+  height: 30px !important;
+  min-width: 30px !important;
   padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   border: 1px solid var(--border-light) !important;
   border-radius: 6px !important;
   background: var(--bg-surface) !important;
   box-shadow: var(--shadow-sm) !important;
-  z-index: 20 !important;
 }
-.wf-steps-sidebar.collapsed .wf-steps-header > div {
-  display: none !important;
+.wf-editor-container.steps-collapsed .wf-steps-toggle {
+  left: 0.6rem !important;
 }
-.wf-steps-sidebar.collapsed #btnToggleStepsSidebar {
-  display: inline-flex !important;
-  width: 100% !important;
-  height: 100% !important;
-  align-items: center !important;
-  justify-content: center !important;
+.wf-steps-toggle svg {
+  pointer-events: none !important;
+}
+@media (max-width: 900px) {
+  .wf-steps-toggle {
+    left: 252px !important;
+  }
+}
+@media (max-width: 700px) {
+  .wf-steps-toggle {
+    left: 0.6rem !important;
+  }
 }
