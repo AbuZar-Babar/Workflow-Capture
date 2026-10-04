@@ -122,15 +122,35 @@ export const BotConfigView = {
                 <div style="display:flex; align-items:center; justify-content:space-between; width:100%; flex-wrap:wrap; gap:0.5rem;">
                   <div>
                     <h3 style="font-size:1.1rem; font-weight:700; color:var(--text-primary); margin:0 0 0.25rem 0;">Theme & Color Palette</h3>
-                    <p style="font-size:var(--text-xs); color:var(--text-sub); margin:0;">Select a visual theme inspired by modern workflow dashboards.</p>
+                    <p style="font-size:var(--text-xs); color:var(--text-sub); margin:0;">Select a visual theme inspired by modern workflow dashboards. All palettes support Light and Dark modes.</p>
                   </div>
+                </div>
+              </div>
+
+              <!-- Mode Switcher & Current Active Badge -->
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-top:1.25rem; flex-wrap:wrap; gap:0.75rem; padding-bottom:0.75rem; border-bottom:1px solid var(--border-light);">
+                <div style="display:flex; align-items:center; gap:0.75rem;">
+                  <span style="font-size:0.85rem; font-weight:600; color:var(--text-secondary);">Interface Mode:</span>
+                  <div class="segmented-control" id="themeModeSegmented">
+                    <button type="button" class="segment-btn active" id="btnModeDark" data-mode="dark">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:2px;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                      Dark Mode
+                    </button>
+                    <button type="button" class="segment-btn" id="btnModeLight" data-mode="light">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:2px;"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                      Light Mode
+                    </button>
+                  </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:0.5rem;">
+                  <span style="font-size:0.8rem; color:var(--text-muted);">Current Active:</span>
                   <span class="badge" id="activeThemeBadge" style="font-size:11px; padding:4px 10px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Active</span>
                 </div>
               </div>
 
               <div class="theme-picker-section" style="margin-top: 1rem;">
                 <div class="theme-cards-grid" id="themeCardsGrid">
-                  <!-- 1. Charcoal Crimson (Featured User Reference Theme) -->
+                  <!-- 1. Charcoal Crimson (Featured User Reference Theme - Dark) -->
                   <div class="theme-card" data-theme-value="crimson" tabindex="0" role="button" aria-label="Select Charcoal Crimson theme">
                     <div class="theme-card-preview" style="background:#18191d; border: 1px solid rgba(255,255,255,0.1);">
                       <div class="theme-preview-sidebar" style="background:#141518; border-right:1px solid rgba(255,255,255,0.06);">
@@ -158,7 +178,7 @@ export const BotConfigView = {
                     <div class="theme-card-info">
                       <div class="theme-card-title-row">
                         <span class="theme-card-title">Charcoal Crimson</span>
-                        <span class="badge" style="font-size:10px; color:#f04438; background:rgba(240,68,56,0.12); border:1px solid rgba(240,68,56,0.25);">Featured</span>
+                        <span class="badge" style="font-size:10px; color:#f04438; background:rgba(240,68,56,0.12); border:1px solid rgba(240,68,56,0.25);">Dark</span>
                       </div>
                       <p class="theme-card-desc">Deep matte charcoal with vivid crimson accents inspired by high-contrast workflow dashboards.</p>
                     </div>
@@ -167,7 +187,44 @@ export const BotConfigView = {
                     </div>
                   </div>
 
-                  <!-- 2. Mint Sage (Crewix Reference Theme) -->
+                  <!-- 2. Crimson Rose (Crimson Light Variant) -->
+                  <div class="theme-card" data-theme-value="crimson-light" tabindex="0" role="button" aria-label="Select Crimson Rose theme">
+                    <div class="theme-card-preview" style="background:#fff8f7; border: 1px solid #f4d9d7;">
+                      <div class="theme-preview-sidebar" style="background:#fdf2f1; border-right:1px solid #f4d9d7;">
+                        <div style="width:14px; height:3px; background:#e0281b; border-radius:1px; margin-bottom:6px;"></div>
+                        <div style="width:10px; height:3px; background:#f5aba8; border-radius:1px; margin-bottom:4px;"></div>
+                        <div style="width:10px; height:3px; background:#f5aba8; border-radius:1px;"></div>
+                      </div>
+                      <div class="theme-preview-content">
+                        <div class="theme-preview-header" style="background:#ffffff; border-bottom:1px solid #f4d9d7;">
+                          <div style="width:24px; height:4px; background:#201213; border-radius:2px;"></div>
+                          <div style="width:12px; height:4px; background:#e0281b; border-radius:2px;"></div>
+                        </div>
+                        <div class="theme-preview-cards">
+                          <div style="background:#ffffff; border:1px solid #f4d9d7; border-radius:4px; padding:5px; margin-bottom:4px;">
+                            <div style="width:65%; height:3px; background:#e0281b; border-radius:1px; margin-bottom:3px;"></div>
+                            <div style="width:40%; height:2px; background:#caa5a4; border-radius:1px;"></div>
+                          </div>
+                          <div style="background:#ffffff; border:1px solid #f4d9d7; border-radius:4px; padding:4px; display:flex; gap:4px;">
+                            <div style="width:30%; height:3px; background:#16a34a; border-radius:1px;"></div>
+                            <div style="width:30%; height:3px; background:#d97706; border-radius:1px;"></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="theme-card-info">
+                      <div class="theme-card-title-row">
+                        <span class="theme-card-title">Crimson Rose</span>
+                        <span class="badge" style="font-size:10px; color:#e0281b; background:rgba(224,40,27,0.1); border:1px solid rgba(224,40,27,0.25);">Light</span>
+                      </div>
+                      <p class="theme-card-desc">Crisp porcelain blush surfaces with vivid ruby & crimson highlights.</p>
+                    </div>
+                    <div class="theme-card-check">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </div>
+                  </div>
+
+                  <!-- 3. Mint Sage (Crewix Green - Light) -->
                   <div class="theme-card" data-theme-value="sage" tabindex="0" role="button" aria-label="Select Mint Sage theme">
                     <div class="theme-card-preview" style="background:#eaf5ea; border: 1px solid #cee5d0;">
                       <div class="theme-preview-sidebar" style="background:#eef7ef; border-right:1px solid #d5ebd7;">
@@ -197,16 +254,53 @@ export const BotConfigView = {
                     <div class="theme-card-info">
                       <div class="theme-card-title-row">
                         <span class="theme-card-title">Mint Sage</span>
-                        <span class="badge" style="font-size:10px; color:#228249; background:rgba(34,130,73,0.12); border:1px solid rgba(34,130,73,0.25);">Crewix</span>
+                        <span class="badge" style="font-size:10px; color:#228249; background:rgba(34,130,73,0.12); border:1px solid rgba(34,130,73,0.25);">Light</span>
                       </div>
-                      <p class="theme-card-desc">Lush organic sage and pale mint surfaces with emerald accents inspired by modern executive apps.</p>
+                      <p class="theme-card-desc">Lush organic sage and pale mint surfaces with emerald accents inspired by Crewix.</p>
                     </div>
                     <div class="theme-card-check">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
                     </div>
                   </div>
 
-                  <!-- 3. Slate Dark (Classic Dark) -->
+                  <!-- 4. Forest Sage (Sage Dark Variant) -->
+                  <div class="theme-card" data-theme-value="sage-dark" tabindex="0" role="button" aria-label="Select Forest Sage theme">
+                    <div class="theme-card-preview" style="background:#0d1711; border: 1px solid rgba(52,211,153,0.2);">
+                      <div class="theme-preview-sidebar" style="background:#101b13; border-right:1px solid rgba(52,211,153,0.15);">
+                        <div style="width:14px; height:3px; background:#34d399; border-radius:1px; margin-bottom:6px;"></div>
+                        <div style="width:10px; height:3px; background:rgba(255,255,255,0.2); border-radius:1px; margin-bottom:4px;"></div>
+                        <div style="width:10px; height:3px; background:rgba(255,255,255,0.2); border-radius:1px;"></div>
+                      </div>
+                      <div class="theme-preview-content">
+                        <div class="theme-preview-header" style="background:#142218; border-bottom:1px solid rgba(52,211,153,0.15);">
+                          <div style="width:24px; height:4px; background:#f0fdf4; border-radius:2px;"></div>
+                          <div style="width:12px; height:4px; background:#34d399; border-radius:2px;"></div>
+                        </div>
+                        <div class="theme-preview-cards">
+                          <div style="background:#142218; border:1px solid rgba(52,211,153,0.15); border-radius:4px; padding:5px; margin-bottom:4px;">
+                            <div style="width:65%; height:3px; background:#34d399; border-radius:1px; margin-bottom:3px;"></div>
+                            <div style="width:40%; height:2px; background:#6f917b; border-radius:1px;"></div>
+                          </div>
+                          <div style="background:#142218; border:1px solid rgba(52,211,153,0.15); border-radius:4px; padding:4px; display:flex; gap:4px;">
+                            <div style="width:30%; height:3px; background:#34d399; border-radius:1px;"></div>
+                            <div style="width:30%; height:3px; background:#fbbf24; border-radius:1px;"></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="theme-card-info">
+                      <div class="theme-card-title-row">
+                        <span class="theme-card-title">Forest Sage</span>
+                        <span class="badge" style="font-size:10px; color:#34d399; background:rgba(52,211,153,0.12); border:1px solid rgba(52,211,153,0.25);">Dark</span>
+                      </div>
+                      <p class="theme-card-desc">Deep obsidian forest surfaces with luminous mint emerald highlights and serene contrast.</p>
+                    </div>
+                    <div class="theme-card-check">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </div>
+                  </div>
+
+                  <!-- 5. Slate Dark (Classic Dark) -->
                   <div class="theme-card" data-theme-value="dark" tabindex="0" role="button" aria-label="Select Slate Dark theme">
                     <div class="theme-card-preview" style="background:#0f172a; border: 1px solid #334155;">
                       <div class="theme-preview-sidebar" style="background:#0c1322; border-right:1px solid #1e293b;">
@@ -243,7 +337,7 @@ export const BotConfigView = {
                     </div>
                   </div>
 
-                  <!-- 4. Clean Light -->
+                  <!-- 6. Clean Light -->
                   <div class="theme-card" data-theme-value="light" tabindex="0" role="button" aria-label="Select Clean Light theme">
                     <div class="theme-card-preview" style="background:#f8fafc; border: 1px solid #e2e8f0;">
                       <div class="theme-preview-sidebar" style="background:#f1f5f9; border-right:1px solid #e2e8f0;">
@@ -289,8 +383,10 @@ export const BotConfigView = {
                   <p>Choose an explicit theme or follow your operating system appearance.</p>
                 </div>
                 <select class="form-control" id="cfgThemeSelectDirect" style="max-width:240px;">
-                  <option value="crimson">Charcoal Crimson (Featured)</option>
-                  <option value="sage">Mint Sage (Crewix Green)</option>
+                  <option value="crimson">Charcoal Crimson (Dark)</option>
+                  <option value="crimson-light">Crimson Rose (Light)</option>
+                  <option value="sage">Mint Sage (Light)</option>
+                  <option value="sage-dark">Forest Sage (Dark)</option>
                   <option value="dark">Slate Dark</option>
                   <option value="light">Clean Light</option>
                   <option value="system">Follow System</option>
@@ -311,11 +407,13 @@ export const BotConfigView = {
                   <p>Choose the interface theme preset.</p>
                 </div>
                 <select class="form-control" id="cfgThemeSelect" style="max-width:240px;">
-                  <option value="crimson">Charcoal Crimson (Featured)</option>
-                  <option value="sage">Mint Sage (Crewix Green)</option>
+                  <option value="crimson">Charcoal Crimson (Dark)</option>
+                  <option value="crimson-light">Crimson Rose (Light)</option>
+                  <option value="sage">Mint Sage (Light)</option>
+                  <option value="sage-dark">Forest Sage (Dark)</option>
                   <option value="dark">Slate Dark</option>
                   <option value="light">Clean Light</option>
-                  <option value="system">System Default</option>
+                  <option value="system">Follow System</option>
                 </select>
               </div>
 
@@ -550,27 +648,52 @@ export const BotConfigView = {
       let effectiveTheme = themeVal;
       if (themeVal === 'system') {
         const isSystemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        effectiveTheme = isSystemDark ? (localStorage.getItem('workflow_capture_dark_preset') || 'crimson') : 'light';
+        const curPalette = (Theme && typeof Theme.getPalette === 'function') ? Theme.getPalette(Theme.current) : 'slate';
+        effectiveTheme = (Theme && typeof Theme.resolve === 'function') ? Theme.resolve(curPalette, isSystemDark ? 'dark' : 'light') : (isSystemDark ? 'crimson' : 'light');
       }
+
+      const currentMode = (Theme && typeof Theme.getMode === 'function')
+        ? Theme.getMode(effectiveTheme)
+        : (effectiveTheme === 'light' || effectiveTheme === 'sage' || effectiveTheme === 'mint' || effectiveTheme === 'crimson-light' ? 'light' : 'dark');
+
       document.querySelectorAll('.theme-card').forEach(card => {
         const val = card.dataset.themeValue;
         const isActive = val === effectiveTheme ||
-          (val === 'crimson' && (effectiveTheme === 'crimson' || effectiveTheme === 'charcoal-crimson')) ||
-          (val === 'sage' && (effectiveTheme === 'sage' || effectiveTheme === 'mint'));
+          (val === 'crimson' && (effectiveTheme === 'crimson-dark' || effectiveTheme === 'charcoal-crimson')) ||
+          (val === 'sage' && effectiveTheme === 'mint') ||
+          (val === 'sage-dark' && effectiveTheme === 'forest-dark');
         card.classList.toggle('active', Boolean(isActive));
       });
+
+      const btnDark = document.getElementById('btnModeDark');
+      const btnLight = document.getElementById('btnModeLight');
+      if (btnDark && btnLight) {
+        btnDark.classList.toggle('active', currentMode === 'dark');
+        btnLight.classList.toggle('active', currentMode === 'light');
+      }
+
       const badge = document.getElementById('activeThemeBadge');
       if (badge) {
-        if (effectiveTheme === 'crimson' || effectiveTheme === 'charcoal-crimson') {
-          badge.textContent = 'Charcoal Crimson';
+        if (effectiveTheme === 'crimson' || effectiveTheme === 'charcoal-crimson' || effectiveTheme === 'crimson-dark') {
+          badge.textContent = 'Charcoal Crimson (Dark)';
           badge.style.background = 'rgba(240, 68, 56, 0.14)';
           badge.style.color = '#f04438';
           badge.style.border = '1px solid rgba(240, 68, 56, 0.3)';
+        } else if (effectiveTheme === 'crimson-light') {
+          badge.textContent = 'Crimson Rose (Light)';
+          badge.style.background = 'rgba(224, 40, 27, 0.12)';
+          badge.style.color = '#e0281b';
+          badge.style.border = '1px solid rgba(224, 40, 27, 0.28)';
         } else if (effectiveTheme === 'sage' || effectiveTheme === 'mint') {
-          badge.textContent = 'Mint Sage';
+          badge.textContent = 'Mint Sage (Light)';
           badge.style.background = 'rgba(34, 130, 73, 0.14)';
           badge.style.color = '#228249';
           badge.style.border = '1px solid rgba(34, 130, 73, 0.3)';
+        } else if (effectiveTheme === 'sage-dark' || effectiveTheme === 'forest-dark') {
+          badge.textContent = 'Forest Sage (Dark)';
+          badge.style.background = 'rgba(52, 211, 153, 0.14)';
+          badge.style.color = '#34d399';
+          badge.style.border = '1px solid rgba(52, 211, 153, 0.3)';
         } else if (effectiveTheme === 'dark') {
           badge.textContent = 'Slate Dark';
           badge.style.background = 'rgba(96, 165, 250, 0.14)';
@@ -583,6 +706,7 @@ export const BotConfigView = {
           badge.style.border = '1px solid rgba(37, 99, 235, 0.3)';
         }
       }
+
       const select1 = document.getElementById('cfgThemeSelect');
       if (select1) select1.value = themeVal;
       const select2 = document.getElementById('cfgThemeSelectDirect');
@@ -614,6 +738,28 @@ export const BotConfigView = {
         }
       };
     });
+
+    const btnModeDark = document.getElementById('btnModeDark');
+    if (btnModeDark) {
+      btnModeDark.onclick = () => {
+        if (Theme && typeof Theme.setMode === 'function') {
+          Theme.setMode('dark');
+        } else {
+          onThemeChange('crimson');
+        }
+      };
+    }
+
+    const btnModeLight = document.getElementById('btnModeLight');
+    if (btnModeLight) {
+      btnModeLight.onclick = () => {
+        if (Theme && typeof Theme.setMode === 'function') {
+          Theme.setMode('light');
+        } else {
+          onThemeChange('light');
+        }
+      };
+    }
 
     const themeSelect = document.getElementById('cfgThemeSelect');
     if (themeSelect) {

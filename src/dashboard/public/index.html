@@ -36,6 +36,10 @@
       try {
         const theme = localStorage.getItem('workflow_capture_theme') || localStorage.getItem('flowmind_theme') || 'crimson';
         document.documentElement.setAttribute('data-theme', theme);
+        const palette = theme.includes('crimson') ? 'crimson' : ((theme.includes('sage') || theme.includes('mint') || theme.includes('forest')) ? 'sage' : 'slate');
+        const mode = (theme === 'light' || theme === 'sage' || theme === 'mint' || theme === 'crimson-light') ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-palette', palette);
+        document.documentElement.setAttribute('data-mode', mode);
       } catch (e) {}
     })();
   </script>
