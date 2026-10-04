@@ -324,7 +324,7 @@ export const BotConfigView = {
                   <h4>Purge Local Session Cache</h4>
                   <p>Remove temporary session tokens and cached execution state.</p>
                 </div>
-                <button class="btn btn-secondary btn-sm" id="btnPurgeSession" type="button">Purge Cache</button>
+                <button class="btn btn-secondary btn-sm" id="btnPurgeSession" type="button" class="btn btn-secondary btn-sm settings-danger-action">Clear Session Cache</button>
               </div>
             </div>
 
