@@ -3582,3 +3582,275 @@ body.modal-open { overflow:hidden; }
 @media (prefers-reduced-motion:reduce) {
   .execution-status-dot,.execution-progress-bar,.execution-history-item { animation:none !important; transition:none !important; }
 }
+
+
+/* --- Execution view: compact professional run header ------------------ */
+.execution-view-shell .execution-hero {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 1.15rem 1.25rem 1rem !important;
+  margin-bottom: 1rem !important;
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-light) !important;
+  box-shadow: var(--shadow-card) !important;
+  border-radius: 9px !important;
+}
+
+.execution-view-shell .execution-hero-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.execution-view-shell .execution-hero-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.execution-view-shell .execution-hero-kicker {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  min-height: 22px;
+}
+
+.execution-view-shell .execution-run-label {
+  color: var(--text-sub);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.execution-view-shell .execution-title-row {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  flex-wrap: wrap;
+  margin-top: .25rem;
+}
+
+.execution-view-shell .execution-title-row h1 {
+  margin: 0 !important;
+  color: var(--text-primary) !important;
+  font-size: 1.3rem !important;
+  font-weight: 750 !important;
+  letter-spacing: -.02em;
+}
+
+.execution-view-shell .execution-run-meta {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  flex-wrap: wrap;
+  margin: .3rem 0 0 !important;
+  color: var(--text-sub) !important;
+  font-size: var(--text-2xs) !important;
+}
+
+.execution-view-shell .execution-run-meta strong {
+  color: var(--text-primary);
+}
+
+.execution-view-shell .execution-run-meta #executionPhaseBadge {
+  color: var(--text-sub) !important;
+}
+
+.execution-view-shell .run-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: .28rem .7rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-surface-alt);
+  color: var(--text-secondary);
+  font-size: var(--text-2xs);
+  font-weight: 750;
+  letter-spacing: .02em;
+}
+
+.execution-view-shell .run-status-badge.running,
+.execution-view-shell .run-status-badge.starting,
+.execution-view-shell .run-status-badge.processing_items {
+  background: var(--accent-subtle);
+  border-color: color-mix(in srgb, var(--accent-primary) 25%, var(--border-light));
+  color: var(--accent-primary);
+}
+
+.execution-view-shell .run-status-badge.completed {
+  background: color-mix(in srgb, #16a34a 8%, var(--bg-surface));
+  border-color: color-mix(in srgb, #16a34a 25%, var(--border-light));
+  color: #15803d;
+}
+
+.execution-view-shell .run-status-badge.completed_with_errors,
+.execution-view-shell .run-status-badge.paused,
+.execution-view-shell .run-status-badge.waiting_for_user {
+  background: color-mix(in srgb, #d97706 8%, var(--bg-surface));
+  border-color: color-mix(in srgb, #d97706 25%, var(--border-light));
+  color: #b45309;
+}
+
+.execution-view-shell .run-status-badge.stopped,
+.execution-view-shell .run-status-badge.interrupted,
+.execution-view-shell .run-status-badge.aborted,
+.execution-view-shell .run-status-badge.cancelled {
+  background: var(--bg-surface-alt);
+  color: var(--text-secondary);
+}
+
+.execution-view-shell .run-status-badge.failed {
+  background: color-mix(in srgb, #dc2626 7%, var(--bg-surface));
+  border-color: color-mix(in srgb, #dc2626 25%, var(--border-light));
+  color: #b91c1c;
+}
+
+.execution-view-shell .execution-upper-progress {
+  margin-top: 1rem;
+  padding: .85rem .9rem .8rem;
+  border-top: 1px solid var(--border-light);
+  background: var(--bg-surface-alt);
+  border-radius: 7px;
+}
+
+.execution-view-shell .execution-upper-progress-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.execution-view-shell .execution-activity-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: .12rem;
+}
+
+.execution-view-shell .execution-activity-label {
+  color: var(--text-sub);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.execution-view-shell .execution-activity-copy strong {
+  color: var(--text-primary);
+  font-size: .84rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.execution-view-shell .execution-activity-copy > span:last-child {
+  color: var(--text-sub);
+  font-size: var(--text-2xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.execution-view-shell .execution-upper-progress-head > strong {
+  flex: 0 0 auto;
+  color: var(--accent-primary);
+  font-family: var(--font-mono);
+  font-size: .88rem;
+}
+
+.execution-view-shell .execution-upper-progress .execution-progress-track {
+  width: 100%;
+  height: 7px;
+  margin-top: .65rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--bg-surface-sunken, #f1f5f9);
+}
+
+.execution-view-shell .execution-upper-progress #executionProgressBar {
+  height: 100%;
+  min-width: 0;
+  border-radius: inherit;
+  background: var(--accent-primary);
+  transition: width 220ms ease, background-color 160ms ease;
+}
+
+.execution-view-shell .execution-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: .35rem;
+  color: var(--text-sub);
+  font-size: var(--text-2xs);
+}
+
+.execution-view-shell .execution-progress-meta span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.execution-view-shell .execution-hero-actions {
+  display: flex !important;
+  align-items: center;
+  justify-content: flex-start !important;
+  gap: .55rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+  padding-top: .85rem;
+  border-top: 1px solid var(--border-light);
+}
+
+.execution-view-shell .execution-hero-actions .btn {
+  min-height: 36px;
+  padding: .45rem .8rem;
+  border-radius: 7px;
+  font-weight: 650;
+}
+
+.execution-view-shell .execution-hero-actions .btn-danger {
+  box-shadow: none !important;
+}
+
+@media (max-width: 600px) {
+  .execution-view-shell .execution-hero {
+    padding: .9rem !important;
+  }
+
+  .execution-view-shell .execution-title-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: .4rem;
+  }
+
+  .execution-view-shell .execution-upper-progress-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: .4rem;
+  }
+
+  .execution-view-shell .execution-progress-meta {
+    flex-direction: column;
+    gap: .15rem;
+  }
+
+  .execution-view-shell .execution-hero-actions {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .execution-view-shell .execution-hero-actions .btn {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .execution-view-shell .execution-upper-progress #executionProgressBar {
+    transition: none;
+  }
+}
