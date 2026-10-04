@@ -2766,3 +2766,19 @@ body {
   padding-bottom: 0 !important;
   visibility: hidden !important;
 }
+
+/* Keep node width fixed while Advanced details expand vertically. */
+.drawflow .drawflow-node {
+  width: 300px !important;
+  min-width: 300px !important;
+  max-width: 300px !important;
+  box-sizing: border-box !important;
+}
+.drawflow .drawflow-node .df-advanced-details,
+.drawflow .drawflow-node .df-advanced-body,
+.drawflow .drawflow-node .df-input-group,
+.drawflow .drawflow-node .df-target-input {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
