@@ -3237,3 +3237,35 @@ body {
     flex-wrap: wrap !important;
   }
 }
+
+/* Settings redesign: compact, structured, and responsive. */
+.settings-shell-wrapper { width:100%; max-width:1440px; margin:0 auto; padding:0 1rem 2rem; box-sizing:border-box; }
+.settings-page-header { display:flex; align-items:center; justify-content:space-between; gap:1.5rem; padding:1.25rem 0 1rem; }
+.settings-page-header .wf-page-title { margin:0; font-size:1.35rem; font-weight:750; letter-spacing:-.02em; }
+.settings-page-header .wf-page-subtitle { margin:.2rem 0 0; color:var(--text-sub); font-size:var(--text-xs); }
+.settings-save-area { display:flex; align-items:center; gap:.6rem; }
+.settings-save-state { color:var(--text-sub); font-size:var(--text-xs); min-width:5.5rem; text-align:right; }
+.settings-shell { display:grid; grid-template-columns:190px minmax(0,1fr); gap:1.5rem; align-items:start; }
+.settings-nav { position:sticky; top:1rem; padding:.25rem 0; }
+.settings-nav-group { margin-bottom:1rem; }
+.settings-nav-label { display:block; padding:0 .65rem .35rem; color:var(--text-sub); font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; }
+.settings-nav-item { width:100%; display:flex; align-items:center; gap:.65rem; min-height:36px; padding:.45rem .65rem; border:0; border-radius:var(--radius-sm); background:transparent; color:var(--text-sub); font-size:var(--text-xs); font-weight:600; text-align:left; cursor:pointer; transition:background-color 150ms ease,color 150ms ease,transform 120ms ease; }
+.settings-nav-item svg { flex:0 0 auto; opacity:.75; }
+.settings-nav-item:hover { background:var(--state-hover-bg); color:var(--text-primary); }
+.settings-nav-item.active { background:var(--accent-subtle); color:var(--accent-primary); }
+.settings-nav-item.active svg { opacity:1; }
+.settings-panel { min-width:0; background:var(--bg-surface); border:1px solid var(--border-light); border-radius:var(--radius-md); overflow:hidden; }
+.settings-section-pane { padding:1.35rem 1.5rem 1.5rem; animation:settingsPaneIn 170ms ease-out; }
+.settings-panel-header { padding-bottom:.85rem; margin-bottom:.15rem; border-bottom:1px solid var(--border-light); }
+.settings-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(180px,280px); gap:1.5rem; align-items:center; padding:1rem 0; border-bottom:1px solid var(--border-light); }
+.settings-row:last-child { border-bottom:0; }
+.settings-row-info h4 { margin:0; color:var(--text-primary); font-size:var(--text-xs); font-weight:650; }
+.settings-row-info p { margin:.25rem 0 0; color:var(--text-sub); font-size:var(--text-2xs); line-height:1.45; }
+.settings-row > .form-control { width:100%; max-width:none !important; }
+.settings-row .toggle-switch { justify-self:end; }
+.settings-row:has(.settings-danger-action) { padding-top:1.1rem; }
+.settings-danger-action { color:var(--state-danger,#dc2626) !important; border-color:color-mix(in srgb,var(--state-danger,#dc2626) 35%,var(--border-light)) !important; }
+@keyframes settingsPaneIn { from { opacity:0; transform:translateY(3px); } to { opacity:1; transform:translateY(0); } }
+@media (max-width:900px) { .settings-shell { grid-template-columns:160px minmax(0,1fr); gap:1rem; } .settings-row { grid-template-columns:minmax(0,1fr) 220px; gap:1rem; } }
+@media (max-width:700px) { .settings-shell-wrapper { padding-left:.75rem; padding-right:.75rem; } .settings-page-header { align-items:flex-start; flex-direction:column; gap:.8rem; } .settings-save-area { width:100%; justify-content:flex-end; } .settings-shell { display:block; } .settings-nav { position:static; display:flex; gap:.35rem; overflow-x:auto; padding:.25rem 0 .6rem; scrollbar-width:none; } .settings-nav::-webkit-scrollbar { display:none; } .settings-nav-group { display:contents; } .settings-nav-label { display:none; } .settings-nav-item { flex:0 0 auto; width:auto; white-space:nowrap; min-height:34px; } .settings-nav-item svg { display:none; } .settings-panel { border-radius:var(--radius-sm); } .settings-section-pane { padding:1rem; } .settings-row { grid-template-columns:1fr; gap:.65rem; padding:.9rem 0; } .settings-row .toggle-switch { justify-self:start; } .settings-save-state { display:none; } }
+@media (prefers-reduced-motion:reduce) { .settings-nav-item,.settings-section-pane { transition:none !important; animation:none !important; } }
