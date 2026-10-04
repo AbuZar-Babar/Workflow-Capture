@@ -169,6 +169,9 @@ export const WorkflowEditorView = {
                 <span style="font-size:0.75rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-sub);">Step Sequence</span>
                 <span class="badge-tag info" id="wfSequenceCountBadge" style="font-size:var(--text-2xs);">0 steps</span>
               </div>
+              <button type="button" class="btn btn-ghost btn-xs wf-steps-toggle wf-steps-toggle-inside" id="btnToggleStepsSidebar" title="Collapse Step Sequence" aria-label="Collapse Step Sequence">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+              </button>
             </div>
             <div class="wf-steps-scroll" id="wfSequenceScrollList">
               <div style="padding:1.5rem 1rem; text-align:center; color:var(--text-muted); font-size:var(--text-xs);">
@@ -177,9 +180,10 @@ export const WorkflowEditorView = {
             </div>
           </aside>
 
-          <!-- Persistent Step Sequence toggle; kept outside the collapsible sidebar. -->
-          <button type="button" class="btn btn-ghost btn-xs wf-steps-toggle" id="btnToggleStepsSidebar" title="Collapse steps sidebar" aria-label="Collapse steps sidebar">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          <!-- Collapsed-state toggle is rendered outside the sidebar only while it is collapsed. -->
+          <button type="button" class="btn btn-ghost btn-xs wf-steps-toggle wf-steps-toggle-collapsed" id="btnToggleStepsSidebarCollapsed" title="Show Step Sequence" aria-label="Show Step Sequence">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            <span class="wf-steps-toggle-label">Show Step Sequence</span>
           </button>
 
           <!-- Drawflow Visual Canvas -->
@@ -205,22 +209,31 @@ export const WorkflowEditorView = {
     `;
 
     // Toggle steps sidebar
-    document.getElementById('btnToggleStepsSidebar')?.addEventListener('click', () => {
+    const toggleStepsSidebar = (event) => {
       const sidebar = document.getElementById('wfStepsSidebar');
       const container = document.querySelector('.wf-editor-container');
-      const toggle = document.getElementById('btnToggleStepsSidebar');
-      if (!sidebar || !container || !toggle) return;
+      if (!sidebar || !container) return;
 
       const isCollapsed = sidebar.classList.toggle('collapsed');
       container.classList.toggle('steps-collapsed', isCollapsed);
-      toggle.setAttribute('title', isCollapsed ? 'Expand steps sidebar' : 'Collapse steps sidebar');
-      toggle.setAttribute('aria-label', isCollapsed ? 'Expand steps sidebar' : 'Collapse steps sidebar');
 
-      const icon = toggle.querySelector('svg polyline');
-      if (icon) {
-        icon.setAttribute('points', isCollapsed ? '9 18 15 12 9 6' : '15 18 9 12 15 6');
+      const insideToggle = document.getElementById('btnToggleStepsSidebar');
+      const collapsedToggle = document.getElementById('btnToggleStepsSidebarCollapsed');
+
+      if (insideToggle) {
+        insideToggle.setAttribute('title', isCollapsed ? 'Show Step Sequence' : 'Collapse Step Sequence');
+        insideToggle.setAttribute('aria-label', isCollapsed ? 'Show Step Sequence' : 'Collapse Step Sequence');
       }
-    });
+      if (collapsedToggle) {
+        collapsedToggle.setAttribute('title', isCollapsed ? 'Show Step Sequence' : 'Collapse Step Sequence');
+        collapsedToggle.setAttribute('aria-label', isCollapsed ? 'Show Step Sequence' : 'Collapse Step Sequence');
+        collapsedToggle.setAttribute('aria-hidden', isCollapsed ? 'false' : 'true');
+        collapsedToggle.tabIndex = isCollapsed ? 0 : -1;
+      }
+    };
+
+    document.getElementById('btnToggleStepsSidebar')?.addEventListener('click', toggleStepsSidebar);
+    document.getElementById('btnToggleStepsSidebarCollapsed')?.addEventListener('click', toggleStepsSidebar);
 
     document.getElementById('btnBack')?.addEventListener('click', () => {
       if (this.isDirty) {
