@@ -2721,3 +2721,38 @@ body {
   background: var(--bg-surface-alt) !important;
   color: var(--text-primary) !important;
 }
+
+/* Advanced node details: clear expand affordance with a smooth reveal. */
+.drawflow .df-advanced-details {
+  overflow: hidden !important;
+}
+.drawflow .df-advanced-summary {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 0.5rem !important;
+  cursor: pointer !important;
+  user-select: none !important;
+}
+.drawflow .df-advanced-summary .df-chevron {
+  flex: 0 0 auto !important;
+  transition: transform 220ms ease !important;
+  opacity: 0.7 !important;
+}
+.drawflow .df-advanced-details[open] .df-advanced-summary .df-chevron {
+  transform: rotate(180deg) !important;
+}
+.drawflow .df-advanced-details .df-advanced-body {
+  max-height: 0 !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  transition: max-height 280ms ease, opacity 180ms ease, padding 280ms ease !important;
+}
+.drawflow .df-advanced-details[open] .df-advanced-body {
+  max-height: 500px !important;
+  opacity: 1 !important;
+  padding-top: 8px !important;
+  padding-bottom: 9px !important;
+}
