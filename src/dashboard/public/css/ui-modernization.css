@@ -2794,3 +2794,157 @@ body {
   vertical-align:-2px !important;
   flex:0 0 auto !important;
 }
+
+/* Execution modal — item selection criteria layout */
+#workflowExecutionModal #execLoopSection > div:has(#execFilterControlsWrapper) {
+  gap: 0.9rem !important;
+}
+#workflowExecutionModal #execFilterControlsWrapper {
+  gap: 0.8rem !important;
+  padding: 0.85rem !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: 8px !important;
+  background: var(--bg-surface) !important;
+}
+#workflowExecutionModal #execFilterControlsWrapper > div {
+  margin-top: 0 !important;
+}
+#workflowExecutionModal .exec-filter-mode-row {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 0.55rem !important;
+  padding: 0.25rem !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: 7px !important;
+  background: var(--bg-surface-secondary, #f8fafc) !important;
+}
+#workflowExecutionModal .exec-filter-mode-label {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  min-height: 38px !important;
+  padding: 0.55rem 0.7rem !important;
+  margin: 0 !important;
+  border: 1px solid transparent !important;
+  border-radius: 5px !important;
+  cursor: pointer !important;
+  font-size: 0.76rem !important;
+  color: var(--text-sub) !important;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease !important;
+}
+#workflowExecutionModal .exec-filter-mode-label:has(input:checked) {
+  background: var(--bg-surface) !important;
+  border-color: var(--border-light) !important;
+  color: var(--text-main) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 1px 2px rgba(15,23,42,.04) !important;
+}
+#workflowExecutionModal .exec-filter-mode-label input {
+  margin: 0 !important;
+  flex: 0 0 auto !important;
+}
+#workflowExecutionModal #execFilterControlsWrapper > div:not(.exec-filter-rules-container):not(#execCustomFieldContainer) {
+  padding: 0.05rem 0 !important;
+}
+#workflowExecutionModal #execFieldPills,
+#workflowExecutionModal #execSmartDatePills,
+#workflowExecutionModal #execValuePills {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 0.4rem !important;
+  padding-top: 0.35rem !important;
+}
+#workflowExecutionModal .exec-pill {
+  min-height: 30px !important;
+  padding: 0.35rem 0.65rem !important;
+  border-radius: 5px !important;
+  font-size: 0.72rem !important;
+  line-height: 1.2 !important;
+}
+#workflowExecutionModal .exec-smart-date-box {
+  margin-top: 0 !important;
+  padding: 0.7rem !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: 7px !important;
+  background: var(--bg-surface-secondary, #f8fafc) !important;
+}
+#workflowExecutionModal .exec-filter-rules-container {
+  margin-top: 0 !important;
+  padding: 0.75rem !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: 7px !important;
+  background: var(--bg-surface-secondary, #f8fafc) !important;
+}
+#workflowExecutionModal .exec-filter-rules-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 0.75rem !important;
+  padding-bottom: 0.65rem !important;
+  border-bottom: 1px solid var(--border-light) !important;
+}
+#workflowExecutionModal .exec-filter-rules-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.55rem !important;
+  padding-top: 0.65rem !important;
+}
+#workflowExecutionModal #execCustomFieldContainer {
+  margin-top: 0 !important;
+  padding: 0.7rem !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: 7px !important;
+  background: var(--bg-surface-secondary, #f8fafc) !important;
+}
+#workflowExecutionModal .exec-filter-rule-explainer {
+  margin: 0 !important;
+  padding: 0.55rem 0.7rem !important;
+  border-left: 2px solid var(--brand-blue, #2563eb) !important;
+  border-radius: 0 5px 5px 0 !important;
+  background: var(--bg-surface-secondary, #f8fafc) !important;
+  font-size: 0.72rem !important;
+  line-height: 1.45 !important;
+  color: var(--text-sub) !important;
+}
+#workflowExecutionModal .exec-preview-counts-bar {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 0.5rem !important;
+  padding: 0.65rem !important;
+  margin-top: 0.05rem !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: 7px !important;
+  background: var(--bg-surface-secondary, #f8fafc) !important;
+}
+#workflowExecutionModal .exec-preview-count-item {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.4rem !important;
+  min-width: 0 !important;
+  padding: 0.35rem !important;
+}
+#workflowExecutionModal .exec-sample-section {
+  padding: 0.65rem 0.7rem !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: 7px !important;
+  background: var(--bg-surface) !important;
+}
+@media (max-width: 700px) {
+  #workflowExecutionModal .exec-filter-mode-row,
+  #workflowExecutionModal .exec-preview-counts-bar {
+    grid-template-columns: 1fr !important;
+  }
+  #workflowExecutionModal .exec-filter-rules-header {
+    align-items: flex-start !important;
+    flex-direction: column !important;
+  }
+}
+.dark-theme #workflowExecutionModal .exec-filter-mode-row,
+.dark-theme #workflowExecutionModal .exec-smart-date-box,
+.dark-theme #workflowExecutionModal .exec-filter-rules-container,
+.dark-theme #workflowExecutionModal #execCustomFieldContainer,
+.dark-theme #workflowExecutionModal .exec-filter-rule-explainer,
+.dark-theme #workflowExecutionModal .exec-preview-counts-bar {
+  background: rgba(255,255,255,.025) !important;
+}
