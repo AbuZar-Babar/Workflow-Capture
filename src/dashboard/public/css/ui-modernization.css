@@ -2782,3 +2782,15 @@ body {
   max-width: 100% !important;
   box-sizing: border-box !important;
 }
+
+/* Execution modal icon alignment */
+#workflowExecutionModal svg.exec-option-icon,
+#workflowExecutionModal .exec-option-label svg,
+#workflowExecutionModal .exec-loop-step-picker-box svg,
+#workflowExecutionModal .exec-data-requirement-box svg,
+#workflowExecutionModal .exec-pill svg,
+#workflowExecutionModal button svg {
+  display:inline-block !important;
+  vertical-align:-2px !important;
+  flex:0 0 auto !important;
+}
