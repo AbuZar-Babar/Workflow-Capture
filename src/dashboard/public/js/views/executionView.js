@@ -192,12 +192,12 @@ export const ExecutionView = {
         <section class="card execution-hero" aria-labelledby="executionTitle">
           <div class="execution-hero-main">
             <div class="execution-hero-copy">
-              <div class="execution-hero-kicker">
-                <span class="execution-run-label">Workflow execution</span>
-                <span class="badge-tag secondary" id="executionDomainBadge" style="display:none;"></span>
-              </div>
               <div class="execution-title-row">
-                <h1 id="executionTitle">Workflow Run</h1>
+                <div class="execution-robot" aria-hidden="true">
+                  ${renderRobotAvatar({ size: 'small', state: 'running' })}
+                </div>
+                <h1 id="executionTitle">Workflow Name</h1>
+                <span class="badge-tag secondary" id="executionDomainBadge" style="display:none;"></span>
                 <span class="run-status-badge queued" id="executionStatusBadge" aria-live="polite">Starting</span>
               </div>
               <p class="execution-run-meta">
