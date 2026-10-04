@@ -3276,3 +3276,50 @@ body {
 
 .settings-mobile-select-label,.settings-mobile-select{display:none;}
 @media (max-width:700px){.settings-nav{display:block;overflow:visible}.settings-nav-group{display:none}.settings-mobile-select-label{display:block;margin:0 0 .35rem;color:var(--text-sub);font-size:var(--text-2xs);font-weight:650}.settings-mobile-select{display:block;width:100%;margin-bottom:.75rem}.settings-nav-item{display:none}}
+
+
+/* Secrets: clean full-width page treatment. */
+.secrets-view-shell {
+  width:100% !important;
+  max-width:none !important;
+  margin:0 !important;
+  padding:0 0.75rem 2rem !important;
+  box-sizing:border-box !important;
+}
+.secrets-view-shell .wf-page-header {
+  padding-top:0.75rem !important;
+  margin-bottom:1rem !important;
+}
+.secrets-view-shell .wf-page-header > div:first-child > div:first-child,
+.secrets-view-shell .wf-page-header .badge-tag,
+.secrets-view-shell .wf-page-header .wf-page-subtitle {
+  display:none !important;
+}
+.secrets-view-shell .wf-page-header > div:first-child {
+  gap:0 !important;
+}
+.secrets-view-shell .wf-page-header .wf-page-title {
+  margin:0 !important;
+}
+.secrets-view-shell .wf-page-header > div:last-child {
+  margin-left:auto !important;
+}
+.secrets-view-shell .wf-toolbar {
+  width:100% !important;
+  margin-bottom:1rem !important;
+}
+.secrets-view-shell .wf-toolbar .search-input-wrap {
+  max-width:420px !important;
+}
+.secrets-view-shell > .card:last-of-type {
+  width:100% !important;
+  box-sizing:border-box !important;
+}
+@media (max-width:700px) {
+  .secrets-view-shell { padding-left:0.5rem !important; padding-right:0.5rem !important; }
+  .secrets-view-shell .wf-page-header { align-items:center !important; }
+  .secrets-view-shell .wf-page-header > div:last-child { margin-left:0 !important; }
+  .secrets-view-shell .wf-page-header .btn { width:auto !important; }
+  .secrets-view-shell .wf-toolbar { flex-wrap:wrap !important; }
+  .secrets-view-shell .wf-toolbar .search-input-wrap { flex:1 1 100% !important; max-width:none !important; }
+}
