@@ -288,7 +288,7 @@ export const ExecutionModal = {
               <input type="radio" name="execModeRadio" value="single" ${!isLoopSelected ? 'checked' : ''} style="margin-top:0.25rem; accent-color:var(--brand-forest);">
               <div style="display:flex; flex-direction:column; gap:0.2rem;">
                 <div style="display:flex; align-items:center; gap:0.5rem;">
-                  <strong style="font-size:0.9rem; color:var(--text-main);">⚡ Run Once (Single Workflow)</strong>
+                  <strong style="font-size:0.9rem; color:var(--text-main);"><svg class="exec-option-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg> Run Once (Single Workflow)</strong>
                   <span class="badge-tag success" style="font-size:var(--text-2xs); padding:0.15rem 0.45rem;">Standard</span>
                 </div>
                 <span style="font-size:0.76rem; color:var(--text-sub);">Replays the exact recorded workflow once from start to finish. Does not iterate through other rows.</span>
@@ -300,7 +300,7 @@ export const ExecutionModal = {
               <input type="radio" name="execModeRadio" value="loop" ${isLoopSelected ? 'checked' : ''} style="margin-top:0.25rem; accent-color:var(--brand-forest);">
               <div style="display:flex; flex-direction:column; gap:0.2rem;">
                 <div style="display:flex; align-items:center; gap:0.5rem;">
-                  <strong style="font-size:0.9rem; color:var(--text-main);">🔁 Run as Loop (Batch / Filtered Items)</strong>
+                  <strong style="font-size:0.9rem; color:var(--text-main);"><svg class="exec-option-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg> Run as Loop (Batch / Filtered Items)</strong>
                   ${hasLoopConfigured ? '<span class="badge-tag success" style="font-size:var(--text-2xs); padding:0.15rem 0.45rem;">Configured</span>' : '<span class="badge-tag primary" style="font-size:var(--text-2xs); padding:0.15rem 0.45rem;">Auto-Discovery</span>'}
                 </div>
                 <span style="font-size:0.76rem; color:var(--text-sub);">Automatically detects table records and processes matching items based on your filter criteria.</span>
@@ -315,7 +315,7 @@ export const ExecutionModal = {
             <div class="exec-loop-step-picker-box" style="padding:0.75rem 0.85rem; background:var(--bg-surface-secondary, rgba(0,0,0,0.02)); border-radius:6px; border:1px solid var(--border-light, #e2e8f0);">
               <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.35rem;">
                 <label for="selExecLoopStep" style="font-size:0.8rem; font-weight:700; color:var(--text-main); display:flex; align-items:center; gap:0.4rem;">
-                  <span>📍 Repeating Step</span>
+                  <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg> Repeating Step</span>
                   <span style="font-size:var(--text-2xs); font-weight:normal; color:var(--text-sub);">(Choose which step repeats for each item in the list)</span>
                 </label>
                 <span class="badge-tag primary" style="font-size:var(--text-2xs);">Loop Target Step</span>
@@ -333,7 +333,7 @@ export const ExecutionModal = {
             <!-- Section 3: Download & Sync Options (New vs Old vs All) -->
             <div class="exec-data-requirement-box" style="padding:0.75rem 0.85rem; background:var(--bg-surface-secondary, rgba(0,0,0,0.02)); border-radius:6px; border:1px solid var(--border-light, #e2e8f0);">
               <label style="font-size:0.8rem; font-weight:700; color:var(--text-main); display:block; margin-bottom:0.45rem;">
-                📦 Download &amp; Sync Options
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg> Download &amp; Sync Options
               </label>
               <div class="exec-data-mode-radios" style="display:flex; flex-direction:column; gap:0.4rem;">
                 <label class="exec-data-radio-label ${this.itemMode === 'new' ? 'active' : ''}">
@@ -579,7 +579,7 @@ export const ExecutionModal = {
         <div style="display:flex; flex-direction:column; gap:0.6rem; padding-top:0.25rem;">
           <div style="display:flex; align-items:center; justify-content:space-between;">
             <div style="display:flex; align-items:center; gap:0.45rem;">
-              <span style="font-size:0.82rem; font-weight:800; color:var(--text-main);">🎯 Item Filter Rules</span>
+              <span style="font-size:0.82rem; font-weight:800; color:var(--text-main);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg> Item Filter Rules</span>
               <span class="badge-tag primary" style="font-size:var(--text-2xs); padding:0.12rem 0.45rem;">Filter by Field Criteria</span>
             </div>
             <span style="font-size:var(--text-2xs); color:var(--text-sub);">Configure item selection criteria</span>
@@ -604,7 +604,7 @@ export const ExecutionModal = {
             <div style="display:flex; flex-direction:column; gap:0.25rem;">
               <div style="display:flex; align-items:center; justify-content:space-between;">
                 <label style="font-size:0.75rem; font-weight:700; color:var(--text-main);">
-                  📋 Quick Pick: Discovered Columns
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/></svg> Quick Pick: Discovered Columns
                 </label>
                 <span style="font-size:var(--text-2xs); color:var(--text-sub);">${this.availableFields.length} detected</span>
               </div>
@@ -627,22 +627,22 @@ export const ExecutionModal = {
               <div class="exec-smart-date-box" style="margin-top:0.15rem;">
                 <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.35rem;">
                   <span style="font-size:0.75rem; font-weight:800; color:var(--text-main); display:flex; align-items:center; gap:0.35rem;">
-                    <span>📅 Quick Date Filter for &ldquo;${escapeHtml(currentField)}&rdquo;:</span>
+                    <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> Quick Date Filter for &ldquo;${escapeHtml(currentField)}&rdquo;:</span>
                   </span>
                   <span style="font-size:var(--text-2xs); color:var(--brand-forest); font-weight:700;">Live Runtime Filtering</span>
                 </div>
                 <div class="exec-pill-group" id="execSmartDatePills">
                   <button type="button" class="exec-pill exec-pill-smart-date ${this.filterEnabled && this.filterConditions[0]?.operator === 'dateBetween' && this.filterConditions[0]?.dateTo === this.normalizeDateValue('today') ? 'active' : ''}" data-action="overdue" title="Due date has passed (Due Date <= Today)">
-                    🔴 Overdue (on or before today)
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg> Overdue (on or before today)
                   </button>
                   <button type="button" class="exec-pill exec-pill-smart-date ${this.filterEnabled && this.filterConditions[0]?.operator === 'dateBetween' && this.filterConditions[0]?.dateFrom === this.normalizeDateValue('today') ? 'active' : ''}" data-action="upcoming" title="Due date has not arrived yet (Due Date >= Today)">
-                    🟢 Upcoming (after today)
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg> Upcoming (after today)
                   </button>
                   <button type="button" class="exec-pill exec-pill-smart-date ${this.itemMode === 'old' ? 'active' : ''}" data-action="in_folder" title="Process only items already downloaded in folder">
-                    📁 Already in Folder (${this.getDownloadedCount()})
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2Z"/></svg> Already in Folder (${this.getDownloadedCount()})
                   </button>
                   <button type="button" class="exec-pill exec-pill-smart-date ${this.itemMode === 'new' ? 'active' : ''}" data-action="not_in_folder" title="Skip items already in folder, process new only">
-                    ✨ New (Not in folder)
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m12 3 1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6L12 3Z"/></svg> New (Not in folder)
                   </button>
                 </div>
               </div>
@@ -653,7 +653,7 @@ export const ExecutionModal = {
               <div style="display:flex; flex-direction:column; gap:0.25rem; margin-top:0.15rem;">
                 <div style="display:flex; align-items:center; justify-content:space-between;">
                   <span style="font-size:0.75rem; font-weight:700; color:var(--text-sub);">
-                    🔍 Detected Options for &ldquo;${escapeHtml(currentField)}&rdquo;:
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg> Detected Options for &ldquo;${escapeHtml(currentField)}&rdquo;:
                   </span>
                   <span style="font-size:var(--text-2xs); color:var(--text-sub);">${detectedValues.length} option(s)</span>
                 </div>
@@ -816,10 +816,10 @@ export const ExecutionModal = {
               <p style="margin:0.15rem 0 0.4rem; font-size:0.75rem;">The selected item was already downloaded. To process it again, enable Force Re-download or switch to All Data.</p>
               <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.35rem;">
                 <button type="button" class="btn btn-secondary btn-sm" id="btnBannerForceRedownload" style="font-size:0.72rem; padding:0.25rem 0.65rem;">
-                  ⚡ Force Re-download
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg> Force Re-download
                 </button>
                 <button type="button" class="btn btn-secondary btn-sm" id="btnBannerAllData" style="font-size:0.72rem; padding:0.25rem 0.65rem;">
-                  📦 Switch to All Data
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 8 12 3 3 8l9 5 9-5Z"/><path d="m3 8 9 5 9-5M3 12l9 5 9-5M3 16l9 5 9-5"/></svg> Switch to All Data
                 </button>
               </div>
             </div>
@@ -1844,7 +1844,7 @@ export const ExecutionModal = {
     }
 
     if (item.isDownloaded) {
-      label += ' 📁(In Folder)';
+      label += ' (In Folder)';
     }
     return label;
   },
