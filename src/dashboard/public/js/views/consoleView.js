@@ -41,6 +41,7 @@ export const ConsoleView = {
   logFilter: 'ALL',
   logSearch: '',
   autoScroll: true,
+  activeRunProgress: null,
   router: null,
   containerEl: null,
   terminalEl: null,
@@ -49,6 +50,7 @@ export const ConsoleView = {
     this.router = router;
     this.containerEl = container;
     this.logs = SSE.getLogs();
+    this.activeRunProgress = null;
 
     container.innerHTML = `
       <div class="activity-view-shell" style="max-width:1440px; margin:0 auto; padding-bottom:2rem;">
@@ -57,14 +59,14 @@ export const ConsoleView = {
         <div class="wf-page-header">
           <div style="display:flex; align-items:center; gap:0.85rem;">
             <div>
-              ${renderRobotAvatar({ size: 'badge', state: 'idle' })}
+              
             </div>
             <div>
               <div style="display:flex; align-items:center; gap:0.5rem;">
-                <h1 class="wf-page-title" style="margin:0; font-size:1.35rem; font-weight:800; letter-spacing:-0.02em;">AGENT ACTIVITY</h1>
+                <h1 class="wf-page-title" style="margin:0; font-size:1.35rem; font-weight:800; letter-spacing:-0.02em;">Execution</h1>
                 <span class="badge-tag info" style="font-size:var(--text-2xs); font-weight:700;">LIVE TELEMETRY</span>
               </div>
-              <p class="wf-page-subtitle" style="margin:0.2rem 0 0;">Autonomous agent timeline, website stage analysis, and streaming execution logs.</p>
+              <p class="wf-page-subtitle" style="margin:0.2rem 0 0;">Monitor active runs, progress, results, and execution logs.</p>
             </div>
           </div>
           <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
@@ -87,7 +89,9 @@ export const ConsoleView = {
 
         <!-- ================= TIMELINE SECTION ================= -->
         <div id="sectionTimeline">
-          <!-- Toolbar Filters -->
+          <div id="executionActiveRun"></div>
+
+          <!-- Execution history filters -->
           <div class="wf-toolbar" style="margin-bottom:1.25rem;">
             <!-- Search Input -->
             <div class="search-input-wrap" style="flex:1; max-width:320px;">
@@ -130,23 +134,23 @@ export const ConsoleView = {
           </div>
 
           <!-- Timeline Feed Container -->
-          <div class="card" style="padding:1.5rem; border-radius:var(--radius-lg);">
+          <div class="execution-history-card">
             <div id="actTimelineList" class="act-timeline">
               <div style="padding:2.5rem; text-align:center; color:var(--text-muted); font-size:var(--text-sm);">Loading activity events…</div>
             </div>
           </div>
         </div>
 
-        <!-- ================= LIVE TERMINAL SECTION (Hidden by default) ================= -->
+        <!-- ================= LIVE LOGS SECTION ================= -->
         <div id="sectionTerminal" class="hidden">
           <div class="card console-full-view" style="padding:1.25rem;">
             <!-- Terminal Toolbar -->
             <div class="card-header-row" style="margin-bottom:0.75rem; flex-wrap:wrap; gap:0.6rem;">
               <div style="display:flex; align-items:center; gap:0.5rem;">
-                <h2 style="font-size:0.95rem; font-weight:700; color:var(--text-primary); margin:0;">Live Engine Stream</h2>
+                <h2 style="font-size:0.95rem; font-weight:700; color:var(--text-primary); margin:0;">Live logs</h2>
                 <span class="badge-tag info" style="display:inline-flex; align-items:center; gap:0.35rem; font-size:var(--text-2xs);">
                   <span class="status-dot online" style="width:6px; height:6px;"></span>
-                  <span>STREAMING</span>
+                  <span>LIVE</span>
                 </span>
               </div>
 
@@ -158,7 +162,7 @@ export const ConsoleView = {
                   <button class="console-filter-btn" data-filter="ERROR">ERROR</button>
                 </div>
 
-                <input type="text" id="terminalSearchInput" class="form-control" style="width:140px; padding:0.25rem 0.5rem; font-size:0.72rem; height:28px;" placeholder="Filter log text…">
+                <input type="text" id="terminalSearchInput" class="form-control" style="width:140px; padding:0.25rem 0.5rem; font-size:0.72rem; height:28px;" placeholder="Filter logs…">
 
                 <label style="font-size:0.72rem; color:var(--text-sub); display:flex; align-items:center; gap:0.25rem; cursor:pointer;">
                   <input type="checkbox" id="chkAutoScroll" checked> Auto
@@ -326,10 +330,9 @@ export const ConsoleView = {
       }
     });
 
-    SSE.on('run_state', () => {
-      // Re-fetch runs automatically on execution state changes
-      this.loadData();
-    });
+    SSE.on('run_state', () => this.loadData());
+    SSE.on('replay_progress', (progress) => { this.activeRunProgress = progress || null; this.renderActiveRun(); });
+    SSE.on('replay_state', (state) => { if (!state?.isReplaying) this.loadData(); this.renderActiveRun(); });
   },
 
   async loadData() {
@@ -350,6 +353,7 @@ export const ConsoleView = {
       }
 
       this.filterAndRender();
+      this.renderActiveRun();
     } catch (err) {
       console.error('Failed to load activity runs:', err);
     }
@@ -401,6 +405,42 @@ export const ConsoleView = {
     this.renderTimeline();
   },
 
+  getActiveRun() {
+    return this.runs.find(r => ['RUNNING', 'STARTING', 'PROCESSING_ITEMS', 'QUEUED'].includes(String(r.status).toUpperCase())) || null;
+  },
+
+  renderActiveRun() {
+    const host = document.getElementById('executionActiveRun');
+    if (!host) return;
+    const run = this.getActiveRun();
+    if (!run) { host.innerHTML = ''; return; }
+    const progress = this.activeRunProgress || {};
+    const total = Number(progress.total || run.totalSteps || 0);
+    const current = Number(progress.index || run.currentStep || 0);
+    const percent = total ? Math.min(100, Math.round((current / total) * 100)) : 0;
+    const processed = Number(run.itemsProcessed ?? run.processedCount ?? 0);
+    const totalItems = Number(run.itemsTotal ?? run.totalItems ?? 0);
+    const downloaded = Number(run.downloadedCount ?? run.filesDownloaded ?? (run.downloads?.length || 0));
+    const failed = Number(run.itemsFailed ?? run.failedCount ?? 0);
+    const action = progress.action || {};
+    const stepName = action.name || action.label || action.type || (current ? 'Step ' + current : 'Starting execution');
+    const name = escapeHtml(run.workflowName || run.workflowId || 'Workflow');
+    const runId = escapeHtml(run.id);
+    const started = run.startedAt ? new Date(run.startedAt).getTime() : Date.now();
+    const seconds = Math.max(0, Math.floor((Date.now() - started) / 1000));
+    const elapsed = Math.floor(seconds / 60) + 'm ' + String(seconds % 60).padStart(2, '0') + 's';
+    let html = '<section class="execution-current-run">';
+    html += '<div class="execution-current-header"><div class="execution-status-line"><span class="execution-status-dot"></span><strong>RUNNING</strong><span>Live execution</span></div>';
+    html += '<button class="btn btn-danger btn-sm" data-stop-run="' + runId + '"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"></rect></svg> Stop</button></div>';
+    html += '<div class="execution-current-title"><h2>' + name + '</h2><span>Started ' + formatRelativeTime(run.startedAt || run.createdAt) + '</span></div>';
+    html += '<div class="execution-progress-label"><strong>' + escapeHtml(stepName) + '</strong><span>' + (total ? 'Step ' + current + ' of ' + total : 'Processing') + '</span></div>';
+    html += '<div class="execution-progress-track"><div class="execution-progress-bar" style="width:' + percent + '%"></div></div>';
+    html += '<div class="execution-metrics"><div><strong>' + elapsed + '</strong><span>Elapsed</span></div><div><strong>' + (totalItems ? processed + ' / ' + totalItems : processed) + '</strong><span>Processed</span></div><div><strong>' + downloaded + '</strong><span>Downloaded</span></div><div><strong>' + failed + '</strong><span>Failed</span></div></div>';
+    html += '</section>';
+    host.innerHTML = html;
+    const stop = host.querySelector('[data-stop-run]');
+    if (stop) stop.onclick = async () => { stop.disabled = true; try { await Api.stopRun(run.id); Toast.success('Execution stopped'); await this.loadData(); } catch (err) { stop.disabled = false; Toast.error(err.message || 'Failed to stop execution'); } };
+  },
   renderTimeline() {
     const list = document.getElementById('actTimelineList');
     if (!list) return;
