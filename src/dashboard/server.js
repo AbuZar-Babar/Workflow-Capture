@@ -46,9 +46,7 @@ const LoopDetector = require('../shared/loop-detector');
 const LoopReplayRunner = require('../replay/loop-replay-runner');
 const ItemDiscovery = require('../shared/item-discovery');
 const { extractAvailableFields, evaluateFilterPreview } = require('../shared/item-filter');
-const { PageInspector } = require('../shared/page-inspector');
-const { connectToBrowser } = require('../utils/cdp-connector');
-const { extractWorkflowStartUrl } = require('../utils/url-helper');
+const { ConditionEvaluator } = require('../shared/condition-evaluator');
 const logger = require('../utils/logger');
 const authController = require('../auth/auth-controller');
 const workflowController = require('../api/workflow-controller');
@@ -123,9 +121,6 @@ function startDevReloadWatcher() {
 }
 
 
-function broadcast(type, payload) {
-  const message = `event: ${type}\ndata: ${JSON.stringify(payload)}\n\n`;
-  for (const client of sseClients) {
     try {
       client.write(message);
     } catch {
@@ -359,9 +354,6 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (pathname === '/api/events') {
-      if (!requireAuth(req, res)) return;
-
       const sseHeaders = {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
@@ -575,10 +567,11 @@ const server = http.createServer(async (req, res) => {
           const pageSummary = pageInspection.summary || null;
 
           // 3. Multi-table disambiguation: elevate real data tables with explicit headers & action controls
-          if ((!discovery.success || discovery.collection?.itemTag === 'li') && pageSummary?.entities?.length > 0) {
-            const targetText = String(targetStep.target?.fingerprint?.text || targetStep.target?.candidates?.[0]?.value || '').toLowerCase();
-            let tableEntity = null;
-            if (targetText) {
+          const discoveryHasWeakHeaders = !discovery.collection?.headerColumns || discovery.collection.headerColumns.length === 0;
+          const discoveryItemsLackFields = Array.isArray(discovery.items) && discovery.items.length > 0 &&
+            discovery.items.every(it => !it.fields || Object.keys(it.fields).filter(k => !k.startsWith('_') && k !== 'Text' && k !== 'Date').length === 0);
+
+          if ((!discovery.success || discovery.collection?.itemTag === 'li' || discoveryHasWeakHeaders || discoveryItemsLackFields) && pageSummary?.entities?.length > 0) {
               tableEntity = pageSummary.entities.find(e =>
                 e.type === 'table_grid' && e.itemCount >= 2 &&
                 (e.columns?.some(c => targetText.includes(c.toLowerCase()) || c.toLowerCase().includes(targetText)) ||
@@ -596,29 +589,45 @@ const server = http.createServer(async (req, res) => {
             if (tableEntity) {
               const targetCol = tableEntity.actionColumn || (tableEntity.columns || []).find(c => /download|file|link|export/i.test(c)) || null;
               const targetVal = tableEntity.actionText || 'Download';
-              discovery = {
-                success: true,
-                confidence: 0.95,
-                itemCount: tableEntity.itemCount,
-                targetColumn: targetCol,
-                targetActionValue: targetVal,
-                collection: {
-                  itemTag: 'tr',
-                  ancestorTag: 'tbody',
-                  ancestorSelector: 'table tbody',
-                  headerColumns: tableEntity.columns
-                },
-                items: (tableEntity.rows || tableEntity.sampleRows).map((row, idx) => ({
-                  index: idx,
-                  text: Object.values(row).filter(Boolean).join(' '),
-                  fields: row,
-                  tagName: 'tr'
-                })),
-                availableFields: tableEntity.columns
-              };
-            }
-          }
+              if (!discovery.success || discovery.collection?.itemTag === 'li') {
+                discovery = {
+                  success: true,
+                  confidence: 0.95,
+                  itemCount: tableEntity.itemCount,
+                  targetColumn: targetCol,
+                  targetActionValue: targetVal,
+                  collection: {
+                    itemTag: 'tr',
+                    ancestorTag: 'tbody',
+                    ancestorSelector: 'table tbody',
+                    headerColumns: tableEntity.columns
+                  },
+                  items: (tableEntity.rows || tableEntity.sampleRows).map((row, idx) => ({
+                    index: idx,
+                    text: Object.values(row).filter(Boolean).join(' '),
+                    fields: row,
+                    tagName: 'tr'
+                  })),
+                  availableFields: tableEntity.columns
+                };
+              } else {
+                // Enrich existing discovery collection and items with the complete headers & row fields
+                discovery.collection = discovery.collection || {};
+                discovery.collection.headerColumns = tableEntity.columns;
+                discovery.availableFields = Array.from(new Set([...(discovery.availableFields || []), ...tableEntity.columns]));
+                if (targetCol && !discovery.targetColumn) discovery.targetColumn = targetCol;
+                if (targetVal && !discovery.targetActionValue) discovery.targetActionValue = targetVal;
 
+                const tableRows = tableEntity.rows || tableEntity.sampleRows || [];
+                if (Array.isArray(discovery.items) && tableRows.length > 0) {
+                  discovery.items.forEach((item, idx) => {
+                    const rowObj = tableRows[idx];
+                    if (rowObj) {
+                      item.fields = Object.assign({}, rowObj, item.fields || {});
+                    }
+                  });
+                }
+              }
           let availableFields = [];
           let filterPreview = null;
 
@@ -725,13 +734,54 @@ const server = http.createServer(async (req, res) => {
               : (body.rowFilter || (body.filterValue ? { column: body.filterColumn || discovery.targetColumn || 'Type', value: body.filterValue } : defaultFilter));
 
             try {
-              filterPreview = evaluateFilterPreview(effectiveFilter, itemsWithFields, {
-                loopLimit: body.loopLimit !== undefined ? body.loopLimit : null,
-                previewLimit: 10
-              });
-            } catch (err) {
-              logger.warn(`[Preflight] evaluateFilterPreview error: ${err.message}`);
-            }
+              const rawOp = String(effectiveFilter?.operator || effectiveFilter?.op || '').toLowerCase().trim();
+              const isRelational = ['<=', '>=', '<', '>', 'before', 'after', 'starts_with', 'ends_with', 'in', 'not_in', '!=', 'not_equals', 'date_before', 'date_after', 'date_on_or_after', 'date_on_or_before', 'date_between'].includes(rawOp);
+
+              if (isRelational) {
+                let matchingCount = 0;
+                let selectedCount = 0;
+                let skippedFilterCount = 0;
+                let skippedLimitCount = 0;
+                const selectedPreview = [];
+                const skippedFilterPreview = [];
+                const limit = Number.isInteger(body.loopLimit) && body.loopLimit > 0 ? body.loopLimit : null;
+
+                for (let i = 0; i < itemsWithFields.length; i++) {
+                  const item = itemsWithFields[i];
+                  const fieldsMap = item?.fields || item || {};
+                  const evalRes = ConditionEvaluator.evaluate(fieldsMap, effectiveFilter);
+                  if (evalRes.matches) {
+                    matchingCount++;
+                    if (limit === null || selectedCount < limit) {
+                      selectedCount++;
+                      if (selectedPreview.length < 10) selectedPreview.push(item);
+                    } else {
+                      skippedLimitCount++;
+                    }
+                  } else {
+                    skippedFilterCount++;
+                    if (skippedFilterPreview.length < 10) skippedFilterPreview.push(item);
+                  }
+                }
+                filterPreview = {
+                  totalCount: itemsWithFields.length,
+                  matchingCount,
+                  selectedCount,
+                  skippedFilterCount,
+                  skippedLimitCount,
+                  skippedCount: skippedFilterCount,
+                  selectedPreview,
+                  skippedFilterPreview,
+                  skippedPreview: skippedFilterPreview,
+                  availableFields: discovery.availableFields || [],
+                  errors: []
+                };
+              } else {
+                filterPreview = evaluateFilterPreview(effectiveFilter, itemsWithFields, {
+                  loopLimit: body.loopLimit !== undefined ? body.loopLimit : null,
+                  previewLimit: 10
+                });
+              }
           } else {
             filterPreview = {
               totalCount: 0,
@@ -874,9 +924,6 @@ const server = http.createServer(async (req, res) => {
       if (!requireAuth(req, res)) return;
       const runId = urlObj.searchParams.get('runId');
       return runController.exportAllDownloadsZip(req, res, runId);
-    }
-
-    const dlFileMatch = pathname.match(/^\/api\/downloads\/([^/]+)\/file$/);
     if (dlFileMatch && req.method === 'GET') {
       if (!requireAuth(req, res)) return;
       const downloadId = dlFileMatch[1];
@@ -999,7 +1046,6 @@ const server = http.createServer(async (req, res) => {
         const launched = await ensureChromeRunning(9222, initialUrl);
         if (launched) {
           // If Chrome is up, ensure a visible tab is navigated to the portal and brought to front
-          try {
             const { browser } = await connectToBrowser();
             const pages = await browser.pages().catch(() => []);
             let targetPage = pages.find(p => {
@@ -1040,15 +1086,10 @@ const server = http.createServer(async (req, res) => {
                 const { exec } = require('child_process');
                 exec('powershell -NoProfile -Command "(New-Object -ComObject WScript.Shell).AppActivate(\'Chrome\')"', () => {});
               } catch {}
-            }
 
-            await browser.disconnect();
           } catch (tabErr) {
             logger.warn('Tab navigation or focus warning:', tabErr.message);
           }
-          return sendJson(res, 200, { success: true, message: 'Chrome launched with CDP on port 9222', url: initialUrl });
-        } else {
-          return sendJson(res, 500, { error: 'Could not auto-launch Chrome. Please launch Chrome manually.' });
         }
       } catch (err) {
         return sendJson(res, 500, { error: err.message });
@@ -1514,9 +1555,6 @@ function logStartupBanner(port, host) {
  */
 startDevReloadWatcher();
 
-function startServer(port = currentPort, host = HOST, maxRetries = 10) {
-  return new Promise((resolve, reject) => {
-    let attemptPort = Number(port);
     let retriesLeft = maxRetries;
 
     function tryListen() {
