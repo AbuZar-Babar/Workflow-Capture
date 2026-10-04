@@ -250,8 +250,8 @@ export const ExecutionView = {
         <section class="card" id="engineUnderstandingCard" style="padding:0.85rem 1.25rem; border-radius:var(--radius-lg); background:rgba(6,9,19,0.7); border:1px solid rgba(255,255,255,0.06); margin-bottom:0.85rem;">
           <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.45rem; flex-wrap:wrap; gap:0.5rem;">
             <div style="display:flex; align-items:center; gap:0.5rem;">
-              <span style="font-size:0.75rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--accent-cyan);">Robotic Intelligence Engine</span>
-              <span class="badge-tag success" id="engineLoopBadge" style="font-size:var(--text-2xs);">Dynamic Pattern Detected ✓</span>
+              <span style="font-size:0.75rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--accent-cyan);">Execution details</span>
+              <span class="badge-tag success" id="engineLoopBadge" style="font-size:var(--text-2xs);">Pattern detected ✓</span>
             </div>
             <span id="engineCollectionTag" style="font-size:0.72rem; color:var(--text-sub); font-family:var(--font-mono); font-weight:600;">Collection: Repeating Grid / Table</span>
           </div>
