@@ -915,9 +915,6 @@ export const WorkflowEditorView = {
             <span>${this.escapeHtml(actionLabel)}</span>
           </div>
           <div style="display:flex; align-items:center; gap:0.35rem;">
-            <span class="df-role-badge ${isLoopAnchor ? 'role-anchor' : (isLoopStep ? 'role-loop' : 'role-setup')}" id="badge-role-${index}" title="${isLoopAnchor ? 'Loop discovery anchor · Repeats for each record' : (isLoopStep ? 'Repeats for each record' : 'Runs once during setup')}">
-              ${isLoopAnchor ? '🔁 Finds records here' : (isLoopStep ? '🔁 Repeats' : '⚙️ Run once')}
-            </span>
             <span class="df-step-number">#${index + 1}</span>
             <button type="button" class="df-btn-delete-node" title="Delete step" aria-label="Delete step #${index + 1}">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
