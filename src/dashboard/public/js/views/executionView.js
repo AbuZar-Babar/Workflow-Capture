@@ -11,6 +11,8 @@ import { renderRobotAvatar } from '../components/robotAvatar.js';
 import { Modal } from '../components/modal.js';
 import { escapeHtml } from '../utils/dom.js';
 
+const terminalStates = new Set(['COMPLETED', 'COMPLETED_WITH_ERRORS', 'FAILED', 'STOPPED', 'CANCELLED', 'ABORTED', 'INTERRUPTED']);
+
 function formatStatusLabel(status) {
   const s = String(status || 'QUEUED').toUpperCase();
   switch (s) {
@@ -141,9 +143,11 @@ export const ExecutionView = {
 
     // Initial log buffer
     this.logs = SSE.getLogs();
+    const cachedWorkflowName = sessionStorage.getItem(`workflowCaptureName_${this.runId}`) ||
+      sessionStorage.getItem('workflowCaptureActiveWorkflowName') || '';
 
     container.innerHTML = `
-      <div class="execution-shell">
+      <div class="execution-shell execution-view-shell">
         <!-- Reconnection Alert Banner -->
         <div class="execution-error hidden" id="connectionAlert" role="alert" style="display:flex; align-items:center; gap:0.6rem; padding:0.65rem 1rem; border-radius:var(--radius-md); background:#fffbeb; border:1px solid #fde68a; color:#92400e; font-size:0.78rem;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
@@ -154,7 +158,7 @@ export const ExecutionView = {
         <div class="card hidden" id="humanInterventionBanner" role="alert" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; padding:1rem 1.25rem; border-left:4px solid #f59e0b; background:#fffbeb; border-radius:var(--radius-lg);">
           <div style="display:flex; align-items:center; gap:0.75rem;">
             <div style="width:34px; height:34px; border-radius:50%; background:#fef3c7; color:#b45309; display:grid; place-items:center; flex-shrink:0;">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
             </div>
             <div>
               <strong style="color:#92400e; font-size:0.9rem; display:block;">Action needed in browser</strong>
@@ -190,15 +194,20 @@ export const ExecutionView = {
 
         <!-- Execution Header -->
         <section class="card execution-hero" aria-labelledby="executionTitle">
-          <div class="execution-hero-main">
-            <div class="execution-hero-copy">
+          <div class="execution-hero-top">
+            <!-- LEFT: Workflow Identity -->
+            <div class="execution-hero-identity">
               <div class="execution-title-row">
-                <div class="execution-robot" aria-hidden="true">
-                  ${renderRobotAvatar({ size: 'small', state: 'running' })}
+                <div class="execution-robot" id="execHeroAvatar" aria-hidden="true">
+                  ${renderRobotAvatar({ size: 'badge', state: 'running' })}
                 </div>
-                <h1 id="executionTitle">Workflow Name</h1>
-                <span class="badge-tag secondary" id="executionDomainBadge" style="display:none;"></span>
-                <span class="run-status-badge queued" id="executionStatusBadge" aria-live="polite">Starting</span>
+                <div class="execution-title-copy">
+                  <h1 id="executionTitle">${escapeHtml(cachedWorkflowName || 'Workflow')}</h1>
+                  <div class="execution-status-row">
+                    <span class="run-status-badge queued" id="executionStatusBadge" aria-live="polite">Starting</span>
+                    <span class="badge-tag secondary" id="executionDomainBadge" style="display:none;"></span>
+                  </div>
+                </div>
               </div>
               <p class="execution-run-meta">
                 <span>Run ID <strong class="mono" id="executionRunId">${escapeHtml(this.runId)}</strong></span>
@@ -206,26 +215,28 @@ export const ExecutionView = {
                 <span id="executionPhaseBadge"></span>
               </p>
             </div>
-          </div>
 
-          <div class="execution-upper-progress">
-            <div class="execution-upper-progress-head">
-              <div class="execution-activity-copy">
-                <span class="execution-activity-label">Current activity</span>
-                <strong id="activityTitle">Initializing execution…</strong>
-                <span id="execRobotDetailText">Connecting to the browser and preparing workflow steps.</span>
+            <!-- RIGHT: Execution Progress -->
+            <div class="execution-upper-progress">
+              <div class="execution-upper-progress-head">
+                <div class="execution-activity-copy">
+                  <span class="execution-activity-label">Current activity</span>
+                  <strong id="activityTitle">Initializing execution…</strong>
+                  <span id="execRobotDetailText">Connecting to the browser and preparing workflow steps.</span>
+                </div>
+                <strong id="executionProgressPercent">0%</strong>
               </div>
-              <strong id="executionProgressPercent">0%</strong>
-            </div>
-            <div class="execution-progress-track" role="progressbar" id="executionProgressTrack" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Workflow run completion percentage">
-              <div id="executionProgressBar" style="width:0%;"></div>
-            </div>
-            <div class="execution-progress-meta">
-              <span id="executionProgressLabel">Connecting to browser…</span>
-              <span id="executionProgressDetail">Preparing steps</span>
+              <div class="execution-progress-track" role="progressbar" id="executionProgressTrack" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Workflow run completion percentage">
+                <div id="executionProgressBar" style="width:0%;"></div>
+              </div>
+              <div class="execution-progress-meta">
+                <span id="executionProgressLabel">Connecting to browser…</span>
+                <span id="executionProgressDetail">Preparing steps</span>
+              </div>
             </div>
           </div>
 
+          <!-- Action buttons below header/progress area, aligned to LEFT -->
           <div class="execution-hero-actions">
             <button class="btn btn-secondary" id="btnExecutionBack" title="Return to Workflows library">
               <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
@@ -247,25 +258,25 @@ export const ExecutionView = {
         </section>
 
         <!-- Engine Understanding Panel -->
-        <section class="card" id="engineUnderstandingCard" style="padding:0.85rem 1.25rem; border-radius:var(--radius-lg); background:rgba(6,9,19,0.7); border:1px solid rgba(255,255,255,0.06); margin-bottom:0.85rem;">
+        <section class="card" id="engineUnderstandingCard" style="padding:0.85rem 1.25rem; border-radius:var(--radius-md); background:var(--bg-surface-alt); border:1px solid var(--border-light); margin-bottom:0.85rem;">
           <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.45rem; flex-wrap:wrap; gap:0.5rem;">
             <div style="display:flex; align-items:center; gap:0.5rem;">
-              <span style="font-size:0.75rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--accent-cyan);">Execution details</span>
+              <span style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-sub);">Execution details</span>
               <span class="badge-tag success" id="engineLoopBadge" style="font-size:var(--text-2xs);">Pattern detected ✓</span>
             </div>
             <span id="engineCollectionTag" style="font-size:0.72rem; color:var(--text-sub); font-family:var(--font-mono); font-weight:600;">Collection: Repeating Grid / Table</span>
           </div>
           <div style="display:flex; gap:1.5rem; flex-wrap:wrap; font-size:0.75rem; color:var(--text-sub);">
             <div><span>Discovered:</span> <strong id="engineItemsFound" style="color:var(--text-primary);">—</strong></div>
-            <div><span>Matching:</span> <strong id="engineItemsMatching" style="color:var(--accent-cyan);">—</strong></div>
+            <div><span>Matching:</span> <strong id="engineItemsMatching" style="color:var(--accent-primary);">—</strong></div>
             <div><span>Condition Filter:</span> <strong id="engineActiveFilter" class="mono" style="color:var(--text-primary);">None</strong></div>
-            <div><span>Artifact Destination:</span> <strong id="engineDownloadsFolder" class="mono" style="color:var(--accent-cyan); font-size:0.7rem;">downloads/run/</strong></div>
+            <div><span>Artifact Destination:</span> <strong id="engineDownloadsFolder" class="mono" style="color:var(--accent-primary); font-size:0.7rem;">downloads/run/</strong></div>
           </div>
         </section>
 
         <!-- Summary Metric Cards (Prominently displaying REMAINING) -->
         <section class="execution-summary-grid" aria-label="Run progress statistics">
-          <article class="stat-card" style="border-color: rgba(12, 92, 63, 0.25); background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 80%);">
+          <article class="stat-card" style="border-color: color-mix(in srgb, var(--brand-forest) 25%, var(--border-light)); background: var(--bg-surface-alt);">
             <span class="stat-label" id="executionRemainingLabel" style="color:var(--brand-forest); font-weight:700;">Remaining</span>
             <strong id="executionRemaining" style="color:var(--brand-forest); font-size:1.6rem;" aria-live="polite">—</strong>
             <span class="stat-meta" id="executionRemainingMeta">Queued records</span>
@@ -658,9 +669,25 @@ export const ExecutionView = {
 
     // Update Header Elements
     const titleEl = document.getElementById('executionTitle');
+    const name = run.workflowName || (run.workflow && run.workflow.name) || run.name || run.workflowId || 'Workflow';
     if (titleEl) {
-      const name = run.workflowName || run.workflowId || 'Workflow';
       titleEl.textContent = name;
+    }
+    if (name && name !== 'Workflow') {
+      try {
+        sessionStorage.setItem(`workflowCaptureName_${this.runId}`, name);
+      } catch {}
+    }
+
+    // Update Top-Left Hero Avatar State
+    const heroRobot = document.getElementById('execHeroAvatar');
+    if (heroRobot) {
+      const robotState = (status === 'COMPLETED') ? 'success'
+        : (status === 'COMPLETED_WITH_ERRORS' || status === 'PAUSED' || status === 'WAITING_FOR_USER') ? 'warning'
+        : (status === 'STOPPED' || status === 'CANCELLED' || status === 'ABORTED' || status === 'INTERRUPTED') ? 'idle'
+        : (status === 'FAILED') ? 'error'
+        : 'running';
+      heroRobot.innerHTML = renderRobotAvatar({ size: 'badge', state: robotState });
     }
 
     const domainBadge = document.getElementById('executionDomainBadge');
@@ -912,12 +939,7 @@ export const ExecutionView = {
       const oIcon = document.getElementById('terminalOutcomeIcon');
       const oTitle = document.getElementById('terminalOutcomeTitle');
       const oSummary = document.getElementById('terminalOutcomeSummary');
-
-      // Update center robot avatar
-      const centerRobot = document.getElementById('execRobotCenterBox');
       const heroRobot = document.getElementById('execHeroAvatar');
-      const robotDot = document.getElementById('execRobotStatusDot');
-      const robotStatusText = document.getElementById('execRobotStatusText');
 
       if (status === 'COMPLETED') {
         outcomeCard.style.border = '1px solid rgba(16,185,129,0.3)';
@@ -929,14 +951,8 @@ export const ExecutionView = {
           oIcon.textContent = '✓';
         }
         if (oTitle) oTitle.textContent = 'Run completed successfully';
-        if (oSummary) oSummary.textContent = `All ${totalCount} records processed autonomously. ${files} files generated and verified.`;
-        if (centerRobot) centerRobot.innerHTML = `<div class="orbital-ring"></div>` + renderRobotAvatar({ size: 'card', state: 'success' });
+        if (oSummary) oSummary.textContent = `All ${totalCount} records processed successfully. ${files} files generated and verified.`;
         if (heroRobot) heroRobot.innerHTML = renderRobotAvatar({ size: 'badge', state: 'success' });
-        if (robotDot) robotDot.className = 'status-dot online';
-        if (robotStatusText) {
-          robotStatusText.style.color = '#34d399';
-          robotStatusText.textContent = '● RUN COMPLETED';
-        }
       } else if (status === 'COMPLETED_WITH_ERRORS') {
         outcomeCard.style.border = '1px solid rgba(245,158,11,0.3)';
         outcomeCard.style.borderLeft = '4px solid #f59e0b';
@@ -948,7 +964,6 @@ export const ExecutionView = {
         }
         if (oTitle) oTitle.textContent = 'Run completed with warnings';
         if (oSummary) oSummary.textContent = `${ok} records succeeded, ${fail} failed. ${files} files produced.`;
-        if (centerRobot) centerRobot.innerHTML = `<div class="orbital-ring"></div>` + renderRobotAvatar({ size: 'card', state: 'warning' });
         if (heroRobot) heroRobot.innerHTML = renderRobotAvatar({ size: 'badge', state: 'warning' });
       } else if (status === 'STOPPED') {
         outcomeCard.style.border = '1px solid rgba(234,88,12,0.3)';
@@ -961,7 +976,7 @@ export const ExecutionView = {
         }
         if (oTitle) oTitle.textContent = 'Run stopped';
         if (oSummary) oSummary.textContent = `Halted by user. ${processed} records were processed before stopping.`;
-        if (centerRobot) centerRobot.innerHTML = `<div class="orbital-ring"></div>` + renderRobotAvatar({ size: 'card', state: 'idle' });
+        if (heroRobot) heroRobot.innerHTML = renderRobotAvatar({ size: 'badge', state: 'idle' });
       } else {
         outcomeCard.style.border = '1px solid rgba(239,68,68,0.3)';
         outcomeCard.style.borderLeft = '4px solid #ef4444';
@@ -973,13 +988,7 @@ export const ExecutionView = {
         }
         if (oTitle) oTitle.textContent = 'Run failed';
         if (oSummary) oSummary.textContent = run.error || m.error || 'Execution encountered an error and could not complete.';
-        if (centerRobot) centerRobot.innerHTML = `<div class="orbital-ring"></div>` + renderRobotAvatar({ size: 'card', state: 'error' });
         if (heroRobot) heroRobot.innerHTML = renderRobotAvatar({ size: 'badge', state: 'error' });
-        if (robotDot) robotDot.className = 'status-dot recording';
-        if (robotStatusText) {
-          robotStatusText.style.color = '#f87171';
-          robotStatusText.textContent = '● RUN FAILED';
-        }
       }
     }
 

@@ -2060,6 +2060,10 @@ export const ExecutionModal = {
         this.onExecuted(res);
       } else if (res && res.runId) {
         sessionStorage.setItem('workflowCaptureActiveRunId', res.runId);
+        if (this.workflowName) {
+          sessionStorage.setItem(`workflowCaptureName_${res.runId}`, this.workflowName);
+          sessionStorage.setItem('workflowCaptureActiveWorkflowName', this.workflowName);
+        }
         Router.navigate(`execution/${encodeURIComponent(res.runId)}`);
       } else {
         Router.navigate('execution');
