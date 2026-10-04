@@ -175,6 +175,18 @@ export const WorkflowsView = {
           </div>
         </div>
 
+        <!-- Create Workflow pane -->
+        <div id="workflowCreateModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="workflowCreateModalTitle">
+          <div class="modal-dialog overview-create-workflow-modal">
+            <div class="modal-header">
+              <div><h2 id="workflowCreateModalTitle" style="margin:0; font-size:1.05rem; font-weight:750; color:var(--text-primary);">Create Workflow</h2><p style="margin:0.25rem 0 0; font-size:var(--text-xs); color:var(--text-sub);">Set the workflow name, then start recording the task.</p></div>
+              <button class="btn btn-ghost btn-xs" id="btnCloseWorkflowCreateModal" title="Close" aria-label="Close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+            </div>
+            <div class="modal-body overview-create-workflow-body"><div class="form-group"><label for="workflowRecName">Workflow name</label><input type="text" id="workflowRecName" class="form-control" placeholder="e.g. Invoice Downloader" spellcheck="false" autocomplete="off" aria-label="Workflow Name"></div></div>
+            <div class="modal-footer"><button class="btn btn-secondary btn-sm" id="btnCancelWorkflowCreateModal">Cancel</button><button class="btn btn-primary btn-sm" id="btnStartWorkflowRecording"><svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg><span id="workflowRecordButtonLabel">Start Recording</span></button></div>
+          </div>
+        </div>
+
         <!-- Dynamic Container: Renders either Grid or List -->
         <div id="wfCatalogContainer">
           ${hasCache ? '' : `
@@ -215,6 +227,23 @@ export const WorkflowsView = {
     this.loadWorkflows(!hasCache);
   },
 
+  openCreateModal() {
+    const modal = document.getElementById('workflowCreateModal');
+    const input = document.getElementById('workflowRecName');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    document.body.classList.add('modal-open');
+    requestAnimationFrame(() => {
+      if (input) { input.focus(); input.select?.(); }
+    });
+  },
+
+  closeCreateModal() {
+    const modal = document.getElementById('workflowCreateModal');
+    if (modal) modal.classList.add('hidden');
+    document.body.classList.remove('modal-open');
+  },
+
   bindEvents(router) {
     const searchInput = document.getElementById('wfSearchInput');
     const filterStatus = document.getElementById('wfFilterStatus');
@@ -226,28 +255,54 @@ export const WorkflowsView = {
     const btnEmptyNew = document.getElementById('btnEmptyNewWorkflow');
     const catalogContainer = document.getElementById('wfCatalogContainer');
 
-    const triggerRecordFlow = () => {
-      Router.navigate('overview/create');
-      setTimeout(() => {
-        if (window.OverviewView && typeof window.OverviewView.openCreateModal === 'function') {
-          window.OverviewView.openCreateModal();
-        } else {
-          const modalCreate = document.getElementById('overviewCreateModal');
-          if (modalCreate) {
-            modalCreate.classList.remove('hidden');
-            modalCreate.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-          }
-          const input = document.getElementById('overviewRecName');
-          if (input) {
-            input.focus();
-            input.select?.();
-          }
-        }
-      }, 100);
-    };
+    const triggerRecordFlow = () => this.openCreateModal();
 
     if (btnHeaderNew) btnHeaderNew.onclick = triggerRecordFlow;
     if (btnEmptyNew) btnEmptyNew.onclick = triggerRecordFlow;
+
+    const createModal = document.getElementById('workflowCreateModal');
+    const closeCreateModal = document.getElementById('btnCloseWorkflowCreateModal');
+    const cancelCreateModal = document.getElementById('btnCancelWorkflowCreateModal');
+    const startRecordingBtn = document.getElementById('btnStartWorkflowRecording');
+    const workflowNameInput = document.getElementById('workflowRecName');
+
+    if (closeCreateModal) closeCreateModal.onclick = () => this.closeCreateModal();
+    if (cancelCreateModal) cancelCreateModal.onclick = () => this.closeCreateModal();
+    if (createModal) {
+      createModal.onclick = (e) => { if (e.target === createModal) this.closeCreateModal(); };
+      this.createModalKeydownHandler = (e) => {
+        if (!createModal.classList.contains('hidden') && e.key === 'Escape') {
+          e.preventDefault();
+          this.closeCreateModal();
+        }
+      };
+      window.addEventListener('keydown', this.createModalKeydownHandler);
+    }
+
+    const startRecording = async () => {
+      if (startRecordingBtn?.disabled) return;
+      const name = (workflowNameInput?.value.trim()) || `workflow-${Date.now()}`;
+      const label = document.getElementById('workflowRecordButtonLabel');
+      if (startRecordingBtn) startRecordingBtn.disabled = true;
+      if (label) label.textContent = 'Starting…';
+      Toast.info(`Starting workflow recording for "${name}"…`);
+      try {
+        await Api.startRecording(name);
+        Toast.success(`Recording started: "${name}"`);
+        this.closeCreateModal();
+        this.loadWorkflows(true);
+      } catch (err) {
+        Toast.error(err.message || 'Failed to start recording');
+      } finally {
+        if (startRecordingBtn) startRecordingBtn.disabled = false;
+        if (label) label.textContent = 'Start Recording';
+      }
+    };
+
+    if (startRecordingBtn) startRecordingBtn.onclick = startRecording;
+    if (workflowNameInput) workflowNameInput.onkeydown = (e) => {
+      if (e.key === 'Enter') startRecording();
+    };
 
     // Search filter input
     if (searchInput) {
@@ -806,6 +861,11 @@ export const WorkflowsView = {
   },
 
   destroy() {
+    if (this.createModalKeydownHandler) {
+      window.removeEventListener('keydown', this.createModalKeydownHandler);
+      this.createModalKeydownHandler = null;
+    }
+    document.body.classList.remove('modal-open');
     if (this.searchDebounceTimer) {
       clearTimeout(this.searchDebounceTimer);
       this.searchDebounceTimer = null;
