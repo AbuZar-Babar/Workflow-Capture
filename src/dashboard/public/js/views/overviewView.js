@@ -76,30 +76,20 @@ export const OverviewView = {
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
               </svg>
-              <span>+ Train Agent</span>
+              <span>Train Agent</span>
             </button>
           </div>
         </div>
 
-        <!-- Inline Train Agent Modal / Recording Banner -->
-        <div id="overviewCreateModal" class="card hidden" style="margin-bottom:1.5rem; padding:1.25rem 1.5rem; border-left:4px solid var(--accent-cyan); background:var(--card-bg);">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
-            <div style="display:flex; align-items:center; gap:0.65rem;">
-              ${renderRobotAvatar({ size: 'mini', state: 'analyzing' })}
-              <span style="font-size:0.95rem; font-weight:700; color:var(--text-primary);">TRAIN YOUR AGENT</span>
-              <span class="badge-tag info" style="font-size:var(--text-2xs);">Interactive Training</span>
+        <!-- Create Workflow modal pane -->
+        <div id="overviewCreateModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="overviewCreateModalTitle">
+          <div class="modal-dialog overview-create-workflow-modal">
+            <div class="modal-header">
+              <div><h2 id="overviewCreateModalTitle" style="margin:0; font-size:1.05rem; font-weight:750; color:var(--text-primary);">Create Workflow</h2><p style="margin:0.25rem 0 0; font-size:var(--text-xs); color:var(--text-sub);">Set the workflow name, then start recording the task.</p></div>
+              <button class="btn btn-ghost btn-xs" id="btnCloseCreateModal" title="Close" aria-label="Close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
             </div>
-            <button class="btn-icon" id="btnCloseCreateModal" title="Close" aria-label="Close">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-            </button>
-          </div>
-          <p style="font-size:var(--text-xs); color:var(--text-sub); margin:0 0 0.85rem;">Show the agent how the task should be done once on the live website. It learns the pattern and automates it.</p>
-          <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
-            <input type="text" id="overviewRecName" class="form-control" style="max-width:320px;" placeholder="Workflow name (e.g. invoice-collector)" spellcheck="false" aria-label="Workflow Name">
-            <button class="btn btn-primary" id="btnOverviewStartRec">
-              <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg>
-              <span id="overviewRecordButtonLabel">Start Teaching</span>
-            </button>
+            <div class="modal-body overview-create-workflow-body"><div class="form-group"><label for="overviewRecName">Workflow name</label><input type="text" id="overviewRecName" class="form-control" placeholder="e.g. Invoice Downloader" spellcheck="false" autocomplete="off" aria-label="Workflow Name"></div></div>
+            <div class="modal-footer"><button class="btn btn-secondary btn-sm" id="btnCancelCreateModal">Cancel</button><button class="btn btn-primary btn-sm" id="btnOverviewStartRec"><svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg><span id="overviewRecordButtonLabel">Start Recording</span></button></div>
           </div>
         </div>
 
@@ -200,14 +190,18 @@ export const OverviewView = {
   openCreateModal() {
     const modalCreate = document.getElementById('overviewCreateModal');
     const inputRecName = document.getElementById('overviewRecName');
-    if (modalCreate) {
-      modalCreate.classList.remove('hidden');
-      modalCreate.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      if (inputRecName) {
-        inputRecName.focus();
-        inputRecName.select?.();
-      }
-    }
+    if (!modalCreate) return;
+    modalCreate.classList.remove('hidden');
+    document.body.classList.add('modal-open');
+    requestAnimationFrame(() => {
+      if (inputRecName) { inputRecName.focus(); inputRecName.select?.(); }
+    });
+  },
+
+  closeCreateModal() {
+    const modalCreate = document.getElementById('overviewCreateModal');
+    if (modalCreate) modalCreate.classList.add('hidden');
+    document.body.classList.remove('modal-open');
   },
 
   bindEvents(router) {
@@ -219,19 +213,22 @@ export const OverviewView = {
 
     if (btnCreate && modalCreate) {
       btnCreate.onclick = () => {
-        const isHidden = modalCreate.classList.contains('hidden');
-        if (isHidden) {
-          this.openCreateModal();
-        } else {
-          modalCreate.classList.add('hidden');
-        }
+        if (modalCreate.classList.contains('hidden')) this.openCreateModal();
+        else this.closeCreateModal();
       };
     }
 
     if (btnCloseModal && modalCreate) {
-      btnCloseModal.onclick = () => {
-        modalCreate.classList.add('hidden');
+      btnCloseModal.onclick = () => this.closeCreateModal();
+      const btnCancelModal = document.getElementById('btnCancelCreateModal');
+      if (btnCancelModal) btnCancelModal.onclick = () => this.closeCreateModal();
+      modalCreate.onclick = (e) => { if (e.target === modalCreate) this.closeCreateModal(); };
+      this.createModalKeydownHandler = (e) => {
+        if (!modalCreate.classList.contains('hidden') && e.key === 'Escape') {
+          e.preventDefault(); this.closeCreateModal();
+        }
       };
+      window.addEventListener('keydown', this.createModalKeydownHandler);
     }
 
     // Launch Chrome Browser
@@ -274,7 +271,7 @@ export const OverviewView = {
         await Api.startRecording(name);
         Toast.success(`Recording started: "${name}"`);
         this.setRecordingState(true, { startedAt: new Date(), name });
-        if (modalCreate) modalCreate.classList.add('hidden');
+        this.closeCreateModal();
       } catch (err) {
         Toast.error(err.message || 'Failed to start recording');
         this.setRecordingState(false);
@@ -651,6 +648,8 @@ export const OverviewView = {
   },
 
   destroy() {
+    if (this.createModalKeydownHandler) { window.removeEventListener('keydown', this.createModalKeydownHandler); this.createModalKeydownHandler = null; }
+    document.body.classList.remove('modal-open');
     if (this.recordTimer) {
       clearInterval(this.recordTimer);
       this.recordTimer = null;
