@@ -443,6 +443,17 @@ export const ArtifactsView = {
     setTxt('countMedia', this.files.filter(f => f.category === 'media').length);
   },
 
+  triggerContentTransition() {
+    const targetId = this.viewMode === 'tree' ? 'treeContentArea' : 'filesTableBody';
+    const target = document.getElementById(targetId);
+    if (!target) return;
+
+    target.classList.remove('output-content-transition');
+    // Force a reflow so repeated filter/sort/view changes animate consistently.
+    void target.offsetWidth;
+    target.classList.add('output-content-transition');
+  },
+
   filterAndRender() {
     let result = [...this.files];
 
@@ -475,6 +486,7 @@ export const ArtifactsView = {
     }
 
     this.filteredFiles = result;
+    this.triggerContentTransition();
 
     if (this.viewMode === 'tree') {
       this.renderTree();
