@@ -3112,6 +3112,62 @@ body {
   color: var(--text-primary) !important;
 }
 
+/* Output pane: restrained interaction animations for filters, view modes, and sorting. */
+.files-view-shell .filter-btn,
+.files-view-shell .view-toggle-wrap .btn,
+.files-view-shell #selectSortFiles {
+  transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 140ms ease;
+}
+
+.files-view-shell .filter-btn:hover {
+  transform: translateY(-1px);
+}
+
+.files-view-shell .filter-btn.active {
+  animation: outputFilterActivate 180ms ease-out;
+}
+
+.files-view-shell .view-toggle-wrap .btn:not(.btn-secondary):hover {
+  transform: translateY(-1px);
+}
+
+.files-view-shell .view-toggle-wrap .btn.btn-secondary {
+  animation: outputToggleActivate 180ms ease-out;
+}
+
+.files-view-shell #selectSortFiles:focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 14%, transparent);
+}
+
+.files-view-shell #filesTableBody.output-content-transition,
+.files-view-shell #treeContentArea.output-content-transition {
+  animation: outputContentSwap 180ms ease-out;
+}
+
+@keyframes outputFilterActivate {
+  0% { transform: scale(0.97); }
+  100% { transform: scale(1); }
+}
+
+@keyframes outputToggleActivate {
+  0% { transform: scale(0.96); }
+  100% { transform: scale(1); }
+}
+
+@keyframes outputContentSwap {
+  0% { opacity: 0; transform: translateY(4px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .files-view-shell .filter-btn,
+  .files-view-shell .view-toggle-wrap .btn,
+  .files-view-shell #selectSortFiles {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
 /* Output / Artifacts view: match the full-width Activity treatment. */
 .files-view-shell {
   width: 100% !important;
