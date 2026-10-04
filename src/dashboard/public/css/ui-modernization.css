@@ -2679,3 +2679,35 @@ body {
 .wf-editor-container.steps-collapsed .wf-steps-toggle-collapsed {
   display: inline-flex !important;
 }
+
+/* Step Sequence actions: clearer controls with subtle borders and stronger icons. */
+.wf-step-seq-card .wf-step-actions button,
+.wf-step-seq-card .step-action-btn,
+.wf-step-seq-card .btn-step-action {
+  border: 1px solid var(--border-light) !important;
+  border-radius: 6px !important;
+  background: var(--bg-surface) !important;
+  color: var(--text-secondary) !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.wf-step-seq-card .wf-step-actions button svg,
+.wf-step-seq-card .step-action-btn svg,
+.wf-step-seq-card .btn-step-action svg {
+  width: 15px !important;
+  height: 15px !important;
+  stroke-width: 2.2 !important;
+  opacity: 1 !important;
+}
+
+.wf-step-seq-card .wf-step-actions button:hover,
+.wf-step-seq-card .step-action-btn:hover,
+.wf-step-seq-card .btn-step-action:hover {
+  border-color: var(--border-medium) !important;
+  background: var(--bg-surface-alt) !important;
+  color: var(--text-primary) !important;
+}
