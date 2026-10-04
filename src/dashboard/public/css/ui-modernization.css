@@ -3094,3 +3094,73 @@ body {
     max-width: none !important;
   }
 }
+
+/* Output / Artifacts view: match the full-width Activity treatment. */
+.files-view-shell {
+  width: 100% !important;
+  max-width: none !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-left: 0.75rem !important;
+  padding-right: 0.75rem !important;
+  box-sizing: border-box !important;
+}
+
+.files-view-shell .wf-page-header {
+  align-items: center !important;
+}
+
+.files-view-shell .wf-page-header > div:first-child > div:first-child {
+  display: none !important;
+}
+
+.files-view-shell .wf-page-header > div:first-child {
+  gap: 0 !important;
+}
+
+.files-view-shell .wf-page-header > div:first-child > div:last-child {
+  display: block !important;
+}
+
+.files-view-shell .wf-page-header .wf-page-title {
+  margin: 0 !important;
+}
+
+.files-view-shell .wf-page-header .badge-tag,
+.files-view-shell .wf-page-header .wf-page-subtitle {
+  display: none !important;
+}
+
+.files-view-shell .wf-page-header > div:last-child {
+  margin-left: auto !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.files-view-shell .wf-toolbar,
+.files-view-shell > .card {
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.files-view-shell > .card {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+@media (max-width: 700px) {
+  .files-view-shell {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+  }
+
+  .files-view-shell .wf-page-header {
+    align-items: flex-start !important;
+  }
+
+  .files-view-shell .wf-page-header > div:last-child {
+    margin-left: 0 !important;
+    width: 100% !important;
+    flex-wrap: wrap !important;
+  }
+}
