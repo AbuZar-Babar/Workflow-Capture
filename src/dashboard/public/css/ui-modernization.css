@@ -3872,6 +3872,7 @@ body.modal-open { overflow:hidden; }
   justify-content: flex-start;
   align-items: center;
   gap: .65rem;
+  margin-top: 0;
 }
 
 .execution-view-shell .execution-title-row h1 {
