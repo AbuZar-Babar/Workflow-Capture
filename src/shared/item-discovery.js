@@ -285,14 +285,15 @@ class ItemDiscovery {
         }
 
         // Also check parent grid / table container for header elements (scoped strictly to item's container)
-        const tableContainer = itemForRecorded.closest('table, [role="grid"], .data-table, .x-grid');
-        if (tableContainer && headerColumns.length === 0) {
-          const thead = tableContainer.querySelector('thead');
-          let headerEls = thead ? Array.from(thead.querySelectorAll('th, td, [role="columnheader"]')) : [];
-          if (!headerEls.length) {
-            headerEls = Array.from(tableContainer.querySelectorAll('th, [role="columnheader"]'));
-          }
-          const colTexts = headerEls.map(h => (h.innerText || h.textContent || '').trim()).filter(t => t.length > 0 && t.length < 60);
+        const gridContainer = itemForRecorded.parentElement?.closest('.x-grid, [role="grid"], .data-table, .grid-container, table, .dxgvTable, [role="treegrid"]') ||
+          itemForRecorded.closest('.x-grid, [role="grid"], .data-table, .grid-container');
+        if (gridContainer && headerColumns.length === 0) {
+          const headerCt = gridContainer.querySelector('.x-grid-header-ct, thead, .x-grid-header-row, [role="rowgroup"], .ag-header, .mat-header-row') || gridContainer;
+          let headerEls = Array.from(headerCt.querySelectorAll('.x-column-header-text, .x-column-header, th, [role="columnheader"], .dxgvHeader, .mat-header-cell, .ag-header-cell, .ant-table-thead th')).filter(visible);
+          const colTexts = headerEls.map(h => {
+            const inner = h.querySelector?.('.x-column-header-text, .ag-header-cell-text') || h;
+            return (inner.innerText || inner.textContent || inner.getAttribute('aria-label') || '').trim();
+          }).filter(t => t.length > 0 && t.length < 60);
           if (colTexts.length > 0) {
             headerColumns = Array.from(new Set(colTexts));
           }
@@ -382,19 +383,20 @@ class ItemDiscovery {
               );
 
               const dataCells = isFirstCellChecker ? cells.slice(1) : cells;
+              const cellValues = dataCells.map(c => (c.innerText || c.textContent || '').trim().replace(/\s+/g, ' '));
+              fields._cells = cellValues;
 
-              if (headerColumns.length > 0 && dataCells.length > 0) {
+              if (headerColumns.length > 0 && cellValues.length > 0) {
                 headerColumns.forEach((h, idx) => {
-                  if (dataCells[idx] !== undefined) {
-                    const val = (dataCells[idx].innerText || dataCells[idx].textContent || '').trim();
-                    if (val) fields[h] = val;
+                  if (cellValues[idx] !== undefined && cellValues[idx] !== '') {
+                    fields[h] = cellValues[idx];
                   }
                 });
               }
 
               // Also check if cells have direct column classes or attribute references
               cells.forEach(cell => {
-                const cellText = (cell.innerText || cell.textContent || '').trim();
+                const cellText = (cell.innerText || cell.textContent || '').trim().replace(/\s+/g, ' ');
                 const colAttr = cell.getAttribute('data-column') || cell.getAttribute('data-field') || cell.getAttribute('name');
                 if (colAttr && cellText) {
                   fields[colAttr] = cellText;
@@ -423,6 +425,14 @@ class ItemDiscovery {
                 const dateMatch = itemText.match(/\b(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*,?\s+\d{4}|\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{2,4})\b/i);
                 if (dateMatch) {
                   fields['Date'] = dateMatch[1];
+                }
+              }
+
+              // Semantic alias for Due Date if present under alternative name
+              if (!fields['Due Date']) {
+                const dueCol = headerColumns.find(h => /\bdue\b/i.test(h));
+                if (dueCol && fields[dueCol]) {
+                  fields['Due Date'] = fields[dueCol];
                 }
               }
             } else if (itemTagLower === 'mat-option' || itemRole === 'option' || itemTagLower === 'option') {
