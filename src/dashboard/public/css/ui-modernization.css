@@ -2948,3 +2948,28 @@ body {
 .dark-theme #workflowExecutionModal .exec-preview-counts-bar {
   background: rgba(255,255,255,.025) !important;
 }
+
+/* Keep item-filter surfaces theme-aware without hardcoded light fallbacks. */
+.dark-theme #workflowExecutionModal #execFilterControlsWrapper,
+.dark-theme #workflowExecutionModal .exec-filter-mode-row,
+.dark-theme #workflowExecutionModal .exec-smart-date-box,
+.dark-theme #workflowExecutionModal .exec-filter-rules-container,
+.dark-theme #workflowExecutionModal #execCustomFieldContainer,
+.dark-theme #workflowExecutionModal .exec-filter-rule-explainer,
+.dark-theme #workflowExecutionModal .exec-preview-counts-bar,
+.dark-theme #workflowExecutionModal .exec-sample-section,
+:root[data-theme="dark"] #workflowExecutionModal #execFilterControlsWrapper,
+:root[data-theme="dark"] #workflowExecutionModal .exec-filter-mode-row,
+:root[data-theme="dark"] #workflowExecutionModal .exec-smart-date-box,
+:root[data-theme="dark"] #workflowExecutionModal .exec-filter-rules-container,
+:root[data-theme="dark"] #workflowExecutionModal #execCustomFieldContainer,
+:root[data-theme="dark"] #workflowExecutionModal .exec-filter-rule-explainer,
+:root[data-theme="dark"] #workflowExecutionModal .exec-preview-counts-bar,
+:root[data-theme="dark"] #workflowExecutionModal .exec-sample-section {
+  background: var(--bg-surface) !important;
+  color: var(--text-main) !important;
+}
+.dark-theme #workflowExecutionModal .exec-filter-mode-row,
+:root[data-theme="dark"] #workflowExecutionModal .exec-filter-mode-row {
+  background: var(--bg-surface-secondary, var(--bg-surface)) !important;
+}
