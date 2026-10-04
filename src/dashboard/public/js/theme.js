@@ -10,7 +10,7 @@ export const Theme = {
     const saved = localStorage.getItem('workflow_capture_theme') || localStorage.getItem('flowmind_theme');
     let initial = 'dark';
 
-    if (saved === 'dark' || saved === 'light' || saved === 'crimson' || saved === 'charcoal-crimson') {
+    if (saved === 'dark' || saved === 'light' || saved === 'crimson' || saved === 'charcoal-crimson' || saved === 'sage' || saved === 'mint') {
       initial = saved;
     }
 
@@ -41,8 +41,10 @@ export const Theme = {
   },
 
   toggle() {
-    const isLight = this.current === 'light';
-    const next = isLight ? (localStorage.getItem('workflow_capture_dark_preset') || 'crimson') : 'light';
+    const isLight = this.current === 'light' || this.current === 'sage' || this.current === 'mint';
+    const next = isLight
+      ? (localStorage.getItem('workflow_capture_dark_preset') || 'crimson')
+      : (localStorage.getItem('workflow_capture_light_preset') || 'sage');
     this.setTheme(next, true);
   },
 
@@ -53,9 +55,14 @@ export const Theme = {
     }
 
     this.current = theme;
-    if (theme !== 'light') {
+    const isDark = theme !== 'light' && theme !== 'sage' && theme !== 'mint';
+    if (isDark) {
       try {
         localStorage.setItem('workflow_capture_dark_preset', theme);
+      } catch {}
+    } else {
+      try {
+        localStorage.setItem('workflow_capture_light_preset', theme);
       } catch {}
     }
 
@@ -86,7 +93,7 @@ export const Theme = {
   },
 
   updateUI() {
-    const isDark = this.current !== 'light';
+    const isDark = this.current !== 'light' && this.current !== 'sage' && this.current !== 'mint';
     const labelText = isDark ? 'Light' : 'Dark';
     const tooltipText = isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
 

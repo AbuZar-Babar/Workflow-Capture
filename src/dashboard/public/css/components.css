@@ -932,13 +932,21 @@ input[type="range"] {
   position: relative;
 }
 
-:root[data-theme="light"] .theme-toggle-btn .theme-icon-sun {
+:root[data-theme="light"] .theme-toggle-btn .theme-icon-sun,
+:root[data-theme="sage"] .theme-toggle-btn .theme-icon-sun,
+:root[data-theme="mint"] .theme-toggle-btn .theme-icon-sun {
   display: none !important;
 }
 
 :root[data-theme="light"] .theme-toggle-btn .theme-icon-moon {
   display: inline-block !important;
   color: #2563eb;
+}
+
+:root[data-theme="sage"] .theme-toggle-btn .theme-icon-moon,
+:root[data-theme="mint"] .theme-toggle-btn .theme-icon-moon {
+  display: inline-block !important;
+  color: #228249;
 }
 
 :root[data-theme="dark"] .theme-toggle-btn .theme-icon-sun,

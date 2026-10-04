@@ -8,7 +8,7 @@ import { ConsoleView } from './views/consoleView.js?v=7';
 import { SecretsView } from './views/secretsView.js?v=7';
 import { ArtifactsView } from './views/artifactsView.js?v=8';
 import { WorkflowEditorView } from './views/workflowEditorView.js?v=7';
-import { BotConfigView } from './views/botConfigView.js?v=7';
+import { BotConfigView } from './views/botConfigView.js?v=8';
 import { ExecutionView } from './views/executionView.js?v=6';
 import { Auth } from './auth.js';
 import { Sidebar } from './components/sidebar.js';

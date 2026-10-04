@@ -81,6 +81,28 @@
   --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.45);
 }
 
+/* Mint Sage Theme (Crewix Reference Aesthetic) */
+:root[data-theme="sage"],
+:root[data-theme="mint"],
+.theme-sage {
+  --color-primary: #228249;
+  --color-primary-hover: #186337;
+  --color-primary-subtle: rgba(34, 130, 73, 0.12);
+  --color-bg: #eaf5ea;
+  --color-surface: #f6fbf6;
+  --color-surface-muted: #e1f0e2;
+  --color-border: #cee5d0;
+  --color-border-strong: #b2dab4;
+  --color-text: #142217;
+  --color-text-secondary: #495e4e;
+  --color-text-muted: #6e8573;
+  --color-success: #228249;
+  --color-warning: #d97706;
+  --color-danger: #dc2626;
+  --shadow-sm: 0 1px 3px rgba(20, 34, 23, 0.05);
+  --shadow-md: 0 4px 14px rgba(20, 34, 23, 0.07);
+}
+
 
 /* Compatibility aliases for existing UI components */
 :root {

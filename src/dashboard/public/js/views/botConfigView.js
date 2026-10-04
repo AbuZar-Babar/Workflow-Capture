@@ -167,7 +167,46 @@ export const BotConfigView = {
                     </div>
                   </div>
 
-                  <!-- 2. Slate Dark (Classic Dark) -->
+                  <!-- 2. Mint Sage (Crewix Reference Theme) -->
+                  <div class="theme-card" data-theme-value="sage" tabindex="0" role="button" aria-label="Select Mint Sage theme">
+                    <div class="theme-card-preview" style="background:#eaf5ea; border: 1px solid #cee5d0;">
+                      <div class="theme-preview-sidebar" style="background:#eef7ef; border-right:1px solid #d5ebd7;">
+                        <div style="width:14px; height:3px; background:#228249; border-radius:1px; margin-bottom:6px;"></div>
+                        <div style="width:10px; height:3px; background:#a3cca8; border-radius:1px; margin-bottom:4px;"></div>
+                        <div style="width:10px; height:3px; background:#a3cca8; border-radius:1px;"></div>
+                      </div>
+                      <div class="theme-preview-content">
+                        <div class="theme-preview-header" style="background:#f6fbf6; border-bottom:1px solid #d5ebd7;">
+                          <div style="width:24px; height:4px; background:#142217; border-radius:2px;"></div>
+                          <div style="width:12px; height:4px; background:#228249; border-radius:2px;"></div>
+                        </div>
+                        <div class="theme-preview-cards">
+                          <div style="background:#f6fbf6; border:1px solid #d6ebd8; border-radius:4px; padding:5px; margin-bottom:4px;">
+                            <div style="width:65%; height:3px; background:#228249; border-radius:1px; margin-bottom:3px;"></div>
+                            <div style="width:40%; height:2px; background:#a3cca8; border-radius:1px;"></div>
+                          </div>
+                          <div style="background:#f6fbf6; border:1px solid #d6ebd8; border-radius:4px; padding:4px; display:flex; gap:3px;">
+                            <div style="width:20%; height:5px; background:#228249; border-radius:1px;"></div>
+                            <div style="width:20%; height:5px; background:#43a047; border-radius:1px;"></div>
+                            <div style="width:20%; height:5px; background:#81c784; border-radius:1px;"></div>
+                            <div style="width:20%; height:5px; background:#c8e6c9; border-radius:1px;"></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="theme-card-info">
+                      <div class="theme-card-title-row">
+                        <span class="theme-card-title">Mint Sage</span>
+                        <span class="badge" style="font-size:10px; color:#228249; background:rgba(34,130,73,0.12); border:1px solid rgba(34,130,73,0.25);">Crewix</span>
+                      </div>
+                      <p class="theme-card-desc">Lush organic sage and pale mint surfaces with emerald accents inspired by modern executive apps.</p>
+                    </div>
+                    <div class="theme-card-check">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </div>
+                  </div>
+
+                  <!-- 3. Slate Dark (Classic Dark) -->
                   <div class="theme-card" data-theme-value="dark" tabindex="0" role="button" aria-label="Select Slate Dark theme">
                     <div class="theme-card-preview" style="background:#0f172a; border: 1px solid #334155;">
                       <div class="theme-preview-sidebar" style="background:#0c1322; border-right:1px solid #1e293b;">
@@ -204,7 +243,7 @@ export const BotConfigView = {
                     </div>
                   </div>
 
-                  <!-- 3. Clean Light -->
+                  <!-- 4. Clean Light -->
                   <div class="theme-card" data-theme-value="light" tabindex="0" role="button" aria-label="Select Clean Light theme">
                     <div class="theme-card-preview" style="background:#f8fafc; border: 1px solid #e2e8f0;">
                       <div class="theme-preview-sidebar" style="background:#f1f5f9; border-right:1px solid #e2e8f0;">
@@ -249,8 +288,9 @@ export const BotConfigView = {
                   <h4>Quick Theme Selection</h4>
                   <p>Choose an explicit theme or follow your operating system appearance.</p>
                 </div>
-                <select class="form-control" id="cfgThemeSelectDirect" style="max-width:230px;">
+                <select class="form-control" id="cfgThemeSelectDirect" style="max-width:240px;">
                   <option value="crimson">Charcoal Crimson (Featured)</option>
+                  <option value="sage">Mint Sage (Crewix Green)</option>
                   <option value="dark">Slate Dark</option>
                   <option value="light">Clean Light</option>
                   <option value="system">Follow System</option>
@@ -270,8 +310,9 @@ export const BotConfigView = {
                   <h4>Theme Mode</h4>
                   <p>Choose the interface theme preset.</p>
                 </div>
-                <select class="form-control" id="cfgThemeSelect" style="max-width:230px;">
+                <select class="form-control" id="cfgThemeSelect" style="max-width:240px;">
                   <option value="crimson">Charcoal Crimson (Featured)</option>
+                  <option value="sage">Mint Sage (Crewix Green)</option>
                   <option value="dark">Slate Dark</option>
                   <option value="light">Clean Light</option>
                   <option value="system">System Default</option>
@@ -513,7 +554,9 @@ export const BotConfigView = {
       }
       document.querySelectorAll('.theme-card').forEach(card => {
         const val = card.dataset.themeValue;
-        const isActive = val === effectiveTheme || (val === 'crimson' && (effectiveTheme === 'crimson' || effectiveTheme === 'charcoal-crimson'));
+        const isActive = val === effectiveTheme ||
+          (val === 'crimson' && (effectiveTheme === 'crimson' || effectiveTheme === 'charcoal-crimson')) ||
+          (val === 'sage' && (effectiveTheme === 'sage' || effectiveTheme === 'mint'));
         card.classList.toggle('active', Boolean(isActive));
       });
       const badge = document.getElementById('activeThemeBadge');
@@ -523,6 +566,11 @@ export const BotConfigView = {
           badge.style.background = 'rgba(240, 68, 56, 0.14)';
           badge.style.color = '#f04438';
           badge.style.border = '1px solid rgba(240, 68, 56, 0.3)';
+        } else if (effectiveTheme === 'sage' || effectiveTheme === 'mint') {
+          badge.textContent = 'Mint Sage';
+          badge.style.background = 'rgba(34, 130, 73, 0.14)';
+          badge.style.color = '#228249';
+          badge.style.border = '1px solid rgba(34, 130, 73, 0.3)';
         } else if (effectiveTheme === 'dark') {
           badge.textContent = 'Slate Dark';
           badge.style.background = 'rgba(96, 165, 250, 0.14)';

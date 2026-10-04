@@ -4337,3 +4337,65 @@ body.modal-open { overflow:hidden; }
 :root[data-theme="charcoal-crimson"] .progress-bar-fill {
   background: #f04438 !important;
 }
+
+/* --- Mint Sage (Crewix Reference Image) Specific Accents --- */
+:root[data-theme="sage"] .sidebar-nav-item.active,
+:root[data-theme="sage"] .sidebar-icon-btn.active,
+:root[data-theme="mint"] .sidebar-nav-item.active,
+:root[data-theme="mint"] .sidebar-icon-btn.active {
+  background: rgba(34, 130, 73, 0.12) !important;
+  color: #228249 !important;
+  border-left: 3.5px solid #228249 !important;
+  border-radius: 4px 8px 8px 4px !important;
+  font-weight: 600 !important;
+}
+
+:root[data-theme="sage"] .sidebar-nav-item.active svg,
+:root[data-theme="mint"] .sidebar-nav-item.active svg {
+  color: #228249 !important;
+  stroke: #228249 !important;
+}
+
+:root[data-theme="sage"] .btn-primary,
+:root[data-theme="mint"] .btn-primary {
+  background: #228249 !important;
+  border-color: #228249 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(34, 130, 73, 0.28) !important;
+}
+
+:root[data-theme="sage"] .btn-primary:hover,
+:root[data-theme="mint"] .btn-primary:hover {
+  background: #186337 !important;
+  border-color: #186337 !important;
+}
+
+:root[data-theme="sage"] #executionProgressBar,
+:root[data-theme="mint"] #executionProgressBar,
+:root[data-theme="sage"] .progress-bar-fill,
+:root[data-theme="mint"] .progress-bar-fill {
+  background: #228249 !important;
+}
+
+:root[data-theme="sage"] .card,
+:root[data-theme="mint"] .card {
+  border-color: #d6ebd8 !important;
+  background: #f6fbf6 !important;
+  box-shadow: 0 1px 3px rgba(22, 36, 25, 0.04), 0 4px 12px rgba(22, 36, 25, 0.03) !important;
+}
+
+:root[data-theme="sage"] .app-header,
+:root[data-theme="mint"] .app-header,
+:root[data-theme="sage"] .flowmind-app-topbar,
+:root[data-theme="mint"] .flowmind-app-topbar {
+  background: #f2faf3 !important;
+  border-bottom: 1px solid #d5ebd7 !important;
+}
+
+:root[data-theme="sage"] .app-sidebar,
+:root[data-theme="mint"] .app-sidebar,
+:root[data-theme="sage"] .floating-sidebar,
+:root[data-theme="mint"] .floating-sidebar {
+  background: #eef7ef !important;
+  border-right: 1px solid #d5ebd7 !important;
+}
