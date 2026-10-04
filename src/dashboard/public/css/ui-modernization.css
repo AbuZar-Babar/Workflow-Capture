@@ -1005,6 +1005,52 @@
   box-shadow: none !important;
 }
 
+/* Sidebar collapse: keep the explicit collapsed state authoritative after the modernization overrides. */
+.app-sidebar,
+.floating-sidebar {
+  transition: width 220ms cubic-bezier(0.16, 1, 0.3, 1), padding 220ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.app-sidebar.is-collapsed,
+.floating-sidebar.is-collapsed {
+  width: 64px !important;
+  padding: 0.75rem 0.45rem !important;
+}
+
+.app-sidebar.is-collapsed .sidebar-nav-label,
+.floating-sidebar.is-collapsed .sidebar-nav-label {
+  display: none !important;
+}
+
+.app-sidebar.is-collapsed .sidebar-nav-item,
+.app-sidebar.is-collapsed .sidebar-icon-btn,
+.floating-sidebar.is-collapsed .sidebar-nav-item,
+.floating-sidebar.is-collapsed .sidebar-icon-btn,
+.app-sidebar.is-collapsed .sidebar-stop-execution,
+.floating-sidebar.is-collapsed .sidebar-stop-execution {
+  justify-content: center !important;
+  width: 100% !important;
+  height: 38px !important;
+  padding: 0 !important;
+  gap: 0 !important;
+}
+
+.app-sidebar.is-collapsed .sidebar-agent-badge,
+.floating-sidebar.is-collapsed .sidebar-agent-badge {
+  justify-content: center !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.app-sidebar.is-collapsed .sidebar-collapse-icon,
+.floating-sidebar.is-collapsed .sidebar-collapse-icon {
+  transform: rotate(180deg);
+}
+
+.sidebar-collapse-icon {
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 /* Shared surfaces: eliminate legacy glass / oversized cards. */
 .card,
 .settings-panel,
