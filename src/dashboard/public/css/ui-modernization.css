@@ -2615,18 +2615,15 @@ body {
 }
 
 
-/* Persistent Step Sequence toggle: it lives outside the collapsible sidebar. */
-.wf-editor-container {
+/* Step Sequence toggle: inside the pane when expanded, clear affordance when collapsed. */
+.wf-steps-header {
   position: relative !important;
 }
-.wf-steps-toggle {
-  position: absolute !important;
-  top: 0.55rem !important;
-  left: 292px !important;
-  z-index: 50 !important;
-  width: 30px !important;
-  height: 30px !important;
-  min-width: 30px !important;
+.wf-steps-header .wf-steps-toggle-inside {
+  position: static !important;
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
   padding: 0 !important;
   display: inline-flex !important;
   align-items: center !important;
@@ -2634,21 +2631,40 @@ body {
   border: 1px solid var(--border-light) !important;
   border-radius: 6px !important;
   background: var(--bg-surface) !important;
+}
+.wf-steps-toggle-collapsed {
+  position: absolute !important;
+  top: 0.65rem !important;
+  left: 0.65rem !important;
+  z-index: 50 !important;
+  min-height: 32px !important;
+  padding: 0 0.55rem !important;
+  gap: 0.4rem !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: 7px !important;
+  background: var(--bg-surface) !important;
   box-shadow: var(--shadow-sm) !important;
+  color: var(--text-secondary) !important;
 }
-.wf-editor-container.steps-collapsed .wf-steps-toggle {
-  left: 0.6rem !important;
+.wf-steps-toggle-collapsed:hover {
+  color: var(--text-primary) !important;
+  border-color: var(--border-medium) !important;
+  background: var(--bg-surface-alt) !important;
 }
-.wf-steps-toggle svg {
-  pointer-events: none !important;
+.wf-steps-toggle-collapsed .wf-steps-toggle-label {
+  display: none !important;
 }
-@media (max-width: 900px) {
-  .wf-steps-toggle {
-    left: 252px !important;
+@media (hover: hover) and (pointer: fine) {
+  .wf-steps-toggle-collapsed:hover .wf-steps-toggle-label {
+    display: inline !important;
   }
 }
-@media (max-width: 700px) {
-  .wf-steps-toggle {
-    left: 0.6rem !important;
-  }
+.wf-editor-container:not(.steps-collapsed) .wf-steps-toggle-collapsed {
+  display: none !important;
+}
+.wf-editor-container.steps-collapsed .wf-steps-toggle-inside {
+  display: none !important;
+}
+.wf-editor-container.steps-collapsed .wf-steps-toggle-collapsed {
+  display: inline-flex !important;
 }
