@@ -22,22 +22,23 @@ export const BotConfigView = {
 
   async render(container) {
     container.innerHTML = `
-      <div class="settings-shell-wrapper" style="max-width:1440px; margin:0 auto; padding-bottom:2rem;">
+      <div class="settings-shell-wrapper">
 
         <!-- Header -->
-        <div class="wf-page-header">
+        <div class="settings-page-header">
           <div>
-            <h1 class="wf-page-title" style="margin:0;">Settings</h1>
-            <p class="wf-page-subtitle" style="margin:0.25rem 0 0;">Manage application preferences and automation behavior.</p>
+            <h1 class="wf-page-title">Settings</h1>
+            <p class="wf-page-subtitle">Manage workspace preferences, automation behavior, and security.</p>
           </div>
-          <div class="settings-header-actions">
-            <span class="settings-save-state" id="settingsSaveState" aria-live="polite">✓ Saved</span>
-            <button class="btn btn-primary btn-sm" id="btnSaveSettings" disabled>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0-0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-              <span>Save changes</span>
+          <div class="settings-save-area">
+            <span class="settings-save-state" id="settingsSaveState" aria-live="polite">Saved</span>
+            <button class="btn btn-primary btn-sm" id="btnSaveSettings">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2-2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+              <span>Save Changes</span>
             </button>
             <button class="btn btn-ghost btn-sm" id="btnResetSettings" title="Restore default settings">Reset</button>
-          </div>        </div>
+          </div>
+        </div>
 
         <!-- 2-Column Settings Shell -->
         <div class="settings-shell">
@@ -46,7 +47,7 @@ export const BotConfigView = {
           <nav class="settings-nav" aria-label="Settings Sections">
             <div class="settings-nav-group">
               <div class="settings-nav-label">General</div>
-              <button class="settings-nav-item active" data-section="general"><span>General</span></button>
+              <div class="settings-nav-group"><span class="settings-nav-label">Workspace</span><button class="settings-nav-item active" data-section="general"><span>General</span></button>
               <button class="settings-nav-item" data-section="appearance"><span>Appearance</span></button>
             </div>
             <div class="settings-nav-group">
@@ -403,8 +404,10 @@ export const BotConfigView = {
         this.currentConfig = { ...this.currentConfig, ...cfg, preferences: localPrefs };
         this.markSaved();
         Toast.success('Settings saved successfully');
+          this.setSaveState('Saved');
       } catch (err) {
         Toast.error(err.message || 'Failed to save settings');
+          this.setSaveState('Unsaved changes');
         this.markDirty();
       }
     };
@@ -446,6 +449,11 @@ export const BotConfigView = {
     const button = document.getElementById('btnSaveSettings');
     if (state) { state.textContent = '✓ Saved'; state.classList.remove('is-dirty'); }
     if (button) button.disabled = true;
+  },
+
+  setSaveState(state) {
+    const el = document.getElementById('settingsSaveState');
+    if (el) el.textContent = state;
   },
 
   async loadConfig() {
