@@ -169,9 +169,6 @@ export const WorkflowEditorView = {
                 <span style="font-size:0.75rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-sub);">Step Sequence</span>
                 <span class="badge-tag info" id="wfSequenceCountBadge" style="font-size:var(--text-2xs);">0 steps</span>
               </div>
-              <button type="button" class="btn btn-ghost btn-xs" id="btnToggleStepsSidebar" title="Toggle steps sidebar">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
-              </button>
             </div>
             <div class="wf-steps-scroll" id="wfSequenceScrollList">
               <div style="padding:1.5rem 1rem; text-align:center; color:var(--text-muted); font-size:var(--text-xs);">
@@ -179,6 +176,11 @@ export const WorkflowEditorView = {
               </div>
             </div>
           </aside>
+
+          <!-- Persistent Step Sequence toggle; kept outside the collapsible sidebar. -->
+          <button type="button" class="btn btn-ghost btn-xs wf-steps-toggle" id="btnToggleStepsSidebar" title="Collapse steps sidebar" aria-label="Collapse steps sidebar">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          </button>
 
           <!-- Drawflow Visual Canvas -->
           <div class="workflow-editor-canvas" id="drawflow" style="flex:1; height:100%; position:relative;">
@@ -205,7 +207,19 @@ export const WorkflowEditorView = {
     // Toggle steps sidebar
     document.getElementById('btnToggleStepsSidebar')?.addEventListener('click', () => {
       const sidebar = document.getElementById('wfStepsSidebar');
-      if (sidebar) sidebar.classList.toggle('collapsed');
+      const container = document.querySelector('.wf-editor-container');
+      const toggle = document.getElementById('btnToggleStepsSidebar');
+      if (!sidebar || !container || !toggle) return;
+
+      const isCollapsed = sidebar.classList.toggle('collapsed');
+      container.classList.toggle('steps-collapsed', isCollapsed);
+      toggle.setAttribute('title', isCollapsed ? 'Expand steps sidebar' : 'Collapse steps sidebar');
+      toggle.setAttribute('aria-label', isCollapsed ? 'Expand steps sidebar' : 'Collapse steps sidebar');
+
+      const icon = toggle.querySelector('svg polyline');
+      if (icon) {
+        icon.setAttribute('points', isCollapsed ? '9 18 15 12 9 6' : '15 18 9 12 15 6');
+      }
     });
 
     document.getElementById('btnBack')?.addEventListener('click', () => {
