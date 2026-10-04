@@ -2652,11 +2652,22 @@ body {
   background: var(--bg-surface-alt) !important;
 }
 .wf-steps-toggle-collapsed .wf-steps-toggle-label {
-  display: none !important;
+  display: inline-block !important;
+  max-width: 0 !important;
+  opacity: 0 !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  margin-left: -0.4rem !important;
+  transition: max-width 0.22s ease, opacity 0.16s ease, margin-left 0.22s ease !important;
 }
 @media (hover: hover) and (pointer: fine) {
+  .wf-steps-toggle-collapsed:hover {
+    padding-right: 0.7rem !important;
+  }
   .wf-steps-toggle-collapsed:hover .wf-steps-toggle-label {
-    display: inline !important;
+    max-width: 120px !important;
+    opacity: 1 !important;
+    margin-left: 0 !important;
   }
 }
 .wf-editor-container:not(.steps-collapsed) .wf-steps-toggle-collapsed {
