@@ -67,32 +67,6 @@ export const OverviewView = {
     container.innerHTML = `
       <div class="dashboard-shell" role="region" aria-label="Dashboard Overview" style="max-width:1440px; margin:0 auto; padding-bottom:2rem;">
 
-        <!-- Overview Actions -->
-        <div class="wf-page-header">
-          <div></div>
-          <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
-            <button class="btn btn-primary btn-sm" id="btnOverviewCreateWorkflow">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
-              <span>Train Agent</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Create Workflow modal pane -->
-        <div id="overviewCreateModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="overviewCreateModalTitle">
-          <div class="modal-dialog overview-create-workflow-modal">
-            <div class="modal-header">
-              <div><h2 id="overviewCreateModalTitle" style="margin:0; font-size:1.05rem; font-weight:750; color:var(--text-primary);">Create Workflow</h2><p style="margin:0.25rem 0 0; font-size:var(--text-xs); color:var(--text-sub);">Set the workflow name, then start recording the task.</p></div>
-              <button class="btn btn-ghost btn-xs" id="btnCloseCreateModal" title="Close" aria-label="Close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
-            </div>
-            <div class="modal-body overview-create-workflow-body"><div class="form-group"><label for="overviewRecName">Workflow name</label><input type="text" id="overviewRecName" class="form-control" placeholder="e.g. Invoice Downloader" spellcheck="false" autocomplete="off" aria-label="Workflow Name"></div></div>
-            <div class="modal-footer"><button class="btn btn-secondary btn-sm" id="btnCancelCreateModal">Cancel</button><button class="btn btn-primary btn-sm" id="btnOverviewStartRec"><svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg><span id="overviewRecordButtonLabel">Start Recording</span></button></div>
-          </div>
-        </div>
-
         <!-- Active Recording Live Strip (Visible only when recording) -->
         <div id="overviewActiveControls" class="card hidden" style="margin-bottom:1.5rem; padding:1rem 1.25rem; border-left:4px solid var(--accent-cyan); background:rgba(0,240,255,0.06); display:none; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
           <div style="display:flex; align-items:center; gap:0.85rem;">
@@ -187,50 +161,7 @@ export const OverviewView = {
     }
   },
 
-  openCreateModal() {
-    const modalCreate = document.getElementById('overviewCreateModal');
-    const inputRecName = document.getElementById('overviewRecName');
-    if (!modalCreate) return;
-    modalCreate.classList.remove('hidden');
-    document.body.classList.add('modal-open');
-    requestAnimationFrame(() => {
-      if (inputRecName) { inputRecName.focus(); inputRecName.select?.(); }
-    });
-  },
-
-  closeCreateModal() {
-    const modalCreate = document.getElementById('overviewCreateModal');
-    if (modalCreate) modalCreate.classList.add('hidden');
-    document.body.classList.remove('modal-open');
-  },
-
   bindEvents(router) {
-    // Primary Action: + Create Workflow
-    const btnCreate = document.getElementById('btnOverviewCreateWorkflow');
-    const modalCreate = document.getElementById('overviewCreateModal');
-    const btnCloseModal = document.getElementById('btnCloseCreateModal');
-    const inputRecName = document.getElementById('overviewRecName');
-
-    if (btnCreate && modalCreate) {
-      btnCreate.onclick = () => {
-        if (modalCreate.classList.contains('hidden')) this.openCreateModal();
-        else this.closeCreateModal();
-      };
-    }
-
-    if (btnCloseModal && modalCreate) {
-      btnCloseModal.onclick = () => this.closeCreateModal();
-      const btnCancelModal = document.getElementById('btnCancelCreateModal');
-      if (btnCancelModal) btnCancelModal.onclick = () => this.closeCreateModal();
-      modalCreate.onclick = (e) => { if (e.target === modalCreate) this.closeCreateModal(); };
-      this.createModalKeydownHandler = (e) => {
-        if (!modalCreate.classList.contains('hidden') && e.key === 'Escape') {
-          e.preventDefault(); this.closeCreateModal();
-        }
-      };
-      window.addEventListener('keydown', this.createModalKeydownHandler);
-    }
-
     // Launch Chrome Browser
     const btnLaunch = document.getElementById('btnOverviewLaunchChrome');
     const labelLaunch = document.getElementById('overviewLaunchChromeLabel');
@@ -256,41 +187,6 @@ export const OverviewView = {
     }
 
     // Start Recording
-    const btnStart = document.getElementById('btnOverviewStartRec');
-    const startRecording = async () => {
-      if (this.isStarting || this.isRecording) return;
-      this.isStarting = true;
-      const name = (inputRecName && inputRecName.value.trim()) || `workflow-${Date.now()}`;
-      const label = document.getElementById('overviewRecordButtonLabel');
-
-      if (btnStart) btnStart.disabled = true;
-      if (label) label.textContent = 'Starting…';
-      Toast.info(`Starting workflow recording for "${name}"…`);
-
-      try {
-        await Api.startRecording(name);
-        Toast.success(`Recording started: "${name}"`);
-        this.setRecordingState(true, { startedAt: new Date(), name });
-        this.closeCreateModal();
-      } catch (err) {
-        Toast.error(err.message || 'Failed to start recording');
-        this.setRecordingState(false);
-      } finally {
-        this.isStarting = false;
-        if (btnStart && !this.isRecording) {
-          btnStart.disabled = false;
-          if (label) label.textContent = 'Start Recording';
-        }
-      }
-    };
-
-    if (btnStart) btnStart.onclick = startRecording;
-    if (inputRecName) {
-      inputRecName.onkeydown = (e) => {
-        if (e.key === 'Enter') startRecording();
-      };
-    }
-
     // Stop & Save Recording
     const btnStop = document.getElementById('btnOverviewStopRec');
     if (btnStop) {
@@ -648,8 +544,6 @@ export const OverviewView = {
   },
 
   destroy() {
-    if (this.createModalKeydownHandler) { window.removeEventListener('keydown', this.createModalKeydownHandler); this.createModalKeydownHandler = null; }
-    document.body.classList.remove('modal-open');
     if (this.recordTimer) {
       clearInterval(this.recordTimer);
       this.recordTimer = null;
