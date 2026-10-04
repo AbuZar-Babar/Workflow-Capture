@@ -2759,3 +2759,10 @@ body {
   visibility: visible !important;
   transition: max-height 280ms ease, opacity 180ms ease, padding 280ms ease, visibility 0s linear 0s !important;
 }
+.drawflow .df-advanced-details.is-closing .df-advanced-body {
+  max-height: 0 !important;
+  opacity: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  visibility: hidden !important;
+}
