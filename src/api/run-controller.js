@@ -13,9 +13,7 @@ const { syncWorkflowsFromDisk } = require('./workflow-controller');
 const LoopReplayRunner = require('../replay/loop-replay-runner');
 const LoopDetector = require('../shared/loop-detector');
 const { normalizeItemFilter, validateItemFilter } = require('../shared/item-filter');
-const logger = require('../utils/logger');
-const { extractWorkflowStartUrl } = require('../utils/url-helper');
-
+const { ConditionEvaluator } = require('../shared/condition-evaluator');
 // In-memory active runners map: runId -> { runner, userId, workflowId, startedAt }
 const activeRunners = new Map();
 
@@ -116,12 +114,34 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
   if (rawFilterInput !== undefined && rawFilterInput !== null) {
     const filterValidation = validateItemFilter(rawFilterInput);
     if (!filterValidation.valid) {
-      return sendJson(res, 400, { error: filterValidation.error || 'Invalid itemFilter configuration' });
-    }
-    normalizedFilter = filterValidation.filter;
-  }
+      // Check if this failure was specifically due to an extended operator supported by ConditionEvaluator (e.g. <=, >=, <, >, before, after)
+      const isOperatorError = filterValidation.error && filterValidation.error.includes('Unsupported filter operator');
+      if (isOperatorError) {
+        const normalizedConditions = ConditionEvaluator.normalizeConditions(rawFilterInput);
+        const EXTENDED_OPS = new Set([
+          'contains', 'includes', 'equals', 'eq', '==', '===', 'not_equals', 'neq', '!=',
+          'starts_with', 'ends_with', 'in', 'one_of', 'not_in',
+          'greater_than', 'gt', '>', 'after', 'date_after', 'date_gt',
+          'greater_than_or_equal', 'gte', '>=', 'on_or_after', 'date_on_or_after', 'date_gte',
+          'less_than', 'lt', '<', 'before', 'date_before', 'date_lt',
+          'less_than_or_equal', 'lte', '<=', 'on_or_before', 'date_on_or_before', 'date_lte',
+          'date_between', 'between_dates', 'last_n_days'
+        ]);
+        const isSupportedByConditionEvaluator = Boolean(
+          normalizedConditions.rules.length > 0 &&
+          normalizedConditions.rules.every(r => r.field && EXTENDED_OPS.has(String(r.operator || '').toLowerCase().trim()))
+        );
 
-  // Preserve legacy rowFilter where applicable
+        if (isSupportedByConditionEvaluator) {
+          normalizedFilter = rawFilterInput;
+        } else {
+          return sendJson(res, 400, { error: filterValidation.error || 'Invalid itemFilter configuration' });
+        }
+      } else {
+        return sendJson(res, 400, { error: filterValidation.error || 'Invalid itemFilter configuration' });
+      }
+    } else {
+      normalizedFilter = filterValidation.filter;
   let legacyRowFilter = null;
   if (body.rowFilter && typeof body.rowFilter === 'object') {
     legacyRowFilter = body.rowFilter;
@@ -628,7 +648,6 @@ function deleteDownload(req, res, downloadId) {
 /**
  * Export all downloads or run-specific downloads as a consolidated ZIP archive
  * GET /api/downloads/export[?runId=...]
- */
 function exportAllDownloadsZip(req, res, runIdParam = null) {
   const urlObj = req.url ? new URL(req.url, 'http://localhost') : null;
   const runId = runIdParam || urlObj?.searchParams.get('runId') || null;
@@ -664,12 +683,7 @@ function exportAllDownloadsZip(req, res, runIdParam = null) {
     if (fs.existsSync(runDir)) targetDirs.push('Run');
     if (fs.existsSync(downloadsDir)) targetDirs.push('downloads');
   }
-
-  if (targetDirs.length === 0) {
     return sendJson(res, 404, { error: 'No downloads directory or artifacts found' });
-  }
-
-  const recordingsDir = path.resolve(process.cwd(), 'recordings');
   if (!fs.existsSync(recordingsDir)) {
     fs.mkdirSync(recordingsDir, { recursive: true });
   }
@@ -687,9 +701,6 @@ function exportAllDownloadsZip(req, res, runIdParam = null) {
       res.writeHead(200, {
         'Content-Type': 'application/zip',
         'Content-Disposition': `attachment; filename="${zipFilename}"`,
-        'Content-Length': stat.size
-      });
-
       const stream = fs.createReadStream(tempZipPath);
       stream.pipe(res);
       const cleanUp = () => {
