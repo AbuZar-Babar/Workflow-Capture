@@ -23,6 +23,10 @@ function formatStatusLabel(status) {
     case 'PAUSED':
     case 'WAITING_FOR_USER':
       return 'Action needed';
+    case 'INTERRUPTED':
+    case 'ABORTED':
+    case 'CANCELLED':
+      return 'Interrupted';
     case 'STOPPING':
       return 'Stopping';
     case 'COMPLETED':
@@ -184,82 +188,61 @@ export const ExecutionView = {
           </div>
         </div>
 
-        <!-- Hero Header -->
-        <section class="card execution-hero" aria-labelledby="executionTitle" style="background:rgba(13,19,36,0.85); border:1px solid rgba(0,240,255,0.2); box-shadow:0 0 25px rgba(0,240,255,0.06); border-radius:var(--radius-xl); margin-bottom:1rem;">
-          <div style="display:flex; align-items:center; gap:1rem;">
-            <div id="execHeroAvatar" style="flex-shrink:0;">
-              ${renderRobotAvatar({ size: 'badge', state: 'running' })}
-            </div>
-            <div>
-              <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.25rem;">
-                <span class="eyebrow" style="color:var(--accent-cyan); font-weight:800; font-size:var(--text-2xs); text-transform:uppercase; letter-spacing:0.1em;">AGENT MISSION CONTROL</span>
-                <span class="badge-tag info" id="executionModeBadge" style="font-size:var(--text-2xs); text-transform:uppercase;">AUTONOMOUS AGENT</span>
-                <span class="badge-tag secondary" id="executionDomainBadge" style="display:none; font-size:var(--text-2xs);"></span>
+        <!-- Execution Header -->
+        <section class="card execution-hero" aria-labelledby="executionTitle">
+          <div class="execution-hero-main">
+            <div class="execution-hero-copy">
+              <div class="execution-hero-kicker">
+                <span class="execution-run-label">Workflow execution</span>
+                <span class="badge-tag secondary" id="executionDomainBadge" style="display:none;"></span>
               </div>
-              <h1 id="executionTitle" style="font-size:1.4rem; font-weight:800; margin:0.15rem 0; color:var(--text-primary);">Workflow Run</h1>
-              <p style="margin:0.25rem 0 0; color:var(--text-sub); font-size:0.75rem; display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
-                <span>Mission ID <strong class="mono" id="executionRunId" style="font-weight:700; color:var(--text-primary);">${escapeHtml(this.runId)}</strong></span>
-                <span id="executionStartedTime" style="color:var(--text-muted);"></span>
-                <span id="executionPhaseBadge" style="font-weight:600; color:var(--accent-cyan);"></span>
+              <div class="execution-title-row">
+                <h1 id="executionTitle">Workflow Run</h1>
+                <span class="run-status-badge queued" id="executionStatusBadge" aria-live="polite">Starting</span>
+              </div>
+              <p class="execution-run-meta">
+                <span>Run ID <strong class="mono" id="executionRunId">${escapeHtml(this.runId)}</strong></span>
+                <span id="executionStartedTime"></span>
+                <span id="executionPhaseBadge"></span>
               </p>
             </div>
           </div>
-          <div class="execution-hero-actions">
-            <button class="btn btn-secondary btn-sm" id="btnExecutionBack" title="Return to Workflows library">
-              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-              <span>Workflows</span>
-            </button>
-            <span class="run-status-badge queued" id="executionStatusBadge" aria-live="polite">Starting</span>
-            <button class="btn btn-danger btn-sm" id="btnExecutionStop" title="Stop current run">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
-              <span id="btnExecutionStopText">Abort Mission</span>
-            </button>
-            <button class="btn btn-secondary btn-sm hidden" id="btnExecutionViewFiles" title="View all files produced by this run">
-              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-              <span>Files</span>
-            </button>
-            <button class="btn btn-primary btn-sm hidden" id="btnExecutionViewResults" title="Inspect full results report">
-              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-              <span>Review Results</span>
-            </button>
-          </div>
-        </section>
 
-        <!-- Agent Mission Control Box (Robotic Worker Center) -->
-        <section class="agent-mission-control-box" aria-label="Agent Mission Status">
-          <div class="scanline-overlay"></div>
-          <div style="display:flex; align-items:center; justify-content:center; gap:1.75rem; flex-wrap:wrap; position:relative; z-index:1;">
-            <div id="execRobotCenterBox" style="position:relative;">
-              <div class="orbital-ring"></div>
-              ${renderRobotAvatar({ size: 'card', state: 'running' })}
-            </div>
-            <div style="text-align:left; max-width:520px;">
-              <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.25rem;">
-                <span class="status-dot running" id="execRobotStatusDot"></span>
-                <strong id="execRobotStatusText" style="font-size:0.8rem; color:var(--accent-cyan); text-transform:uppercase; letter-spacing:0.08em;">● AGENT ACTIVE — AUTONOMOUS WORKER</strong>
+          <div class="execution-upper-progress">
+            <div class="execution-upper-progress-head">
+              <div class="execution-activity-copy">
+                <span class="execution-activity-label">Current activity</span>
+                <strong id="activityTitle">Initializing execution…</strong>
+                <span id="execRobotDetailText">Connecting to the browser and preparing workflow steps.</span>
               </div>
-              <div id="activityTitle" style="font-size:1.15rem; font-weight:700; color:var(--text-primary); margin-bottom:0.3rem;">
-                Initializing autonomous execution…
-              </div>
-              <div id="execRobotDetailText" style="font-size:0.8rem; color:var(--text-sub);">
-                Observing live page structure, evaluating repeating entities, and executing user intent.
-              </div>
+              <strong id="executionProgressPercent">0%</strong>
             </div>
-          </div>
-
-          <!-- Futuristic Energy Progress Bar -->
-          <div style="max-width:680px; margin:1.25rem auto 0; position:relative; z-index:1;">
-            <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:0.35rem;">
-              <span style="color:var(--text-muted); text-transform:uppercase; letter-spacing:0.06em; font-weight:700;">Mission Progress</span>
-              <strong id="executionProgressPercent" style="color:var(--accent-cyan); font-family:var(--font-mono); font-size:0.88rem;">0%</strong>
+            <div class="execution-progress-track" role="progressbar" id="executionProgressTrack" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Workflow run completion percentage">
+              <div id="executionProgressBar" style="width:0%;"></div>
             </div>
-            <div class="mission-progress-bar-wrap">
-              <div class="mission-progress-bar-fill" id="executionProgressBar" style="width:0%;"></div>
-            </div>
-            <div style="display:flex; justify-content:space-between; font-size:0.72rem; color:var(--text-muted); margin-top:0.25rem;">
+            <div class="execution-progress-meta">
               <span id="executionProgressLabel">Connecting to browser…</span>
               <span id="executionProgressDetail">Preparing steps</span>
             </div>
+          </div>
+
+          <div class="execution-hero-actions">
+            <button class="btn btn-secondary" id="btnExecutionBack" title="Return to Workflows library">
+              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+              <span>Workflows</span>
+            </button>
+            <button class="btn btn-danger" id="btnExecutionStop" title="Stop current run">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+              <span id="btnExecutionStopText">Stop Run</span>
+            </button>
+            <button class="btn btn-secondary hidden" id="btnExecutionViewFiles" title="View all files produced by this run">
+              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              <span>Files</span>
+            </button>
+            <button class="btn btn-primary hidden" id="btnExecutionViewResults" title="Inspect full results report">
+              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <span>Review Results</span>
+            </button>
           </div>
         </section>
 
@@ -312,20 +295,6 @@ export const ExecutionView = {
             <strong id="executionDownloads" style="color:var(--brand-forest);" aria-live="polite">0</strong>
             <span class="stat-meta">Generated files</span>
           </article>
-        </section>
-
-        <!-- Accessible Progress Track Bar -->
-        <section class="card execution-progress-card">
-          <div class="execution-progress-head">
-            <div>
-              <strong id="executionProgressLabel">Preparing execution…</strong>
-              <span id="executionProgressDetail">Connecting to browser and initializing steps.</span>
-            </div>
-            <strong id="executionProgressPercent" style="font-size:1rem; color:var(--brand-forest); font-family:var(--font-mono);">0%</strong>
-          </div>
-          <div class="execution-progress-track" role="progressbar" id="executionProgressTrack" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Workflow run completion percentage">
-            <div id="executionProgressBar" style="width:0%;"></div>
-          </div>
         </section>
 
         <!-- Main Execution Grid: Steps Queue on Left, Live Merged Console on Right -->
@@ -959,14 +928,14 @@ export const ExecutionView = {
           oIcon.style.color = '#34d399';
           oIcon.textContent = '✓';
         }
-        if (oTitle) oTitle.textContent = 'Mission Completed Successfully';
+        if (oTitle) oTitle.textContent = 'Run completed successfully';
         if (oSummary) oSummary.textContent = `All ${totalCount} records processed autonomously. ${files} files generated and verified.`;
         if (centerRobot) centerRobot.innerHTML = `<div class="orbital-ring"></div>` + renderRobotAvatar({ size: 'card', state: 'success' });
         if (heroRobot) heroRobot.innerHTML = renderRobotAvatar({ size: 'badge', state: 'success' });
         if (robotDot) robotDot.className = 'status-dot online';
         if (robotStatusText) {
           robotStatusText.style.color = '#34d399';
-          robotStatusText.textContent = '● AGENT COMPLETED — MISSION SUCCESSFUL';
+          robotStatusText.textContent = '● RUN COMPLETED';
         }
       } else if (status === 'COMPLETED_WITH_ERRORS') {
         outcomeCard.style.border = '1px solid rgba(245,158,11,0.3)';
@@ -977,7 +946,7 @@ export const ExecutionView = {
           oIcon.style.color = '#fbbf24';
           oIcon.textContent = '⚠️';
         }
-        if (oTitle) oTitle.textContent = 'Mission Completed with Warnings';
+        if (oTitle) oTitle.textContent = 'Run completed with warnings';
         if (oSummary) oSummary.textContent = `${ok} records succeeded, ${fail} failed. ${files} files produced.`;
         if (centerRobot) centerRobot.innerHTML = `<div class="orbital-ring"></div>` + renderRobotAvatar({ size: 'card', state: 'warning' });
         if (heroRobot) heroRobot.innerHTML = renderRobotAvatar({ size: 'badge', state: 'warning' });
@@ -990,7 +959,7 @@ export const ExecutionView = {
           oIcon.style.color = '#fb923c';
           oIcon.textContent = '■';
         }
-        if (oTitle) oTitle.textContent = 'Mission Aborted';
+        if (oTitle) oTitle.textContent = 'Run stopped';
         if (oSummary) oSummary.textContent = `Halted by user. ${processed} records were processed before stopping.`;
         if (centerRobot) centerRobot.innerHTML = `<div class="orbital-ring"></div>` + renderRobotAvatar({ size: 'card', state: 'idle' });
       } else {
@@ -1002,14 +971,14 @@ export const ExecutionView = {
           oIcon.style.color = '#f87171';
           oIcon.textContent = '✗';
         }
-        if (oTitle) oTitle.textContent = 'Mission Failed';
+        if (oTitle) oTitle.textContent = 'Run failed';
         if (oSummary) oSummary.textContent = run.error || m.error || 'Execution encountered an error and could not complete.';
         if (centerRobot) centerRobot.innerHTML = `<div class="orbital-ring"></div>` + renderRobotAvatar({ size: 'card', state: 'error' });
         if (heroRobot) heroRobot.innerHTML = renderRobotAvatar({ size: 'badge', state: 'error' });
         if (robotDot) robotDot.className = 'status-dot recording';
         if (robotStatusText) {
           robotStatusText.style.color = '#f87171';
-          robotStatusText.textContent = '● AGENT UNCERTAINTY — ERROR ENCOUNTERED';
+          robotStatusText.textContent = '● RUN FAILED';
         }
       }
     }
