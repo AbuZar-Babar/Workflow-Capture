@@ -2973,3 +2973,22 @@ body {
 :root[data-theme="dark"] #workflowExecutionModal .exec-filter-mode-row {
   background: var(--bg-surface-secondary, var(--bg-surface)) !important;
 }
+
+
+/* Keep the active workflow action menu above neighboring cards in grid view. */
+.wf-grid {
+  position: relative;
+  isolation: isolate;
+}
+
+.wf-grid .wf-card:has(.wf-dropdown-menu:not(.hidden)) {
+  z-index: 20 !important;
+}
+
+.wf-grid .wf-card:has(.wf-dropdown-menu:not(.hidden)) .wf-dropdown-wrapper {
+  z-index: 30 !important;
+}
+
+.wf-grid .wf-card:has(.wf-dropdown-menu:not(.hidden)) .wf-dropdown-menu {
+  z-index: 40 !important;
+}
