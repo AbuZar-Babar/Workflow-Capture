@@ -7,7 +7,7 @@
  * - Status filter: ALL, COMPLETED, RUNNING, FAILED
  * - Workflow dropdown filter
  * - Date filter: All Time, Today, 7 Days, 30 Days
- * - Toggleable Live Terminal Log Stream
+ * - Toggleable Live logs Log Stream
  * - Efficient pagination/virtualization for large histories
  */
 
@@ -64,7 +64,7 @@ export const ConsoleView = {
             <div>
               <div style="display:flex; align-items:center; gap:0.5rem;">
                 <h1 class="wf-page-title" style="margin:0; font-size:1.35rem; font-weight:800; letter-spacing:-0.02em;">Execution</h1>
-                <span class="badge-tag info" style="font-size:var(--text-2xs); font-weight:700;">LIVE TELEMETRY</span>
+                
               </div>
               <p class="wf-page-subtitle" style="margin:0.2rem 0 0;">Monitor active runs, progress, results, and execution logs.</p>
             </div>
@@ -73,7 +73,7 @@ export const ConsoleView = {
             <!-- View Mode Switcher -->
             <div class="toggle-group" style="display:inline-flex; background:rgba(6,9,19,0.7); padding:3px; border-radius:var(--radius-md); border:1px solid rgba(255,255,255,0.08);">
               <button class="btn-toggle active" id="btnTabTimeline" style="padding:0.35rem 0.75rem; font-size:var(--text-xs); font-weight:600; border-radius:var(--radius-sm); border:none; cursor:pointer; background:var(--bg-surface); color:var(--text-primary); box-shadow:var(--shadow-sm);">
-                Activity Timeline
+                Runs
               </button>
               <button class="btn-toggle" id="btnTabTerminal" style="padding:0.35rem 0.75rem; font-size:var(--text-xs); font-weight:600; border-radius:var(--radius-sm); border:none; cursor:pointer; background:transparent; color:var(--text-sub);">
                 Live Terminal
@@ -135,6 +135,7 @@ export const ConsoleView = {
 
           <!-- Timeline Feed Container -->
           <div class="execution-history-card">
+            <div class="execution-history-header"><div><h2>Execution history</h2><p>Recent workflow runs and their outcomes.</p></div><span id="executionRunCount" class="execution-count"></span></div>
             <div id="actTimelineList" class="act-timeline">
               <div style="padding:2.5rem; text-align:center; color:var(--text-muted); font-size:var(--text-sm);">Loading activity events…</div>
             </div>
@@ -444,6 +445,8 @@ export const ConsoleView = {
   renderTimeline() {
     const list = document.getElementById('actTimelineList');
     if (!list) return;
+    const count = document.getElementById('executionRunCount');
+    if (count) count.textContent = this.filteredRuns.length + (this.filteredRuns.length === 1 ? ' run' : ' runs');
 
     if (this.filteredRuns.length === 0) {
       list.innerHTML = `
