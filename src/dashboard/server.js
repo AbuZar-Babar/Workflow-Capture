@@ -998,15 +998,54 @@ const server = http.createServer(async (req, res) => {
       try {
         const launched = await ensureChromeRunning(9222, initialUrl);
         if (launched) {
-          // If Chrome was already up, ensure active tab navigates to the portal
+          // If Chrome is up, ensure a visible tab is navigated to the portal and brought to front
           try {
-            const { browser, page } = await connectToBrowser();
-            await page.bringToFront();
-            if (page.url() === 'about:blank' || page.url().startsWith('chrome://')) {
-              await page.goto(initialUrl, { waitUntil: 'domcontentloaded', timeout: 10000 });
+            const { browser } = await connectToBrowser();
+            const pages = await browser.pages().catch(() => []);
+            let targetPage = pages.find(p => {
+              try {
+                const u = p.url ? p.url() : '';
+                return u.includes('/portal/') || u === initialUrl;
+              } catch { return false; }
+            });
+
+            if (targetPage) {
+              await targetPage.bringToFront().catch(() => {});
+            } else {
+              // Check if any tab is empty (about:blank or chrome://)
+              const emptyPage = pages.find(p => {
+                try {
+                  const u = p.url ? p.url() : '';
+                  return u === 'about:blank' || u.startsWith('chrome://') || u.startsWith('devtools://');
+                } catch { return false; }
+              });
+
+              if (emptyPage) {
+                targetPage = emptyPage;
+                await targetPage.goto(initialUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+                await targetPage.bringToFront().catch(() => {});
+              } else {
+                // Open new tab with portal URL
+                targetPage = await browser.newPage().catch(() => null);
+                if (targetPage) {
+                  await targetPage.goto(initialUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+                  await targetPage.bringToFront().catch(() => {});
+                }
+              }
             }
+
+            // On Windows, bring Chrome window to the foreground
+            if (process.platform === 'win32') {
+              try {
+                const { exec } = require('child_process');
+                exec('powershell -NoProfile -Command "(New-Object -ComObject WScript.Shell).AppActivate(\'Chrome\')"', () => {});
+              } catch {}
+            }
+
             await browser.disconnect();
-          } catch {}
+          } catch (tabErr) {
+            logger.warn('Tab navigation or focus warning:', tabErr.message);
+          }
           return sendJson(res, 200, { success: true, message: 'Chrome launched with CDP on port 9222', url: initialUrl });
         } else {
           return sendJson(res, 500, { error: 'Could not auto-launch Chrome. Please launch Chrome manually.' });

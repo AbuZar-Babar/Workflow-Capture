@@ -27,6 +27,32 @@ export const Sidebar = {
       };
     });
 
+    // Launch Chrome Browser button in sidebar (available globally across all views)
+    const btnLaunch = document.getElementById('btnOverviewLaunchChrome');
+    if (btnLaunch) {
+      btnLaunch.onclick = async () => {
+        if (btnLaunch.disabled) return;
+        btnLaunch.disabled = true;
+        btnLaunch.classList.add('is-pending');
+        const labelSpan = btnLaunch.querySelector('.sidebar-nav-label');
+        const origText = labelSpan ? labelSpan.textContent : 'Open Browser';
+        if (labelSpan) labelSpan.textContent = 'Opening…';
+        Toast.info('Opening Google Chrome browser…');
+        try {
+          const res = await Api.launchBrowser('ecommerce');
+          if (res && res.success !== false) {
+            Toast.success('Google Chrome connected and ready!');
+          }
+        } catch (err) {
+          Toast.error(err.message || 'Failed to open browser');
+        } finally {
+          btnLaunch.disabled = false;
+          btnLaunch.classList.remove('is-pending');
+          if (labelSpan) labelSpan.textContent = origText;
+        }
+      };
+    }
+
     this.btnStopExecution = document.getElementById('btnSidebarStopExecution');
     if (this.btnStopExecution) {
       this.btnStopExecution.onclick = async () => {

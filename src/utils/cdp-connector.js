@@ -71,8 +71,18 @@ async function ensureChromeRunning(port = 9222, defaultUrl = 'about:blank') {
     return false;
   }
 
-  const profileDir = path.join(os.tmpdir(), 'chrome-debug-profile');
+  const profileDir = path.join(os.tmpdir(), 'chrome-capture-profile');
   logger.info(`Auto-launching Google Chrome with CDP on port ${port}...`);
+
+  // Clean stale lock files from previous runs to prevent Chrome from immediately exiting
+  try {
+    const lockFile = path.join(profileDir, 'SingletonLock');
+    if (fs.existsSync(lockFile)) fs.unlinkSync(lockFile);
+    const cookieLock = path.join(profileDir, 'SingletonCookie');
+    if (fs.existsSync(cookieLock)) fs.unlinkSync(cookieLock);
+    const socketLock = path.join(profileDir, 'SingletonSocket');
+    if (fs.existsSync(socketLock)) fs.unlinkSync(socketLock);
+  } catch {}
 
   try {
     const child = spawn(chromePath, [
@@ -80,6 +90,7 @@ async function ensureChromeRunning(port = 9222, defaultUrl = 'about:blank') {
       `--user-data-dir=${profileDir}`,
       '--no-first-run',
       '--no-default-browser-check',
+      '--disable-extensions',
       defaultUrl
     ], {
       detached: true,

@@ -164,7 +164,7 @@ export const OverviewView = {
   bindEvents(router) {
     // Launch Chrome Browser
     const btnLaunch = document.getElementById('btnOverviewLaunchChrome');
-    const labelLaunch = document.getElementById('overviewLaunchChromeLabel');
+    const labelLaunch = document.getElementById('overviewLaunchChromeLabel') || (btnLaunch && btnLaunch.querySelector('.sidebar-nav-label'));
     if (btnLaunch) {
       btnLaunch.onclick = async () => {
         if (btnLaunch.disabled) return;
