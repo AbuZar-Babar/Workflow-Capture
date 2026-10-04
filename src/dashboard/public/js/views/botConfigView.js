@@ -48,6 +48,7 @@ export const BotConfigView = {
             <div class="settings-nav-group">
               <span class="settings-nav-label">Workspace</span>
               <button class="settings-nav-item active" data-section="general"><span>General</span></button>
+              <button class="settings-nav-item" data-section="themes"><span>Themes</span></button>
               <button class="settings-nav-item" data-section="appearance"><span>Appearance</span></button>
             </div>
             <div class="settings-nav-group">
@@ -67,6 +68,7 @@ export const BotConfigView = {
             <label class="settings-mobile-select-label" for="settingsSectionSelect">Section</label>
             <select class="form-control settings-mobile-select" id="settingsSectionSelect" aria-label="Settings section">
               <option value="general">General</option>
+              <option value="themes">Themes</option>
               <option value="appearance">Appearance</option>
               <option value="browser">Browser</option>
               <option value="workflows">Workflows</option>
@@ -114,7 +116,149 @@ export const BotConfigView = {
               </div>
             </div>
 
-            <!-- 2. APPEARANCE -->
+            <!-- 2. THEMES (Featured / Custom Themes) -->
+            <div class="settings-section-pane hidden" id="pane-themes">
+              <div class="settings-panel-header">
+                <div style="display:flex; align-items:center; justify-content:space-between; width:100%; flex-wrap:wrap; gap:0.5rem;">
+                  <div>
+                    <h3 style="font-size:1.1rem; font-weight:700; color:var(--text-primary); margin:0 0 0.25rem 0;">Theme & Color Palette</h3>
+                    <p style="font-size:var(--text-xs); color:var(--text-sub); margin:0;">Select a visual theme inspired by modern workflow dashboards.</p>
+                  </div>
+                  <span class="badge" id="activeThemeBadge" style="font-size:11px; padding:4px 10px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Active</span>
+                </div>
+              </div>
+
+              <div class="theme-picker-section" style="margin-top: 1rem;">
+                <div class="theme-cards-grid" id="themeCardsGrid">
+                  <!-- 1. Charcoal Crimson (Featured User Reference Theme) -->
+                  <div class="theme-card" data-theme-value="crimson" tabindex="0" role="button" aria-label="Select Charcoal Crimson theme">
+                    <div class="theme-card-preview" style="background:#18191d; border: 1px solid rgba(255,255,255,0.1);">
+                      <div class="theme-preview-sidebar" style="background:#141518; border-right:1px solid rgba(255,255,255,0.06);">
+                        <div style="width:14px; height:3px; background:#f04438; border-radius:1px; margin-bottom:6px;"></div>
+                        <div style="width:10px; height:3px; background:rgba(255,255,255,0.2); border-radius:1px; margin-bottom:4px;"></div>
+                        <div style="width:10px; height:3px; background:rgba(255,255,255,0.2); border-radius:1px;"></div>
+                      </div>
+                      <div class="theme-preview-content">
+                        <div class="theme-preview-header" style="background:#222329; border-bottom:1px solid rgba(255,255,255,0.06);">
+                          <div style="width:24px; height:4px; background:#f4f4f6; border-radius:2px;"></div>
+                          <div style="width:12px; height:4px; background:#f04438; border-radius:2px;"></div>
+                        </div>
+                        <div class="theme-preview-cards">
+                          <div style="background:#222329; border:1px solid rgba(255,255,255,0.08); border-radius:4px; padding:5px; margin-bottom:4px;">
+                            <div style="width:65%; height:3px; background:#f04438; border-radius:1px; margin-bottom:3px;"></div>
+                            <div style="width:40%; height:2px; background:rgba(255,255,255,0.3); border-radius:1px;"></div>
+                          </div>
+                          <div style="background:#222329; border:1px solid rgba(255,255,255,0.08); border-radius:4px; padding:4px; display:flex; gap:4px;">
+                            <div style="width:30%; height:3px; background:#10b981; border-radius:1px;"></div>
+                            <div style="width:30%; height:3px; background:#f59e0b; border-radius:1px;"></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="theme-card-info">
+                      <div class="theme-card-title-row">
+                        <span class="theme-card-title">Charcoal Crimson</span>
+                        <span class="badge" style="font-size:10px; color:#f04438; background:rgba(240,68,56,0.12); border:1px solid rgba(240,68,56,0.25);">Featured</span>
+                      </div>
+                      <p class="theme-card-desc">Deep matte charcoal with vivid crimson accents inspired by high-contrast workflow dashboards.</p>
+                    </div>
+                    <div class="theme-card-check">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </div>
+                  </div>
+
+                  <!-- 2. Slate Dark (Classic Dark) -->
+                  <div class="theme-card" data-theme-value="dark" tabindex="0" role="button" aria-label="Select Slate Dark theme">
+                    <div class="theme-card-preview" style="background:#0f172a; border: 1px solid #334155;">
+                      <div class="theme-preview-sidebar" style="background:#0c1322; border-right:1px solid #1e293b;">
+                        <div style="width:14px; height:3px; background:#60a5fa; border-radius:1px; margin-bottom:6px;"></div>
+                        <div style="width:10px; height:3px; background:rgba(255,255,255,0.2); border-radius:1px; margin-bottom:4px;"></div>
+                        <div style="width:10px; height:3px; background:rgba(255,255,255,0.2); border-radius:1px;"></div>
+                      </div>
+                      <div class="theme-preview-content">
+                        <div class="theme-preview-header" style="background:#111827; border-bottom:1px solid #1e293b;">
+                          <div style="width:24px; height:4px; background:#f8fafc; border-radius:2px;"></div>
+                          <div style="width:12px; height:4px; background:#60a5fa; border-radius:2px;"></div>
+                        </div>
+                        <div class="theme-preview-cards">
+                          <div style="background:#111827; border:1px solid #334155; border-radius:4px; padding:5px; margin-bottom:4px;">
+                            <div style="width:65%; height:3px; background:#60a5fa; border-radius:1px; margin-bottom:3px;"></div>
+                            <div style="width:40%; height:2px; background:rgba(255,255,255,0.3); border-radius:1px;"></div>
+                          </div>
+                          <div style="background:#111827; border:1px solid #334155; border-radius:4px; padding:4px; display:flex; gap:4px;">
+                            <div style="width:30%; height:3px; background:#4ade80; border-radius:1px;"></div>
+                            <div style="width:30%; height:3px; background:#fbbf24; border-radius:1px;"></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="theme-card-info">
+                      <div class="theme-card-title-row">
+                        <span class="theme-card-title">Slate Dark</span>
+                        <span class="badge" style="font-size:10px; color:#60a5fa; background:rgba(96,165,250,0.12); border:1px solid rgba(96,165,250,0.25);">Dark</span>
+                      </div>
+                      <p class="theme-card-desc">Restrained deep navy & slate background with cool blue primary highlights.</p>
+                    </div>
+                    <div class="theme-card-check">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </div>
+                  </div>
+
+                  <!-- 3. Clean Light -->
+                  <div class="theme-card" data-theme-value="light" tabindex="0" role="button" aria-label="Select Clean Light theme">
+                    <div class="theme-card-preview" style="background:#f8fafc; border: 1px solid #e2e8f0;">
+                      <div class="theme-preview-sidebar" style="background:#f1f5f9; border-right:1px solid #e2e8f0;">
+                        <div style="width:14px; height:3px; background:#2563eb; border-radius:1px; margin-bottom:6px;"></div>
+                        <div style="width:10px; height:3px; background:#cbd5e1; border-radius:1px; margin-bottom:4px;"></div>
+                        <div style="width:10px; height:3px; background:#cbd5e1; border-radius:1px;"></div>
+                      </div>
+                      <div class="theme-preview-content">
+                        <div class="theme-preview-header" style="background:#ffffff; border-bottom:1px solid #e2e8f0;">
+                          <div style="width:24px; height:4px; background:#0f172a; border-radius:2px;"></div>
+                          <div style="width:12px; height:4px; background:#2563eb; border-radius:2px;"></div>
+                        </div>
+                        <div class="theme-preview-cards">
+                          <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:4px; padding:5px; margin-bottom:4px;">
+                            <div style="width:65%; height:3px; background:#2563eb; border-radius:1px; margin-bottom:3px;"></div>
+                            <div style="width:40%; height:2px; background:#94a3b8; border-radius:1px;"></div>
+                          </div>
+                          <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:4px; padding:4px; display:flex; gap:4px;">
+                            <div style="width:30%; height:3px; background:#16a34a; border-radius:1px;"></div>
+                            <div style="width:30%; height:3px; background:#d97706; border-radius:1px;"></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="theme-card-info">
+                      <div class="theme-card-title-row">
+                        <span class="theme-card-title">Clean Light</span>
+                        <span class="badge" style="font-size:10px; color:#2563eb; background:rgba(37,99,235,0.12); border:1px solid rgba(37,99,235,0.25);">Light</span>
+                      </div>
+                      <p class="theme-card-desc">High-clarity white surfaces with soft borders and royal blue accenting.</p>
+                    </div>
+                    <div class="theme-card-check">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              <div class="settings-row" style="margin-top:1.5rem;">
+                <div class="settings-row-info">
+                  <h4>Quick Theme Selection</h4>
+                  <p>Choose an explicit theme or follow your operating system appearance.</p>
+                </div>
+                <select class="form-control" id="cfgThemeSelectDirect" style="max-width:230px;">
+                  <option value="crimson">Charcoal Crimson (Featured)</option>
+                  <option value="dark">Slate Dark</option>
+                  <option value="light">Clean Light</option>
+                  <option value="system">Follow System</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 3. APPEARANCE -->
             <div class="settings-section-pane hidden" id="pane-appearance">
               <div class="settings-panel-header">
                 <h3 style="font-size:1.1rem; font-weight:700; color:var(--text-primary); margin:0 0 0.25rem 0;">Appearance</h3>
@@ -124,11 +268,12 @@ export const BotConfigView = {
               <div class="settings-row">
                 <div class="settings-row-info">
                   <h4>Theme Mode</h4>
-                  <p>Choose the interface theme.</p>
+                  <p>Choose the interface theme preset.</p>
                 </div>
-                <select class="form-control" id="cfgThemeSelect" style="max-width:200px;">
-                  <option value="light">Light Mode</option>
-                  <option value="dark">Dark Mode</option>
+                <select class="form-control" id="cfgThemeSelect" style="max-width:230px;">
+                  <option value="crimson">Charcoal Crimson (Featured)</option>
+                  <option value="dark">Slate Dark</option>
+                  <option value="light">Clean Light</option>
                   <option value="system">System Default</option>
                 </select>
               </div>
@@ -360,11 +505,82 @@ export const BotConfigView = {
     navItems.forEach(item => { item.onclick = () => showSection(item.dataset.section); });
     if (mobileSelect) mobileSelect.onchange = (e) => showSection(e.target.value);
 
+    const syncThemeSelectionUI = (themeVal) => {
+      let effectiveTheme = themeVal;
+      if (themeVal === 'system') {
+        const isSystemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        effectiveTheme = isSystemDark ? (localStorage.getItem('workflow_capture_dark_preset') || 'crimson') : 'light';
+      }
+      document.querySelectorAll('.theme-card').forEach(card => {
+        const val = card.dataset.themeValue;
+        const isActive = val === effectiveTheme || (val === 'crimson' && (effectiveTheme === 'crimson' || effectiveTheme === 'charcoal-crimson'));
+        card.classList.toggle('active', Boolean(isActive));
+      });
+      const badge = document.getElementById('activeThemeBadge');
+      if (badge) {
+        if (effectiveTheme === 'crimson' || effectiveTheme === 'charcoal-crimson') {
+          badge.textContent = 'Charcoal Crimson';
+          badge.style.background = 'rgba(240, 68, 56, 0.14)';
+          badge.style.color = '#f04438';
+          badge.style.border = '1px solid rgba(240, 68, 56, 0.3)';
+        } else if (effectiveTheme === 'dark') {
+          badge.textContent = 'Slate Dark';
+          badge.style.background = 'rgba(96, 165, 250, 0.14)';
+          badge.style.color = '#60a5fa';
+          badge.style.border = '1px solid rgba(96, 165, 250, 0.3)';
+        } else {
+          badge.textContent = 'Clean Light';
+          badge.style.background = 'rgba(37, 99, 235, 0.14)';
+          badge.style.color = '#2563eb';
+          badge.style.border = '1px solid rgba(37, 99, 235, 0.3)';
+        }
+      }
+      const select1 = document.getElementById('cfgThemeSelect');
+      if (select1) select1.value = themeVal;
+      const select2 = document.getElementById('cfgThemeSelectDirect');
+      if (select2) select2.value = themeVal;
+    };
+
+    this.syncThemeUI = syncThemeSelectionUI;
+
+    const initialSavedTheme = localStorage.getItem('workflow_capture_theme') || (Theme && Theme.current) || 'crimson';
+    syncThemeSelectionUI(initialSavedTheme);
+
+    const onThemeChange = (newTheme) => {
+      if (Theme && typeof Theme.setTheme === 'function') {
+        Theme.setTheme(newTheme);
+      } else {
+        document.documentElement.setAttribute('data-theme', newTheme);
+        try { localStorage.setItem('workflow_capture_theme', newTheme); } catch (e) {}
+      }
+      syncThemeSelectionUI(newTheme);
+      this.markDirty();
+    };
+
+    document.querySelectorAll('.theme-card').forEach(card => {
+      card.onclick = () => onThemeChange(card.dataset.themeValue);
+      card.onkeydown = (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onThemeChange(card.dataset.themeValue);
+        }
+      };
+    });
+
     const themeSelect = document.getElementById('cfgThemeSelect');
     if (themeSelect) {
-      themeSelect.value = localStorage.getItem('workflow_capture_theme') || 'light';
-      themeSelect.onchange = (e) => { Theme.setTheme(e.target.value); this.markDirty(); };
+      themeSelect.onchange = (e) => onThemeChange(e.target.value);
     }
+    const themeSelectDirect = document.getElementById('cfgThemeSelectDirect');
+    if (themeSelectDirect) {
+      themeSelectDirect.onchange = (e) => onThemeChange(e.target.value);
+    }
+
+    window.addEventListener('workflow-capture-theme-change', (e) => {
+      if (e.detail && e.detail.theme) {
+        syncThemeSelectionUI(e.detail.theme);
+      }
+    });
 
     const trackIds = ['cfgWorkspaceName','cfgDownloadsPath','cfgAutoSave','cfgCompactDensity','cfgCdpPort','cfgHeadless','cfgIsolatedProfile','cfgStealthPreset','cfgMouseEnabled','cfgMinActionDelay','cfgMaxActionDelay','cfgLoopDetection','cfgNotifyCompleted','cfgNotifyErrors','cfgLogBufferSize','cfgVirtualization','cfgMaskCredentials'];
     trackIds.forEach(id => {
@@ -402,7 +618,8 @@ export const BotConfigView = {
         notifyErrors: Boolean(document.getElementById('cfgNotifyErrors')?.checked),
         logBufferSize: Number(document.getElementById('cfgLogBufferSize')?.value) || 1000,
         virtualization: Boolean(document.getElementById('cfgVirtualization')?.checked),
-        maskCredentials: Boolean(document.getElementById('cfgMaskCredentials')?.checked)
+        maskCredentials: Boolean(document.getElementById('cfgMaskCredentials')?.checked),
+        theme: document.getElementById('cfgThemeSelectDirect')?.value || document.getElementById('cfgThemeSelect')?.value || 'crimson'
       };
       try {
         await Api.saveBotConfig(cfg);
@@ -481,6 +698,10 @@ export const BotConfigView = {
       setValue('cfgLogBufferSize', localPrefs.logBufferSize ?? 1000);
       setChecked('cfgVirtualization', localPrefs.virtualization ?? true);
       setChecked('cfgMaskCredentials', localPrefs.maskCredentials ?? true);
+
+      if (localPrefs.theme && typeof this.syncThemeUI === 'function') {
+        this.syncThemeUI(localPrefs.theme);
+      }
 
       const res = await Api.getBotConfig();
       if (res && res.success) {

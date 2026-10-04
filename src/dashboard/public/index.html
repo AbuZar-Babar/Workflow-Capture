@@ -31,6 +31,14 @@
       source.onerror = () => {};
     })();
   </script>
+  <script>
+    (() => {
+      try {
+        const theme = localStorage.getItem('workflow_capture_theme') || localStorage.getItem('flowmind_theme') || 'crimson';
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
 
