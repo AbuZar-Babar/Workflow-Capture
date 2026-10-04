@@ -171,27 +171,6 @@ export const ExecutionView = {
           </button>
         </div>
 
-        <!-- Terminal Run Outcome Card (Hidden during active run) -->
-        <div class="card hidden" id="terminalOutcomeCard" style="padding:1.15rem 1.4rem; border-radius:var(--radius-xl); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
-          <div style="display:flex; align-items:center; gap:0.85rem;">
-            <div id="terminalOutcomeIcon" style="width:40px; height:40px; border-radius:50%; display:grid; place-items:center; font-size:1.1rem; flex-shrink:0;">✓</div>
-            <div>
-              <h2 id="terminalOutcomeTitle" style="margin:0; font-size:1.15rem; font-weight:800; color:var(--text-main);">Run Completed</h2>
-              <p id="terminalOutcomeSummary" style="margin:0.25rem 0 0; font-size:0.78rem; color:var(--text-sub);"></p>
-            </div>
-          </div>
-          <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
-            <button class="btn btn-secondary btn-sm" id="btnTerminalFiles">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-              <span>View Files</span>
-            </button>
-            <button class="btn btn-primary btn-sm" id="btnTerminalResults">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-              <span>Review Results</span>
-            </button>
-          </div>
-        </div>
-
         <!-- Execution Header -->
         <section class="card execution-hero" aria-labelledby="executionTitle">
           <div class="execution-hero-top">
@@ -249,10 +228,6 @@ export const ExecutionView = {
             <button class="btn btn-secondary hidden" id="btnExecutionViewFiles" title="View all files produced by this run">
               <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
               <span>Files</span>
-            </button>
-            <button class="btn btn-primary hidden" id="btnExecutionViewResults" title="Inspect full results report">
-              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-              <span>Review Results</span>
             </button>
           </div>
         </section>
@@ -389,19 +364,7 @@ export const ExecutionView = {
       this.router.navigate('workflows');
     });
 
-    document.getElementById('btnExecutionViewResults')?.addEventListener('click', () => {
-      this.router.navigate(`results/${encodeURIComponent(this.runId)}`);
-    });
-
-    document.getElementById('btnTerminalResults')?.addEventListener('click', () => {
-      this.router.navigate(`results/${encodeURIComponent(this.runId)}`);
-    });
-
     document.getElementById('btnExecutionViewFiles')?.addEventListener('click', () => {
-      this.router.navigate('artifacts');
-    });
-
-    document.getElementById('btnTerminalFiles')?.addEventListener('click', () => {
       this.router.navigate('artifacts');
     });
 
@@ -927,70 +890,8 @@ export const ExecutionView = {
       }
     }
 
-    const btnResults = document.getElementById('btnExecutionViewResults');
     const btnFiles = document.getElementById('btnExecutionViewFiles');
-    if (btnResults && isTerminal) btnResults.classList.remove('hidden');
     if (btnFiles && isTerminal && files > 0) btnFiles.classList.remove('hidden');
-
-    // Terminal Outcome Card Display
-    const outcomeCard = document.getElementById('terminalOutcomeCard');
-    if (outcomeCard && isTerminal) {
-      outcomeCard.classList.remove('hidden');
-      const oIcon = document.getElementById('terminalOutcomeIcon');
-      const oTitle = document.getElementById('terminalOutcomeTitle');
-      const oSummary = document.getElementById('terminalOutcomeSummary');
-      const heroRobot = document.getElementById('execHeroAvatar');
-
-      if (status === 'COMPLETED') {
-        outcomeCard.style.border = '1px solid rgba(16,185,129,0.3)';
-        outcomeCard.style.borderLeft = '4px solid #10b981';
-        outcomeCard.style.background = 'rgba(16,185,129,0.08)';
-        if (oIcon) {
-          oIcon.style.background = 'rgba(16,185,129,0.2)';
-          oIcon.style.color = '#34d399';
-          oIcon.textContent = '✓';
-        }
-        if (oTitle) oTitle.textContent = 'Run completed successfully';
-        if (oSummary) oSummary.textContent = `All ${totalCount} records processed successfully. ${files} files generated and verified.`;
-        if (heroRobot) heroRobot.innerHTML = renderRobotAvatar({ size: 'badge', state: 'success' });
-      } else if (status === 'COMPLETED_WITH_ERRORS') {
-        outcomeCard.style.border = '1px solid rgba(245,158,11,0.3)';
-        outcomeCard.style.borderLeft = '4px solid #f59e0b';
-        outcomeCard.style.background = 'rgba(245,158,11,0.08)';
-        if (oIcon) {
-          oIcon.style.background = 'rgba(245,158,11,0.2)';
-          oIcon.style.color = '#fbbf24';
-          oIcon.textContent = '⚠️';
-        }
-        if (oTitle) oTitle.textContent = 'Run completed with warnings';
-        if (oSummary) oSummary.textContent = `${ok} records succeeded, ${fail} failed. ${files} files produced.`;
-        if (heroRobot) heroRobot.innerHTML = renderRobotAvatar({ size: 'badge', state: 'warning' });
-      } else if (status === 'STOPPED') {
-        outcomeCard.style.border = '1px solid rgba(234,88,12,0.3)';
-        outcomeCard.style.borderLeft = '4px solid #ea580c';
-        outcomeCard.style.background = 'rgba(234,88,12,0.08)';
-        if (oIcon) {
-          oIcon.style.background = 'rgba(234,88,12,0.2)';
-          oIcon.style.color = '#fb923c';
-          oIcon.textContent = '■';
-        }
-        if (oTitle) oTitle.textContent = 'Run stopped';
-        if (oSummary) oSummary.textContent = `Halted by user. ${processed} records were processed before stopping.`;
-        if (heroRobot) heroRobot.innerHTML = renderRobotAvatar({ size: 'badge', state: 'idle' });
-      } else {
-        outcomeCard.style.border = '1px solid rgba(239,68,68,0.3)';
-        outcomeCard.style.borderLeft = '4px solid #ef4444';
-        outcomeCard.style.background = 'rgba(239,68,68,0.08)';
-        if (oIcon) {
-          oIcon.style.background = 'rgba(239,68,68,0.2)';
-          oIcon.style.color = '#f87171';
-          oIcon.textContent = '✗';
-        }
-        if (oTitle) oTitle.textContent = 'Run failed';
-        if (oSummary) oSummary.textContent = run.error || m.error || 'Execution encountered an error and could not complete.';
-        if (heroRobot) heroRobot.innerHTML = renderRobotAvatar({ size: 'badge', state: 'error' });
-      }
-    }
 
     // Handle terminal status
     if (isTerminal) {

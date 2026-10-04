@@ -9,8 +9,7 @@ import { SecretsView } from './views/secretsView.js?v=7';
 import { ArtifactsView } from './views/artifactsView.js?v=8';
 import { WorkflowEditorView } from './views/workflowEditorView.js?v=7';
 import { BotConfigView } from './views/botConfigView.js?v=5';
-import { ExecutionView } from './views/executionView.js?v=5';
-import { ResultsView } from './views/resultsView.js?v=1';
+import { ExecutionView } from './views/executionView.js?v=6';
 import { Auth } from './auth.js';
 import { Sidebar } from './components/sidebar.js';
 
@@ -27,8 +26,7 @@ export const Router = {
     artifacts: ArtifactsView,
     'workflow-editor': WorkflowEditorView,
     'bot-config': BotConfigView,
-    execution: ExecutionView,
-    results: ResultsView
+    execution: ExecutionView
   },
 
   init(containerId = 'appViewContainer') {
@@ -99,8 +97,7 @@ export const Router = {
         artifacts: 'Files',
         'bot-config': 'Settings',
         secrets: 'Secrets',
-        execution: 'Live Execution',
-        results: 'Run Results'
+        execution: 'Live Execution'
       };
       breadcrumbEl.textContent = titles[route] || 'Dashboard';
     }
