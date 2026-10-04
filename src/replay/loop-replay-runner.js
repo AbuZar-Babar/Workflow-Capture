@@ -55,8 +55,35 @@ class LoopReplayRunner {
       ? options.itemFilter
       : (options.rowFilter || (options.filterValue ? { column: options.filterColumn || 'Type', value: options.filterValue } : null));
     const filterValidation = validateItemFilter(rawFilter);
-    this.itemFilter = filterValidation.valid ? filterValidation.filter : (options.itemFilter || null);
-    this.filterValidationError = filterValidation.valid ? null : filterValidation.error;
+
+    // Support relational, date, and extended operators via ConditionEvaluator
+    const normalizedConditions = ConditionEvaluator.normalizeConditions(rawFilter);
+    const EXTENDED_OPS = new Set([
+      'contains', 'includes', 'equals', 'eq', '==', '===', 'not_equals', 'neq', '!=',
+      'starts_with', 'ends_with', 'in', 'one_of', 'not_in',
+      'greater_than', 'gt', '>', 'after', 'date_after', 'date_gt',
+      'greater_than_or_equal', 'gte', '>=', 'on_or_after', 'date_on_or_after', 'date_gte',
+      'less_than', 'lt', '<', 'before', 'date_before', 'date_lt',
+      'less_than_or_equal', 'lte', '<=', 'on_or_before', 'date_on_or_before', 'date_lte',
+      'date_between', 'between_dates', 'last_n_days'
+    ]);
+    const isSupportedByConditionEvaluator = Boolean(
+      rawFilter &&
+      normalizedConditions.rules.length > 0 &&
+      normalizedConditions.rules.every(r => r.field && EXTENDED_OPS.has(String(r.operator || '').toLowerCase().trim()))
+    );
+
+    const isOperatorError = filterValidation.error && filterValidation.error.includes('Unsupported filter operator');
+    if (filterValidation.valid) {
+      this.itemFilter = filterValidation.filter;
+      this.filterValidationError = null;
+    } else if (isOperatorError && isSupportedByConditionEvaluator) {
+      this.itemFilter = rawFilter;
+      this.filterValidationError = null;
+    } else {
+      this.itemFilter = options.itemFilter || null;
+      this.filterValidationError = filterValidation.error;
+    }
 
     let validatedLimit = null;
     let limitError = null;
@@ -740,32 +767,44 @@ class LoopReplayRunner {
             : [];
 
           if (!headers.length) {
-            const table = typeof el.closest === 'function' ? el.closest('table, [role="grid"], [role="treegrid"], .dxgvTable') : null;
-            if (table && typeof table.querySelectorAll === 'function') {
-              const thead = typeof table.querySelector === 'function' ? table.querySelector('thead') : null;
-              let headerEls = thead && typeof thead.querySelectorAll === 'function' ? Array.from(thead.querySelectorAll('th, td, [role="columnheader"]')) : [];
-              if (!headerEls.length) {
-                headerEls = Array.from(table.querySelectorAll('th, [role="columnheader"], .dxgvHeader'));
-              }
+            const gridContainer = (typeof el.parentElement?.closest === 'function' ? el.parentElement.closest('.x-grid, [role="grid"], [role="treegrid"], .dxgvTable, table, .data-table, .grid-container') : null) ||
+              (typeof el.closest === 'function' ? el.closest('.x-grid, [role="grid"], [role="treegrid"], .dxgvTable, table') : null) ||
+              document.querySelector('.x-grid, table, [role="grid"]');
+            if (gridContainer) {
+              const headerCt = (typeof gridContainer.querySelector === 'function' ? gridContainer.querySelector('.x-grid-header-ct, thead, .x-grid-header-row, [role="rowgroup"], .ag-header, .mat-header-row') : null) || gridContainer;
+              const headerEls = Array.from(typeof headerCt.querySelectorAll === 'function' ? headerCt.querySelectorAll('.x-column-header-text, .x-column-header, th, [role="columnheader"], .dxgvHeader, .mat-header-cell, .ag-header-cell, .ant-table-thead th') : [])
+                .filter(visible);
               headerEls.forEach(h => {
-                const t = (h.innerText || h.textContent || '').trim().replace(/\s+/g, ' ');
-                if (t) headers.push(t);
+                const inner = (typeof h.querySelector === 'function' ? h.querySelector('.x-column-header-text, .ag-header-cell-text') : null) || h;
+                const t = (inner.innerText || inner.textContent || inner.getAttribute('aria-label') || '').trim().replace(/\s+/g, ' ');
+                if (t && t.length > 0 && t.length < 60) headers.push(t);
               });
+              headers = Array.from(new Set(headers));
             }
           }
 
           let cellEls = [];
           if (typeof el.querySelectorAll === 'function') {
-            cellEls = Array.from(el.querySelectorAll('td, [role="gridcell"], .dxgv, .cell'));
+            cellEls = Array.from(el.querySelectorAll('td, [role="gridcell"], .dxgv, .cell, mat-cell, .ag-cell'));
           }
           if (!cellEls.length && Array.isArray(el.children)) {
             cellEls = Array.from(el.children);
           }
 
-          const cells = cellEls.map(c => {
+          // Account for checkbox selection column offset
+          const isFirstCellChecker = cellEls.length > 0 && Boolean(
+            cellEls[0].classList?.contains('x-grid-cell-special') ||
+            cellEls[0].classList?.contains('x-grid-cell-row-checker') ||
+            cellEls[0].classList?.contains('x-selmodel-column') ||
+            (typeof cellEls[0].querySelector === 'function' && cellEls[0].querySelector('.x-grid-row-checker, input[type="checkbox"], [role="checkbox"], .mat-pseudo-checkbox')) ||
+            (((cellEls[0].innerText || cellEls[0].textContent || '').trim() === '') && cellEls.length > headers.length)
+          );
+          const dataCellEls = isFirstCellChecker ? cellEls.slice(1) : cellEls;
+
+          const cells = dataCellEls.map(c => {
             let val = (c.innerText || c.textContent || '').trim().replace(/\s+/g, ' ');
             if (!val) {
-              const link = c.querySelector('a, button, input');
+              const link = typeof c.querySelector === 'function' ? c.querySelector('a, button, input') : null;
               if (link) {
                 val = (link.innerText || link.textContent || link.getAttribute('value') || '').trim();
               }
@@ -775,10 +814,18 @@ class LoopReplayRunner {
 
           if (headers.length > 0 && cells.length > 0) {
             headers.forEach((hName, idx) => {
-              if (idx < cells.length && cells[idx]) {
+              if (idx < cells.length && cells[idx] !== undefined && cells[idx] !== '') {
                 fields[hName] = cells[idx];
               }
             });
+          }
+
+          // Semantic alias for Due Date
+          if (!fields['Due Date']) {
+            const dueCol = headers.find(h => /\bdue\b/i.test(h));
+            if (dueCol && fields[dueCol]) {
+              fields['Due Date'] = fields[dueCol];
+            }
           }
 
           if (cellEls.length > 0) {
@@ -859,7 +906,7 @@ class LoopReplayRunner {
 
     // 1. Fast evaluation from discovery item fields if available
     if (discovery && Array.isArray(discovery.items) && discovery.items[index]?.fields) {
-      const itemRecord = discovery.items[index].fields;
+      const itemRecord = Object.assign({}, discovery.items[index], discovery.items[index].fields);
       const targetCol = String(rawFilter.column || rawFilter.field || 'type').toLowerCase();
       const actualVal = itemRecord[rawFilter.column] || itemRecord[rawFilter.field] || itemRecord.Type || itemRecord.label || itemRecord.fullText || '';
       const evalResult = ConditionEvaluator.evaluate(itemRecord, rawFilter);
@@ -904,7 +951,9 @@ class LoopReplayRunner {
         const dataCellEls = isFirstCellChecker ? cellEls.slice(1) : cellEls;
         const cells = dataCellEls.map(c => (c.innerText || c.textContent || '').trim());
 
-        const gridContainer = el.closest('.x-grid, table, [role="grid"], .dxgvTable') || document.querySelector('.x-grid, table, [role="grid"]');
+        const gridContainer = el.parentElement?.closest('.x-grid, [role="grid"], [role="treegrid"], .dxgvTable, table, .data-table, .grid-container') ||
+          el.closest('.x-grid, [role="grid"], .dxgvTable, table') ||
+          document.querySelector('.x-grid, table, [role="grid"]');
         const record = {
           fullText,
           label: fullText.slice(0, 100),
@@ -1082,7 +1131,8 @@ class LoopReplayRunner {
         matches = false;
         reason = 'Dropdown "Select All" control excluded from data items';
       } else if (isFilterActive) {
-        const evalResult = ConditionEvaluator.evaluate(item.fields, filter);
+        const itemRecord = Object.assign({}, item, item.fields || {});
+        const evalResult = ConditionEvaluator.evaluate(itemRecord, filter);
         matches = evalResult.matches;
         reason = evalResult.reason || (matches ? 'Matches configured condition' : `Filtered out by "${targetCol}"`);
       }
@@ -2178,10 +2228,71 @@ class LoopReplayRunner {
       }
 
       const effectiveFilter = this.itemFilter || this.rowFilter || null;
-      const preview = evaluateFilterPreview(effectiveFilter, itemsWithFields, {
-        loopLimit: this.loopLimit,
-        previewLimit: itemsWithFields.length
+      const condRules = ConditionEvaluator.normalizeConditions(effectiveFilter).rules;
+      const isRelationalOrExtended = condRules.some(r => {
+        const op = String(r.operator || '').toLowerCase().trim();
+        return ['<=', '>=', '<', '>', 'before', 'after', 'starts_with', 'ends_with', 'in', 'not_in', '!=', 'not_equals', 'date_before', 'date_after', 'date_on_or_after', 'date_on_or_before', 'date_between', 'between_dates', 'last_n_days', 'greater_than', 'less_than', 'greater_than_or_equal', 'less_than_or_equal', 'date_gt', 'date_lt', 'date_gte', 'date_lte', 'on_or_after', 'on_or_before'].includes(op);
       });
+
+      let preview;
+      if (isRelationalOrExtended) {
+        let matchingCount = 0;
+        let selectedCount = 0;
+        let skippedFilterCount = 0;
+        let skippedLimitCount = 0;
+        const selectedPreview = [];
+        const skippedFilterPreview = [];
+        const limit = this.loopLimit;
+        const errors = [];
+
+        // Check if any rule targets a completely non-existent field across all items
+        if (itemsWithFields.length > 0) {
+          for (const rule of condRules) {
+            const field = rule.field;
+            const fieldFound = itemsWithFields.some(item => {
+              const rec = Object.assign({}, item, item?.fields || {});
+              const val = ConditionEvaluator.extractFieldValue(rec, field);
+              return val !== undefined && val !== null;
+            });
+            if (!fieldFound) {
+              errors.push(`Configured field "${field}" is not available on item`);
+            }
+          }
+        }
+
+        for (let i = 0; i < itemsWithFields.length; i++) {
+          const item = itemsWithFields[i];
+          const itemRecord = Object.assign({}, item, item?.fields || {});
+          const evalRes = ConditionEvaluator.evaluate(itemRecord, effectiveFilter);
+          if (evalRes.matches) {
+            matchingCount++;
+            if (limit === null || selectedCount < limit) {
+              selectedCount++;
+              if (selectedPreview.length < 10) selectedPreview.push({ index: i + 1, label: item.label || `Item #${i+1}`, status: 'SELECTED' });
+            } else {
+              skippedLimitCount++;
+            }
+          } else {
+            skippedFilterCount++;
+            if (skippedFilterPreview.length < 10) skippedFilterPreview.push({ index: i + 1, label: item.label || `Item #${i+1}`, status: 'SKIPPED_FILTER', reason: evalRes.reason });
+          }
+        }
+        preview = {
+          totalCount: itemsWithFields.length,
+          matchingCount,
+          selectedCount,
+          skippedFilterCount,
+          skippedLimitCount,
+          selectedPreview,
+          skippedFilterPreview,
+          errors
+        };
+      } else {
+        preview = evaluateFilterPreview(effectiveFilter, itemsWithFields, {
+          loopLimit: this.loopLimit,
+          previewLimit: itemsWithFields.length
+        });
+      }
 
       if (preview.errors && preview.errors.length > 0) {
         const errMsg = `Filter configuration error: ${preview.errors.join('; ')}`;
@@ -2207,7 +2318,9 @@ class LoopReplayRunner {
         for (let i = 0; i < discovery.itemCount; i++) {
           const itemIdentifier = await this.extractItemIdentifier(page, discovery, i, isDropdown);
           const itemFields = itemsWithFields[i]?.fields || {};
-          const filterCheck = sharedEvaluateItemFilter(effectiveFilter, itemFields);
+          const filterCheck = isRelationalOrExtended
+            ? ConditionEvaluator.evaluate(itemFields, effectiveFilter)
+            : sharedEvaluateItemFilter(effectiveFilter, itemFields);
           const skippedResult = {
             index: i + 1,
             itemIndex: i,
