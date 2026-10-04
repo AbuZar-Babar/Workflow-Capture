@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CityMart Test Portal (Complex)</title>
+<style>
+* { box-sizing: border-box; }
+body { font-family: system-ui, Arial, sans-serif; margin: 0; background: #f3f5f9; color: #1f2937; }
+header { background: #1e3a8a; color: #fff; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+header a { color: #bfdbfe; margin-left: 16px; text-decoration: none; }
+main { max-width: 1050px; margin: 24px auto; padding: 0 16px; }
+.card { background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 16px; }
+label { display: block; margin: 10px 0 4px; font-weight: 600; font-size: 14px; }
+input[type=text], input[type=password], input[type=date], select { width: 100%; padding: 9px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; }
+button, .btn { background: #2563eb; color: #fff; border: 0; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 14px; text-decoration: none; display: inline-block; }
+button.secondary, .btn.secondary { background: #64748b; }
+button.danger { background: #dc2626; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+.row > div { flex: 1; min-width: 140px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 9px; text-align: left; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
+th { background: #f1f5f9; }
+th.sortable { cursor: pointer; user-select: none; }
+.badge { padding: 3px 9px; border-radius: 12px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.overdue { background: #fee2e2; color: #b91c1c; }
+.due-soon { background: #fef3c7; color: #92400e; }
+.upcoming { background: #dcfce7; color: #166534; }
+.paid { background: #e0e7ff; color: #3730a3; }
+.disputed { background: #fce7f3; color: #9d174d; }
+.credit { background: #e2e8f0; color: #334155; }
+.company-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+.current { outline: 3px solid #2563eb; }
+.msg { padding: 10px; border-radius: 6px; margin-top: 10px; background: #fee2e2; color: #b91c1c; display: none; }
+.pager { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; }
+.view { display: none; } .view.active { display: block; }
+.tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+.tabs button { background: #e2e8f0; color: #1f2937; }
+.tabs button.active { background: #2563eb; color: #fff; }
+.expand-btn { background: transparent; color: #1f2937; padding: 2px 8px; font-size: 14px; }
+.details-row td { background: #f8fafc; font-size: 13px; color: #475569; }
+.spinner { display: inline-block; width: 16px; height: 16px; border: 3px solid #cbd5e1; border-top-color: #2563eb; border-radius: 50%; animation: sp .8s linear infinite; vertical-align: middle; margin-right: 8px; }
+@keyframes sp { to { transform: rotate(360deg); } }
+.unavailable { color: #94a3b8; font-style: italic; }
+#toast { position: fixed; right: 20px; bottom: 20px; padding: 12px 18px; border-radius: 8px; background: #166534; color: #fff; display: none; z-index: 20; }
+#toast.err { background: #b91c1c; }
+#modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 10; }
+#modal.open { display: flex; }
+#modal .box { background: #fff; border-radius: 10px; padding: 24px; width: 380px; max-width: 92vw; }
+.pass { color: #166534; font-weight: 700; } .fail { color: #b91c1c; font-weight: 700; } .warn { color: #92400e; font-weight: 700; } .ok { color: #64748b; }
+.stat { display: inline-block; margin-right: 18px; font-size: 15px; }
+code { background: #e2e8f0; padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <strong>CityMart Test Portal &mdash; Complex</strong>
+  <nav id="nav" style="display:none">
+    <span id="hdrCompany" style="font-size:13px"></span>
+    <a href="#companies">Companies</a><a href="#invoices">Invoices</a><a href="#results">Test Results</a><a href="#" id="logout">Logout</a>
+  </nav>
+</header>
+
+<div id="toast" role="alert"></div>
+
+<div id="modal">
+  <div class="box">
+    <h3 id="modalTitle">Invoice preview</h3>
+    <p id="modalBody" style="font-size:14px"></p>
+    <button id="modalDownload">Confirm &amp; Download</button>
+    <button id="modalClose" class="secondary">Cancel</button>
+  </div>
+</div>
+
+<main>
+
+<!-- LOGIN (2 steps: password, then OTP) -->
+<section id="view-login" class="view" style="max-width:420px;margin:0 auto">
+  <div class="card">
+    <h2>Login</h2>
+    <div id="expiredNote" class="msg" style="display:none"></div>
+    <form id="loginForm">
+      <p style="font-size:13px;color:#64748b">Demo: <b>demo</b> / <b>demo123</b></p>
+      <label for="username">Username</label>
+      <input type="text" id="username" name="username" autocomplete="off">
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password">
+      <label for="role">Role</label>
+      <select id="role" name="role"><option value="vendor">Vendor</option><option value="admin">Admin</option></select>
+      <label><input type="checkbox" id="remember"> Remember me</label>
+      <button type="submit" id="loginBtn" style="margin-top:14px;width:100%">Sign in</button>
+      <div id="msg" class="msg"></div>
+    </form>
+    <form id="otpForm" style="display:none">
+      <p style="font-size:13px;color:#64748b">Verification code sent. Demo code: <b>123456</b></p>
+      <label for="otp">Verification code</label>
+      <input type="text" id="otp" name="otp" autocomplete="off" maxlength="6">
+      <button type="submit" id="otpBtn" style="margin-top:14px;width:100%">Verify</button>
+      <div id="otpMsg" class="msg"></div>
+    </form>
+  </div>
+</section>
+
+<!-- COMPANIES -->
+<section id="view-companies" class="view">
+  <h2>Your Companies</h2>
+  <p>Current company: <b id="currentName"></b></p>
+  <div class="company-grid" id="grid"></div>
+</section>
+
+<!-- INVOICES -->
+<section id="view-invoices" class="view">
+  <h2>Invoices &mdash; <span id="companyTitle"></span></h2>
+  <div class="card">
+    <div class="row">
+      <div><label for="companySelect">Company</label><select id="companySelect"></select></div>
+      <div>
+        <label for="statusFilter">Status</label>
+        <select id="statusFilter">
+          <option value="all">All</option><option value="overdue">Overdue</option><option value="due-soon">Due within 7 days</option>
+          <option value="upcoming">Upcoming</option><option value="paid">Paid</option><option value="disputed">Disputed</option><option value="credit">Credit notes</option>
+        </select>
+      </div>
+      <div><label for="search">Invoice no.</label><input type="text" id="search" placeholder="e.g. 1005"></div>
+      <div><label for="dueBefore">Due before</label><input type="date" id="dueBefore"></div>
+      <div><label for="pageSize">Rows per page</label><select id="pageSize"><option>5</option><option>10</option></select></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="tabs" id="tabs">
+      <button data-tab="pending" class="active">Pending</button>
+      <button data-tab="paid">Paid</button>
+      <button data-tab="all">All</button>
+    </div>
+    <table id="invoiceTable">
+      <thead><tr>
+        <th><input type="checkbox" id="selectAll"></th><th></th>
+        <th class="sortable" data-sort="no">Invoice No</th><th>Issued</th>
+        <th class="sortable" data-sort="due">Due Date</th>
+        <th class="sortable" data-sort="amt">Amount (PKR)</th><th>Status</th><th>Action</th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div class="pager" id="pager">
+      <button class="secondary" id="prevBtn">&laquo; Prev</button>
+      <span id="pageInfo"></span>
+      <button class="secondary" id="nextBtn">Next &raquo;</button>
+    </div>
+    <div id="moreWrap" style="text-align:center;margin-top:14px;display:none">
+      <span id="moreInfo" style="margin-right:12px;font-size:13px;color:#64748b"></span>
+      <button class="secondary" id="loadMore">Load more</button>
+    </div>
+    <p style="margin-top:14px">
+      <button id="downloadSelected">Download selected</button>
+      <span id="selCount" style="margin-left:10px;font-size:13px;color:#64748b"></span>
+    </p>
+  </div>
+</section>
+
+<!-- RESULTS -->
+<section id="view-results" class="view">
+  <h2>Test Results</h2>
+  <div class="card">
+    <div class="row">
+      <div>
+        <label for="ruleSelect">Rule the bot should follow</label>
+        <select id="ruleSelect">
+          <option value="due7">Unpaid, not disputed, not credit: overdue + due within 7 days</option>
+          <option value="overdue">Unpaid, not disputed, not credit: overdue only</option>
+          <option value="all">Unpaid, not disputed, not credit: all</option>
+        </select>
+      </div>
+      <div>
+        <label><input type="checkbox" id="slowToggle"> Slow network (longer loading delays)</label>
+        <label><input type="checkbox" id="expireToggle"> Expire session 90s after login</label>
+      </div>
+      <div style="flex:0 0 auto">
+        <button id="refreshResults">Refresh</button>
+        <button id="exportResults" class="secondary">Export JSON</button>
+        <button id="resetLog" class="danger">Reset log</button>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div id="summary"></div>
+    <table style="margin-top:12px">
+      <thead><tr><th>Company</th><th>Invoice</th><th>Due</th><th>Status</th><th>Should download?</th><th>Attempts (ok/failed)</th><th>Verdict</th></tr></thead>
+      <tbody id="resultsBody"></tbody>
+    </table>
+  </div>
+  <div class="card" style="font-size:13px;color:#475569">
+    <b>Built-in traps:</b>
+    <ul>
+      <li>Invoice <code>INV-1001</code> exists in both Alpha and Beta, and every PDF is saved as <code>&lt;invoice no&gt;.pdf</code>, so the two collide in one folder.</li>
+      <li>Alpha has two invoices on the same due date (INV-1001 / INV-1002, and INV-1005 / INV-1006).</li>
+      <li>Alpha: a disputed invoice, a credit note, one with no PDF, and one that fails the first download but works on retry.</li>
+      <li>Beta: a two-step Generate then Download flow, dates shown as DD/MM/YYYY, and an invoice due exactly in 7 days.</li>
+      <li>Gamma: Load more instead of pages, and a Preview &rarr; Confirm modal before download.</li>
+      <li>Delta: no invoices at all. Loading is delayed after every switch, tab or page change.</li>
+    </ul>
+    Bots can also read <code>window.__results()</code> for a JSON summary.
+  </div>
+</section>
+
+</main>
+
+<script>
+// ---------------- helpers ----------------
+const $ = (id) => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+};
+const delay = () => new Promise((r) => setTimeout(r, store.get("slow", false) ? 1800 : 500));
+function toast(text, err) {
+  const t = $("toast"); t.textContent = text; t.className = err ? "err" : ""; t.style.display = "block";
+  clearTimeout(toast.t); toast.t = setTimeout(() => (t.style.display = "none"), 3000);
+}
+
+// ---------------- data (all dates relative to today) ----------------
+const COMPANIES = [
+  { id: "alpha", name: "Alpha Traders", mode: "pager", method: "direct", dateFmt: "iso" },
+  { id: "beta", name: "Beta Foods", mode: "pager", method: "generate", dateFmt: "dmy" },
+  { id: "gamma", name: "Gamma Pharmacy", mode: "more", method: "preview", dateFmt: "long" },
+  { id: "delta", name: "Delta Logistics", mode: "pager", method: "direct", dateFmt: "iso" },
+];
+const D = (co, no, ago, due, amt, o) => Object.assign({ co, no, ago, due, amt }, o || {});
+const RAW = [
+  D("alpha", "INV-1001", 40, -10, 12500), D("alpha", "INV-1002", 35, -10, 8300),
+  D("alpha", "INV-1003", 30, -3, 4100),   D("alpha", "INV-1004", 25, 0, 9900),
+  D("alpha", "INV-1005", 20, 5, 15250),   D("alpha", "INV-1006", 15, 5, 760),
+  D("alpha", "INV-1007", 10, 20, 22000),  D("alpha", "INV-1008", 60, -30, 3300, { paid: true }),
+  D("alpha", "INV-1009", 5, 45, 18700),   D("alpha", "INV-1010", 22, -2, 6000, { disputed: true }),
+  D("alpha", "INV-1011", 28, -15, -2500, { credit: true }), D("alpha", "INV-1012", 12, 3, 4400, { nopdf: true }),
+  D("alpha", "INV-1013", 26, -6, 7700, { flaky: true }),    D("alpha", "INV-1014", 90, -60, 2100, { paid: true }),
+  D("beta", "INV-1001", 28, -7, 6400),    D("beta", "INV-2002", 22, 2, 11800),
+  D("beta", "INV-2003", 18, 2, 3900),     D("beta", "INV-2004", 12, 14, 7200),
+  D("beta", "INV-2005", 50, -20, 9100, { paid: true }), D("beta", "INV-2006", 3, 30, 4600),
+  D("beta", "INV-2007", 9, -1, 5000),     D("beta", "INV-2008", 21, 7, 2200),
+  D("gamma", "G-3001", 33, -12, 31000),   D("gamma", "G-3002", 14, 7, 12700),
+  D("gamma", "G-3003", 8, 25, 8800),      D("gamma", "G-3004", 70, -40, 5500, { paid: true }),
+  D("gamma", "G-3005", 16, 8, 1900),      D("gamma", "G-3006", 11, 0, 6600),
+  D("gamma", "G-3007", 19, -5, 14200),    D("gamma", "G-3008", 6, 3, 3300),
+  D("gamma", "G-3009", 4, 60, 9900),      D("gamma", "G-3010", 24, -1, 4800, { disputed: true }),
+  D("gamma", "G-3011", 7, 10, 2750),      D("gamma", "G-3012", 29, -9, 8100),
+];
+function addDays(n) { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + n); return d; }
+const p2 = (x) => String(x).padStart(2, "0");
+const iso = (d) => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function showDate(co, d) {
+  const f = COMPANIES.find((c) => c.id === co).dateFmt;
+  if (f === "dmy") return `${p2(d.getDate())}/${p2(d.getMonth() + 1)}/${d.getFullYear()}`;
+  if (f === "long") return `${p2(d.getDate())} ${MON[d.getMonth()]} ${d.getFullYear()}`;
+  return iso(d);
+}
+function buildInvoice(r) {
+  const status = r.paid ? "paid" : r.credit ? "credit" : r.disputed ? "disputed" : r.due < 0 ? "overdue" : r.due <= 7 ? "due-soon" : "upcoming";
+  return Object.assign({}, r, {
+    key: `${r.co}:${r.no}`, status, daysLeft: r.due,
+    issuedISO: iso(addDays(-r.ago)), dueISO: iso(addDays(r.due)),
+    issuedShow: showDate(r.co, addDays(-r.ago)), dueShow: showDate(r.co, addDays(r.due)),
+    paid: !!r.paid,
+  });
+}
+const ALL = RAW.map(buildInvoice);
+const forCompany = (id) => ALL.filter((i) => i.co === id);
+const cName = (id) => COMPANIES.find((c) => c.id === id).name;
+const cConf = (id) => COMPANIES.find((c) => c.id === id);
+const curCo = () => sessionStorage.getItem("company") || COMPANIES[0].id;
+
+function statusLabel(i) {
+  if (i.status === "overdue") return `Overdue by ${-i.daysLeft}d`;
+  if (i.status === "due-soon") return i.daysLeft === 0 ? "Due today" : `Due in ${i.daysLeft}d`;
+  if (i.status === "paid") return "Paid";
+  if (i.status === "disputed") return "Disputed";
+  if (i.status === "credit") return "Credit note";
+  return "Upcoming";
+}
+
+// rule: what a correct bot SHOULD download
+function ruleOf() { return store.get("rule", "due7"); }
+function shouldDownload(i) {
+  if (i.paid || i.credit || i.disputed || i.nopdf) return false;
+  const r = ruleOf();
+  if (r === "overdue") return i.daysLeft < 0;
+  if (r === "due7") return i.daysLeft <= 7;
+  return true;
+}
+
+// ---------------- download log ----------------
+function getLog() { return store.get("dl_log", []); }
+function addLog(i, ok) { const l = getLog(); l.push({ key: i.key, co: i.co, no: i.no, ok, t: new Date().toISOString() }); store.set("dl_log", l); }
+
+function makePdfBlob(i) {
+  const lines = [`Invoice: ${i.no}`, `Company: ${cName(i.co)}`, `Issued: ${i.issuedISO}`, `Due: ${i.dueISO}`, `Amount: PKR ${i.amt}`];
+  let s = "BT /F1 14 Tf 50 750 Td 18 TL\n";
+  lines.forEach((l) => (s += `(${l.replace(/[()\\]/g, "")}) Tj T*\n`));
+  s += "ET";
+  const objs = [
+    "<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+    `<< /Length ${s.length} >>\nstream\n${s}\nendstream`, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+  ];
+  let pdf = "%PDF-1.4\n"; const off = [];
+  objs.forEach((o, n) => { off.push(pdf.length); pdf += `${n + 1} 0 obj\n${o}\nendobj\n`; });
+  const x = pdf.length;
+  pdf += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n`;
+  off.forEach((o) => (pdf += String(o).padStart(10, "0") + " 00000 n \n"));
+  pdf += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${x}\n%%EOF`;
+  return new Blob([pdf], { type: "application/pdf" });
+}
+function download(i) {
+  if (i.nopdf) { toast(`No PDF available for ${i.no}`, true); return false; }
+  const failedBefore = getLog().some((l) => l.key === i.key && !l.ok);
+  if (i.flaky && !failedBefore) { addLog(i, false); toast(`Download failed for ${i.no} (server error 500). Try again.`, true); return false; }
+  const url = URL.createObjectURL(makePdfBlob(i));
+  const a = document.createElement("a");
+  a.href = url; a.download = `${i.no}.pdf`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  addLog(i, true); toast(`Downloaded ${i.no}.pdf`);
+  return true;
+}
+
+// ---------------- router ----------------
+const loggedIn = () => sessionStorage.getItem("auth") === "yes";
+let expireMsg = "";
+function route() {
+  let h = (location.hash || "#login").slice(1);
+  if (!["login", "companies", "invoices", "results"].includes(h)) h = "login";
+  if (h !== "login" && !loggedIn()) { location.hash = "#login"; return; }
+  if (h === "login" && loggedIn()) { location.hash = "#companies"; return; }
+  document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
+  $("view-" + h).classList.add("active");
+  $("nav").style.display = loggedIn() ? "block" : "none";
+  $("hdrCompany").textContent = loggedIn() ? "Company: " + cName(curCo()) : "";
+  if (h === "login") { const n = $("expiredNote"); n.style.display = expireMsg ? "block" : "none"; n.textContent = expireMsg; }
+  if (h === "companies") renderCompanies();
+  if (h === "invoices") { $("companySelect").value = curCo(); page = 1; selected.clear(); refresh(); }
+  if (h === "results") renderResults();
+}
+window.addEventListener("hashchange", route);
+setInterval(() => {
+  if (loggedIn() && store.get("expire", false) && Date.now() - Number(sessionStorage.getItem("loginAt") || 0) > 90000) {
+    sessionStorage.clear(); expireMsg = "Your session has expired. Please sign in again."; location.hash = "#login"; route();
+  }
+}, 3000);
+
+// ---------------- login + otp ----------------
+$("loginForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  if ($("username").value.trim() === "demo" && $("password").value === "demo123") {
+    $("loginForm").style.display = "none"; $("otpForm").style.display = "block"; $("otp").focus(); expireMsg = ""; $("expiredNote").style.display = "none";
+  } else { const m = $("msg"); m.textContent = "Invalid username or password"; m.style.display = "block"; }
+});
+$("otpForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  if ($("otp").value.trim() === "123456") {
+    sessionStorage.setItem("auth", "yes"); sessionStorage.setItem("company", COMPANIES[0].id); sessionStorage.setItem("loginAt", String(Date.now()));
+    $("otpForm").style.display = "none"; $("loginForm").style.display = "block"; $("otp").value = ""; $("password").value = "";
+    location.hash = "#companies"; route();
+  } else { const m = $("otpMsg"); m.textContent = "Wrong verification code"; m.style.display = "block"; }
+});
+$("logout").addEventListener("click", (e) => { e.preventDefault(); sessionStorage.clear(); location.hash = "#login"; route(); });
+
+// ---------------- companies ----------------
+function renderCompanies() {
+  const cur = curCo(); $("currentName").textContent = cName(cur);
+  const grid = $("grid"); grid.innerHTML = "";
+  COMPANIES.forEach((c) => {
+    const invs = forCompany(c.id); const od = invs.filter((i) => i.status === "overdue").length;
+    const card = document.createElement("div");
+    card.className = "card company-card" + (c.id === cur ? " current" : ""); card.dataset.companyId = c.id;
+    card.innerHTML = `<h3>${c.name}</h3><p>${invs.length} invoices &middot; <b>${od}</b> overdue</p>
+      <button class="switch-btn" data-company="${c.id}" ${c.id === cur ? "disabled" : ""}>${c.id === cur ? "Selected" : "Switch to this company"}</button>
+      <a class="btn secondary view-invoices" href="#invoices" data-company="${c.id}">View invoices</a>`;
+    grid.appendChild(card);
+  });
+  grid.querySelectorAll(".switch-btn").forEach((b) => b.addEventListener("click", () => {
+    $("grid").style.opacity = "0.5";
+    setTimeout(() => { sessionStorage.setItem("company", b.dataset.company); $("grid").style.opacity = "1"; $("hdrCompany").textContent = "Company: " + cName(curCo()); renderCompanies(); }, store.get("slow", false) ? 1500 : 500);
+  }));
+  grid.querySelectorAll(".view-invoices").forEach((a) => a.addEventListener("click", () => sessionStorage.setItem("company", a.dataset.company)));
+}
+
+// ---------------- invoices ----------------
+let page = 1, tab = "pending", token = 0, sortKey = "no", sortDir = 1;
+const selected = new Set(), expanded = new Set(), generated = new Set();
+const sel = $("companySelect");
+COMPANIES.forEach((c) => sel.add(new Option(c.name, c.id)));
+
+function pageSize() { return Number($("pageSize").value); }
+function filtered() {
+  let l = forCompany(sel.value);
+  if (tab === "pending") l = l.filter((i) => !i.paid);
+  if (tab === "paid") l = l.filter((i) => i.paid);
+  const st = $("statusFilter").value, q = $("search").value.trim().toLowerCase(), b = $("dueBefore").value;
+  if (st !== "all") l = l.filter((i) => i.status === st);
+  if (q) l = l.filter((i) => i.no.toLowerCase().includes(q));
+  if (b) l = l.filter((i) => i.dueISO < b);
+  l.sort((x, y) => {
+    const a = sortKey === "due" ? x.dueISO : sortKey === "amt" ? x.amt : x.no;
+    const c = sortKey === "due" ? y.dueISO : sortKey === "amt" ? y.amt : y.no;
+    return (a < c ? -1 : a > c ? 1 : 0) * sortDir;
+  });
+  return l;
+}
+async function refresh() {
+  const my = ++token;
+  $("tbody").innerHTML = `<tr><td colspan="8"><span class="spinner"></span>Loading invoices...</td></tr>`;
+  $("pageInfo").textContent = ""; $("prevBtn").disabled = true; $("nextBtn").disabled = true;
+  await delay();
+  if (my !== token) return;
+  draw();
+}
+function actionCell(i) {
+  if (i.nopdf) return `<span class="unavailable">PDF unavailable</span>`;
+  const m = cConf(i.co).method;
+  if (m === "generate" && !generated.has(i.key)) return `<button class="generate-btn" data-key="${i.key}">Generate PDF</button>`;
+  if (m === "preview") return `<button class="preview-btn" data-key="${i.key}">Preview</button>`;
+  return `<a href="#" class="download-link btn" data-key="${i.key}">Download PDF</a>`;
+}
+function draw() {
+  const co = sel.value, conf = cConf(co);
+  $("companyTitle").textContent = conf.name;
+  const list = filtered(), size = pageSize();
+  let slice, info;
+  if (conf.mode === "more") {
+    slice = list.slice(0, page * size);
+    $("pager").style.display = "none";
+    $("moreWrap").style.display = "block";
+    $("moreInfo").textContent = `Showing ${slice.length} of ${list.length}`;
+    $("loadMore").style.display = slice.length < list.length ? "inline-block" : "none";
+  } else {
+    const pages = Math.max(1, Math.ceil(list.length / size));
+    if (page > pages) page = pages;
+    slice = list.slice((page - 1) * size, page * size);
+    $("pager").style.display = "flex"; $("moreWrap").style.display = "none";
+    $("pageInfo").textContent = `Page ${page} of ${pages} (${list.length} invoices)`;
+    $("prevBtn").disabled = page <= 1; $("nextBtn").disabled = page >= pages;
+  }
+  let html = "";
+  slice.forEach((i) => {
+    html += `<tr class="invoice-row" data-invoice="${i.no}" data-key="${i.key}" data-status="${i.status}" data-due="${i.dueISO}">
+      <td><input type="checkbox" class="row-check" data-key="${i.key}" ${selected.has(i.key) ? "checked" : ""}></td>
+      <td><button class="expand-btn" data-key="${i.key}" aria-expanded="${expanded.has(i.key)}">${expanded.has(i.key) ? "&#9662;" : "&#9656;"}</button></td>
+      <td class="inv-no">${i.no}</td><td>${i.issuedShow}</td><td class="due-date">${i.dueShow}</td>
+      <td class="amount">${i.amt.toLocaleString()}</td>
+      <td><span class="badge ${i.status}">${statusLabel(i)}</span></td>
+      <td class="action-cell">${actionCell(i)}</td></tr>`;
+    if (expanded.has(i.key)) {
+      html += `<tr class="details-row"><td></td><td></td><td colspan="6">PO: PO-${i.no.replace(/\D/g, "")} &middot; Items: Goods supply, Delivery charge${i.disputed ? " &middot; <b>Disputed by buyer</b>" : ""}${i.credit ? " &middot; Credit note against earlier invoice" : ""}${i.nopdf ? " &middot; Document not yet generated by vendor" : ""}</td></tr>`;
+    }
+  });
+  $("tbody").innerHTML = html || `<tr class="empty-row"><td colspan="8">No invoices found.</td></tr>`;
+  $("selCount").textContent = `${selected.size} selected`;
+  $("selectAll").checked = slice.length > 0 && slice.every((i) => selected.has(i.key));
+  window.__visible = slice.map((i) => i.key);
+}
+
+$("tbody").addEventListener("change", (e) => {
+  if (e.target.classList.contains("row-check")) { const k = e.target.dataset.key; e.target.checked ? selected.add(k) : selected.delete(k); draw(); }
+});
+let modalInv = null;
+$("tbody").addEventListener("click", (e) => {
+  const t = e.target;
+  const find = (k) => ALL.find((i) => i.key === k);
+  const ex = t.closest(".expand-btn");
+  if (ex) { const k = ex.dataset.key; expanded.has(k) ? expanded.delete(k) : expanded.add(k); draw(); return; }
+  const dl = t.closest(".download-link");
+  if (dl) { e.preventDefault(); download(find(dl.dataset.key)); return; }
+  const gen = t.closest(".generate-btn");
+  if (gen) {
+    gen.disabled = true; gen.textContent = "Generating...";
+    setTimeout(() => { generated.add(gen.dataset.key); draw(); }, store.get("slow", false) ? 2500 : 1200);
+    return;
+  }
+  const pv = t.closest(".preview-btn");
+  if (pv) {
+    modalInv = find(pv.dataset.key);
+    $("modalTitle").textContent = "Invoice " + modalInv.no;
+    $("modalBody").textContent = `Due ${modalInv.dueShow} - PKR ${modalInv.amt.toLocaleString()} - ${statusLabel(modalInv)}`;
+    $("modal").classList.add("open");
+  }
+});
+$("modalClose").addEventListener("click", () => { $("modal").classList.remove("open"); modalInv = null; });
+$("modalDownload").addEventListener("click", () => { if (modalInv) download(modalInv); $("modal").classList.remove("open"); modalInv = null; });
+
+sel.addEventListener("change", () => { sessionStorage.setItem("company", sel.value); $("hdrCompany").textContent = "Company: " + cName(sel.value); selected.clear(); page = 1; refresh(); });
+["statusFilter", "search", "dueBefore", "pageSize"].forEach((id) => $(id).addEventListener("input", () => { page = 1; refresh(); }));
+$("tabs").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  tab = b.dataset.tab; page = 1;
+  document.querySelectorAll("#tabs button").forEach((x) => x.classList.toggle("active", x === b)); refresh();
+});
+document.querySelectorAll("th.sortable").forEach((th) => th.addEventListener("click", () => {
+  if (sortKey === th.dataset.sort) sortDir = -sortDir; else { sortKey = th.dataset.sort; sortDir = 1; } draw();
+}));
+$("prevBtn").addEventListener("click", () => { page--; refresh(); });
+$("nextBtn").addEventListener("click", () => { page++; refresh(); });
+$("loadMore").addEventListener("click", () => { page++; refresh(); });
+$("selectAll").addEventListener("change", (e) => {
+  (window.__visible || []).forEach((k) => (e.target.checked ? selected.add(k) : selected.delete(k))); draw();
+});
+$("downloadSelected").addEventListener("click", () => {
+  [...selected].map((k) => ALL.find((i) => i.key === k)).filter((i) => !i.nopdf).forEach((i, n) => setTimeout(() => download(i), n * 500));
+});
+
+// ---------------- results ----------------
+function computeResults() {
+  const log = getLog();
+  const rows = ALL.map((i) => {
+    const mine = log.filter((l) => l.key === i.key);
+    const ok = mine.filter((l) => l.ok).length, bad = mine.filter((l) => !l.ok).length;
+    const should = shouldDownload(i);
+    let verdict;
+    if (should && ok > 0) verdict = ok > 1 ? "WARN" : "PASS";
+    else if (should) verdict = bad > 0 ? "FAIL_ERROR" : "MISSED";
+    else if (ok > 0) verdict = "WRONG";
+    else verdict = "OK_SKIPPED";
+    return { co: i.co, no: i.no, due: i.dueISO, status: i.status, should, ok, failed: bad, verdict };
+  });
+  const c = (v) => rows.filter((r) => r.verdict === v).length;
+  return {
+    rule: ruleOf(), pass: c("PASS"), warnDuplicate: c("WARN"), missed: c("MISSED"), failedError: c("FAIL_ERROR"),
+    wrong: c("WRONG"), correctlySkipped: c("OK_SKIPPED"), expectedTotal: rows.filter((r) => r.should).length, rows,
+  };
+}
+window.__results = computeResults;
+function renderResults() {
+  $("ruleSelect").value = ruleOf(); $("slowToggle").checked = store.get("slow", false); $("expireToggle").checked = store.get("expire", false);
+  const r = computeResults();
+  const good = r.missed === 0 && r.failedError === 0 && r.wrong === 0;
+  $("summary").setAttribute("data-pass", r.pass); $("summary").setAttribute("data-all-good", good);
+  $("summary").innerHTML = `<span class="stat">Expected: <b>${r.expectedTotal}</b></span>
+    <span class="stat pass">Pass: ${r.pass}</span><span class="stat fail">Missed: ${r.missed}</span>
+    <span class="stat fail">Error: ${r.failedError}</span><span class="stat fail">Wrong: ${r.wrong}</span>
+    <span class="stat warn">Duplicates: ${r.warnDuplicate}</span><span class="stat ok">Correctly skipped: ${r.correctlySkipped}</span>
+    <b id="overall" class="${good && r.pass > 0 ? "pass" : "fail"}">${good && r.pass > 0 ? "ALL CORRECT" : "NOT YET CORRECT"}</b>`;
+  const cls = { PASS: "pass", WARN: "warn", MISSED: "fail", FAIL_ERROR: "fail", WRONG: "fail", OK_SKIPPED: "ok" };
+  $("resultsBody").innerHTML = r.rows.map((x) => `<tr data-verdict="${x.verdict}">
+    <td>${cName(x.co)}</td><td>${x.no}</td><td>${x.due}</td><td>${x.status}</td><td>${x.should ? "Yes" : "No"}</td>
+    <td>${x.ok} / ${x.failed}</td><td class="${cls[x.verdict]}">${x.verdict}</td></tr>`).join("");
+}
+$("refreshResults").addEventListener("click", renderResults);
+$("ruleSelect").addEventListener("change", (e) => { store.set("rule", e.target.value); renderResults(); });
+$("slowToggle").addEventListener("change", (e) => store.set("slow", e.target.checked));
+$("expireToggle").addEventListener("change", (e) => { store.set("expire", e.target.checked); sessionStorage.setItem("loginAt", String(Date.now())); });
+$("resetLog").addEventListener("click", () => { store.set("dl_log", []); generated.clear(); renderResults(); toast("Log cleared"); });
+$("exportResults").addEventListener("click", () => {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(computeResults(), null, 2)], { type: "application/json" }));
+  const a = document.createElement("a"); a.href = url; a.download = "bot-test-results.json"; document.body.appendChild(a); a.click(); a.remove();
+});
+
+route();
+</script>
+</body>
+</html>
