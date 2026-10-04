@@ -937,7 +937,6 @@ export const WorkflowEditorView = {
           <div class="df-input-group">
             <label style="display:flex; justify-content:space-between; align-items:center;">
               <span>Step Description</span>
-              <span style="font-size:var(--text-2xs); color:var(--text-sub); font-weight:normal;">User-facing</span>
             </label>
             <input type="text" class="df-name-input" value="${this.escapeHtml(friendlyName)}" placeholder="e.g. Invoice Button" spellcheck="false" />
           </div>
@@ -946,7 +945,6 @@ export const WorkflowEditorView = {
           <div class="df-input-group df-role-group ${isLoopAnchor ? 'is-anchor' : (isLoopStep ? 'is-loop' : 'is-setup')}">
             <label style="font-weight:700; font-size:var(--text-2xs); display:flex; justify-content:space-between; align-items:center;">
               <span>Execution Role</span>
-              <span class="df-role-helper">${isLoopAnchor ? 'Finds records here' : (isLoopStep ? 'Repeats for each record' : 'Runs once')}</span>
             </label>
             <select class="df-role-select">
               <option value="SETUP" ${!isLoopStep ? 'selected' : ''}>⚙️ Run once (setup step)</option>
