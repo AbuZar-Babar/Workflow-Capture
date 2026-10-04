@@ -2975,6 +2975,24 @@ body {
 }
 
 
+/* Workflow library cards: use theme surfaces instead of legacy dark inline styling. */
+.wf-grid .wf-card,
+.wf-list .wf-row {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-light) !important;
+}
+
+.wf-grid .wf-card .wf-card-bottom {
+  border-top-color: var(--border-light) !important;
+}
+
+.wf-grid .wf-card .wf-card-domain,
+.wf-list .wf-row .wf-card-domain {
+  background: var(--accent-subtle) !important;
+  border-color: var(--border-light) !important;
+  color: var(--accent-primary) !important;
+}
+
 /* Keep the active workflow action menu above neighboring cards in grid view. */
 .wf-grid {
   position: relative;
