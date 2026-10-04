@@ -46,27 +46,33 @@ export const BotConfigView = {
           <!-- Left Navigation Menu -->
           <nav class="settings-nav" aria-label="Settings Sections">
             <div class="settings-nav-group">
-              <div class="settings-nav-label">General</div>
-              <div class="settings-nav-group"><span class="settings-nav-label">Workspace</span><button class="settings-nav-item active" data-section="general"><span>General</span></button>
+              <span class="settings-nav-label">Workspace</span>
+              <button class="settings-nav-item active" data-section="general"><span>General</span></button>
               <button class="settings-nav-item" data-section="appearance"><span>Appearance</span></button>
             </div>
             <div class="settings-nav-group">
-              <div class="settings-nav-label">Automation</div>
+              <span class="settings-nav-label">Automation</span>
               <button class="settings-nav-item" data-section="browser"><span>Browser</span></button>
               <button class="settings-nav-item" data-section="workflows"><span>Workflows</span></button>
             </div>
             <div class="settings-nav-group">
-              <div class="settings-nav-label">System</div>
+              <span class="settings-nav-label">System</span>
               <button class="settings-nav-item" data-section="notifications"><span>Notifications</span></button>
               <button class="settings-nav-item" data-section="performance"><span>Performance</span></button>
             </div>
             <div class="settings-nav-group">
-              <div class="settings-nav-label">Security</div>
+              <span class="settings-nav-label">Security</span>
               <button class="settings-nav-item" data-section="security"><span>Security</span></button>
             </div>
             <label class="settings-mobile-select-label" for="settingsSectionSelect">Section</label>
             <select class="form-control settings-mobile-select" id="settingsSectionSelect" aria-label="Settings section">
-              <option value="general">General</option><option value="appearance">Appearance</option><option value="browser">Browser</option><option value="workflows">Workflows</option><option value="notifications">Notifications</option><option value="performance">Performance</option><option value="security">Security</option>
+              <option value="general">General</option>
+              <option value="appearance">Appearance</option>
+              <option value="browser">Browser</option>
+              <option value="workflows">Workflows</option>
+              <option value="notifications">Notifications</option>
+              <option value="performance">Performance</option>
+              <option value="security">Security</option>
             </select>
           </nav>
 
