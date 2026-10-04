@@ -2613,3 +2613,33 @@ body {
   flex: 0 0 auto !important;
   margin-right: 1px !important;
 }
+
+/* Keep the Step Sequence toggle accessible when the sidebar is collapsed. */
+.wf-steps-sidebar.collapsed {
+  visibility: visible !important;
+  overflow: visible !important;
+}
+.wf-steps-sidebar.collapsed .wf-steps-header {
+  position: absolute !important;
+  top: 0 !important;
+  right: -38px !important;
+  width: 36px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: 6px !important;
+  background: var(--bg-surface) !important;
+  box-shadow: var(--shadow-sm) !important;
+  z-index: 20 !important;
+}
+.wf-steps-sidebar.collapsed .wf-steps-header > div {
+  display: none !important;
+}
+.wf-steps-sidebar.collapsed #btnToggleStepsSidebar {
+  display: inline-flex !important;
+  width: 100% !important;
+  height: 100% !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
