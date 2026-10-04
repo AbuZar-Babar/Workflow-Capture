@@ -947,8 +947,8 @@ export const WorkflowEditorView = {
               <span>Execution Role</span>
             </label>
             <select class="df-role-select">
-              <option value="SETUP" ${!isLoopStep ? 'selected' : ''}>⚙️ Run once (setup step)</option>
-              <option value="LOOP" ${isLoopStep ? 'selected' : ''}>🔁 Repeats for each record</option>
+              <option value="SETUP" ${!isLoopStep ? 'selected' : ''}>▶ Run once (setup step)</option>
+              <option value="LOOP" ${isLoopStep ? 'selected' : ''}>↻ Repeats for each record</option>
             </select>
           </div>
       `;
