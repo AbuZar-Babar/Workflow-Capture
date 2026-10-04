@@ -3095,6 +3095,23 @@ body {
   }
 }
 
+/* Output category filters: make the initial active state match the clicked state. */
+.files-view-shell .filter-btn.active {
+  background: var(--accent-subtle) !important;
+  color: var(--accent-primary) !important;
+  border-color: transparent !important;
+}
+
+.files-view-shell .filter-btn:not(.active) {
+  background: transparent !important;
+  color: var(--text-sub) !important;
+}
+
+.files-view-shell .filter-btn:hover {
+  background: var(--state-hover-bg) !important;
+  color: var(--text-primary) !important;
+}
+
 /* Output / Artifacts view: match the full-width Activity treatment. */
 .files-view-shell {
   width: 100% !important;
