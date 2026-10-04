@@ -3021,3 +3021,76 @@ body {
   width: 100%;
   box-sizing: border-box;
 }
+
+
+/* Activity header: compact title row with controls aligned to the top. */
+.activity-view-shell .wf-page-header {
+  align-items: center !important;
+}
+
+.activity-view-shell .wf-page-header > div:first-child > div:first-child {
+  display: none !important;
+}
+
+.activity-view-shell .wf-page-header > div:first-child {
+  gap: 0 !important;
+}
+
+.activity-view-shell .wf-page-header > div:first-child > div:last-child {
+  display: block !important;
+}
+
+.activity-view-shell .wf-page-header .wf-page-title {
+  margin: 0 !important;
+}
+
+.activity-view-shell .wf-page-header .badge-tag,
+.activity-view-shell .wf-page-header .wf-page-subtitle {
+  display: none !important;
+}
+
+.activity-view-shell .wf-page-header > div:last-child {
+  margin-left: auto;
+}
+
+/* Activity filters: keep search separate, arrange Status / Workflow / Date as one row. */
+.activity-view-shell #sectionTimeline > .wf-toolbar {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.75rem !important;
+  flex-wrap: wrap !important;
+}
+
+.activity-view-shell #sectionTimeline > .wf-toolbar > .search-input-wrap {
+  flex: 1 1 320px !important;
+  max-width: none !important;
+}
+
+.activity-view-shell #sectionTimeline > .wf-toolbar > div:not(.search-input-wrap) {
+  flex: 0 0 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.4rem !important;
+}
+
+.activity-view-shell #sectionTimeline > .wf-toolbar > div:not(.search-input-wrap) .form-control {
+  width: auto !important;
+  min-width: 130px !important;
+  max-width: 190px !important;
+}
+
+@media (max-width: 700px) {
+  .activity-view-shell #sectionTimeline > .wf-toolbar {
+    align-items: stretch !important;
+  }
+
+  .activity-view-shell #sectionTimeline > .wf-toolbar > .search-input-wrap,
+  .activity-view-shell #sectionTimeline > .wf-toolbar > div:not(.search-input-wrap) {
+    flex: 1 1 100% !important;
+  }
+
+  .activity-view-shell #sectionTimeline > .wf-toolbar > div:not(.search-input-wrap) .form-control {
+    flex: 1 !important;
+    max-width: none !important;
+  }
+}
