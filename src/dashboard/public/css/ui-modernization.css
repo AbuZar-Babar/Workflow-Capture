@@ -3247,8 +3247,12 @@ body {
 .settings-save-state { color:var(--text-sub); font-size:var(--text-xs); min-width:5.5rem; text-align:right; }
 .settings-shell { display:grid; grid-template-columns:190px minmax(0,1fr); gap:1.5rem; align-items:start; }
 .settings-nav { position:sticky; top:1rem; padding:.25rem 0; }
-.settings-nav-group { margin-bottom:1rem; }
-.settings-nav-label { display:block; padding:0 .65rem .35rem; color:var(--text-sub); font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; }
+.settings-nav-group { margin-bottom:.85rem; padding:.45rem .4rem .5rem; border:1px solid var(--border-light); border-radius:var(--radius-sm); background:color-mix(in srgb,var(--bg-surface) 94%,var(--state-hover-bg)); }
+.settings-nav-label { display:flex; align-items:center; gap:.45rem; padding:.15rem .4rem .45rem; color:var(--text-primary); font-size:10px; font-weight:750; text-transform:uppercase; letter-spacing:.09em; }
+.settings-nav-label::before { content:""; width:3px; height:12px; border-radius:2px; background:var(--accent-primary); opacity:.8; }
+.settings-nav-group:nth-child(2) .settings-nav-label::before { opacity:.65; }
+.settings-nav-group:nth-child(3) .settings-nav-label::before { opacity:.55; }
+.settings-nav-group:nth-child(4) .settings-nav-label::before { background:var(--state-danger,#dc2626); opacity:.7; }
 .settings-nav-item { width:100%; display:flex; align-items:center; gap:.65rem; min-height:36px; padding:.45rem .65rem; border:0; border-radius:var(--radius-sm); background:transparent; color:var(--text-sub); font-size:var(--text-xs); font-weight:600; text-align:left; cursor:pointer; transition:background-color 150ms ease,color 150ms ease,transform 120ms ease; }
 .settings-nav-item svg { flex:0 0 auto; opacity:.75; }
 .settings-nav-item:hover { background:var(--state-hover-bg); color:var(--text-primary); }
