@@ -3387,3 +3387,43 @@ body {
   .secrets-view-shell .wf-toolbar { flex-wrap:wrap !important; }
   .secrets-view-shell .wf-toolbar .search-input-wrap { flex:1 1 100% !important; max-width:none !important; }
 }
+
+
+/* Shared workflow creation pane */
+body.modal-open { overflow:hidden; }
+.overview-create-workflow-modal {
+  width:min(460px, calc(100vw - 2rem));
+  max-width:460px !important;
+  margin:0 auto;
+}
+.overview-create-workflow-modal .modal-header {
+  padding:1.1rem 1.25rem;
+}
+.overview-create-workflow-body {
+  padding:1.15rem 1.25rem !important;
+}
+.overview-create-workflow-body .form-group {
+  margin:0;
+}
+.overview-create-workflow-body label {
+  display:block;
+  margin-bottom:.4rem;
+  font-size:var(--text-xs);
+  font-weight:650;
+  color:var(--text-primary);
+}
+.overview-create-workflow-body .form-control {
+  width:100%;
+  box-sizing:border-box;
+}
+.overview-create-workflow-modal .modal-footer {
+  padding:.85rem 1.25rem 1rem;
+}
+.overview-create-workflow-modal .modal-footer .btn-primary {
+  min-width:132px;
+}
+@media (max-width:700px) {
+  .overview-create-workflow-modal {
+    width:calc(100vw - 1rem);
+  }
+}
