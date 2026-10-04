@@ -2748,11 +2748,14 @@ body {
   opacity: 0 !important;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
-  transition: max-height 280ms ease, opacity 180ms ease, padding 280ms ease !important;
+  visibility: hidden !important;
+  transition: max-height 280ms ease, opacity 180ms ease, padding 280ms ease, visibility 0s linear 280ms !important;
 }
 .drawflow .df-advanced-details[open] .df-advanced-body {
   max-height: 500px !important;
   opacity: 1 !important;
   padding-top: 8px !important;
   padding-bottom: 9px !important;
+  visibility: visible !important;
+  transition: max-height 280ms ease, opacity 180ms ease, padding 280ms ease, visibility 0s linear 0s !important;
 }
