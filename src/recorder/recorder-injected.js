@@ -316,6 +316,84 @@
   }
 
   /**
+   * Helper to detect if an input element represents a password field,
+   * even if an eye toggle has temporarily changed type="text"
+   */
+  function isPasswordField(element) {
+    if (!element || element.tagName !== 'INPUT') return false;
+    const type = (element.type || '').toLowerCase();
+    if (type === 'password') {
+      try { element.dataset.wfIsPassword = 'true'; } catch {}
+      return true;
+    }
+    if (element.dataset && element.dataset.wfIsPassword === 'true') {
+      return true;
+    }
+    const name = (element.name || '').toLowerCase();
+    const id = (element.id || '').toLowerCase();
+    const autocomplete = (element.getAttribute?.('autocomplete') || '').toLowerCase();
+    if (/pass(word)?/i.test(name) || /pass(word)?/i.test(id) || /current-password|new-password/i.test(autocomplete)) {
+      try { element.dataset.wfIsPassword = 'true'; } catch {}
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Helper to detect if an element is a password visibility toggle (eye icon, reveal button)
+   */
+  function isPasswordVisibilityToggle(element) {
+    if (!element || element.nodeType !== 1) return false;
+
+    // 1. Check aria-label and title
+    const aria = (element.getAttribute?.('aria-label') || '').toLowerCase();
+    const title = (element.getAttribute?.('title') || '').toLowerCase();
+    const togglePattern = /show.*password|hide.*password|toggle.*password|reveal.*password|view.*password|display.*password|eye/i;
+    if (togglePattern.test(aria) || togglePattern.test(title)) {
+      return true;
+    }
+
+    // 2. Check class and id
+    const cls = (typeof element.className === 'string' ? element.className : (element.getAttribute?.('class') || '')).toLowerCase();
+    const id = (element.id || '').toLowerCase();
+    const eyeClassPattern = /(eye|eye-slash|eye-off|password-toggle|toggle-password|show-password|btn-password|reveal-password|pwd-toggle|password-addon|password-eye)/i;
+    if (eyeClassPattern.test(cls) || eyeClassPattern.test(id)) {
+      return true;
+    }
+
+    // 3. Check enclosing clickable container (button, span, a, label)
+    const toggleContainer = (typeof element.closest === 'function')
+      ? element.closest('button, [role="button"], span, a, label, div')
+      : null;
+    if (toggleContainer && toggleContainer !== element) {
+      const cAria = (toggleContainer.getAttribute?.('aria-label') || '').toLowerCase();
+      const cTitle = (toggleContainer.getAttribute?.('title') || '').toLowerCase();
+      const cCls = (typeof toggleContainer.className === 'string' ? toggleContainer.className : (toggleContainer.getAttribute?.('class') || '')).toLowerCase();
+      const cId = (toggleContainer.id || '').toLowerCase();
+      if (togglePattern.test(cAria) || togglePattern.test(cTitle) || eyeClassPattern.test(cCls) || eyeClassPattern.test(cId)) {
+        return true;
+      }
+    }
+
+    // 4. Check if inside a container that has a password input and element is an icon/button/svg
+    const group = (typeof element.closest === 'function')
+      ? element.closest('.form-group, .input-group, .password-wrapper, .password-group, .field, div, form')
+      : null;
+    if (group) {
+      const pwdInput = group.querySelector?.('input[type="password"], input[data-wf-is-password="true"], input[name*="pass" i], input[id*="pass" i]');
+      if (pwdInput && element !== pwdInput) {
+        if (element.tagName === 'SVG' || element.tagName === 'PATH' || element.tagName === 'I' ||
+            element.querySelector?.('svg, i, img') ||
+            /btn|toggle|icon|addon|show|eye/i.test(cls) || /btn|toggle|icon|addon|show|eye/i.test(id)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  /**
    * Flush any active typing buffer as a single consolidated TYPE action
    */
   function flushInputBuffer() {
@@ -327,14 +405,14 @@
 
     if (!element || !document.body || !document.body.contains(element)) return;
 
-    // Redact password value
-    const finalValue = isPassword ? '[REDACTED]' : value;
+    // Capture the actual typed value (do not redact password)
+    const finalValue = value;
 
     emitAction('TYPE', element, {
       value: finalValue,
       captureTimestamp: startTime,
       meta: {
-        isPassword,
+        isPassword: Boolean(isPassword),
         charCount: (value || '').length
       }
     });
@@ -348,11 +426,12 @@
     const target = event.target;
     if (!target || !['INPUT', 'TEXTAREA'].includes(target.tagName)) return;
 
-    const isPassword = target.tagName === 'INPUT' && (target.type || '').toLowerCase() === 'password';
+    const isPassword = isPasswordField(target);
     const currentValue = target.value || '';
 
     if (activeInputBuffer && activeInputBuffer.element === target) {
       activeInputBuffer.value = currentValue;
+      if (isPassword) activeInputBuffer.isPassword = true;
     } else {
       flushInputBuffer();
       activeInputBuffer = {
@@ -539,6 +618,14 @@
       return;
     }
 
+    // Don't record clicks on password visibility toggles (eye icons, show/hide password buttons)
+    if (isPasswordVisibilityToggle(rawTarget)) {
+      if (activeInputBuffer) {
+        flushInputBuffer();
+      }
+      return;
+    }
+
     // Flush any pending typing if clicking on a different element
     if (activeInputBuffer && activeInputBuffer.element !== rawTarget) {
       flushInputBuffer();
@@ -551,6 +638,13 @@
       if (innerImg && (target.closest?.('.dxm-item, .x-btn, .toolbar') || target.classList?.contains('dxm-content'))) {
         target = innerImg;
       }
+    }
+
+    if (isPasswordVisibilityToggle(target)) {
+      if (activeInputBuffer) {
+        flushInputBuffer();
+      }
+      return;
     }
 
     const now = Date.now();

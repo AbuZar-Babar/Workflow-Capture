@@ -125,15 +125,15 @@ async function runSmokeTest() {
       logger.info(`  Action #${idx + 1}: ${a.type} -> [${topStrat}] ${topVal} ${a.value ? `value="${a.value}"` : ''}`);
     });
 
-    // Verify Password Masking
+    // Verify Password Capture
     const passwordAction = recordingData.actions.find(a => a.meta && a.meta.isPassword);
     if (!passwordAction) {
       logger.warn('No explicit password action tagged in meta, checking values...');
     } else {
-      if (passwordAction.value !== '[REDACTED]') {
-        throw new Error(`SECURITY LEAK: Password field captured plaintext: ${passwordAction.value}`);
+      if (passwordAction.value !== 'superSecretPin999') {
+        throw new Error(`Expected password value 'superSecretPin999', got: ${passwordAction.value}`);
       }
-      logger.success('Password value successfully REDACTED in recording JSON.');
+      logger.success('Password value successfully captured in recording JSON.');
     }
 
     // ----------------------------------------------------

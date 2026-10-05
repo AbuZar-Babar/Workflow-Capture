@@ -232,6 +232,19 @@ const optionFp = {
 };
 assert.strictEqual(SelectorResolver.generateFriendlyName(null, optionFp), 'INV-2024-001 - Paid Option');
 
+// Case F: Password input attributes preservation
+const passwordElem = {
+  tagName: 'INPUT',
+  nodeType: 1,
+  type: 'password',
+  textContent: '',
+  classList: ['form-control'],
+  getAttribute: (attr) => attr === 'type' ? 'password' : (attr === 'value' ? 'mySecret123' : null),
+  hasAttribute: (attr) => ['type', 'value'].includes(attr)
+};
+const pwdFp = SelectorResolver.createFingerprint(passwordElem);
+assert.strictEqual(pwdFp.attributes.value, 'mySecret123', 'Password value attribute should not be redacted');
+
 console.log('  Passed: All friendly name generation rules validated successfully!');
 
 console.log('\nAll Selector Resolver unit tests passed successfully!\n');

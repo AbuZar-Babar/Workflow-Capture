@@ -547,6 +547,20 @@ class RecorderBridge {
       (SelectorResolver.generateFriendlyName ? SelectorResolver.generateFriendlyName(null, rawAction.target?.fingerprint) : null) ||
       'Element';
 
+    // Discard password visibility toggle clicks (e.g. eye icon, toggle password)
+    if (rawAction.type === 'CLICK' || rawAction.type === 'DOUBLE_CLICK') {
+      const targetText = (rawAction.target?.fingerprint?.text || '').toLowerCase();
+      const targetId = (rawAction.target?.fingerprint?.id || '').toLowerCase();
+      const targetAria = (rawAction.target?.fingerprint?.attributes?.['aria-label'] || '').toLowerCase();
+      const targetTitle = (rawAction.target?.fingerprint?.attributes?.title || '').toLowerCase();
+      const targetName = (elementName || '').toLowerCase();
+      const isEyeToggle = /(toggle.*password|password.*toggle|show.*password|hide.*password|reveal.*password|view.*password|eye-slash|eye-icon|password-eye|\beye\b)/i;
+      if (isEyeToggle.test(targetText) || isEyeToggle.test(targetId) || isEyeToggle.test(targetAria) || isEyeToggle.test(targetTitle) || isEyeToggle.test(targetName)) {
+        logger.info(`[Recorder] Discarded password visibility toggle action on <${elementName}>`);
+        return false;
+      }
+    }
+
     if (rawAction.target && typeof rawAction.target === 'object') {
       rawAction.target.elementName = elementName;
       rawAction.target.friendlyName = elementName;

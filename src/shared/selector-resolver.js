@@ -472,11 +472,7 @@
     const trackedAttrs = ['name', 'type', 'role', 'placeholder', 'aria-label', 'title', 'href', 'value'];
     for (const attr of trackedAttrs) {
       if (element.hasAttribute(attr)) {
-        if (isPassword && attr === 'value') {
-          attributes[attr] = '[REDACTED]';
-        } else {
-          attributes[attr] = element.getAttribute(attr);
-        }
+        attributes[attr] = element.getAttribute(attr);
       }
     }
 
