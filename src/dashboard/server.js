@@ -47,6 +47,9 @@ const LoopReplayRunner = require('../replay/loop-replay-runner');
 const ItemDiscovery = require('../shared/item-discovery');
 const { extractAvailableFields, evaluateFilterPreview } = require('../shared/item-filter');
 const { ConditionEvaluator } = require('../shared/condition-evaluator');
+const { PageInspector } = require('../shared/page-inspector');
+const { connectToBrowser } = require('../utils/cdp-connector');
+const { extractWorkflowStartUrl } = require('../utils/url-helper');
 const logger = require('../utils/logger');
 const authController = require('../auth/auth-controller');
 const workflowController = require('../api/workflow-controller');
@@ -90,37 +93,9 @@ if (!fs.existsSync(RECORDINGS_DIR)) {
 // SSE Clients
 const sseClients = new Set();
 
-// Development-only live reload for local dashboard UI iteration.
-// Enabled only on loopback hosts; production/network deployments are unaffected.
-const devReloadClients = new Set();
-const DEV_RELOAD_ENABLED = isLoopback;
-const DEV_RELOAD_WATCH_PATH = PUBLIC_DIR;
-let devReloadWatcher = null;
-
-function broadcastDevReload() {
-  for (const client of devReloadClients) {
-    try {
-      client.write('event: reload\ndata: {}\n\n');
-    } catch {
-      devReloadClients.delete(client);
-    }
-  }
-}
-
-function startDevReloadWatcher() {
-  if (!DEV_RELOAD_ENABLED || devReloadWatcher) return;
-  try {
-    devReloadWatcher = fs.watch(DEV_RELOAD_WATCH_PATH, { recursive: true }, (_eventType, filename) => {
-      if (!filename || String(filename).includes('node_modules')) return;
-      clearTimeout(startDevReloadWatcher._timer);
-      startDevReloadWatcher._timer = setTimeout(broadcastDevReload, 150);
-    });
-  } catch (err) {
-    logger.warn('Development live reload watcher unavailable:', err.message);
-  }
-}
-
-
+function broadcast(type, payload) {
+  const message = `event: ${type}\ndata: ${JSON.stringify(payload)}\n\n`;
+  for (const client of sseClients) {
     try {
       client.write(message);
     } catch {
@@ -337,22 +312,8 @@ const server = http.createServer(async (req, res) => {
     // -------------------------------------------------------------
     // SSE Stream
     // -------------------------------------------------------------
-    if (pathname === '/api/dev-reload') {
-      if (!DEV_RELOAD_ENABLED) {
-        res.writeHead(404, { 'Content-Type': 'text/plain' });
-        res.end('Not Found');
-        return;
-      }
-      res.writeHead(200, {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Connection': 'keep-alive'
-      });
-      res.write(': connected\n\n');
-      devReloadClients.add(res);
-      req.on('close', () => devReloadClients.delete(res));
-      return;
-    }
+    if (pathname === '/api/events') {
+      if (!requireAuth(req, res)) return;
 
       const sseHeaders = {
         'Content-Type': 'text/event-stream',
@@ -572,6 +533,9 @@ const server = http.createServer(async (req, res) => {
             discovery.items.every(it => !it.fields || Object.keys(it.fields).filter(k => !k.startsWith('_') && k !== 'Text' && k !== 'Date').length === 0);
 
           if ((!discovery.success || discovery.collection?.itemTag === 'li' || discoveryHasWeakHeaders || discoveryItemsLackFields) && pageSummary?.entities?.length > 0) {
+            const targetText = String(targetStep.target?.fingerprint?.text || targetStep.target?.candidates?.[0]?.value || '').toLowerCase();
+            let tableEntity = null;
+            if (targetText) {
               tableEntity = pageSummary.entities.find(e =>
                 e.type === 'table_grid' && e.itemCount >= 2 &&
                 (e.columns?.some(c => targetText.includes(c.toLowerCase()) || c.toLowerCase().includes(targetText)) ||
@@ -628,6 +592,9 @@ const server = http.createServer(async (req, res) => {
                   });
                 }
               }
+            }
+          }
+
           let availableFields = [];
           let filterPreview = null;
 
@@ -782,6 +749,9 @@ const server = http.createServer(async (req, res) => {
                   previewLimit: 10
                 });
               }
+            } catch (err) {
+              logger.warn(`[Preflight] evaluateFilterPreview error: ${err.message}`);
+            }
           } else {
             filterPreview = {
               totalCount: 0,
@@ -922,8 +892,10 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/api/downloads/export' && req.method === 'GET') {
       if (!requireAuth(req, res)) return;
-      const runId = urlObj.searchParams.get('runId');
-      return runController.exportAllDownloadsZip(req, res, runId);
+      return runController.exportAllDownloadsZip(req, res);
+    }
+
+    const dlFileMatch = pathname.match(/^\/api\/downloads\/([^/]+)\/file$/);
     if (dlFileMatch && req.method === 'GET') {
       if (!requireAuth(req, res)) return;
       const downloadId = dlFileMatch[1];
@@ -1045,51 +1017,18 @@ const server = http.createServer(async (req, res) => {
       try {
         const launched = await ensureChromeRunning(9222, initialUrl);
         if (launched) {
-          // If Chrome is up, ensure a visible tab is navigated to the portal and brought to front
-            const { browser } = await connectToBrowser();
-            const pages = await browser.pages().catch(() => []);
-            let targetPage = pages.find(p => {
-              try {
-                const u = p.url ? p.url() : '';
-                return u.includes('/portal/') || u === initialUrl;
-              } catch { return false; }
-            });
-
-            if (targetPage) {
-              await targetPage.bringToFront().catch(() => {});
-            } else {
-              // Check if any tab is empty (about:blank or chrome://)
-              const emptyPage = pages.find(p => {
-                try {
-                  const u = p.url ? p.url() : '';
-                  return u === 'about:blank' || u.startsWith('chrome://') || u.startsWith('devtools://');
-                } catch { return false; }
-              });
-
-              if (emptyPage) {
-                targetPage = emptyPage;
-                await targetPage.goto(initialUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-                await targetPage.bringToFront().catch(() => {});
-              } else {
-                // Open new tab with portal URL
-                targetPage = await browser.newPage().catch(() => null);
-                if (targetPage) {
-                  await targetPage.goto(initialUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-                  await targetPage.bringToFront().catch(() => {});
-                }
-              }
+          // If Chrome was already up, ensure active tab navigates to the portal
+          try {
+            const { browser, page } = await connectToBrowser();
+            await page.bringToFront();
+            if (page.url() === 'about:blank' || page.url().startsWith('chrome://')) {
+              await page.goto(initialUrl, { waitUntil: 'domcontentloaded', timeout: 10000 });
             }
-
-            // On Windows, bring Chrome window to the foreground
-            if (process.platform === 'win32') {
-              try {
-                const { exec } = require('child_process');
-                exec('powershell -NoProfile -Command "(New-Object -ComObject WScript.Shell).AppActivate(\'Chrome\')"', () => {});
-              } catch {}
-
-          } catch (tabErr) {
-            logger.warn('Tab navigation or focus warning:', tabErr.message);
-          }
+            await browser.disconnect();
+          } catch {}
+          return sendJson(res, 200, { success: true, message: 'Chrome launched with CDP on port 9222', url: initialUrl });
+        } else {
+          return sendJson(res, 500, { error: 'Could not auto-launch Chrome. Please launch Chrome manually.' });
         }
       } catch (err) {
         return sendJson(res, 500, { error: err.message });
@@ -1553,8 +1492,9 @@ function logStartupBanner(port, host) {
  * (up to maxRetries times) so the fallback retry can complete cleanly instead
  * of rejecting and triggering process exit.
  */
-startDevReloadWatcher();
-
+function startServer(port = currentPort, host = HOST, maxRetries = 10) {
+  return new Promise((resolve, reject) => {
+    let attemptPort = Number(port);
     let retriesLeft = maxRetries;
 
     function tryListen() {

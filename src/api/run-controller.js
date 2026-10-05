@@ -14,6 +14,9 @@ const LoopReplayRunner = require('../replay/loop-replay-runner');
 const LoopDetector = require('../shared/loop-detector');
 const { normalizeItemFilter, validateItemFilter } = require('../shared/item-filter');
 const { ConditionEvaluator } = require('../shared/condition-evaluator');
+const logger = require('../utils/logger');
+const { extractWorkflowStartUrl } = require('../utils/url-helper');
+
 // In-memory active runners map: runId -> { runner, userId, workflowId, startedAt }
 const activeRunners = new Map();
 
@@ -142,6 +145,10 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
       }
     } else {
       normalizedFilter = filterValidation.filter;
+    }
+  }
+
+  // Preserve legacy rowFilter where applicable
   let legacyRowFilter = null;
   if (body.rowFilter && typeof body.rowFilter === 'object') {
     legacyRowFilter = body.rowFilter;
@@ -646,44 +653,21 @@ function deleteDownload(req, res, downloadId) {
 }
 
 /**
- * Export all downloads or run-specific downloads as a consolidated ZIP archive
- * GET /api/downloads/export[?runId=...]
-function exportAllDownloadsZip(req, res, runIdParam = null) {
-  const urlObj = req.url ? new URL(req.url, 'http://localhost') : null;
-  const runId = runIdParam || urlObj?.searchParams.get('runId') || null;
-
-  let targetDirs = [];
-  let zipFilename = 'workflow-artifacts.zip';
-
-  if (runId) {
-    zipFilename = `run-${runId}-artifacts.zip`;
-    const candidateRunPaths = [
-      path.join('runs', runId),
-      path.join('Run', runId),
-      path.join('downloads', runId)
-    ];
-    for (const p of candidateRunPaths) {
-      if (fs.existsSync(path.resolve(process.cwd(), p))) {
-        targetDirs.push(p);
-      }
-    }
-
-    const downloads = db.find('downloads', d => d.runId === runId);
-    for (const d of downloads) {
-      const rel = d.runPath || d.relativeFilePath || d.filePath;
-      if (rel && fs.existsSync(path.resolve(process.cwd(), rel)) && !targetDirs.includes(rel)) {
-        targetDirs.push(rel);
-      }
-    }
-  }
+ * Export all downloads as a consolidated ZIP archive
+ * GET /api/downloads/export
+ */
+function exportAllDownloadsZip(req, res) {
+  const downloadsDir = path.resolve(process.cwd(), 'downloads');
+  const runDir = path.resolve(process.cwd(), 'Run');
+  const targetDirs = [];
+  if (fs.existsSync(runDir)) targetDirs.push('Run');
+  if (fs.existsSync(downloadsDir)) targetDirs.push('downloads');
 
   if (targetDirs.length === 0) {
-    const downloadsDir = path.resolve(process.cwd(), 'downloads');
-    const runDir = path.resolve(process.cwd(), 'Run');
-    if (fs.existsSync(runDir)) targetDirs.push('Run');
-    if (fs.existsSync(downloadsDir)) targetDirs.push('downloads');
+    return sendJson(res, 404, { error: 'No downloads directory found' });
   }
-    return sendJson(res, 404, { error: 'No downloads directory or artifacts found' });
+
+  const recordingsDir = path.resolve(process.cwd(), 'recordings');
   if (!fs.existsSync(recordingsDir)) {
     fs.mkdirSync(recordingsDir, { recursive: true });
   }
@@ -700,7 +684,10 @@ function exportAllDownloadsZip(req, res, runIdParam = null) {
       const stat = fs.statSync(tempZipPath);
       res.writeHead(200, {
         'Content-Type': 'application/zip',
-        'Content-Disposition': `attachment; filename="${zipFilename}"`,
+        'Content-Disposition': 'attachment; filename="workflow-artifacts.zip"',
+        'Content-Length': stat.size
+      });
+
       const stream = fs.createReadStream(tempZipPath);
       stream.pipe(res);
       const cleanUp = () => {
