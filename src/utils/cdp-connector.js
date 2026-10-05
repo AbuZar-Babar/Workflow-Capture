@@ -71,18 +71,23 @@ async function ensureChromeRunning(port = 9222, defaultUrl = 'about:blank') {
     return false;
   }
 
-  const profileDir = path.join(os.tmpdir(), 'chrome-capture-profile');
-  logger.info(`Auto-launching Google Chrome with CDP on port ${port}...`);
+  const profileDir = process.env.CHROME_PROFILE_DIR || path.join(os.homedir(), '.workflow-capture', 'chrome-profile');
+  try {
+    if (!fs.existsSync(profileDir)) fs.mkdirSync(profileDir, { recursive: true });
+  } catch {}
+  logger.info(`Auto-launching Google Chrome with CDP on port ${port} (profile: ${profileDir})...`);
 
   // Clean stale lock files from previous runs to prevent Chrome from immediately exiting
-  try {
-    const lockFile = path.join(profileDir, 'SingletonLock');
-    if (fs.existsSync(lockFile)) fs.unlinkSync(lockFile);
-    const cookieLock = path.join(profileDir, 'SingletonCookie');
-    if (fs.existsSync(cookieLock)) fs.unlinkSync(cookieLock);
-    const socketLock = path.join(profileDir, 'SingletonSocket');
-    if (fs.existsSync(socketLock)) fs.unlinkSync(socketLock);
-  } catch {}
+  for (const dir of [profileDir, path.join(os.tmpdir(), 'chrome-capture-profile')]) {
+    try {
+      const lockFile = path.join(dir, 'SingletonLock');
+      if (fs.existsSync(lockFile)) fs.unlinkSync(lockFile);
+      const cookieLock = path.join(dir, 'SingletonCookie');
+      if (fs.existsSync(cookieLock)) fs.unlinkSync(cookieLock);
+      const socketLock = path.join(dir, 'SingletonSocket');
+      if (fs.existsSync(socketLock)) fs.unlinkSync(socketLock);
+    } catch {}
+  }
 
   try {
     const child = spawn(chromePath, [

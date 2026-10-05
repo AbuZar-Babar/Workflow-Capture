@@ -59,6 +59,9 @@ function formatRecordStatus(status) {
       return { label: 'Limit reached', cls: 'skipped-limit', icon: '⇥' };
     case 'SKIPPED_DUPLICATE':
       return { label: 'Already processed', cls: 'skipped', icon: '↷' };
+    case 'SKIPPED':
+    case 'SKIPPED_AUTH':
+      return { label: 'Skipped (Session Active)', cls: 'skipped', icon: '↷' };
     case 'PENDING':
     case 'RUNNING':
       return { label: 'Running', cls: 'pending', icon: '⟳' };
@@ -622,7 +625,7 @@ export const ExecutionView = {
 
     const ok = Number(m.itemsSucceeded ?? run.itemsSucceeded ?? 0);
     const fail = Number(m.itemsFailed ?? run.itemsFailed ?? 0);
-    const terminalItemStatuses = new Set(['SUCCESS', 'FAILED', 'STOPPED', 'SKIPPED_DUPLICATE', 'SKIPPED_FILTER', 'SKIPPED_LIMIT']);
+    const terminalItemStatuses = new Set(['SUCCESS', 'FAILED', 'STOPPED', 'SKIPPED', 'SKIPPED_AUTH', 'SKIPPED_DUPLICATE', 'SKIPPED_FILTER', 'SKIPPED_LIMIT']);
     const processed = results.filter(x => terminalItemStatuses.has(x.status)).length;
     const remaining = Math.max(0, totalCount - processed);
     const files = Array.isArray(m.downloadedFiles) ? m.downloadedFiles.length : Number((run.downloadedFiles || []).length);
@@ -984,6 +987,8 @@ export const ExecutionView = {
           targetDetail = res.skippedReason ? `Limit reached: ${res.skippedReason}` : 'Limit reached: Maximum records capped';
         } else if (res && res.status === 'SKIPPED_DUPLICATE') {
           targetDetail = res.skippedReason || 'Already processed: duplicate download skipped';
+        } else if (res && (res.status === 'SKIPPED' || res.status === 'SKIPPED_AUTH')) {
+          targetDetail = res.reason || 'Session already active — authentication step bypassed';
         } else if (res && Array.isArray(res.downloadedFiles) && res.downloadedFiles.length > 0) {
           targetDetail = `File produced: ${res.downloadedFiles.map(f => typeof f === 'string' ? f : f.filename).join(', ')}`;
         } else if (res && Array.isArray(res.actions)) {

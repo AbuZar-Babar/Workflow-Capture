@@ -32,6 +32,7 @@ const DownloadManager = require('./download-manager');
 const PaginationManager = require('./pagination-manager');
 const ResultValidator = require('./result-validator');
 const FilterEngine = require('../shared/filter-engine');
+const { detectLoginSequence, isSessionAuthenticated, isLoginAction } = require('../shared/auth-detector');
 
 class LoopReplayRunner {
   constructor(options = {}) {
@@ -1430,8 +1431,8 @@ class LoopReplayRunner {
           shouldNavigate = true;
         } else {
           // Same origin: do NOT navigate back to /login if current page is already authenticated past login
-          const isTargetLogin = /\/login\b/i.test(resolved);
-          const isCurrentLogin = /\/login\b/i.test(currentUrl);
+          const isTargetLogin = /\/login\b|\/signin\b|\/auth\b/i.test(resolved) || /#(.*)\/(login|signin)/i.test(resolved);
+          const isCurrentLogin = /\/login\b|\/signin\b|\/auth\b/i.test(currentUrl) || /#(.*)\/(login|signin)/i.test(currentUrl);
           if (isTargetLogin && !isCurrentLogin) {
             shouldNavigate = false;
             logger.info(`[Runner] Session already active at "${currentUrl}". Skipping navigation to login URL: ${resolved}`);
@@ -1810,8 +1811,35 @@ class LoopReplayRunner {
       // Auto-navigate to target URL before steps execution
       await this.navigateToWorkflowTarget(page, workflow);
 
+      // Conditional Login Skip: If the portal is already authenticated, skip initial login steps
+      let startIndex = 0;
+      const loginSeq = detectLoginSequence(steps);
+      if (loginSeq.hasLoginSequence) {
+        const isAuth = await isSessionAuthenticated(page, loginSeq);
+        if (isAuth) {
+          logger.info(`[Runner] Active session detected at "${page.url()}". Skipping ${loginSeq.loginActionCount} login step(s) (Steps 1-${loginSeq.firstPostLoginIndex}) and resuming at Step #${loginSeq.firstPostLoginIndex + 1}.`);
+          for (let s = loginSeq.startIndex; s <= loginSeq.endIndex; s++) {
+            const skipStep = steps[s];
+            const skipResult = {
+              stepIndex: s + 1,
+              type: skipStep.type || skipStep.action || 'CLICK',
+              status: 'SKIPPED',
+              reason: 'SESSION_ALREADY_AUTHENTICATED',
+              name: skipStep.name || skipStep.elementName || `Step #${s + 1}`,
+              startTime: new Date().toISOString(),
+              endTime: new Date().toISOString()
+            };
+            manifest.itemsSkipped++;
+            manifest.results.push(skipResult);
+            this.manifest = manifest;
+            onProgress({ status: 'STEP_COMPLETE', stepResult: skipResult, manifest });
+          }
+          startIndex = loginSeq.firstPostLoginIndex;
+        }
+      }
+
       // Execute each step in order
-      for (let i = 0; i < steps.length; i++) {
+      for (let i = startIndex; i < steps.length; i++) {
         if (this.isAborted) {
           logger.warn(`[Runner] Abort signal active before step #${i + 1}. Stopping execution.`);
           manifest.status = 'STOPPED';
@@ -2173,13 +2201,15 @@ class LoopReplayRunner {
       } else if (partition.setupSteps.length > 0) {
         // Execute Setup Steps (e.g. Login & Navigate)
         logger.info(`[Loop Runner] Executing ${partition.setupSteps.length} setup step(s)...`);
+        const setupLoginSeq = detectLoginSequence(partition.setupSteps);
+        const isSessionAuth = setupLoginSeq.hasLoginSequence
+          ? await isSessionAuthenticated(page, setupLoginSeq)
+          : false;
+
         for (let i = 0; i < partition.setupSteps.length; i++) {
           const step = partition.setupSteps[i];
-          const isLogin = (step.target?.candidates?.some(c => /login|signin/i.test(c.value || ''))) ||
-            /login|signin/i.test(step.name || step.elementName || '');
-          const isCurrentLogin = /\/login\b/i.test(page.url());
-          if (isLogin && !isCurrentLogin) {
-            logger.info(`[Loop Runner] Skipping setup login step #${i + 1} (${step.name || 'login'}) — session already authenticated.`);
+          if (isSessionAuth && i <= setupLoginSeq.endIndex) {
+            logger.info(`[Loop Runner] Skipping setup login step #${i + 1} (${step.name || step.elementName || 'Login step'}) — session already authenticated.`);
             continue;
           }
           await this.replayEngine.executeAction(step, i);
@@ -2639,8 +2669,7 @@ class LoopReplayRunner {
                     if (!restored && partition.setupSteps.length > 0) {
                       for (let s = 0; s < partition.setupSteps.length; s++) {
                         const step = partition.setupSteps[s];
-                        const isLogin = step.target?.candidates?.some(c => /login|signin/i.test(c.value || '')) ||
-                          /login|signin/i.test(step.name || step.elementName || '');
+                        const isLogin = isLoginAction(step);
                         if (!isLogin) {
                           await this.replayEngine.executeAction(step, s).catch(() => { });
                         }
@@ -2806,8 +2835,7 @@ class LoopReplayRunner {
                     logger.info('[Loop Runner] Re-executing non-login setup navigation steps to restore collection view...');
                     for (let s = 0; s < partition.setupSteps.length; s++) {
                       const step = partition.setupSteps[s];
-                      const isLogin = step.target?.candidates?.some(c => /login|signin/i.test(c.value || '')) ||
-                        /login|signin/i.test(step.name || step.elementName || '');
+                      const isLogin = isLoginAction(step);
                       if (!isLogin) {
                         await this.replayEngine.executeAction(step, s).catch(() => { });
                       }

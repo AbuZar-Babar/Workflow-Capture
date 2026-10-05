@@ -21,6 +21,7 @@ const { calculateDelay } = require('./human-mouse');
 const { getActiveBotConfig } = require('../api/bot-config-controller');
 const { resolveTargetUrl, extractWorkflowStartUrl, isInternalBrowserUrl } = require('../utils/url-helper');
 const logger = require('../utils/logger');
+const { detectLoginSequence, isSessionAuthenticated } = require('../shared/auth-detector');
 
 class ReplayEngine extends EventEmitter {
   constructor(options = {}) {
@@ -984,10 +985,15 @@ class ReplayEngine extends EventEmitter {
           if (currentOrigin !== targetOrigin) {
             needsNavigation = true;
           } else {
-            // Same origin: Only navigate if targetStartUrl is an explicit login or separate path
+            // Same origin: do NOT navigate back to /login if current page is already authenticated past login
             const currentPath = currentUrl.split('#')[0].replace(/\/+$/, '');
             const targetPath = targetStartUrl.split('#')[0].replace(/\/+$/, '');
-            if (targetPath.endsWith('/login') && !currentPath.endsWith('/login')) {
+            const isTargetLogin = /\/login\b|\/signin\b|\/auth\b/i.test(targetStartUrl) || /#(.*)\/(login|signin)/i.test(targetStartUrl);
+            const isCurrentLogin = /\/login\b|\/signin\b|\/auth\b/i.test(currentUrl) || /#(.*)\/(login|signin)/i.test(currentUrl);
+            if (isTargetLogin && !isCurrentLogin) {
+              needsNavigation = false;
+              logger.info(`Session already active at "${currentUrl}". Skipping navigation to login URL: ${targetStartUrl}`);
+            } else if (currentPath !== targetPath && isCurrentLogin) {
               needsNavigation = true;
             }
           }
@@ -1022,12 +1028,26 @@ class ReplayEngine extends EventEmitter {
     const replayStats = {
       startTime: Date.now(),
       executedCount: 0,
+      skippedCount: 0,
       totalCount: recording.actions.length,
       failedAction: null
     };
 
+    // Conditional Login Skip: If the portal is already authenticated, skip initial login steps
+    let startIndex = 0;
+    const loginSeq = detectLoginSequence(recording.actions);
+    if (loginSeq.hasLoginSequence) {
+      const isAuth = await isSessionAuthenticated(this.page, loginSeq);
+      if (isAuth) {
+        logger.info(`[ReplayEngine] Active session detected at "${this.page.url()}". Skipping ${loginSeq.loginActionCount} login step(s) (Steps 1-${loginSeq.firstPostLoginIndex}) and resuming at Step #${loginSeq.firstPostLoginIndex + 1}.`);
+        startIndex = loginSeq.firstPostLoginIndex;
+        replayStats.skippedCount = loginSeq.loginActionCount;
+        this.emit('login_skipped', { count: loginSeq.loginActionCount, firstPostLoginIndex: startIndex });
+      }
+    }
+
     try {
-      for (let i = 0; i < recording.actions.length; i++) {
+      for (let i = startIndex; i < recording.actions.length; i++) {
         await this._waitWhilePaused();
         if (this.isAborted) {
           throw new Error('Execution stopped by user');
