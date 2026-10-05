@@ -148,7 +148,7 @@ export const ExecutionModal = {
     return 0;
   },
 
-  open({ workflowId, workflowName = 'Workflow', stepCount = 0, loopStepIndex = null, isLoop = false, steps = [], onExecuted = null }) {
+  open({ workflowId, workflowName = 'Workflow', stepCount = 0, loopStepIndex = null, isLoop = false, steps = [], onExecuted = null, defaultMode = 'single' }) {
     if (!this.container) this.init();
 
     this.currentWorkflowId = workflowId;
@@ -158,7 +158,7 @@ export const ExecutionModal = {
     this.workflowSteps = Array.isArray(steps) ? steps : [];
     this.loopStepIndex = hasExplicitLoopStep ? loopStepIndex : this.findBestLoopStepIndex(this.workflowSteps);
     this.isLoopConfigured = isLoop === true || hasExplicitLoopStep;
-    this.selectedMode = this.isLoopConfigured ? 'loop' : 'single';
+    this.selectedMode = defaultMode || 'single';
     this.fieldValues = {};
     this.itemMode = 'new';
     this.onExecuted = onExecuted;
@@ -200,7 +200,6 @@ export const ExecutionModal = {
             this.loopStepIndex = wf.loopStepIndex;
             if (wf.isLoop || wf.mode === 'LOOP') {
               this.isLoopConfigured = true;
-              this.selectedMode = 'loop';
             }
             if (this.selectedMode === 'loop') {
               this.runPreflight();
