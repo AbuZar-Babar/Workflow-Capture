@@ -171,5 +171,76 @@ const mockCheckboxHandle = {
   assert.strictEqual(actualClickPerformed, 1, 'Click count must still be 1 (skipped on repeat)');
   console.log('  ✅ On workflow repeat, click is skipped and checkbox stays checked!');
 
+  // ------------------------------------------------------------
+  // Test 4: executeClick ensures mat-option stays selected
+  // ------------------------------------------------------------
+  console.log('\n🔹 Test 4: executeClick preserves option selection in multi-select');
+  let optionSelected = false;
+  let optClickCount = 0;
+
+  const mockOptionHandle = {
+    evaluate: async (fn, ...args) => {
+      const mockOptEl = {
+        tagName: 'MAT-PSEUDO-CHECKBOX',
+        offsetWidth: 20,
+        offsetHeight: 20,
+        getClientRects: () => [{ width: 20, height: 20 }],
+        closest: (sel) => {
+          if (sel.includes('mat-option') || sel.includes('role="option"')) {
+            return {
+              getAttribute: (attr) => attr === 'aria-selected' ? String(optionSelected) : null,
+              classList: {
+                contains: (cls) => optionSelected && (cls === 'mat-mdc-option-selected' || cls === 'mat-option-selected')
+              },
+              querySelector: () => null,
+              click: () => {
+                optClickCount++;
+                optionSelected = !optionSelected;
+              }
+            };
+          }
+          return null;
+        },
+        querySelector: () => null,
+        getAttribute: () => null,
+        classList: { contains: () => false }
+      };
+      return fn(mockOptEl, ...args);
+    },
+    evaluateHandle: async (fn) => {
+      const opt = {
+        closest: () => ({
+          scrollIntoView: () => {}
+        })
+      };
+      return { asElement: () => mockOptionHandle };
+    },
+    click: async () => {
+      optClickCount++;
+      optionSelected = true;
+    },
+    boundingBox: async () => ({ x: 10, y: 10, width: 20, height: 20 })
+  };
+
+  const optionAction = {
+    type: 'CLICK',
+    index: 8,
+    name: '105992 Option Checkbox',
+    isCheckbox: true,
+    desiredState: true,
+    target: {
+      fingerprint: {
+        tagName: 'mat-pseudo-checkbox',
+        isCheckbox: true,
+        checked: false
+      }
+    }
+  };
+
+  await executeClick(mockOptionHandle, optionAction, { page: mockPage });
+  assert.strictEqual(optClickCount, 1, 'Option click count must be 1');
+  assert.strictEqual(optionSelected, true, 'Option must be selected after click');
+  console.log('  ✅ Option was clicked once and remained selected!');
+
   console.log('\n🎉 ALL CHECKBOX IDEMPOTENCY TESTS PASSED SUCCESSFULLY!');
 })();

@@ -554,9 +554,40 @@
       return Boolean(element.checked);
     }
 
-    const aria = element.getAttribute?.('aria-checked') ?? element.querySelector?.('[aria-checked]')?.getAttribute?.('aria-checked');
+    // Check parent mat-option or [role="option"] for dropdown multi-select checkboxes
+    const opt = element.closest?.('mat-option, [role="option"], .mat-mdc-option, .mat-option');
+    if (opt) {
+      const ariaSelected = opt.getAttribute?.('aria-selected');
+      if (ariaSelected !== null && ariaSelected !== undefined) {
+        return ariaSelected === 'true';
+      }
+      if (opt.classList) {
+        if (opt.classList.contains('mat-mdc-option-selected') ||
+            opt.classList.contains('mat-option-selected') ||
+            opt.classList.contains('selected') ||
+            opt.classList.contains('is-selected')) {
+          return true;
+        }
+      }
+      if (opt.querySelector?.('.mat-pseudo-checkbox-checked')) {
+        return true;
+      }
+    }
+
+    const aria = element.getAttribute?.('aria-checked') ??
+                 element.querySelector?.('[aria-checked]')?.getAttribute?.('aria-checked') ??
+                 element.closest?.('[aria-checked]')?.getAttribute?.('aria-checked');
     if (aria !== null && aria !== undefined) {
       return aria === 'true';
+    }
+
+    const matCb = element.closest?.('mat-checkbox, .mat-mdc-checkbox, dx-check-box');
+    if (matCb && matCb.classList) {
+      if (matCb.classList.contains('mat-mdc-checkbox-checked') ||
+          matCb.classList.contains('mat-checkbox-checked') ||
+          matCb.classList.contains('dx-checkbox-checked')) {
+        return true;
+      }
     }
 
     if (element.classList) {
@@ -686,7 +717,7 @@
     lastHandledTarget = target;
 
     // Checkbox State Detection:
-    // If the element is a checkbox or checkbox label, delay emit by 35ms so DOM updates
+    // If the element is a checkbox or checkbox label, delay emit by 50ms so DOM updates
     // and framework event handlers finish toggling the checked state.
     const cbInfo = detectCheckbox(target);
     if (cbInfo) {
@@ -701,7 +732,7 @@
           checked: finalChecked,
           ...(canvasCoords ? { canvasCoords } : {})
         });
-      }, 35);
+      }, 50);
       return;
     }
 

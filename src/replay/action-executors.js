@@ -311,15 +311,15 @@ async function executeClick(elementHandle, action, options = {}) {
 
   // 3. Option Selection State Verification:
   // In Angular Material / custom multi-selects, verify that the option's selection state actually toggled.
-  // If action explicitly requested unchecking (action.desiredState === false or action.isUncheck === true),
-  // ensure we do NOT re-toggle it back on.
+  // Only treat as uncheck if explicitly flagged as isUncheck or if originally checked before click.
   try {
-    const isUncheck = action.isUncheck === true || action.desiredState === false;
+    const isUncheck = action.isUncheck === true || (action.desiredState === false && action.target?.fingerprint?.checked === true);
     await clickTarget.evaluate((el, isUncheck) => {
-      const opt = el.closest('mat-option, [role="option"]');
+      const opt = el.closest('mat-option, [role="option"], .mat-mdc-option, .mat-option');
       if (!opt) return;
       const isSelected = opt.getAttribute('aria-selected') === 'true' ||
                          opt.classList.contains('mat-mdc-option-selected') ||
+                         opt.classList.contains('mat-option-selected') ||
                          !!opt.querySelector('.mat-pseudo-checkbox-checked');
 
       if (isUncheck && isSelected) {
