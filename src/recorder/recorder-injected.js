@@ -345,46 +345,60 @@
   function isPasswordVisibilityToggle(element) {
     if (!element || element.nodeType !== 1) return false;
 
-    // 1. Check aria-label and title
+    // 1. Never classify form submission, login, or action buttons as eye toggles!
+    const tagName = element.tagName.toUpperCase();
+    const type = (element.getAttribute?.('type') || element.type || '').toLowerCase();
+    if (type === 'submit' || tagName === 'FORM' || tagName === 'INPUT') {
+      return false;
+    }
+
+    const text = (element.textContent || '').trim().toLowerCase();
+    // If it has substantial text, check if it's a login, sign-in, or submit button
+    if (text.length > 0 && /(log ?in|sign ?in|submit|continue|next|enter|proceed|register|sign ?up|auth)/i.test(text)) {
+      return false;
+    }
+
+    // 2. Check aria-label and title for explicit password toggle semantics
     const aria = (element.getAttribute?.('aria-label') || '').toLowerCase();
     const title = (element.getAttribute?.('title') || '').toLowerCase();
-    const togglePattern = /show.*password|hide.*password|toggle.*password|reveal.*password|view.*password|display.*password|eye/i;
-    if (togglePattern.test(aria) || togglePattern.test(title)) {
+    const explicitTogglePattern = /(show|hide|toggle|reveal|view)\s*(password|pin|credentials?)|password\s*(visibility|toggle|reveal)/i;
+    if (explicitTogglePattern.test(aria) || explicitTogglePattern.test(title)) {
       return true;
     }
 
-    // 2. Check class and id
+    // 3. Check for dedicated eye icon classes / ids
     const cls = (typeof element.className === 'string' ? element.className : (element.getAttribute?.('class') || '')).toLowerCase();
     const id = (element.id || '').toLowerCase();
-    const eyeClassPattern = /(eye|eye-slash|eye-off|password-toggle|toggle-password|show-password|btn-password|reveal-password|pwd-toggle|password-addon|password-eye)/i;
+    const eyeClassPattern = /(fa-eye|fa-eye-slash|bi-eye|lucide-eye|feather-eye|icon-eye|eye-icon|password-toggle|toggle-password|reveal-password|pwd-toggle)/i;
     if (eyeClassPattern.test(cls) || eyeClassPattern.test(id)) {
       return true;
     }
 
-    // 3. Check enclosing clickable container (button, span, a, label)
-    const toggleContainer = (typeof element.closest === 'function')
-      ? element.closest('button, [role="button"], span, a, label, div')
-      : null;
-    if (toggleContainer && toggleContainer !== element) {
-      const cAria = (toggleContainer.getAttribute?.('aria-label') || '').toLowerCase();
-      const cTitle = (toggleContainer.getAttribute?.('title') || '').toLowerCase();
-      const cCls = (typeof toggleContainer.className === 'string' ? toggleContainer.className : (toggleContainer.getAttribute?.('class') || '')).toLowerCase();
-      const cId = (toggleContainer.id || '').toLowerCase();
-      if (togglePattern.test(cAria) || togglePattern.test(cTitle) || eyeClassPattern.test(cCls) || eyeClassPattern.test(cId)) {
-        return true;
-      }
-    }
+    // 4. Check enclosing button / toggle container if element is an inner icon (svg, path, i, span)
+    if (['SVG', 'PATH', 'I', 'SPAN', 'IMG'].includes(tagName)) {
+      const parentBtn = (typeof element.closest === 'function')
+        ? element.closest('button, [role="button"]')
+        : null;
+      if (parentBtn) {
+        const pType = (parentBtn.getAttribute?.('type') || parentBtn.type || '').toLowerCase();
+        if (pType === 'submit') return false;
 
-    // 4. Check if inside a container that has a password input and element is an icon/button/svg
-    const group = (typeof element.closest === 'function')
-      ? element.closest('.form-group, .input-group, .password-wrapper, .password-group, .field, div, form')
-      : null;
-    if (group) {
-      const pwdInput = group.querySelector?.('input[type="password"], input[data-wf-is-password="true"], input[name*="pass" i], input[id*="pass" i]');
-      if (pwdInput && element !== pwdInput) {
-        if (element.tagName === 'SVG' || element.tagName === 'PATH' || element.tagName === 'I' ||
-            element.querySelector?.('svg, i, img') ||
-            /btn|toggle|icon|addon|show|eye/i.test(cls) || /btn|toggle|icon|addon|show|eye/i.test(id)) {
+        const pText = (parentBtn.textContent || '').trim().toLowerCase();
+        if (pText.length > 0 && /(log ?in|sign ?in|submit|continue|next|enter|proceed)/i.test(pText)) {
+          return false;
+        }
+
+        const pAria = (parentBtn.getAttribute?.('aria-label') || '').toLowerCase();
+        const pTitle = (parentBtn.getAttribute?.('title') || '').toLowerCase();
+        const pCls = (typeof parentBtn.className === 'string' ? parentBtn.className : (parentBtn.getAttribute?.('class') || '')).toLowerCase();
+        const pId = (parentBtn.id || '').toLowerCase();
+
+        if (explicitTogglePattern.test(pAria) || explicitTogglePattern.test(pTitle) || eyeClassPattern.test(pCls) || eyeClassPattern.test(pId)) {
+          return true;
+        }
+
+        // SVG icon with eye class
+        if (/\beye\b|eye-slash|eye-off/i.test(cls) || /\beye\b|eye-slash|eye-off/i.test(id)) {
           return true;
         }
       }

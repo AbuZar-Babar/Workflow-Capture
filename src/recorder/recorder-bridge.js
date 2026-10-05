@@ -549,15 +549,19 @@ class RecorderBridge {
 
     // Discard password visibility toggle clicks (e.g. eye icon, toggle password)
     if (rawAction.type === 'CLICK' || rawAction.type === 'DOUBLE_CLICK') {
-      const targetText = (rawAction.target?.fingerprint?.text || '').toLowerCase();
-      const targetId = (rawAction.target?.fingerprint?.id || '').toLowerCase();
-      const targetAria = (rawAction.target?.fingerprint?.attributes?.['aria-label'] || '').toLowerCase();
-      const targetTitle = (rawAction.target?.fingerprint?.attributes?.title || '').toLowerCase();
-      const targetName = (elementName || '').toLowerCase();
-      const isEyeToggle = /(toggle.*password|password.*toggle|show.*password|hide.*password|reveal.*password|view.*password|eye-slash|eye-icon|password-eye|\beye\b)/i;
-      if (isEyeToggle.test(targetText) || isEyeToggle.test(targetId) || isEyeToggle.test(targetAria) || isEyeToggle.test(targetTitle) || isEyeToggle.test(targetName)) {
-        logger.info(`[Recorder] Discarded password visibility toggle action on <${elementName}>`);
-        return false;
+      const targetText = (rawAction.target?.fingerprint?.text || '').toLowerCase().trim();
+      const targetType = (rawAction.target?.fingerprint?.type || '').toLowerCase();
+      const isLoginOrSubmit = targetType === 'submit' || /(log ?in|sign ?in|submit|continue|next|enter|proceed|register|sign ?up)/i.test(targetText);
+      if (!isLoginOrSubmit) {
+        const targetAria = (rawAction.target?.fingerprint?.attributes?.['aria-label'] || '').toLowerCase();
+        const targetTitle = (rawAction.target?.fingerprint?.attributes?.title || '').toLowerCase();
+        const explicitTogglePattern = /(show|hide|toggle|reveal|view)\s*(password|pin|credentials?)|password\s*(visibility|toggle|reveal)/i;
+        const targetId = (rawAction.target?.fingerprint?.id || '').toLowerCase();
+        const eyeClassPattern = /(fa-eye|fa-eye-slash|bi-eye|lucide-eye|feather-eye|icon-eye|eye-icon|password-toggle|toggle-password)/i;
+        if (explicitTogglePattern.test(targetAria) || explicitTogglePattern.test(targetTitle) || eyeClassPattern.test(targetId)) {
+          logger.info(`[Recorder] Discarded password visibility toggle action on <${elementName}>`);
+          return false;
+        }
       }
     }
 
