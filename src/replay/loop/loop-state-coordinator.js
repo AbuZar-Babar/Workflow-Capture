@@ -73,6 +73,83 @@ class LoopStateCoordinator {
     this.rowFilter = options.itemFilter || options.rowFilter || null;
   }
 
+  createStandardManifest(workflow, stepsCount = 0) {
+    return {
+      runId: this.runId,
+      workflowId: workflow.id,
+      mode: 'STANDARD',
+      startTime: new Date().toISOString(),
+      status: 'RUNNING',
+      itemsTotal: stepsCount,
+      itemsSucceeded: 0,
+      itemsFailed: 0,
+      itemsSkipped: 0,
+      results: [],
+      downloadedFiles: []
+    };
+  }
+
+  createLoopManifest(workflow) {
+    return {
+      runId: this.runId,
+      workflowId: workflow.id,
+      mode: 'LOOP',
+      startTime: new Date().toISOString(),
+      status: 'RUNNING',
+      itemsTotal: 0,
+      itemsSucceeded: 0,
+      itemsFailed: 0,
+      itemsSkipped: 0,
+      matchingCount: 0,
+      selectedCount: 0,
+      skippedFilterCount: 0,
+      skippedLimitCount: 0,
+      skippedDuplicateCount: 0,
+      matching: 0,
+      selected: 0,
+      skippedFilter: 0,
+      skippedLimit: 0,
+      skippedDuplicate: 0,
+      itemFilter: this.itemFilter,
+      loopLimit: this.loopLimit,
+      results: [],
+      downloadedFiles: []
+    };
+  }
+
+  applyCheckpoint(manifest, checkpoint) {
+    if (!checkpoint) return;
+    manifest.results = Array.isArray(checkpoint.results) ? checkpoint.results : [];
+    manifest.itemsSucceeded = checkpoint.itemsSucceeded ?? manifest.results.filter(r => r.status === 'SUCCESS').length;
+    manifest.itemsFailed = checkpoint.itemsFailed ?? manifest.results.filter(r => r.status === 'FAILED').length;
+    manifest.skippedFilterCount = checkpoint.skippedFilterCount ?? manifest.results.filter(r => r.status === 'SKIPPED_FILTER').length;
+    manifest.skippedLimitCount = checkpoint.skippedLimitCount ?? manifest.results.filter(r => r.status === 'SKIPPED_LIMIT').length;
+    manifest.skippedDuplicateCount = checkpoint.skippedDuplicateCount ?? manifest.results.filter(r => r.status === 'SKIPPED_DUPLICATE').length;
+    manifest.itemsSkipped = manifest.skippedFilterCount + manifest.skippedLimitCount + manifest.skippedDuplicateCount;
+    manifest.matchingCount = checkpoint.matchingCount ?? (manifest.results.length - manifest.skippedFilterCount);
+    manifest.selectedCount = checkpoint.selectedCount ?? (manifest.itemsSucceeded + manifest.itemsFailed);
+    manifest.matching = manifest.matchingCount;
+    manifest.selected = manifest.selectedCount;
+    manifest.skippedFilter = manifest.skippedFilterCount;
+    manifest.skippedLimit = manifest.skippedLimitCount;
+    manifest.skippedDuplicate = manifest.skippedDuplicateCount;
+    manifest.downloadedFiles = checkpoint.downloadedFiles || [];
+    manifest.pagesProcessed = checkpoint.pagesProcessed || 1;
+    manifest.itemsTotal = checkpoint.itemsTotal || 0;
+    manifest.activeItem = checkpoint.activeItem || null;
+  }
+
+  extractCursor(checkpoint) {
+    if (!checkpoint) return null;
+    return {
+      currentItemIndex: checkpoint.currentItemIndex ?? null,
+      currentActionOffset: checkpoint.currentActionOffset ?? null,
+      currentPage: checkpoint.currentPage ?? 1,
+      currentPageItemIndex: checkpoint.currentPageItemIndex ?? null,
+      activeItem: checkpoint.activeItem ?? null
+    };
+  }
+
   writeLoopCheckpoint(
     manifest,
     currentItemIndex = null,

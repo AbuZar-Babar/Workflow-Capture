@@ -34,27 +34,27 @@
 ---
 
 ### Phase 2: Core Loop Runner Deconstruction (The 3,100-line Monolith)
-- [ ] **Task 2.1: Extract LoopStateCoordinator**
+- [x] **Task 2.1: Extract LoopStateCoordinator**
   - Create `src/replay/loop/loop-state-coordinator.js` (tracks indices, batch stats, loop limits, checkpoint persistence).
   - Verify: `npm run test:fast`
   - Commit: `refactor(replay): extract LoopStateCoordinator`
 
-- [ ] **Task 2.2: Extract ArtifactDownloadManager**
+- [x] **Task 2.2: Extract ArtifactDownloadManager**
   - Create `src/replay/loop/artifact-download-manager.js` (download interception, SHA-256 deduplication, structured paths, manifest sync).
   - Verify: `npm run test:fast`
   - Commit: `refactor(replay): extract ArtifactDownloadManager`
 
-- [ ] **Task 2.3: Extract GridSelectionAdapter**
+- [x] **Task 2.3: Extract GridSelectionAdapter**
   - Create `src/replay/loop/grid-selection-adapter.js` (Strategy pattern for ExtJS, DevExpress, HTML tables, ARIA grids).
   - Verify: `npm run test:fast`
   - Commit: `refactor(replay): extract GridSelectionAdapter`
 
-- [ ] **Task 2.4: Extract ItemExecutionHandler**
+- [x] **Task 2.4: Extract ItemExecutionHandler**
   - Create `src/replay/loop/item-execution-handler.js` (individual item attempt execution, retry backoff, error classification).
   - Verify: `npm run test:fast`
   - Commit: `refactor(replay): extract ItemExecutionHandler`
 
-- [ ] **Task 2.5: Transform LoopReplayRunner into Slim Facade**
+- [x] **Task 2.5: Transform LoopReplayRunner into Slim Facade**
   - Refactor `src/replay/loop-replay-runner.js` into a clean ~250-line Facade coordinating the extracted modules.
   - Preserve all method signatures (`start()`, `executeLoop()`, `stop()`, `extractDiscoveredItems()`) and prototype hooks.
   - Verify: `npm run test:fast`

@@ -501,6 +501,25 @@ class ArtifactDownloadManager {
       this._replayTargetCreatedListener = null;
     }
   }
+
+  organizePendingDownloads(manifest, activeItemContext = null) {
+    if (!fs.existsSync(this.downloadsDir)) return;
+    try {
+      const files = fs.readdirSync(this.downloadsDir)
+        .filter(f => !f.endsWith('.crdownload') && !f.endsWith('.tmp'));
+      manifest.downloadedFiles = files.map(f => {
+        const raw = path.join(this.downloadsDir, f);
+        const stored = this.processAndStoreDownload(
+          raw,
+          activeItemContext?.itemKey || f,
+          activeItemContext?.itemLabel || f,
+          activeItemContext?.fields || {}
+        );
+        try { fs.unlinkSync(raw); } catch {}
+        return stored || { filename: f, path: raw, sizeBytes: fs.existsSync(raw) ? fs.statSync(raw).size : 0 };
+      });
+    } catch {}
+  }
 }
 
 module.exports = ArtifactDownloadManager;

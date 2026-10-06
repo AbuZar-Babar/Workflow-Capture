@@ -7,8 +7,11 @@
 const fs = require('fs');
 const path = require('path');
 const ItemDiscovery = require('../../shared/item-discovery');
+const LoopDetector = require('../../shared/loop-detector');
+const ActionGeneralizer = require('../../shared/action-generalizer');
 const { ConditionEvaluator } = require('../../shared/condition-evaluator');
-const { isLoginAction } = require('../../shared/auth-detector');
+const { isLoginAction, detectLoginSequence, isSessionAuthenticated } = require('../../shared/auth-detector');
+const { evaluateItemFilter: sharedEvaluateItemFilter, evaluateFilterPreview } = require('../../shared/item-filter');
 const logger = require('../../utils/logger');
 
 class ItemExecutionHandler {
@@ -878,6 +881,660 @@ class ItemExecutionHandler {
     }
 
     return { completed: true, nextActionOffset };
+  }
+
+  /**
+   * Encapsulates the entire lifecycle of an item attempt:
+   * 1. Setting up active item context and itemResult
+   * 2. Checkpointing starting offset
+   * 3. Executing item with retries
+   * 4. Error isolation, abort detection, and DOM recovery
+   * 5. Finalizing manifest and progress notification
+   */
+  async executeItemAttempt({
+    page,
+    discovery,
+    i,
+    targetItem,
+    itemIdentifier,
+    generalizedActions,
+    effectiveLoopStepIndex,
+    isDropdown,
+    triggerStep,
+    partition,
+    currentPageUrl,
+    initialPageUrls,
+    currentPage,
+    manifest,
+    checkpoint,
+    resumePage,
+    resumePageItemIndex,
+    resumeActionOffset,
+    resumeItemIndex,
+    onProgress = () => {},
+    runner
+  }) {
+    const isResumingCurrentItem =
+      checkpoint &&
+      currentPage === resumePage &&
+      i === resumePageItemIndex &&
+      resumeItemIndex != null;
+
+    if (runner) {
+      runner._activeItemContext = {
+        itemKey: itemIdentifier.itemKey,
+        itemLabel: itemIdentifier.itemLabel,
+        fields: targetItem.fields || {},
+        invoiceNumber: itemIdentifier.invoiceNumber,
+        index: i
+      };
+    }
+
+    const itemResult = isResumingCurrentItem && checkpoint.activeItem
+      ? { ...checkpoint.activeItem, status: 'PENDING', error: null }
+      : {
+        index: resumeItemIndex != null && currentPage === resumePage && i === resumePageItemIndex
+          ? resumeItemIndex
+          : manifest.results.reduce((max, result) => Math.max(max, Number(result.index) || 0), 0) + 1,
+        itemIndex: i,
+        page: currentPage,
+        status: 'PENDING',
+        itemKey: itemIdentifier.itemKey,
+        label: itemIdentifier.itemLabel,
+        timestamp: new Date().toISOString(),
+        error: null
+      };
+
+    const startingActionOffset =
+      checkpoint && currentPage === resumePage && i === resumePageItemIndex
+        ? resumeActionOffset
+        : 0;
+
+    const writeLoopCheckpoint = (man, idx, offset, p, pIdx, active) => {
+      if (runner && typeof runner.writeLoopCheckpoint === 'function') {
+        return runner.writeLoopCheckpoint(man, idx, offset, p, pIdx, active);
+      }
+      if (this.stateCoordinator) this.stateCoordinator.writeLoopCheckpoint(man, idx, offset, p, pIdx, active);
+    };
+
+    writeLoopCheckpoint(
+      manifest,
+      itemResult.index,
+      startingActionOffset,
+      currentPage,
+      i,
+      itemResult
+    );
+
+    let nextActionOffset = startingActionOffset;
+    try {
+      const res = await this.executeItemWithRetries({
+        page,
+        discovery,
+        i,
+        itemResult,
+        startingActionOffset,
+        targetItem,
+        itemIdentifier,
+        generalizedActions,
+        effectiveLoopStepIndex,
+        isDropdown,
+        triggerStep,
+        partition,
+        currentPageUrl,
+        initialPageUrls,
+        currentPage,
+        manifest,
+        runner
+      });
+      nextActionOffset = res.nextActionOffset;
+    } catch (itemErr) {
+      const isAborted = runner ? runner.isAborted : this.getIsAborted();
+      if (isAborted) {
+        itemResult.status = 'STOPPED';
+        itemResult.error = 'Execution stopped by user';
+        manifest.status = 'STOPPED';
+        const existingIdx = manifest.results.findIndex(r => r.index === itemResult.index);
+        if (existingIdx >= 0) {
+          manifest.results[existingIdx] = itemResult;
+        } else {
+          manifest.results.push(itemResult);
+        }
+        writeLoopCheckpoint(
+          manifest,
+          itemResult.index,
+          nextActionOffset,
+          currentPage,
+          i,
+          itemResult
+        );
+        return { stopped: true, itemResult };
+      }
+
+      logger.error(`[Loop Runner] Error on item #${i + 1}: ${itemErr.message}`);
+      itemResult.status = 'FAILED';
+      itemResult.error = itemErr.message;
+      manifest.itemsFailed++;
+
+      // Attempt recovery
+      try {
+        const browserPages = await page.browser().pages();
+        for (const p of browserPages) {
+          if (p !== page && !p.isClosed()) {
+            await p.close().catch(() => { });
+          }
+        }
+        await page.bringToFront().catch(() => { });
+        const replayEngine = runner?.replayEngine || this.replayEngine;
+        if (replayEngine) {
+          await replayEngine.dismissOverlays().catch(() => { });
+        } else if (page.keyboard) {
+          await page.keyboard.press('Escape').catch(() => { });
+        }
+        const isCollectionPresent = async () => {
+          if (runner && typeof runner.isCollectionPresent === 'function') {
+            return runner.isCollectionPresent(page, discovery);
+          }
+          return this.gridAdapter ? this.gridAdapter.isCollectionPresent(page, discovery) : true;
+        };
+        const collectionStillPresent = await isCollectionPresent();
+        if (!collectionStillPresent && page.url() !== currentPageUrl) {
+          await page.goto(currentPageUrl, { waitUntil: 'domcontentloaded' }).catch(() => { });
+          if (partition && partition.setupSteps && partition.setupSteps.length > 0 && replayEngine) {
+            for (let s = 0; s < partition.setupSteps.length; s++) {
+              await replayEngine.executeAction(partition.setupSteps[s], s).catch(() => { });
+            }
+          }
+        } else if (!collectionStillPresent && partition && partition.setupSteps && partition.setupSteps.length > 0 && replayEngine) {
+          for (let s = 0; s < partition.setupSteps.length; s++) {
+            await replayEngine.executeAction(partition.setupSteps[s], s).catch(() => { });
+          }
+        }
+      } catch {
+        // Ignore recovery error
+      }
+    }
+
+    const existingIdx = manifest.results.findIndex(r => r.index === itemResult.index);
+    if (existingIdx >= 0) {
+      manifest.results[existingIdx] = itemResult;
+    } else {
+      manifest.results.push(itemResult);
+    }
+    if (runner) runner.manifest = manifest;
+
+    const runsDir = runner ? runner.runsDir : (this.downloadManager ? this.downloadManager.runsDir : null);
+    if (runsDir) {
+      try {
+        fs.writeFileSync(path.join(runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+      } catch { }
+    }
+
+    writeLoopCheckpoint(
+      manifest,
+      null,
+      null,
+      currentPage,
+      i + 1,
+      null
+    );
+    if (typeof onProgress === 'function') {
+      onProgress({ status: 'ITEM_COMPLETE', itemResult, manifest });
+    }
+
+    return { itemResult };
+  }
+
+  /**
+   * Prepares collection discovery, analyzes loop step, and handles dropdown detection
+   */
+  async prepareCollection({ page, workflow, loopStepIndex, manifest, checkpoint, onProgress, runner }) {
+    const replayEngine = runner?.replayEngine || this.replayEngine;
+    const steps = workflow.steps || workflow.recordingData?.actions || workflow.actions || [];
+
+    let effectiveLoopStepIndex = Number.isInteger(loopStepIndex) ? loopStepIndex : (workflow.loopStepIndex ?? workflow.settings?.loopStepIndex ?? null);
+    if (effectiveLoopStepIndex === null || (steps[effectiveLoopStepIndex] && LoopDetector.isNavigationOrChrome(steps[effectiveLoopStepIndex].target?.candidates?.find(c => c?.strategy === 'css-path')?.value || '', steps[effectiveLoopStepIndex].target?.fingerprint || {}))) {
+      const autoIdx = LoopDetector.findLoopCandidateIndex(steps);
+      effectiveLoopStepIndex = autoIdx >= 0 ? autoIdx : 0;
+    }
+
+    const partition = LoopDetector.partitionWorkflow(steps, effectiveLoopStepIndex);
+    const targetStep = partition.loopSteps[0];
+    if (!targetStep) return { fallbackToStandard: true };
+    const analysis = LoopDetector.analyzeStep(targetStep);
+    manifest.loopStepIndex = effectiveLoopStepIndex;
+
+    const isDropdownCandidate = analysis.patternType === 'dropdown-option' || /mat-option/i.test(targetStep.fingerprint?.tagName || targetStep.fingerprint?.parentTag || '');
+    const triggerStep = partition.setupSteps.length > 0 ? partition.setupSteps[partition.setupSteps.length - 1] : null;
+    if (isDropdownCandidate) {
+      if (runner && typeof runner.ensureDropdownOpen === 'function') {
+        await runner.ensureDropdownOpen(page, triggerStep);
+      } else if (this.gridAdapter) {
+        await this.gridAdapter.ensureDropdownOpen(page, triggerStep, replayEngine);
+      }
+      await new Promise(r => setTimeout(r, 400));
+    }
+
+    let discovery = await ItemDiscovery.discover(page, targetStep.target || targetStep.fingerprint, { minItems: 2, minScore: 0.55 }).catch(() => ({ success: false }));
+    if (!discovery.success || discovery.itemCount < 2) {
+      if (partition.setupSteps.length > 0) {
+        const setupLoginSeq = detectLoginSequence(partition.setupSteps);
+        const isSessionAuth = setupLoginSeq.hasLoginSequence ? await isSessionAuthenticated(page, setupLoginSeq) : false;
+        for (let i = 0; i < partition.setupSteps.length; i++) {
+          if (isSessionAuth && i <= setupLoginSeq.endIndex) continue;
+          if (replayEngine) await replayEngine.executeAction(partition.setupSteps[i], i);
+        }
+        if (isDropdownCandidate) {
+          if (runner && typeof runner.ensureDropdownOpen === 'function') {
+            await runner.ensureDropdownOpen(page, triggerStep);
+          } else if (this.gridAdapter) {
+            await this.gridAdapter.ensureDropdownOpen(page, triggerStep, replayEngine);
+          }
+          await new Promise(r => setTimeout(r, 400));
+        }
+        discovery = await ItemDiscovery.discover(page, targetStep.target || targetStep.fingerprint, { minItems: 2, minScore: 0.55 });
+      }
+    }
+
+    if (!discovery.success || discovery.itemCount < 2) return { fallbackToStandard: true };
+    if (!checkpoint) { manifest.itemsTotal = discovery.itemCount; manifest.pagesProcessed = 1; }
+
+    const isDropdown = (runner && typeof runner.isDropdownOptionCollection === 'function')
+      ? runner.isDropdownOptionCollection(discovery.collection, discovery.items)
+      : (this.gridAdapter ? this.gridAdapter.isDropdownOptionCollection(discovery.collection, discovery.items) : false);
+    const itemsWithFields = Array.isArray(discovery.items) ? discovery.items : [];
+
+    return {
+      fallbackToStandard: false,
+      effectiveLoopStepIndex,
+      partition,
+      targetStep,
+      analysis,
+      discovery,
+      isDropdown,
+      itemsWithFields,
+      triggerStep
+    };
+  }
+
+  /**
+   * Evaluates filter preview counts and checks for missing field configuration errors
+   */
+  evaluateCollectionPreview({ items = [], filter = null, limit = null, validationError = null }) {
+    if (validationError) throw new Error(`Filter configuration error: ${validationError}`);
+    const condRules = ConditionEvaluator.normalizeConditions(filter).rules;
+    const isRelational = condRules.some(r => ['<=', '>=', '<', '>', 'before', 'after', 'starts_with', 'ends_with', 'in', 'not_in', '!=', 'not_equals', 'date_before', 'date_after', 'date_between', 'last_n_days', 'greater_than', 'less_than'].some(o => String(r.operator || '').toLowerCase().includes(o)));
+
+    let preview;
+    if (isRelational) {
+      let matchingCount = 0, selectedCount = 0, skippedFilterCount = 0, skippedLimitCount = 0;
+      const selectedPreview = [], skippedFilterPreview = [], errors = [];
+      if (items.length > 0) {
+        for (const rule of condRules) {
+          if (!items.some(it => ConditionEvaluator.extractFieldValue(Object.assign({}, it, it?.fields || {}), rule.field) != null)) {
+            errors.push(`Configured field "${rule.field}" is not available on item`);
+          }
+        }
+      }
+      for (let i = 0; i < items.length; i++) {
+        const evalRes = ConditionEvaluator.evaluate(Object.assign({}, items[i], items[i]?.fields || {}), filter);
+        if (evalRes.matches) {
+          matchingCount++;
+          if (limit === null || selectedCount < limit) {
+            selectedCount++;
+            if (selectedPreview.length < 10) selectedPreview.push({ index: i + 1, label: items[i].label, status: 'SELECTED' });
+          } else {
+            skippedLimitCount++;
+          }
+        } else {
+          skippedFilterCount++;
+          if (skippedFilterPreview.length < 10) skippedFilterPreview.push({ index: i + 1, label: items[i].label, status: 'SKIPPED_FILTER', reason: evalRes.reason });
+        }
+      }
+      preview = { totalCount: items.length, matchingCount, selectedCount, skippedFilterCount, skippedLimitCount, selectedPreview, skippedFilterPreview, errors };
+    } else {
+      preview = evaluateFilterPreview(filter, items, { loopLimit: limit, previewLimit: items.length });
+    }
+
+    if (preview.errors?.length > 0) throw new Error(`Filter configuration error: ${preview.errors.join('; ')}`);
+    return { ...preview, isRelational, effectiveFilter: filter };
+  }
+
+  /**
+   * Safely handles scenarios where zero items match the configured filter
+   */
+  async handleZeroMatches({ page, discovery, isDropdown, itemsWithFields, preview, manifest, isRelational, effectiveFilter, onProgress, runner }) {
+    logger.info(`[Loop Runner] Filter criteria selected 0 of ${discovery.itemCount} item(s). No items to execute.`);
+    manifest.itemsTotal = discovery.itemCount;
+    manifest.matchingCount = preview.matchingCount;
+    manifest.matching = preview.matchingCount;
+    manifest.selectedCount = 0;
+    manifest.selected = 0;
+    manifest.skippedFilterCount = preview.skippedFilterCount;
+    manifest.skippedFilter = preview.skippedFilterCount;
+    manifest.skippedLimitCount = preview.skippedLimitCount;
+    manifest.skippedLimit = preview.skippedLimitCount;
+    manifest.itemsSkipped = preview.skippedFilterCount + preview.skippedLimitCount;
+
+    const currentPage = 1;
+    for (let i = 0; i < discovery.itemCount; i++) {
+      const itemIdentifier = (runner && typeof runner.extractItemIdentifier === 'function')
+        ? await runner.extractItemIdentifier(page, discovery, i, isDropdown)
+        : await this.extractItemIdentifier(page, discovery, i, isDropdown);
+      const filterCheck = isRelational
+        ? ConditionEvaluator.evaluate(itemsWithFields[i]?.fields || {}, effectiveFilter)
+        : sharedEvaluateItemFilter(effectiveFilter, itemsWithFields[i]?.fields || {});
+      const skippedResult = {
+        index: i + 1,
+        itemIndex: i,
+        page: currentPage,
+        label: itemIdentifier.itemLabel,
+        itemKey: itemIdentifier.itemKey,
+        status: 'SKIPPED_FILTER',
+        skippedReason: filterCheck.reason,
+        timestamp: new Date().toISOString()
+      };
+      manifest.results.push(skippedResult);
+      if (typeof onProgress === 'function') onProgress({ status: 'ITEM_SKIPPED', itemResult: skippedResult, manifest });
+    }
+    manifest.status = 'COMPLETED';
+    manifest.endTime = new Date().toISOString();
+    const writeLoopCheckpoint = (m, cItem, cAct, cPage, cPItem, active) => {
+      if (runner && typeof runner.writeLoopCheckpoint === 'function') {
+        return runner.writeLoopCheckpoint(m, cItem, cAct, cPage, cPItem, active);
+      }
+      if (this.stateCoordinator) this.stateCoordinator.writeLoopCheckpoint(m, cItem, cAct, cPage, cPItem, active);
+    };
+    writeLoopCheckpoint(manifest, null, null, currentPage, null, null);
+    const runsDir = runner ? runner.runsDir : (this.downloadManager ? this.downloadManager.runsDir : null);
+    if (runsDir) {
+      try { fs.writeFileSync(path.join(runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2)); } catch {}
+    }
+    if (typeof onProgress === 'function') onProgress({ status: manifest.status, manifest });
+    return manifest;
+  }
+
+  /**
+   * Coordinates multi-page loop pagination and sequential item execution
+   */
+  async runPaginationLoop({ page, workflow, manifest, checkpoint, prep, runner, onProgress }) {
+    const { partition, effectiveLoopStepIndex, isDropdown, triggerStep } = prep;
+    let discovery = prep.discovery;
+    const targetStep = partition.loopSteps[0];
+    const generalizedActions = ActionGeneralizer.generalizeActions(partition.loopSteps, discovery.collection);
+    logger.info(`[Loop Runner] Discovered ${discovery.itemCount} repeated item(s) with confidence ${Math.round(discovery.confidence * 100)}% (Dropdown Mode: ${isDropdown})`);
+    logger.info(`[Loop Runner] Generalized ${generalizedActions.length} loop action(s).`);
+    if (typeof onProgress === 'function') onProgress({ status: 'PROCESSING_ITEMS', manifest, discovery, generalizedActions });
+
+    const paginationEnabled = workflow.pagination?.enabled === true;
+    const maxPages = Number.isInteger(workflow.pagination?.maxPages) ? Math.max(1, workflow.pagination.maxPages) : 100;
+    let currentPage = 1;
+    const resumePage = checkpoint?.currentPage ?? 1;
+    const resumePageItemIndex = checkpoint?.currentPageItemIndex ?? 0;
+    const resumeActionOffset = checkpoint?.currentActionOffset ?? 0;
+    const resumeItemIndex = checkpoint?.currentItemIndex ?? null;
+
+    const browserPages = await page.browser().pages();
+    const initialPageUrls = new Set(browserPages.map(p => p.url()));
+
+    const advanceToNextPage = async (p, wf) => {
+      if (runner && typeof runner.advanceToNextPage === 'function') return runner.advanceToNextPage(p, wf);
+      return this.gridAdapter ? this.gridAdapter.advanceToNextPage(p, wf, this.replayEngine) : false;
+    };
+    const getCollectionFingerprint = async (p, coll) => {
+      if (runner && typeof runner.getCollectionFingerprint === 'function') return runner.getCollectionFingerprint(p, coll);
+      return this.gridAdapter ? this.gridAdapter.getCollectionFingerprint(p, coll) : null;
+    };
+    const detectAndFilterItems = async (p, disc, drop, filt) => {
+      if (runner && typeof runner.detectAndFilterItems === 'function') return runner.detectAndFilterItems(p, disc, drop, filt);
+      return this.detectAndFilterItems(p, disc, drop, filt);
+    };
+    const checkIfAlreadyDownloaded = (k, inv, flds, h) => {
+      if (runner && typeof runner.checkIfAlreadyDownloaded === 'function') return runner.checkIfAlreadyDownloaded(k, inv, flds, h);
+      return this.downloadManager ? this.downloadManager.checkIfAlreadyDownloaded(k, inv, flds, h) : { isDuplicate: false };
+    };
+    const writeLoopCheckpoint = (m, cItem, cAct, cPage, cPItem, active) => {
+      if (runner && typeof runner.writeLoopCheckpoint === 'function') return runner.writeLoopCheckpoint(m, cItem, cAct, cPage, cPItem, active);
+      if (this.stateCoordinator) this.stateCoordinator.writeLoopCheckpoint(m, cItem, cAct, cPage, cPItem, active);
+    };
+
+    while (true) {
+      const currentPageUrl = page.url();
+      if (currentPage < resumePage) {
+        await advanceToNextPage(page, workflow);
+        discovery = await ItemDiscovery.discover(page, targetStep.target || targetStep.fingerprint, { minItems: 1, minScore: 0.55 });
+        currentPage++;
+        manifest.pagesProcessed = currentPage;
+        manifest.itemsTotal += discovery.itemCount;
+        continue;
+      }
+
+      const effectiveFilter = (runner ? (runner.itemFilter || runner.rowFilter) : null) || (this.stateCoordinator ? (this.stateCoordinator.itemFilter || this.stateCoordinator.rowFilter) : null);
+      const evaluatedItems = await detectAndFilterItems(page, discovery, isDropdown, effectiveFilter);
+      const matchingItems = evaluatedItems.filter(it => it.matches);
+      const skippedItems = evaluatedItems.filter(it => !it.matches);
+      manifest.matchingCount = (manifest.matchingCount || 0) + matchingItems.length;
+      manifest.matching = manifest.matchingCount;
+
+      for (const skipped of skippedItems) {
+        const skippedIndex = resumeItemIndex != null && currentPage === resumePage && skipped.index === resumePageItemIndex
+          ? resumeItemIndex
+          : manifest.results.reduce((max, r) => Math.max(max, Number(r.index) || 0), 0) + 1;
+        const skippedResult = {
+          index: skippedIndex,
+          itemIndex: skipped.index,
+          page: currentPage,
+          label: skipped.itemIdentifier.itemLabel,
+          itemKey: skipped.itemIdentifier.itemKey,
+          status: 'SKIPPED_FILTER',
+          skippedReason: skipped.reason,
+          timestamp: new Date().toISOString()
+        };
+        manifest.results.push(skippedResult);
+        manifest.skippedFilterCount = (manifest.skippedFilterCount || 0) + 1;
+        manifest.skippedFilter = manifest.skippedFilterCount;
+        manifest.itemsSkipped = (manifest.itemsSkipped || 0) + 1;
+      }
+
+      if ((runner && runner.rowFilter) || isDropdown) {
+        logger.info(`[Loop Runner] Filter evaluation: ${matchingItems.length}/${evaluatedItems.length} matching item(s) (${skippedItems.length} filtered out). Iterating properly through matching items.`);
+      }
+
+      for (let m = 0; m < matchingItems.length; m++) {
+        const targetItem = matchingItems[m];
+        const i = targetItem.index;
+        const itemIdentifier = targetItem.itemIdentifier;
+
+        const isAborted = runner ? runner.isAborted : this.getIsAborted();
+        if (isAborted) {
+          manifest.status = 'STOPPED';
+          writeLoopCheckpoint(manifest, null, 0, currentPage, i, null);
+          break;
+        }
+        if (checkpoint && currentPage === resumePage && i < resumePageItemIndex) continue;
+
+        logger.info(`\n[Loop Runner] --- Processing item [${m + 1}/${matchingItems.length}] (DOM index ${i + 1}: "${itemIdentifier.itemLabel}") ---`);
+
+        const effectiveLimit = runner ? (runner.loopLimit || runner.maxItems) : (this.stateCoordinator ? (this.stateCoordinator.loopLimit || this.stateCoordinator.maxItems) : null);
+        if (effectiveLimit && (manifest.selectedCount || 0) >= effectiveLimit) {
+          const limitReason = `Beyond loop limit (${effectiveLimit})`;
+          logger.info(`[Loop Runner] 🛑 Skipping item #${i + 1} ("${itemIdentifier.itemLabel}") — ${limitReason}`);
+          if (runner) runner._limitReached = true;
+          const skippedIndex = resumeItemIndex != null && currentPage === resumePage && i === resumePageItemIndex
+            ? resumeItemIndex
+            : manifest.results.reduce((max, r) => Math.max(max, Number(r.index) || 0), 0) + 1;
+          const skippedResult = {
+            index: skippedIndex,
+            itemIndex: i,
+            page: currentPage,
+            label: itemIdentifier.itemLabel,
+            itemKey: itemIdentifier.itemKey,
+            status: 'SKIPPED_LIMIT',
+            skippedReason: limitReason,
+            timestamp: new Date().toISOString()
+          };
+          manifest.results.push(skippedResult);
+          manifest.skippedLimitCount = (manifest.skippedLimitCount || 0) + 1;
+          manifest.skippedLimit = manifest.skippedLimitCount;
+          manifest.itemsSkipped = (manifest.itemsSkipped || 0) + 1;
+          if (runner) runner.manifest = manifest;
+          writeLoopCheckpoint(manifest, null, 0, currentPage, i + 1, null);
+          if (typeof onProgress === 'function') onProgress({ status: 'ITEM_SKIPPED', itemResult: skippedResult, manifest });
+          continue;
+        }
+
+        manifest.selectedCount = (manifest.selectedCount || 0) + 1;
+        manifest.selected = manifest.selectedCount;
+        const dedupe = checkIfAlreadyDownloaded(itemIdentifier.itemKey, itemIdentifier.invoiceNumber, targetItem.fields || {});
+
+        const itemMode = runner ? runner.itemMode : (this.stateCoordinator ? this.stateCoordinator.itemMode : 'new');
+        const forceRedownload = runner ? runner.forceRedownload : (this.downloadManager ? this.downloadManager.forceRedownload : false);
+
+        if (itemMode === 'old' && !dedupe.isDuplicate && !dedupe.isOldData) {
+          const skippedResult = {
+            index: manifest.results.reduce((max, r) => Math.max(max, Number(r.index) || 0), 0) + 1,
+            itemIndex: i,
+            page: currentPage,
+            label: itemIdentifier.itemLabel,
+            itemKey: itemIdentifier.itemKey,
+            status: 'SKIPPED_FILTER',
+            skippedReason: 'New item (run mode is "old only")',
+            timestamp: new Date().toISOString()
+          };
+          manifest.results.push(skippedResult);
+          manifest.itemsSkipped = (manifest.itemsSkipped || 0) + 1;
+          if (runner) runner.manifest = manifest;
+          writeLoopCheckpoint(manifest, null, 0, currentPage, i + 1, null);
+          if (typeof onProgress === 'function') onProgress({ status: 'ITEM_SKIPPED', itemResult: skippedResult, manifest });
+          continue;
+        }
+
+        if (dedupe.isDuplicate && itemMode === 'new' && !forceRedownload) {
+          logger.info(`[Loop Runner] Skipping item #${i + 1} ("${itemIdentifier.itemLabel}") — already downloaded: "${dedupe.record?.filename || 'existing'}"`);
+          const skippedIndex = resumeItemIndex != null && currentPage === resumePage && i === resumePageItemIndex
+            ? resumeItemIndex
+            : manifest.results.reduce((max, r) => Math.max(max, Number(r.index) || 0), 0) + 1;
+          const skippedResult = {
+            index: skippedIndex,
+            itemIndex: i,
+            page: currentPage,
+            label: itemIdentifier.itemLabel,
+            itemKey: itemIdentifier.itemKey,
+            status: 'SKIPPED_DUPLICATE',
+            skippedReason: dedupe.inFolder ? `Already in download folder: ${dedupe.record?.filename || 'file'}` : `Already downloaded: ${dedupe.record?.filename || 'file'}`,
+            existingFile: dedupe.record?.filePath || null,
+            downloadedFiles: dedupe.record?.filePath ? [{ filename: dedupe.record.filename, path: path.resolve(process.cwd(), dedupe.record.filePath), relativePath: dedupe.record.filePath, sizeBytes: dedupe.record.fileSizeBytes || 0, skipped: true }] : [],
+            timestamp: new Date().toISOString()
+          };
+          manifest.results.push(skippedResult);
+          manifest.skippedDuplicateCount = (manifest.skippedDuplicateCount || 0) + 1;
+          manifest.skippedDuplicate = manifest.skippedDuplicateCount;
+          manifest.itemsSkipped = (manifest.itemsSkipped || 0) + 1;
+          if (runner) runner.manifest = manifest;
+          writeLoopCheckpoint(manifest, null, 0, currentPage, i + 1, null);
+          const runsDir = runner ? runner.runsDir : (this.downloadManager ? this.downloadManager.runsDir : null);
+          if (runsDir) {
+            try { fs.writeFileSync(path.join(runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2)); } catch {}
+          }
+          if (typeof onProgress === 'function') onProgress({ status: 'ITEM_SKIPPED', itemResult: skippedResult, manifest });
+          continue;
+        }
+
+        const itemExec = await this.executeItemAttempt({
+          page, discovery, i, targetItem, itemIdentifier, generalizedActions, effectiveLoopStepIndex,
+          isDropdown, triggerStep, partition, currentPageUrl, initialPageUrls, currentPage,
+          manifest, checkpoint, resumePage, resumePageItemIndex, resumeActionOffset, resumeItemIndex,
+          onProgress, runner
+        });
+        if (itemExec?.stopped) break;
+      }
+
+      if (!paginationEnabled || currentPage >= maxPages || (runner && runner._limitReached)) break;
+      const beforePageFingerprint = await getCollectionFingerprint(page, discovery.collection);
+      if (!await advanceToNextPage(page, workflow)) { logger.info('[Loop Runner] Pagination complete.'); break; }
+
+      const nextDiscovery = await ItemDiscovery.discover(page, targetStep.target || targetStep.fingerprint, { minItems: 1, minScore: 0.55 });
+      if (!nextDiscovery.success || nextDiscovery.itemCount < 1) break;
+
+      const afterPageFingerprint = await getCollectionFingerprint(page, nextDiscovery.collection);
+      if (beforePageFingerprint && afterPageFingerprint && beforePageFingerprint === afterPageFingerprint) break;
+
+      discovery = nextDiscovery;
+      manifest.itemsTotal += discovery.itemCount;
+      manifest.pagesProcessed = currentPage + 1;
+      currentPage++;
+      writeLoopCheckpoint(manifest, null, null, currentPage, null, null);
+      if (typeof onProgress === 'function') onProgress({ status: 'PAGE_COMPLETE', page: currentPage, manifest, discovery });
+    }
+  }
+
+  /**
+   * Executes linear standard workflow actions sequentially with download capture
+   */
+  async executeStandardSteps({ page, steps, manifest, onProgress, runner }) {
+    const replayEngine = runner?.replayEngine || this.replayEngine;
+    const isAborted = () => (runner ? runner.isAborted : this.getIsAborted());
+    let startIndex = 0;
+    const loginSeq = detectLoginSequence(steps);
+    if (loginSeq.hasLoginSequence && await isSessionAuthenticated(page, loginSeq)) {
+      logger.info(`[Runner] Session authenticated. Skipping ${loginSeq.loginActionCount} login steps.`);
+      for (let s = loginSeq.startIndex; s <= loginSeq.endIndex; s++) {
+        const skipResult = { stepIndex: s + 1, type: steps[s].type || 'CLICK', status: 'SKIPPED', reason: 'SESSION_ALREADY_AUTHENTICATED' };
+        manifest.itemsSkipped++; manifest.results.push(skipResult);
+        if (typeof onProgress === 'function') onProgress({ status: 'STEP_COMPLETE', stepResult: skipResult, manifest });
+      }
+      startIndex = loginSeq.firstPostLoginIndex;
+    }
+
+    const runsDir = runner ? runner.runsDir : (this.downloadManager ? this.downloadManager.runsDir : null);
+    const downloadsDir = runner ? runner.downloadsDir : (this.downloadManager ? this.downloadManager.downloadsDir : null);
+
+    const snapshotDownloadedFiles = () => {
+      if (runner && typeof runner.snapshotDownloadedFiles === 'function') return runner.snapshotDownloadedFiles();
+      return this.downloadManager ? this.downloadManager.snapshotDownloadedFiles() : [];
+    };
+    const waitForDownload = (snap, timeout) => {
+      if (runner && typeof runner.waitForDownload === 'function') return runner.waitForDownload(snap, timeout);
+      return this.downloadManager ? this.downloadManager.waitForDownload(snap, timeout) : [];
+    };
+    const processAndStoreDownload = (src, key, lbl, flds) => {
+      if (runner && typeof runner.processAndStoreDownload === 'function') return runner.processAndStoreDownload(src, key, lbl, flds);
+      return this.downloadManager ? this.downloadManager.processAndStoreDownload(src, key, lbl, flds) : null;
+    };
+
+    for (let i = startIndex; i < steps.length; i++) {
+      if (isAborted()) { manifest.status = 'STOPPED'; break; }
+      const step = steps[i];
+      if (i > 0 && step.timeDeltaMs > 600) {
+        const end = Date.now() + Math.min(step.timeDeltaMs, 15000);
+        while (Date.now() < end && !isAborted()) await new Promise(r => setTimeout(r, 100));
+      }
+      if (isAborted()) { manifest.status = 'STOPPED'; break; }
+
+      const beforeFiles = snapshotDownloadedFiles();
+      const stepResult = { stepIndex: i + 1, type: step.type || 'CLICK', status: 'PENDING', startTime: new Date().toISOString() };
+      try {
+        if (replayEngine) await replayEngine.executeAction(step, i);
+        stepResult.status = 'SUCCESS';
+        manifest.itemsSucceeded++;
+        if ((step.type || 'CLICK') === 'CLICK' && downloadsDir) {
+          const isDl = /download|export|save|pdf|print/i.test(step.target?.fingerprint?.text || step.target?.fingerprint?.attributes?.title || '');
+          const downloaded = await waitForDownload(beforeFiles, isDl ? 12000 : 1200);
+          if (downloaded.length) {
+            stepResult.downloadedFiles = downloaded.map(dl => processAndStoreDownload(dl.path, `step_${i + 1}`, `Step #${i + 1}`) || dl);
+          }
+        }
+      } catch (err) {
+        if (isAborted()) { stepResult.status = 'STOPPED'; manifest.status = 'STOPPED'; manifest.results.push(stepResult); break; }
+        stepResult.status = 'FAILED'; stepResult.error = err.message; manifest.itemsFailed++;
+      }
+      stepResult.endTime = new Date().toISOString();
+      manifest.results.push(stepResult);
+      if (runsDir) {
+        try { fs.writeFileSync(path.join(runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2)); } catch {}
+      }
+      if (typeof onProgress === 'function') onProgress({ status: 'STEP_COMPLETE', stepResult, manifest });
+    }
   }
 }
 
