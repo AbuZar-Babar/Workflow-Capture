@@ -5,8 +5,6 @@ on:
     branches:
       - main
       - multi-agent
-      - 'chatgpt/**'
-      - 'gemini/**'
   pull_request:
     branches:
       - main
@@ -37,7 +35,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run fast test suite (npm test)
+      - name: Run fast test suite
         run: npm test
 
   browser-e2e:
