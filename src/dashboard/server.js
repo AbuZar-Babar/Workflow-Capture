@@ -66,6 +66,7 @@ const {
   getAllowedOrigins
 } = require('../auth/auth-middleware');
 const { db } = require('../database/db');
+const staticRoutes = require('./routes/static-routes');
 
 const PORT = parseInt(process.env.PORT, 10) || 3000;
 const HOST = (process.env.HOST || (process.env.ALLOW_NETWORK_ACCESS === 'true' ? '0.0.0.0' : '127.0.0.1')).trim();
@@ -194,31 +195,6 @@ async function checkCDPStatus(port = 9222) {
   });
 }
 
-/**
- * MIME type resolver
- */
-const MIME_TYPES = {
-  '.html': 'text/html',
-  '.css': 'text/css',
-  '.js': 'application/javascript',
-  '.json': 'application/json',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.webp': 'image/webp',
-  '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon',
-  '.pdf': 'application/pdf',
-  '.csv': 'text/csv',
-  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  '.xls': 'application/vnd.ms-excel',
-  '.txt': 'text/plain',
-  '.zip': 'application/zip',
-  '.mp4': 'video/mp4',
-  '.webm': 'video/webm',
-  '.ogg': 'video/ogg',
-  '.mov': 'video/quicktime'
-};
 
 /**
  * Parse JSON Request Body Helper
@@ -1338,72 +1314,7 @@ const server = http.createServer(async (req, res) => {
     // -------------------------------------------------------------
     // Static File Serving (HTML, CSS, JS, Assets, Test Portals)
     // -------------------------------------------------------------
-    let filePath;
-    if (pathname.startsWith('/Run/')) {
-      const runFile = pathname.replace('/Run/', '');
-      filePath = path.join(process.cwd(), 'Run', runFile);
-    } else if (pathname.startsWith('/downloads/')) {
-      const downloadFile = pathname.replace('/downloads/', '');
-      filePath = path.join(process.cwd(), 'downloads', downloadFile);
-    } else if (pathname.startsWith('/portal/')) {
-      const portalFile = pathname.replace('/portal/', '');
-      filePath = path.join(process.cwd(), 'test', portalFile);
-    } else if (pathname.startsWith('/test/')) {
-      const testFile = pathname.replace('/test/', '');
-      filePath = path.join(process.cwd(), 'test', testFile);
-    } else if (pathname === '/' || pathname === '/landing' || pathname === '/landing.html') {
-      filePath = path.join(PUBLIC_DIR, 'landing.html');
-    } else if (pathname === '/app' || pathname === '/dashboard') {
-      filePath = path.join(PUBLIC_DIR, 'index.html');
-    } else {
-      filePath = path.join(PUBLIC_DIR, pathname);
-    }
-
-    const extname = String(path.extname(filePath)).toLowerCase();
-
-    if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
-      const stat = fs.statSync(filePath);
-      const totalSize = stat.size;
-      const contentType = MIME_TYPES[extname] || 'application/octet-stream';
-
-      // Support HTTP 206 Range Requests for video files (essential for Chrome & Safari video streaming)
-      const range = req.headers.range;
-      if (range && (extname === '.mp4' || extname === '.webm' || extname === '.ogg' || extname === '.mov')) {
-        const parts = range.replace(/bytes=/, '').split('-');
-        const start = parseInt(parts[0], 10);
-        const end = parts[1] ? parseInt(parts[1], 10) : totalSize - 1;
-        const chunksize = (end - start) + 1;
-        const fileStream = fs.createReadStream(filePath, { start, end });
-
-        res.writeHead(206, {
-          'Content-Range': `bytes ${start}-${end}/${totalSize}`,
-          'Accept-Ranges': 'bytes',
-          'Content-Length': chunksize,
-          'Content-Type': contentType,
-          'Cache-Control': 'no-cache'
-        });
-        return fileStream.pipe(res);
-      }
-
-      const headers = {
-        'Content-Type': contentType,
-        'Content-Length': totalSize,
-        'Accept-Ranges': 'bytes',
-        'Cache-Control': extname === '.html' ? 'no-cache, no-store, must-revalidate' : 'public, max-age=3600',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      };
-      if (urlObj.searchParams.get('download') === '1') {
-        headers['Content-Disposition'] = `attachment; filename="${path.basename(filePath)}"`;
-      }
-      res.writeHead(200, headers);
-      const fileStream = fs.createReadStream(filePath);
-      return fileStream.pipe(res);
-    }
-
-    // Fallback: 404
-    res.writeHead(404, { 'Content-Type': 'text/plain' });
-    res.end('Not Found');
+    return staticRoutes.handleStatic(req, res, pathname, urlObj);
 
   } catch (err) {
     logger.error('Dashboard Server Error:', err);
