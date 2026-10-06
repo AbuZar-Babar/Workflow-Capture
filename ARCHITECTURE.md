@@ -96,20 +96,35 @@ A representative recorded action can be generalized into an item-relative action
 
 ## 6. Filtering
 
-The integrated v1 contains a pure shared evaluator for a single text condition and a dashboard preflight/review flow. End-to-end API/runtime integration and the expanded v2 contract are still in progress.
+Filtering is evaluated against structured fields extracted from each discovered item prior to repeated execution. The live contract supports compound boolean evaluation with preview and execution parity.
 
 ```
 Discovered Items
       ↓
-Filter configuration
+Filter Evaluation (all / any conditions)
       ↓
-Evaluate item attributes/content
+Selected items ──→ Execution (up to loopLimit)
       ↓
-Selected items ──→ execution
-Skipped items ───→ run results
+Skipped items:
+  ├─ SKIPPED_FILTER (failed condition matching)
+  └─ SKIPPED_LIMIT  (matched filter, but beyond loopLimit)
 ```
 
-The target contract supports one or more item-field conditions combined with `all` (AND) or `any` (OR), text `contains`/`equals`, and inclusive date-only `dateBetween` ranges. An optional positive item limit is applied after filtering in discovery order. The first N matching items are selected; each consumes one slot when its workflow begins, even if it fails. Filter mismatches and matches outside the limit have distinct skipped states. The exact contract and edge cases are maintained in [LOOP-FILTER-REQUIREMENTS.md](LOOP-FILTER-REQUIREMENTS.md).
+### Filter Contract
+
+- **Match Mode**: Configurable as `all` (AND, default) or `any` (OR).
+- **Operators**:
+  - `contains`: Case-insensitive substring match after trimming string values.
+  - `equals`: Case-insensitive exact match after trimming string values.
+  - `dateBetween`: Strict `YYYY-MM-DD` date-only inclusive calendar comparison where `from <= to`. Unparseable or ambiguous dates fail the condition with explicit skip rationale.
+- **Missing Field Validation**: A configured filter field absent from the item discovery schema is treated as a configuration error and immediately blocks execution; the engine never silently falls back to searching the entire row.
+- **Positive Limit (`loopLimit`)**: Applied after filtering in discovery order. The first N matching items are selected. Each selected item consumes one attempt slot when execution begins regardless of subsequent success or failure. Retries do not consume additional slots.
+- **Lifecycle Item States**:
+  - `pending` / `running`
+  - `succeeded` / `failed`
+  - `SKIPPED_FILTER`: Items that did not satisfy filter conditions.
+  - `SKIPPED_LIMIT`: Items that satisfied filter conditions but exceeded `loopLimit`.
+- **Preview & Runtime Parity**: Discovery preview and runtime execution share the exact same evaluation logic, field normalization, and limit slicing to guarantee identical item counts and ordering.
 
 ## 7. Repeated Execution
 
@@ -188,6 +203,21 @@ The frontend uses Vanilla JavaScript ES modules. Drawflow provides the visual wo
 
 Dashboard local-mode authentication and access-control hardening are integrated. Portal authentication is separate: the automation uses the user's authenticated browser/session and does not currently provide a general portal-login service.
 
-## 12. Deferred Architecture
+## 12. Architectural Decision Records (ADRs)
+
+The key architectural decisions guiding Workflow Capture include:
+
+- **ADR 001 — Generic Engine + Portal Configuration**: Keep browser automation mechanisms generic and represent portal-specific behavior through workflows/configuration or focused adapters.
+- **ADR 002 — Item Discovery Is Core**: Repeated-item discovery is a first-class product capability. The product generalizes a demonstrated item workflow to a discovered collection.
+- **ADR 003 — Generic Compound Filtering**: Use a reusable filter model over discovered item fields supporting multiple conditions, `all`/`any` matching, text `contains`/`equals`, inclusive date ranges (`dateBetween`), and an optional attempt limit (`loopLimit`).
+- **ADR 004 — Structured Artifact Traceability**: Maintain strict relationship hierarchy: **Workflow → Run/Timestamp → Item → Artifact** for downloaded outputs.
+- **ADR 005 — Separate Dashboard Security from Portal Login**: Dashboard local-mode authentication and access control are part of the platform baseline. Portal login remains the user's browser/session responsibility.
+- **ADR 006 — Stabilization Before Speculative Expansion**: Prioritize real-portal validation and reliability before cloud-scale infrastructure, scheduling, AI recovery, or other speculative capabilities.
+- **ADR 007 — Drawflow for Visual Graph**: Use Drawflow for the visual workflow graph because the dashboard uses Vanilla JavaScript ES modules and does not require a heavy React/Vue graph architecture.
+- **ADR 008 — Backward-Compatible Workflow Schema**: Normalize legacy recorded action data into the current workflow-step representation at the API boundary.
+- **ADR 009 — One Loop-Start Marker for the Initial Batch Model**: A workflow without a loop marker runs once. With one loop-start marker, preceding steps run once and the marked step through the final step repeats for each selected item.
+- **ADR 010 — Filter First, Then Apply an Attempt Limit**: Filter discovered items first, preserve discovery order, and select the first N matches when a positive limit is configured. Each item consumes one slot when its workflow begins regardless of outcome; retries do not consume another slot. Date ranges use inclusive date-only endpoints.
+
+## 13. Deferred Architecture
 
 Cloud execution, distributed queues, scheduling, AI selector recovery, multi-user production infrastructure, and Document AI are not current commitments. They should only be promoted into the architecture when explicit product requirements justify them.
