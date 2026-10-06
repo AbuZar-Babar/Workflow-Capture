@@ -90,56 +90,10 @@ if (!fs.existsSync(RECORDINGS_DIR)) {
   fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
 }
 
-// SSE Clients
-const sseClients = new Set();
-
-function broadcast(type, payload) {
-  const message = `event: ${type}\ndata: ${JSON.stringify(payload)}\n\n`;
-  for (const client of sseClients) {
-    try {
-      client.write(message);
-    } catch {
-      sseClients.delete(client);
-    }
-  }
-}
-global.__flowmindBroadcast = broadcast;
-
-// Intercept logger to broadcast to dashboard UI
-const originalInfo = logger.info;
-const originalSuccess = logger.success;
-const originalWarn = logger.warn;
-const originalError = logger.error;
-const originalAction = logger.action;
-
-logger.info = function (...args) {
-  originalInfo.apply(logger, args);
-  broadcast('log', { level: 'INFO', text: args.join(' '), time: new Date().toLocaleTimeString() });
-};
-
-logger.success = function (...args) {
-  originalSuccess.apply(logger, args);
-  broadcast('log', { level: 'SUCCESS', text: args.join(' '), time: new Date().toLocaleTimeString() });
-};
-
-logger.warn = function (...args) {
-  originalWarn.apply(logger, args);
-  broadcast('log', { level: 'WARN', text: args.join(' '), time: new Date().toLocaleTimeString() });
-};
-
-logger.error = function (...args) {
-  originalError.apply(logger, args);
-  broadcast('log', { level: 'ERROR', text: args.map(a => a && a.message ? a.message : String(a)).join(' '), time: new Date().toLocaleTimeString() });
-};
-
-logger.action = function (index, type, target, detail = '') {
-  originalAction.call(logger, index, type, target, detail);
-  broadcast('log', {
-    level: 'ACTION',
-    text: `#${index} [${type}] ${target} ${detail}`,
-    time: new Date().toLocaleTimeString()
-  });
-};
+// SSE Event Manager
+const sseManager = require('./sse/sse-event-manager');
+sseManager.attachLogger(logger);
+const broadcast = sseManager.broadcast;
 
 // Global State
 let activeRecorder = null;
@@ -313,21 +267,7 @@ const server = http.createServer(async (req, res) => {
     // SSE Stream
     // -------------------------------------------------------------
     if (pathname === '/api/events') {
-      if (!requireAuth(req, res)) return;
-
-      const sseHeaders = {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive'
-      };
-      res.writeHead(200, sseHeaders);
-      res.write('\n');
-      sseClients.add(res);
-
-      req.on('close', () => {
-        sseClients.delete(res);
-      });
-      return;
+      return sseManager.handleConnection(req, res);
     }
 
     // -------------------------------------------------------------
