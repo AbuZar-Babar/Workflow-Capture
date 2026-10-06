@@ -1,0 +1,451 @@
+/**
+ * src/replay/action-dispatcher.js
+ * Unified Action Dispatcher for browser action execution, wait heuristics,
+ * secret injection, delay calculation, and CDP dispatching.
+ */
+
+const fs = require('fs');
+const path = require('path');
+const { dispatchAction } = require('./action-executors');
+const { calculateDelay } = require('./human-mouse');
+const { DEFAULT_TIMEOUTS } = require('../shared/constants');
+const { resolveTargetUrl } = require('../utils/url-helper');
+const { ElementResolutionTimeoutError } = require('../utils/errors');
+const logger = require('../utils/logger');
+
+class ActionDispatcher {
+  constructor(options = {}) {
+    this.botConfig = options.botConfig || null;
+    this.secretResolver = options.secretResolver || null;
+    this.timeoutMs = options.timeoutMs || DEFAULT_TIMEOUTS.RESOLUTION_TIMEOUT_MS;
+    this.pollIntervalMs = options.pollIntervalMs || DEFAULT_TIMEOUTS.POLL_INTERVAL_MS;
+  }
+
+  /**
+   * Evaluates if a given action is likely to trigger a file download or export.
+   * Checks explicit flags, action/element names, candidate selectors, and fingerprint attributes.
+   * @param {Object} action
+   * @returns {boolean}
+   */
+  static isDownloadAction(action) {
+    if (!action) return false;
+    if (action.isDownload === true) return true;
+    const PATTERN = /download|export|save|pdf|print|file/i;
+    if (action.name && PATTERN.test(action.name)) return true;
+    if (action.elementName && PATTERN.test(action.elementName)) return true;
+    if (action.target?.candidates?.some(c => c.value && PATTERN.test(c.value))) return true;
+
+    const fp = action.target?.fingerprint || action.fingerprint;
+    if (fp?.attributes?.title && PATTERN.test(fp.attributes.title)) return true;
+    if (fp?.attributes?.href && PATTERN.test(fp.attributes.href)) return true;
+    if (fp?.text && PATTERN.test(fp.text)) return true;
+
+    if (action.text && PATTERN.test(action.text)) return true;
+
+    return false;
+  }
+
+  /**
+   * Calculates standardized humanized pacing delay from action timeDeltaMs.
+   * @param {Object} step
+   * @param {number} speed
+   * @param {Object} botConfig
+   * @returns {number} Delay in milliseconds
+   */
+  static calculatePacingDelay(step, speed = 1.0, botConfig = {}) {
+    if (!step || !step.timeDeltaMs || speed <= 0) return 0;
+    const maxPacing = (botConfig?.timing?.maxActionDelayMs && botConfig.timing.maxActionDelayMs > 1000)
+      ? Math.max(botConfig.timing.maxActionDelayMs * 3, 15000)
+      : 15000;
+    return Math.min(Math.round(step.timeDeltaMs / speed), maxPacing);
+  }
+
+  /**
+   * Calculates pre-action delay based on botConfig.
+   * @param {Object} botConfig
+   * @returns {number} Delay in milliseconds
+   */
+  static calculatePreActionDelay(botConfig = {}) {
+    if (botConfig?.timing?.preActionDelayMs > 0) {
+      return calculateDelay(
+        Math.round(botConfig.timing.preActionDelayMs * 0.7),
+        Math.round(botConfig.timing.preActionDelayMs * 1.3)
+      );
+    }
+    return 0;
+  }
+
+  /**
+   * Calculates post-action delay based on botConfig or default constants.
+   * @param {Object} botConfig
+   * @returns {number} Delay in milliseconds
+   */
+  static calculatePostActionDelay(botConfig = {}) {
+    let postDelay = DEFAULT_TIMEOUTS.POST_ACTION_DELAY_MS;
+    if (botConfig?.timing) {
+      const minD = botConfig.timing.minActionDelayMs || 200;
+      const maxD = botConfig.timing.maxActionDelayMs || 600;
+      postDelay = calculateDelay(minD, maxD, 'gaussian');
+    }
+    return postDelay;
+  }
+
+  /**
+   * Evaluates if a given action targets an option or pseudo-checkbox inside a combobox/dropdown.
+   * @param {Object} action
+   * @returns {boolean}
+   */
+  static isOptionAction(action) {
+    if (!action) return false;
+    const candidates = action.target?.candidates || action.candidates || [];
+    const fp = action.target?.fingerprint || action.fingerprint || {};
+
+    return Boolean(
+      candidates.some(c => c.value && (c.value.includes('option') || c.value.includes('pseudo-checkbox'))) ||
+      fp.tagName === 'mat-option' ||
+      fp.tagName === 'mat-pseudo-checkbox' ||
+      fp.role === 'option'
+    );
+  }
+
+  /**
+   * Looks ahead to check if the subsequent action targets a dropdown option.
+   * @param {Object} recording
+   * @param {number} nextIndex
+   * @returns {boolean}
+   */
+  static isNextActionOption(recording, nextIndex) {
+    const actions = recording?.actions || (Array.isArray(recording) ? recording : null);
+    if (!actions || nextIndex >= actions.length) return false;
+    return ActionDispatcher.isOptionAction(actions[nextIndex]);
+  }
+
+  /**
+   * Resolves secrets inside action parameters (e.g. {{secret:secretId}}).
+   * Returns a deep clone of the action with resolved values.
+   * @param {Object} action
+   * @param {Function} secretResolver
+   * @param {number} actionIndex
+   * @returns {Promise<Object>}
+   */
+  static async resolveActionSecrets(action, secretResolver = null, actionIndex = 0) {
+    const actionToDispatch = { ...action };
+    if (actionToDispatch.type === 'TYPE' && typeof actionToDispatch.value === 'string') {
+      const match = actionToDispatch.value.match(/^{{secret:([^}]+)}}$/);
+      if (match && typeof secretResolver === 'function') {
+        logger.info(`Injecting secret [${match[1]}] for action #${actionIndex + 1}...`);
+        actionToDispatch.value = await secretResolver(match[1]);
+      }
+    }
+    return actionToDispatch;
+  }
+
+  /**
+   * Resolves target element inside an already-discovered collection item container.
+   * Avoids globally resolving the selector to prevent matching the first item repeatedly.
+   * @param {Object} itemHandle Puppeteer JSHandle for the collection item container
+   * @param {Object} target Target object containing candidates and/or fingerprint
+   * @returns {Promise<Object>} JSHandle for resolved element, or null
+   */
+  static async resolveTargetWithinItem(itemHandle, target) {
+    if (!itemHandle) return null;
+    return itemHandle.evaluateHandle((item, tgt) => {
+      if (!item) return null;
+
+      const visible = (el) => {
+        if (!el || !(el instanceof Element)) return false;
+        const style = getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        return style.display !== 'none' && style.visibility !== 'hidden' &&
+          rect.width > 0 && rect.height > 0;
+      };
+
+      const normalize = (value) => String(value || '').toLowerCase().replace(/\s+/g, ' ').trim();
+      const fingerprint = tgt?.fingerprint || {};
+      const candidates = Array.isArray(tgt?.candidates) ? tgt.candidates : [];
+
+      const score = (el) => {
+        if (!visible(el)) return -1;
+        let value = 0;
+        if (fingerprint.tagName && el.tagName.toLowerCase() === String(fingerprint.tagName).toLowerCase()) value += 0.25;
+        if (fingerprint.role && el.getAttribute('role') === fingerprint.role) value += 0.2;
+        if (fingerprint.ariaLabel && el.getAttribute('aria-label') === fingerprint.ariaLabel) value += 0.2;
+        const targetText = normalize(fingerprint.text);
+        const elementText = normalize(el.textContent);
+        if (targetText && elementText === targetText) value += 0.35;
+        else if (targetText && elementText.includes(targetText)) value += 0.25;
+        if (fingerprint.id && el.id === fingerprint.id) value += 0.2;
+        return value;
+      };
+
+      // Prefer recorded CSS selectors, but only within this item.
+      for (const candidate of candidates) {
+        if (!candidate?.value) continue;
+        const value = candidate.value;
+        const looksXPath = value.startsWith('//') || value.startsWith('(');
+        if (looksXPath) continue;
+
+        // :scope represents the discovered item itself.
+        if (value === ':scope') return visible(item) ? item : null;
+
+        try {
+          const matches = Array.from(item.querySelectorAll(value)).filter(visible);
+          if (matches.length === 1) return matches[0];
+          if (matches.length > 1) {
+            return matches.sort((a, b) => score(b) - score(a))[0];
+          }
+        } catch {}
+      }
+
+      // Fingerprint fallback scoped to the item.
+      const tag = fingerprint.tagName && fingerprint.tagName !== 'unknown'
+        ? fingerprint.tagName.toLowerCase()
+        : '*';
+      let pool = Array.from(item.querySelectorAll(tag)).filter(visible);
+      if (!pool.length) pool = Array.from(item.querySelectorAll('*')).filter(visible);
+
+      // A generalized target may intentionally point at the item itself.
+      if (tag === '*' || item.tagName.toLowerCase() === tag) {
+        if (visible(item) && score(item) >= 0) pool.unshift(item);
+      }
+
+      if (fingerprint.ariaLabel) {
+        const ariaMatches = pool.filter(el => el.getAttribute('aria-label') === fingerprint.ariaLabel);
+        if (ariaMatches.length) pool = ariaMatches;
+      }
+
+      const targetText = normalize(fingerprint.text);
+      if (targetText && !tgt?.scope) {
+        const textMatches = pool.filter(el => normalize(el.textContent) === targetText);
+        if (textMatches.length) pool = textMatches;
+      }
+
+      pool.sort((a, b) => score(b) - score(a));
+      if (pool[0]) return pool[0];
+
+      // Fallback: If no candidate matched, find the primary clickable link/button or return item
+      const fallbackClickable = item.querySelector('a[href], button, [role="button"]');
+      if (fallbackClickable && visible(fallbackClickable)) return fallbackClickable;
+
+      return visible(item) ? item : null;
+    }, target);
+  }
+
+  /**
+   * Ensures SelectorResolver script is injected into the frame context.
+   * @param {Object} frame Puppeteer Frame
+   * @param {Object} fallbackPage Fallback page if frame is null
+   */
+  static async ensureSelectorResolverInFrame(frame, fallbackPage = null) {
+    try {
+      const targetFrame = frame || fallbackPage;
+      if (!targetFrame || (typeof targetFrame.isDetached === 'function' && targetFrame.isDetached())) return;
+      const isResolverLoaded = await targetFrame.evaluate(() => typeof window.SelectorResolver !== 'undefined').catch(() => false);
+
+      if (!isResolverLoaded) {
+        if (typeof targetFrame.isDetached === 'function' && targetFrame.isDetached()) return;
+        const resolverPath = path.resolve(__dirname, '../shared/selector-resolver.js');
+        const resolverCode = fs.readFileSync(resolverPath, 'utf8');
+        await targetFrame.evaluate(resolverCode).catch(() => {});
+      }
+    } catch {
+      // Ignore transient detached frame errors
+    }
+  }
+
+  /**
+   * Dispatches an action to an element handle, managing automated action guard flags,
+   * secret injection, scrolling, and dropdown animations.
+   * @param {Object} elementHandle
+   * @param {Object} action
+   * @param {Object} options
+   */
+  static async dispatchToElement(elementHandle, action, options = {}) {
+    const {
+      page,
+      botConfig,
+      isNextActionOption = false,
+      setAutomatedAction = null,
+      secretResolver = null,
+      actionIndex = 0,
+      scrollIfNeeded = false
+    } = options;
+
+    if (scrollIfNeeded && typeof elementHandle.scrollIntoViewIfNeeded === 'function') {
+      await elementHandle.scrollIntoViewIfNeeded().catch(() => {});
+    }
+
+    const actionToDispatch = await ActionDispatcher.resolveActionSecrets(action, secretResolver, actionIndex);
+
+    if (typeof setAutomatedAction === 'function') {
+      await setAutomatedAction(true, elementHandle);
+    }
+
+    try {
+      await dispatchAction(elementHandle, actionToDispatch, {
+        page,
+        botConfig,
+        isNextActionOption
+      });
+    } finally {
+      if (typeof setAutomatedAction === 'function') {
+        await setAutomatedAction(false, elementHandle);
+      }
+    }
+
+    // If this action opened a combobox/dropdown, allow overlay animation to settle
+    if (action.type === 'CLICK' && isNextActionOption) {
+      await new Promise(r => setTimeout(r, 300));
+    }
+
+    return { success: true, actionDispatched: actionToDispatch };
+  }
+
+  /**
+   * Executes a NAVIGATE action to target URL with stealth evasion.
+   * @param {Object} page Puppeteer Page
+   * @param {Object} action
+   * @param {Object} options
+   */
+  static async executeNavigation(page, action, options = {}) {
+    const navUrl = resolveTargetUrl(action.url) || action.url;
+    await page.goto(navUrl, { waitUntil: 'domcontentloaded', timeout: options.timeout || 30000 });
+    if (typeof options.applyStealthEvasion === 'function') {
+      await options.applyStealthEvasion();
+    }
+    await new Promise(r => setTimeout(r, options.delayMs || 500));
+    return { success: true, type: 'NAVIGATE', url: navUrl };
+  }
+
+  /**
+   * Condition-based in-page polling resolver loop across main page and all child frames (iframes).
+   * @param {Object} engine ReplayEngine instance or context object
+   * @param {Object} target
+   * @param {number} actionIndex
+   * @param {string} actionType
+   * @returns {Promise<{ elementHandle: Object, frame: Object, candidate: Object, confidenceScore: number }>}
+   */
+  static async waitForTargetElement(engine, target, actionIndex, actionType) {
+    const startTime = Date.now();
+    let lastResolutionResult = null;
+    const timeoutMs = engine.timeoutMs || DEFAULT_TIMEOUTS.RESOLUTION_TIMEOUT_MS;
+    const pollIntervalMs = engine.pollIntervalMs || DEFAULT_TIMEOUTS.POLL_INTERVAL_MS;
+
+    while (Date.now() - startTime < timeoutMs) {
+      if (engine.isAborted) {
+        throw new Error('Execution stopped by user');
+      }
+      if (typeof engine._waitWhilePaused === 'function') {
+        await engine._waitWhilePaused();
+      }
+      try {
+        const pagesToCheck = [engine.page];
+        if (engine.browser) {
+          const allPages = await engine.browser.pages().catch(() => []);
+          for (const p of allPages) {
+            if (p !== engine.page && !p.isClosed()) {
+              pagesToCheck.push(p);
+            }
+          }
+        }
+
+        for (const candidatePage of pagesToCheck) {
+          const frames = [candidatePage.mainFrame(), ...candidatePage.frames().filter(f => f !== candidatePage.mainFrame())];
+
+          for (const frame of frames) {
+            if (!frame || (typeof frame.isDetached === 'function' && frame.isDetached())) continue;
+            try {
+              await ActionDispatcher.ensureSelectorResolverInFrame(frame, engine.page);
+
+              // 1. Resolve and obtain direct JSHandle to the matched DOM element in this frame
+              const handle = await frame.evaluateHandle((targetData) => {
+                if (!window.SelectorResolver) return null;
+                const res = window.SelectorResolver.resolveElement(targetData);
+                return res.success && res.element ? res.element : null;
+              }, target).catch(() => null);
+
+              // 2. Fetch resolution report
+              const report = await frame.evaluate((targetData) => {
+                if (!window.SelectorResolver) return null;
+                return window.SelectorResolver.resolveElement(targetData);
+              }, target).catch(() => null);
+
+              if (report) {
+                lastResolutionResult = report;
+              }
+
+              // 3. Validate element and check interactability
+              if (handle) {
+                const element = handle.asElement();
+                if (element) {
+                  const isAttached = await element.evaluate(el => el.isConnected && el.ownerDocument.contains(el)).catch(() => false);
+
+                  if (isAttached) {
+                    const matchedCandidate = (report && (report.resolvedCandidate || report.candidate))
+                      ? (report.resolvedCandidate || report.candidate)
+                      : (target && target.candidates && target.candidates[0]) || { strategy: 'css_id', value: target?.targetId || 'unknown' };
+                    const confidenceScore = (report && report.confidenceScore) || 1.0;
+
+                    if (candidatePage !== engine.page) {
+                      await candidatePage.bringToFront().catch(() => {});
+                      engine.page = candidatePage;
+                      if (engine.enableDisturbanceDetection && typeof engine._initHumanDisturbanceDetection === 'function') {
+                        await engine._initHumanDisturbanceDetection(candidatePage);
+                      } else if (typeof engine._cleanupLingeringReplayGuard === 'function') {
+                        await engine._cleanupLingeringReplayGuard(candidatePage);
+                      }
+                      logger.info(`[ReplayEngine] Switched active tab/window to: ${candidatePage.url()}`);
+                    }
+
+                    return {
+                      elementHandle: element,
+                      frame,
+                      candidate: matchedCandidate,
+                      confidenceScore
+                    };
+                  }
+                  await element.dispose().catch(() => {});
+                } else {
+                  await handle.dispose().catch(() => {});
+                }
+              }
+            } catch {
+              // Continue searching remaining frames
+            }
+          }
+        }
+      } catch {
+        // Retry polling on frame detach
+      }
+
+      await new Promise(r => setTimeout(r, pollIntervalMs));
+    }
+
+    // Timeout exceeded
+    const detailedReason = lastResolutionResult?.reason ||
+      lastResolutionResult?.attempts?.find(a => a.reason)?.reason ||
+      'No candidate matched within timeout';
+
+    const failureReport = lastResolutionResult ? {
+      ...lastResolutionResult,
+      reason: detailedReason
+    } : {
+      bestScore: 0,
+      candidatesTried: (target && target.candidates) ? target.candidates.length : 0,
+      reason: detailedReason
+    };
+
+    throw new ElementResolutionTimeoutError(
+      `Condition-based resolution timed out after ${timeoutMs}ms for Action #${actionIndex + 1} [${actionType}]`,
+      {
+        actionIndex,
+        actionType,
+        target,
+        timeoutMs,
+        resolutionReport: failureReport
+      }
+    );
+  }
+}
+
+module.exports = ActionDispatcher;
