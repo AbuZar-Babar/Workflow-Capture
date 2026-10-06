@@ -13,4 +13,9 @@ recordings/runs/
 *.log
 downloads/
 recordings/
-
+Run/
+[Rr]un/
+*.pdf
+veo/
+video/
+.agents/
