@@ -10,22 +10,22 @@
 ## Task Checklist & Execution Board
 
 ### Phase 1: Dashboard & Route Decomposition
-- [ ] **Task 1.1: Extract SSE Event Manager**
+- [x] **Task 1.1: Extract SSE Event Manager**
   - Create `src/dashboard/sse/sse-event-manager.js` to manage SSE client responses, heartbeats, and live execution broadcasts.
   - Verify: `npm run test:fast`
   - Commit: `chore(dashboard): extract SSEEventManager module`
 
-- [ ] **Task 1.2: Extract Static Asset Routes**
+- [x] **Task 1.2: Extract Static Asset Routes**
   - Create `src/dashboard/routes/static-routes.js` to handle HTML, CSS, JS, vendor files, and canonical video streaming.
   - Verify: `npm run test:fast`
   - Commit: `chore(dashboard): extract static asset routes`
 
-- [ ] **Task 1.3: Extract Recorder API Routes**
+- [x] **Task 1.3: Extract Recorder API Routes**
   - Create `src/dashboard/routes/recorder-routes.js` for `/api/recorder/*` endpoints.
   - Verify: `npm run test:fast`
   - Commit: `chore(dashboard): extract recorder routes`
 
-- [ ] **Task 1.4: Modular Router & Slim Server Bootstrap**
+- [x] **Task 1.4: Modular Router & Slim Server Bootstrap**
   - Create `src/dashboard/routes/router.js` to dispatch by endpoint prefix.
   - Refactor `src/dashboard/server.js` into a lean HTTP bootstrap (<150 lines).
   - Verify: `npm run test:fast` & `npm run dashboard` health check.
