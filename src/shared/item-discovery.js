@@ -188,6 +188,54 @@ class ItemDiscovery {
         };
       }
 
+      const EXPANDER_GLYPH_REGEX = /^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/i;
+      const DOCUMENT_ID_REGEX = /\b((?:SI|INV|DR|TX|CM|PO|SO|BILL|REC|ORD)-\d+(?:[-_]\w+)*|\b\d{4,10}\b)/i;
+
+      const cleanCellText = (val) => {
+        if (val == null) return '';
+        let s = String(val).trim().replace(/\s+/g, ' ');
+        if (EXPANDER_GLYPH_REGEX.test(s)) return '';
+        s = s.replace(/^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+/, '').trim();
+        s = s.replace(/[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/, '').trim();
+        return s;
+      };
+
+      const isControlOrExpanderCell = (cellEl) => {
+        if (!cellEl || typeof cellEl !== 'object') return false;
+        if (
+          cellEl.classList?.contains('x-grid-cell-special') ||
+          cellEl.classList?.contains('x-grid-cell-row-checker') ||
+          cellEl.classList?.contains('x-selmodel-column') ||
+          cellEl.classList?.contains('ant-table-selection-column') ||
+          cellEl.classList?.contains('mat-column-select') ||
+          (typeof cellEl.querySelector === 'function' && cellEl.querySelector(
+            '.x-grid-row-checker, input[type="checkbox"], input[type="radio"], [role="checkbox"], [role="radio"], .mat-pseudo-checkbox'
+          ))
+        ) {
+          return true;
+        }
+        if (
+          cellEl.classList?.contains('x-grid-row-expander') ||
+          cellEl.classList?.contains('ant-table-row-expand-icon') ||
+          cellEl.classList?.contains('dt-control') ||
+          cellEl.classList?.contains('details-control') ||
+          cellEl.classList?.contains('tree-node-toggle') ||
+          cellEl.classList?.contains('expander') ||
+          cellEl.classList?.contains('expand-btn') ||
+          cellEl.classList?.contains('mat-expansion-indicator') ||
+          (typeof cellEl.querySelector === 'function' && cellEl.querySelector(
+            'button[aria-expanded], [aria-expanded], .expander, .expand-btn, [class*="chevron" i], [class*="expander" i], [class*="tree-toggle" i], [class*="dt-control" i]'
+          ))
+        ) {
+          return true;
+        }
+        const raw = (cellEl.innerText || cellEl.textContent || '').trim();
+        if (raw && EXPANDER_GLYPH_REGEX.test(raw) && raw.length <= 4) {
+          return true;
+        }
+        return false;
+      };
+
       const buildAncestorSelector = (el) => {
         if (!el) return '';
         if (el.id) return `#${el.id}`;
@@ -253,8 +301,9 @@ class ItemDiscovery {
 
         if (matching.length < minItems) continue;
 
-        // 1. Detect if any sibling is a table header row/table and extract headerColumns
+        // 1. Detect if any sibling is a table header row/table and extract headerColumns & full layout
         let headerColumns = [];
+        let rawHeaderLayout = [];
         const isHeaderItem = (el) => {
           if (!el) return false;
           const tag = el.tagName.toLowerCase();
@@ -278,7 +327,9 @@ class ItemDiscovery {
         // Try extracting headers from explicit header row or parent grid header
         const explicitHeader = siblingSet.find(isHeaderItem);
         if (explicitHeader) {
-          const hCells = Array.from(explicitHeader.querySelectorAll('th, [role="columnheader"], td, .x-column-header')).map(c => (c.innerText || c.textContent || '').trim()).filter(t => t.length > 0 && t.length < 60);
+          const hCellNodes = Array.from(explicitHeader.querySelectorAll('th, [role="columnheader"], td, .x-column-header'));
+          rawHeaderLayout = hCellNodes.map(c => cleanCellText(c.innerText || c.textContent || ''));
+          const hCells = rawHeaderLayout.filter(t => t.length > 0 && t.length < 60 && !EXPANDER_GLYPH_REGEX.test(t));
           if (hCells.length > 0) {
             headerColumns = Array.from(new Set(hCells));
           }
@@ -290,10 +341,11 @@ class ItemDiscovery {
         if (gridContainer && headerColumns.length === 0) {
           const headerCt = gridContainer.querySelector('.x-grid-header-ct, thead, .x-grid-header-row, [role="rowgroup"], .ag-header, .mat-header-row') || gridContainer;
           let headerEls = Array.from(headerCt.querySelectorAll('.x-column-header-text, .x-column-header, th, [role="columnheader"], .dxgvHeader, .mat-header-cell, .ag-header-cell, .ant-table-thead th')).filter(visible);
-          const colTexts = headerEls.map(h => {
+          rawHeaderLayout = headerEls.map(h => {
             const inner = h.querySelector?.('.x-column-header-text, .ag-header-cell-text') || h;
-            return (inner.innerText || inner.textContent || inner.getAttribute('aria-label') || '').trim();
-          }).filter(t => t.length > 0 && t.length < 60);
+            return cleanCellText(inner.innerText || inner.textContent || inner.getAttribute('aria-label') || '');
+          });
+          const colTexts = rawHeaderLayout.filter(t => t.length > 0 && t.length < 60 && !EXPANDER_GLYPH_REGEX.test(t));
           if (colTexts.length > 0) {
             headerColumns = Array.from(new Set(colTexts));
           }
@@ -317,10 +369,21 @@ class ItemDiscovery {
             recCells = Array.from(itemForRecorded.children);
           }
           recordedCellIndex = recCells.findIndex(c => c === recorded || c.contains(recorded));
-          if (recordedCellIndex >= 0 && headerColumns[recordedCellIndex]) {
-            recordedTargetColumn = headerColumns[recordedCellIndex];
+          if (recordedCellIndex >= 0) {
+            if (rawHeaderLayout.length === recCells.length && rawHeaderLayout[recordedCellIndex] && !EXPANDER_GLYPH_REGEX.test(rawHeaderLayout[recordedCellIndex])) {
+              recordedTargetColumn = rawHeaderLayout[recordedCellIndex];
+            } else {
+              const recNonControl = recCells.filter(c => !isControlOrExpanderCell(c));
+              const recCell = recCells[recordedCellIndex];
+              const nonCtrlIdx = recNonControl.indexOf(recCell);
+              if (nonCtrlIdx >= 0 && headerColumns[nonCtrlIdx]) {
+                recordedTargetColumn = headerColumns[nonCtrlIdx];
+              } else if (headerColumns[recordedCellIndex]) {
+                recordedTargetColumn = headerColumns[recordedCellIndex];
+              }
+            }
           }
-          recordedActionValue = (recorded.innerText || recorded.textContent || recorded.getAttribute('value') || recorded.getAttribute('title') || '').trim().replace(/\s+/g, ' ');
+          recordedActionValue = cleanCellText(recorded.innerText || recorded.textContent || recorded.getAttribute('value') || recorded.getAttribute('title') || '');
         }
 
         const ancestorTagLower = ancestor.tagName.toLowerCase();
@@ -373,54 +436,94 @@ class ItemDiscovery {
                 cells = Array.from(item.querySelectorAll('.x-grid-cell, .dxgv, .cell'));
               }
 
-              // Check if first cell is a selection checkbox or special row-checker
-              const isFirstCellChecker = cells.length > 0 && (
-                cells[0].classList?.contains('x-grid-cell-special') ||
-                cells[0].classList?.contains('x-grid-cell-row-checker') ||
-                cells[0].classList?.contains('x-selmodel-column') ||
-                cells[0].querySelector?.('.x-grid-row-checker, input[type="checkbox"], [role="checkbox"]') !== null ||
-                ((cells[0].innerText || cells[0].textContent || '').trim() === '' && cells.length > headerColumns.length)
-              );
+              // Filter out control and expander cells (checkboxes, arrows, tree expanders)
+              const nonControlCells = cells.filter(c => !isControlOrExpanderCell(c));
+              const dataCells = nonControlCells.length > 0 ? nonControlCells : cells;
 
-              const dataCells = isFirstCellChecker ? cells.slice(1) : cells;
-              const cellValues = dataCells.map(c => (c.innerText || c.textContent || '').trim().replace(/\s+/g, ' '));
-              fields._cells = cellValues;
-
-              if (headerColumns.length > 0 && cellValues.length > 0) {
-                headerColumns.forEach((h, idx) => {
-                  if (cellValues[idx] !== undefined && cellValues[idx] !== '') {
-                    fields[h] = cellValues[idx];
+              let mapped = false;
+              // Strategy A: Exact positional alignment when raw header layout length matches row cell count
+              if (rawHeaderLayout.length > 0 && rawHeaderLayout.length === cells.length) {
+                rawHeaderLayout.forEach((hName, idx) => {
+                  if (hName && !EXPANDER_GLYPH_REGEX.test(hName)) {
+                    const c = cells[idx];
+                    let val = cleanCellText(c.innerText || c.textContent || '');
+                    if (!val) {
+                      const link = c.querySelector('a[href], button, input');
+                      if (link) {
+                        val = cleanCellText(link.innerText || link.textContent || link.getAttribute('value') || '');
+                      }
+                    }
+                    if (val && !EXPANDER_GLYPH_REGEX.test(val)) {
+                      fields[hName] = val;
+                      mapped = true;
+                    }
                   }
                 });
               }
 
+              // Strategy B: Control-filtered 1-to-1 mapping
+              if (!mapped || Object.keys(fields).filter(k => !k.startsWith('_')).length === 0) {
+                if (headerColumns.length > 0 && dataCells.length > 0) {
+                  headerColumns.forEach((h, idx) => {
+                    if (dataCells[idx] !== undefined) {
+                      const c = dataCells[idx];
+                      let val = cleanCellText(c.innerText || c.textContent || '');
+                      if (!val) {
+                        const link = c.querySelector('a[href], button, input');
+                        if (link) {
+                          val = cleanCellText(link.innerText || link.textContent || link.getAttribute('value') || '');
+                        }
+                      }
+                      if (val && !EXPANDER_GLYPH_REGEX.test(val)) {
+                        fields[h] = val;
+                      }
+                    }
+                  });
+                }
+              }
+
+              // Set clean data cells (excluding controls and expanders)
+              fields._cells = dataCells.map(c => cleanCellText(c.innerText || c.textContent || ''));
+
               // Also check if cells have direct column classes or attribute references
               cells.forEach(cell => {
-                const cellText = (cell.innerText || cell.textContent || '').trim().replace(/\s+/g, ' ');
+                const cellText = cleanCellText(cell.innerText || cell.textContent || '');
                 const colAttr = cell.getAttribute('data-column') || cell.getAttribute('data-field') || cell.getAttribute('name');
-                if (colAttr && cellText) {
+                if (colAttr && cellText && !EXPANDER_GLYPH_REGEX.test(cellText)) {
                   fields[colAttr] = cellText;
                 }
               });
 
               // Also extract specific interactive controls in cells (e.g. Download links, action buttons)
-              cells.forEach((cell, cIdx) => {
-                const colName = headerColumns[cIdx];
+              cells.forEach(cell => {
                 const link = cell.querySelector('a[href], button, input');
-                if (link && colName && !fields[colName]) {
-                  fields[colName] = (link.innerText || link.textContent || link.getAttribute('value') || 'Action').trim();
+                if (link) {
+                  const linkText = cleanCellText(link.innerText || link.textContent || link.getAttribute('value') || '');
+                  if (linkText && !EXPANDER_GLYPH_REGEX.test(linkText)) {
+                    let colName = null;
+                    if (rawHeaderLayout.length === cells.length) {
+                      colName = rawHeaderLayout[cells.indexOf(cell)];
+                    }
+                    if (!colName) {
+                      const dIdx = dataCells.indexOf(cell);
+                      if (dIdx >= 0 && headerColumns[dIdx]) colName = headerColumns[dIdx];
+                    }
+                    if (colName && !fields[colName]) {
+                      fields[colName] = linkText;
+                    }
+                  }
                 }
               });
 
-              // Universal status derivation if not in headers
-              if (!fields['Status']) {
+              // Universal status derivation if not in headers or empty
+              if (!fields['Status'] || EXPANDER_GLYPH_REGEX.test(fields['Status'])) {
                 const statusMatch = itemText.match(/\b(Open|Closed|Pending|Paid|Unpaid|Draft|Approved|Posted|Active|Inactive)\b/i);
                 if (statusMatch) {
                   fields['Status'] = statusMatch[1];
                 }
               }
 
-              // Universal date derivation if not in headers
+              // Universal date derivation if not in headers or empty
               if (!fields['Date'] && !fields['UploadDate'] && !fields['Created']) {
                 const dateMatch = itemText.match(/\b(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*,?\s+\d{4}|\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{2,4})\b/i);
                 if (dateMatch) {
@@ -431,8 +534,34 @@ class ItemDiscovery {
               // Semantic alias for Due Date if present under alternative name
               if (!fields['Due Date']) {
                 const dueCol = headerColumns.find(h => /\bdue\b/i.test(h));
-                if (dueCol && fields[dueCol]) {
+                if (dueCol && fields[dueCol] && !EXPANDER_GLYPH_REGEX.test(fields[dueCol])) {
                   fields['Due Date'] = fields[dueCol];
+                }
+              }
+
+              // Semantic self-healing for Invoice / Document Number:
+              // Ensure Invoice No is NEVER an expander glyph (e.g. '▸') or empty when a valid doc ID exists
+              const invColKey = ['Invoice No', 'Invoice Number', 'Invoice #', 'Invoice', 'Inv No', 'Voucher No', 'Doc No']
+                .find(k => fields[k] !== undefined) || headerColumns.find(h => /invoice|voucher|doc\s*no/i.test(h));
+              if (invColKey) {
+                const currVal = fields[invColKey];
+                if (!currVal || EXPANDER_GLYPH_REGEX.test(currVal) || !/\d/.test(currVal)) {
+                  const docMatch = itemText.match(DOCUMENT_ID_REGEX)?.[1] ||
+                    dataCells.map(c => cleanCellText(c.innerText || c.textContent || '')).find(t => DOCUMENT_ID_REGEX.test(t));
+                  if (docMatch) {
+                    fields[invColKey] = docMatch;
+                  }
+                }
+              }
+
+              // Clean all fields: strip expander glyphs and delete any field consisting purely of expander glyphs
+              for (const [k, v] of Object.entries(fields)) {
+                if (typeof v === 'string') {
+                  if (EXPANDER_GLYPH_REGEX.test(v)) {
+                    delete fields[k];
+                  } else {
+                    fields[k] = cleanCellText(v);
+                  }
                 }
               }
             } else if (itemTagLower === 'mat-option' || itemRole === 'option' || itemTagLower === 'option') {

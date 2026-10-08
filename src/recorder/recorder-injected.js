@@ -537,6 +537,15 @@
       return { element, input: childInput };
     }
 
+    // Check parent mat-option or [role="option"] for dropdown multi-select checkboxes
+    const optionContainer = element.closest?.('mat-option, [role="option"], .mat-mdc-option');
+    if (optionContainer) {
+      const innerCb = optionContainer.querySelector?.('mat-pseudo-checkbox, .mat-pseudo-checkbox, [role="checkbox"], input[type="checkbox"]');
+      if (innerCb || optionContainer.classList?.contains('mat-mdc-option-multiple') || optionContainer.getAttribute?.('aria-selected') !== null) {
+        return { element: optionContainer, input: innerCb };
+      }
+    }
+
     return null;
   }
 
@@ -717,22 +726,27 @@
     lastHandledTarget = target;
 
     // Checkbox State Detection:
-    // If the element is a checkbox or checkbox label, delay emit by 50ms so DOM updates
-    // and framework event handlers finish toggling the checked state.
+    // When a user clicks a checkbox, the target state defaults to ON (true).
+    // Only flag as uncheck if the checkbox was explicitly ALREADY checked prior to click and toggled to false.
     const cbInfo = detectCheckbox(target);
     if (cbInfo) {
+      const initialChecked = readCheckboxChecked(cbInfo);
       setTimeout(() => {
-        const finalChecked = readCheckboxChecked(cbInfo);
+        const postChecked = readCheckboxChecked(cbInfo);
+        const isTrueUncheck = (initialChecked === true && postChecked === false);
+        const finalDesired = isTrueUncheck ? false : true; // DEFAULT ON for any clicked checkbox
+
         emitAction('CLICK', target, {
           detail: event.detail || 1,
           triggerSignal: signalType,
           captureTimestamp: now,
           isCheckbox: true,
-          desiredState: finalChecked,
-          checked: finalChecked,
+          desiredState: finalDesired,
+          checked: finalDesired,
+          ...(isTrueUncheck ? { isUncheck: true } : {}),
           ...(canvasCoords ? { canvasCoords } : {})
         });
-      }, 50);
+      }, 70);
       return;
     }
 

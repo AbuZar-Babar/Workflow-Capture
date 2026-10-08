@@ -1007,9 +1007,11 @@ export const WorkflowEditorView = {
         (step.name && step.name.toLowerCase().includes('checkbox')) ||
         (step.elementName && step.elementName.toLowerCase().includes('checkbox'))
       );
-      const desiredCheckboxState = step.desiredState !== undefined
-        ? step.desiredState
-        : (step.checked !== undefined ? step.checked : (step.target?.fingerprint?.checked ?? true));
+      const desiredCheckboxState = step.isUncheck === true
+        ? false
+        : (step.desiredState !== undefined
+          ? (step.desiredState === false && step.target?.fingerprint?.checked !== true ? true : step.desiredState)
+          : (step.checked !== undefined ? (step.checked === false && step.target?.fingerprint?.checked !== true ? true : step.checked) : true));
 
       if (isCheckboxStep) {
         html += `
@@ -1645,8 +1647,10 @@ export const WorkflowEditorView = {
         }
 
         const checkboxSelect = nodeElement ? nodeElement.querySelector('.df-checkbox-select') : null;
-        const isCheckboxStep = Boolean(checkboxSelect || originalStep.isCheckbox || (originalStep.target?.fingerprint?.type === 'checkbox'));
-        const desiredState = checkboxSelect ? (checkboxSelect.value === 'true') : (originalStep.desiredState ?? originalStep.checked);
+        const isCheckboxStep = Boolean(checkboxSelect || originalStep.isCheckbox || (originalStep.target?.fingerprint?.type === 'checkbox') || (originalStep.target?.fingerprint?.tagName === 'mat-pseudo-checkbox'));
+        const desiredState = checkboxSelect
+          ? (checkboxSelect.value === 'true')
+          : (originalStep.isUncheck === true ? false : (originalStep.desiredState ?? originalStep.checked ?? true));
 
         const stepData = {
           ...originalStep,

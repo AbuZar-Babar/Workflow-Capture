@@ -658,6 +658,11 @@ function resolveFieldValue(fieldsMap, targetField) {
     return { found: false, matchedField: null, value: undefined, availableFields };
   }
 
+  // If passed a discovered item object with a .fields dictionary, unwrap to fields
+  if (!(fieldsMap instanceof Map) && fieldsMap.fields && typeof fieldsMap.fields === 'object') {
+    fieldsMap = fieldsMap.fields;
+  }
+
   const normalizedTarget = String(targetField).trim().toLowerCase();
   let exactMatch = null;
   let caseInsensitiveMatch = null;

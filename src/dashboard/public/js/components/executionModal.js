@@ -1463,8 +1463,22 @@ export const ExecutionModal = {
   },
 
   extractFieldValues(data) {
+    const EXPANDER_GLYPH_REGEX = /^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/i;
     if (data.fieldValues && typeof data.fieldValues === 'object' && Object.keys(data.fieldValues).length > 0) {
-      return data.fieldValues;
+      const cleaned = {};
+      for (const [k, vals] of Object.entries(data.fieldValues)) {
+        if (Array.isArray(vals)) {
+          const filtered = vals
+            .map(v => typeof v === 'string' ? v.trim() : v)
+            .filter(v => v != null && v !== '' && !EXPANDER_GLYPH_REGEX.test(String(v)));
+          if (filtered.length > 0) {
+            cleaned[k] = filtered;
+          }
+        }
+      }
+      if (Object.keys(cleaned).length > 0) {
+        return cleaned;
+      }
     }
     const fieldValues = {};
     const items = Array.isArray(data.discovery?.items) ? data.discovery.items : [];
@@ -1473,14 +1487,18 @@ export const ExecutionModal = {
         Object.entries(item.fields).forEach(([k, v]) => {
           if (v == null || v === '') return;
           const key = String(k).trim();
-          const val = String(v).trim();
+          let val = String(v).trim();
+          if (EXPANDER_GLYPH_REGEX.test(val)) return;
+          val = val.replace(/^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+/, '').trim();
+          if (!val) return;
           if (!fieldValues[key]) fieldValues[key] = new Set();
           fieldValues[key].add(val);
         });
       }
       if (item && item.text) {
-        const textVal = String(item.text).trim();
-        if (textVal) {
+        let textVal = String(item.text).trim();
+        textVal = textVal.replace(/^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+/, '').trim();
+        if (textVal && !EXPANDER_GLYPH_REGEX.test(textVal)) {
           if (!fieldValues['Text']) fieldValues['Text'] = new Set();
           fieldValues['Text'].add(textVal);
         }
@@ -1495,10 +1513,12 @@ export const ExecutionModal = {
 
   getValuesForField(fieldName) {
     if (!fieldName) return [];
+    const EXPANDER_GLYPH_REGEX = /^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/i;
     const norm = String(fieldName).trim().toLowerCase();
     for (const [k, vals] of Object.entries(this.fieldValues || {})) {
       if (String(k).trim().toLowerCase() === norm && Array.isArray(vals)) {
-        return vals;
+        const filtered = vals.filter(v => !EXPANDER_GLYPH_REGEX.test(String(v).trim()));
+        if (filtered.length > 0) return filtered;
       }
     }
     // Fallback: extract directly from discovered items
@@ -1507,7 +1527,10 @@ export const ExecutionModal = {
     items.forEach(item => {
       const extracted = this.extractFieldValue(item, fieldName);
       if (extracted.found && extracted.value != null && extracted.value !== '') {
-        foundVals.add(String(extracted.value).trim());
+        const strVal = String(extracted.value).trim();
+        if (!EXPANDER_GLYPH_REGEX.test(strVal)) {
+          foundVals.add(strVal);
+        }
       }
     });
     return Array.from(foundVals).slice(0, 30);
@@ -1859,14 +1882,15 @@ export const ExecutionModal = {
 
   getItemLabel(item, fallbackIndex = 1) {
     if (!item) return `Item #${fallbackIndex}`;
+    const EXPANDER_GLYPH_REGEX = /^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/i;
     let label = '';
     // First, check for clean key identifying fields
     if (item.fields && typeof item.fields === 'object') {
       const idFields = ['Invoice Number', 'Invoice No', 'Type', 'Option', 'Document Type', 'Status', 'Due Date', 'Customer Name', 'Label'];
       const picked = [];
       for (const k of idFields) {
-        if (item.fields[k] && typeof item.fields[k] === 'string' && item.fields[k].length < 40) {
-          picked.push(item.fields[k]);
+        if (item.fields[k] && typeof item.fields[k] === 'string' && item.fields[k].length < 40 && !EXPANDER_GLYPH_REGEX.test(item.fields[k])) {
+          picked.push(item.fields[k].replace(/^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+/, '').trim());
         }
       }
       if (picked.length > 0) {
@@ -1875,7 +1899,8 @@ export const ExecutionModal = {
     }
     if (!label) {
       const raw = typeof item === 'string' ? item : (item.label || item.text || item.id || `Item #${fallbackIndex}`);
-      const clean = String(raw).replace(/\s+/g, ' ').trim();
+      let clean = String(raw).replace(/\s+/g, ' ').trim();
+      clean = clean.replace(/^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+/, '').trim();
       label = clean.length > 60 ? clean.slice(0, 57) + '…' : (clean || `Item #${fallbackIndex}`);
     }
 
@@ -1887,6 +1912,10 @@ export const ExecutionModal = {
 
   extractFieldValue(item, fieldName) {
     if (!item || !fieldName) return { found: false, value: undefined };
+    const EXPANDER_GLYPH_REGEX = /^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/i;
+    const isValid = (v) => v !== undefined && v !== null && v !== '' && !EXPANDER_GLYPH_REGEX.test(String(v).trim());
+    const clean = (v) => String(v).replace(/^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+/, '').trim();
+
     const targetKey = fieldName.trim().toLowerCase();
     const normTarget = targetKey.replace(/[^a-z0-9]/g, '');
 
@@ -1894,14 +1923,14 @@ export const ExecutionModal = {
     if (item.fields && typeof item.fields === 'object') {
       // 1a. Direct or case-insensitive match
       for (const [k, v] of Object.entries(item.fields)) {
-        if (k.trim().toLowerCase() === targetKey && v !== undefined && v !== null && v !== '') {
-          return { found: true, value: v };
+        if (k.trim().toLowerCase() === targetKey && isValid(v)) {
+          return { found: true, value: clean(v) };
         }
       }
       // 1b. Normalized match
       for (const [k, v] of Object.entries(item.fields)) {
-        if (k.replace(/[^a-z0-9]/gi, '').toLowerCase() === normTarget && v !== undefined && v !== null && v !== '') {
-          return { found: true, value: v };
+        if (k.replace(/[^a-z0-9]/gi, '').toLowerCase() === normTarget && isValid(v)) {
+          return { found: true, value: clean(v) };
         }
       }
     }
@@ -1909,13 +1938,13 @@ export const ExecutionModal = {
     // 2. Check direct properties of item
     if (typeof item === 'object') {
       for (const [k, v] of Object.entries(item)) {
-        if (k.trim().toLowerCase() === targetKey && v !== undefined && v !== null && v !== '') {
-          return { found: true, value: v };
+        if (k.trim().toLowerCase() === targetKey && isValid(v)) {
+          return { found: true, value: clean(v) };
         }
       }
       for (const [k, v] of Object.entries(item)) {
-        if (k.replace(/[^a-z0-9]/gi, '').toLowerCase() === normTarget && v !== undefined && v !== null && v !== '') {
-          return { found: true, value: v };
+        if (k.replace(/[^a-z0-9]/gi, '').toLowerCase() === normTarget && isValid(v)) {
+          return { found: true, value: clean(v) };
         }
       }
     }
@@ -1924,29 +1953,29 @@ export const ExecutionModal = {
     const sourceObj = (item.fields && typeof item.fields === 'object') ? Object.assign({}, item, item.fields) : item;
     if (normTarget.includes('due') || normTarget.includes('duedate')) {
       for (const [k, v] of Object.entries(sourceObj)) {
-        if (/\bdue\b/i.test(k) && v !== undefined && v !== null && v !== '') {
-          return { found: true, value: v };
+        if (/\bdue\b/i.test(k) && isValid(v)) {
+          return { found: true, value: clean(v) };
         }
       }
     }
     if (normTarget.includes('trans') || normTarget.includes('txdate')) {
       for (const [k, v] of Object.entries(sourceObj)) {
-        if (/\btrans(action)?\b/i.test(k) && v !== undefined && v !== null && v !== '') {
-          return { found: true, value: v };
+        if (/\btrans(action)?\b/i.test(k) && isValid(v)) {
+          return { found: true, value: clean(v) };
         }
       }
     }
     if (normTarget.includes('post') || normTarget.includes('posting')) {
       for (const [k, v] of Object.entries(sourceObj)) {
-        if (/\bpost(ing)?\b/i.test(k) && v !== undefined && v !== null && v !== '') {
-          return { found: true, value: v };
+        if (/\bpost(ing)?\b/i.test(k) && isValid(v)) {
+          return { found: true, value: clean(v) };
         }
       }
     }
     if (normTarget.includes('invoice') || normTarget.includes('voucher')) {
       for (const [k, v] of Object.entries(sourceObj)) {
-        if (/\b(invoice|voucher)\b/i.test(k) && v !== undefined && v !== null && v !== '') {
-          return { found: true, value: v };
+        if (/\b(invoice|voucher)\b/i.test(k) && isValid(v)) {
+          return { found: true, value: clean(v) };
         }
       }
     }
@@ -1960,8 +1989,8 @@ export const ExecutionModal = {
       const colIdx = cols.findIndex(c => c.trim().toLowerCase() === targetKey || c.replace(/[^a-z0-9]/gi, '').toLowerCase() === normTarget);
 
       // If item._cells array exists
-      if (colIdx >= 0 && Array.isArray(item._cells) && item._cells[colIdx] !== undefined && item._cells[colIdx] !== '') {
-        return { found: true, value: item._cells[colIdx] };
+      if (colIdx >= 0 && Array.isArray(item._cells) && isValid(item._cells[colIdx])) {
+        return { found: true, value: clean(item._cells[colIdx]) };
       }
 
       // If item.text contains dates and this is a date column:
@@ -1997,15 +2026,23 @@ export const ExecutionModal = {
     }
 
     // 6. Fallback derivation for Invoice / Record Number
-    if ((targetKey === 'invoice number' || targetKey === 'invoice no' || targetKey === 'invoice') && item.text) {
-      const match = item.text.match(/\b((?:SI|INV|DR|TX|CM)-\d+(?:[-_]\w+)*|\b\d{5,10}\b)/i);
+    if ((normTarget.includes('invoice') || normTarget.includes('voucher') || normTarget === 'invno') && item) {
+      const textToSearch = String(item.text || item._rawText || (item.fields && (item.fields.Text || item.fields._rawText)) || '').trim();
+      const match = textToSearch.match(/\b((?:SI|INV|DR|TX|CM)-\d+(?:[-_]\w+)*|\b\d{4,10}\b)/i);
       if (match) return { found: true, value: match[1] };
+      if (Array.isArray(item._cells)) {
+        const cellMatch = item._cells.find(c => /\b((?:SI|INV|DR|TX|CM)-\d+(?:[-_]\w+)*|\b\d{4,10}\b)/i.test(String(c)));
+        if (cellMatch) {
+          const m = String(cellMatch).match(/\b((?:SI|INV|DR|TX|CM)-\d+(?:[-_]\w+)*|\b\d{4,10}\b)/i);
+          if (m) return { found: true, value: m[1] };
+        }
+      }
     }
 
     // 7. If targetKey is 'text' or 'label'
     if (['text', 'label', 'name', 'fulltext', '_rawtext'].includes(targetKey)) {
       const v = item.text || item.label || (typeof item === 'string' ? item : undefined);
-      if (v !== undefined) return { found: true, value: v };
+      if (isValid(v)) return { found: true, value: clean(v) };
     }
 
     return { found: false, value: undefined };

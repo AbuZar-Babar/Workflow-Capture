@@ -22,6 +22,8 @@ const { getActiveBotConfig } = require('../api/bot-config-controller');
 const { resolveTargetUrl, extractWorkflowStartUrl, isInternalBrowserUrl } = require('../utils/url-helper');
 const logger = require('../utils/logger');
 const { detectLoginSequence, isSessionAuthenticated } = require('../shared/auth-detector');
+const InterruptionHandler = require('./interruption-handler');
+const TabManager = require('./tab-manager');
 
 class ReplayEngine extends EventEmitter {
   constructor(options = {}) {
@@ -44,6 +46,15 @@ class ReplayEngine extends EventEmitter {
     this.enableDisturbanceDetection = options.enableDisturbanceDetection === true;
     this._guardPages = new Set();
     this._guardScriptIds = new Map();
+
+    // Universal Interruption Handler & Intelligent Tab Manager
+    this.interruptionHandler = new InterruptionHandler({
+      autoAcceptDialogs: options.autoAcceptDialogs !== false
+    });
+    this.tabManager = new TabManager({
+      interruptionHandler: this.interruptionHandler,
+      downloadsDir: path.resolve(process.cwd(), 'downloads')
+    });
   }
 
   /**
@@ -87,6 +98,9 @@ class ReplayEngine extends EventEmitter {
   async dismissOverlays() {
     if (!this.page || this.page.isClosed()) return;
     try {
+      if (this.interruptionHandler) {
+        await this.interruptionHandler.dismissBlockingOverlays(this.page).catch(() => {});
+      }
       const hasDismissibleOverlay = await this.page.evaluate(() => {
         const overlaySelectors = [
           '.cdk-overlay-backdrop',
@@ -122,6 +136,9 @@ class ReplayEngine extends EventEmitter {
    * Clean up guard listeners, teardown in-page scripts, and disconnect from browser
    */
   async disconnect() {
+    try {
+      this.tabManager?.destroy();
+    } catch {}
     try {
       await this._teardownReplayGuard();
     } catch {}
@@ -261,6 +278,17 @@ class ReplayEngine extends EventEmitter {
       await this._initHumanDisturbanceDetection(this.page);
     } else {
       await this._cleanupLingeringReplayGuard(this.page);
+    }
+
+    // Initialize intelligent tab tracking & dialog interception
+    if (this.tabManager) {
+      await this.tabManager.initialize(this.browser, this.page, this.recording);
+      if (this.tabManager.getPrimaryPage()) {
+        this.page = this.tabManager.getPrimaryPage();
+      }
+    }
+    if (this.interruptionHandler && this.page) {
+      this.interruptionHandler.attachToPage(this.page);
     }
 
     return this.browser;
@@ -539,67 +567,71 @@ class ReplayEngine extends EventEmitter {
    * Execute a single recorded action on the active page
    */
   async executeAction(action, index = 0) {
-    this.currentActionIndex = index;
-    if (!this.page) throw new Error('ReplayEngine is not connected to a page.');
-
-    // 1. Explicit step delay if requested
-    if (this.stepDelayMs > 0) {
-      await new Promise(r => setTimeout(r, this.stepDelayMs));
-    }
-
-    // 2. Wait for any active ExtJS/SPA loading masks or spinners to clear
-    await this._waitForLoadingMasks(6000);
-
-    if (this.isAborted) {
-      throw new Error('Execution stopped by user');
-    }
-
-    // Apply pre-action delay if configured
-    if (this.botConfig?.timing?.preActionDelayMs > 0) {
-      const preDelay = calculateDelay(
-        Math.round(this.botConfig.timing.preActionDelayMs * 0.7),
-        Math.round(this.botConfig.timing.preActionDelayMs * 1.3)
-      );
-      await new Promise(r => setTimeout(r, preDelay));
-    }
-
-    if (action.type === 'NAVIGATE' && action.url) {
-      const navUrl = resolveTargetUrl(action.url) || action.url;
-      await this.page.goto(navUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-      await this._applyStealthEvasion();
-      await new Promise(r => setTimeout(r, 500));
-      return { success: true, type: 'NAVIGATE' };
-    }
-
-    const { elementHandle, candidate, confidenceScore } = await this.waitForTargetElement(
-      action.target || action.fingerprint,
-      index,
-      action.type
-    );
-
-    // Deep clone the action so we don't mutate the original recording
-    const actionToDispatch = { ...action };
-    if (actionToDispatch.type === 'TYPE' && typeof actionToDispatch.value === 'string') {
-      const match = actionToDispatch.value.match(/^{{secret:([^}]+)}}$/);
-      if (match && this.secretResolver) {
-        logger.info(`Injecting secret [${match[1]}] for action #${index + 1}...`);
-        actionToDispatch.value = await this.secretResolver(match[1]);
+    return await this.interruptionHandler.executeWithRecovery(this.page, action, async () => {
+      if (this.tabManager) {
+        await this.tabManager.reconcileActiveTab(action, this);
       }
-    }
+      this.currentActionIndex = index;
+      if (!this.page) throw new Error('ReplayEngine is not connected to a page.');
 
-    // Look ahead to check if the next action targets an option inside a dropdown
-    const nextAction = (this.recording && this.recording.actions)
-      ? this.recording.actions[index + 1]
-      : null;
+      // 1. Explicit step delay if requested
+      if (this.stepDelayMs > 0) {
+        await new Promise(r => setTimeout(r, this.stepDelayMs));
+      }
 
-    const isNextActionOption = Boolean(
-      nextAction && (
-        nextAction.target?.candidates?.some(c => c.value && (c.value.includes('option') || c.value.includes('pseudo-checkbox'))) ||
-        nextAction.target?.fingerprint?.tagName === 'mat-option' ||
-        nextAction.target?.fingerprint?.tagName === 'mat-pseudo-checkbox' ||
-        nextAction.target?.fingerprint?.role === 'option'
-      )
-    );
+      // 2. Wait for any active ExtJS/SPA loading masks or spinners to clear
+      await this._waitForLoadingMasks(6000);
+
+      if (this.isAborted) {
+        throw new Error('Execution stopped by user');
+      }
+
+      // Apply pre-action delay if configured
+      if (this.botConfig?.timing?.preActionDelayMs > 0) {
+        const preDelay = calculateDelay(
+          Math.round(this.botConfig.timing.preActionDelayMs * 0.7),
+          Math.round(this.botConfig.timing.preActionDelayMs * 1.3)
+        );
+        await new Promise(r => setTimeout(r, preDelay));
+      }
+
+      if (action.type === 'NAVIGATE' && action.url) {
+        const navUrl = resolveTargetUrl(action.url) || action.url;
+        await this.page.goto(navUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await this._applyStealthEvasion();
+        await new Promise(r => setTimeout(r, 500));
+        return { success: true, type: 'NAVIGATE' };
+      }
+
+      const { elementHandle, candidate, confidenceScore } = await this.waitForTargetElement(
+        action.target || action.fingerprint,
+        index,
+        action.type
+      );
+
+      // Deep clone the action so we don't mutate the original recording
+      const actionToDispatch = { ...action };
+      if (actionToDispatch.type === 'TYPE' && typeof actionToDispatch.value === 'string') {
+        const match = actionToDispatch.value.match(/^{{secret:([^}]+)}}$/);
+        if (match && this.secretResolver) {
+          logger.info(`Injecting secret [${match[1]}] for action #${index + 1}...`);
+          actionToDispatch.value = await this.secretResolver(match[1]);
+        }
+      }
+
+      // Look ahead to check if the next action targets an option inside a dropdown
+      const nextAction = (this.recording && this.recording.actions)
+        ? this.recording.actions[index + 1]
+        : null;
+
+      const isNextActionOption = Boolean(
+        nextAction && (
+          nextAction.target?.candidates?.some(c => c.value && (c.value.includes('option') || c.value.includes('pseudo-checkbox'))) ||
+          nextAction.target?.fingerprint?.tagName === 'mat-option' ||
+          nextAction.target?.fingerprint?.tagName === 'mat-pseudo-checkbox' ||
+          nextAction.target?.fingerprint?.role === 'option'
+        )
+      );
 
       await this._waitWhilePaused();
       await this._setAutomatedAction(true, elementHandle);
@@ -614,25 +646,35 @@ class ReplayEngine extends EventEmitter {
       }
       await elementHandle.dispose().catch(() => {});
 
-    // If this action opened a combobox/dropdown, allow overlay animation to settle
-    if (action.type === 'CLICK' && isNextActionOption) {
-      await new Promise(r => setTimeout(r, 300));
-    }
+      // If this action opened a combobox/dropdown, allow overlay animation to settle
+      if (action.type === 'CLICK' && isNextActionOption) {
+        await new Promise(r => setTimeout(r, 300));
+      }
 
-    const scorePercent = Math.round(confidenceScore * 100);
-    logger.action(index + 1, action.type, candidate.value, `score=${scorePercent}%`);
+      // Reconcile and return focus to the primary portal workflow
+      if (this.tabManager) {
+        if (action.type === 'CLICK') {
+          await new Promise(r => setTimeout(r, 200));
+        }
+        await this.tabManager.cleanupAuxiliaryTabs();
+        await this.tabManager.ensurePrimaryTabActive(this);
+      }
 
-    // Calculate humanized post-action timing delay
-    let postDelay = DEFAULT_TIMEOUTS.POST_ACTION_DELAY_MS;
-    if (this.botConfig?.timing) {
-      const minD = this.botConfig.timing.minActionDelayMs || 200;
-      const maxD = this.botConfig.timing.maxActionDelayMs || 600;
-      postDelay = calculateDelay(minD, maxD, 'gaussian');
-    }
+      const scorePercent = Math.round(confidenceScore * 100);
+      logger.action(index + 1, action.type, candidate.value, `score=${scorePercent}%`);
 
-    await new Promise(r => setTimeout(r, postDelay));
+      // Calculate humanized post-action timing delay
+      let postDelay = DEFAULT_TIMEOUTS.POST_ACTION_DELAY_MS;
+      if (this.botConfig?.timing) {
+        const minD = this.botConfig.timing.minActionDelayMs || 200;
+        const maxD = this.botConfig.timing.maxActionDelayMs || 600;
+        postDelay = calculateDelay(minD, maxD, 'gaussian');
+      }
 
-    return { success: true, confidenceScore, candidate };
+      await new Promise(r => setTimeout(r, postDelay));
+
+      return { success: true, confidenceScore, candidate };
+    });
   }
 
   /**
@@ -641,138 +683,152 @@ class ReplayEngine extends EventEmitter {
    * to the current item to avoid clicking the first matching record repeatedly.
    */
   async executeActionWithinItem(itemHandle, action, index = 0) {
-    if (!this.page) throw new Error('ReplayEngine is not connected to a page.');
-    if (!itemHandle) throw new Error('No collection item handle supplied.');
-
-    await this._waitWhilePaused();
-    await this._waitForLoadingMasks(6000);
-
-    const targetHandle = await itemHandle.evaluateHandle((item, target) => {
-      if (!item) return null;
-
-      const visible = (el) => {
-        if (!el || !(el instanceof Element)) return false;
-        const style = getComputedStyle(el);
-        const rect = el.getBoundingClientRect();
-        return style.display !== 'none' && style.visibility !== 'hidden' &&
-          rect.width > 0 && rect.height > 0;
-      };
-
-      const normalize = (value) => String(value || '').toLowerCase().replace(/\s+/g, ' ').trim();
-      const fingerprint = target?.fingerprint || {};
-      const candidates = Array.isArray(target?.candidates) ? target.candidates : [];
-
-      const score = (el) => {
-        if (!visible(el)) return -1;
-        let value = 0;
-        if (fingerprint.tagName && el.tagName.toLowerCase() === String(fingerprint.tagName).toLowerCase()) value += 0.25;
-        if (fingerprint.role && el.getAttribute('role') === fingerprint.role) value += 0.2;
-        if (fingerprint.ariaLabel && el.getAttribute('aria-label') === fingerprint.ariaLabel) value += 0.2;
-        const targetText = normalize(fingerprint.text);
-        const elementText = normalize(el.textContent);
-        if (targetText && elementText === targetText) value += 0.35;
-        else if (targetText && elementText.includes(targetText)) value += 0.25;
-        if (fingerprint.id && el.id === fingerprint.id) value += 0.2;
-        return value;
-      };
-
-      // Prefer recorded CSS selectors, but only within this item.
-      for (const candidate of candidates) {
-        if (!candidate?.value) continue;
-        const value = candidate.value;
-        const looksXPath = value.startsWith('//') || value.startsWith('(');
-        if (looksXPath) continue;
-
-        // :scope represents the discovered item itself. querySelectorAll(':scope')
-        // is not a reliable way to return the context element across browser
-        // implementations, so handle it explicitly.
-        if (value === ':scope') return visible(item) ? item : null;
-
-        try {
-          const matches = Array.from(item.querySelectorAll(value)).filter(visible);
-          if (matches.length === 1) return matches[0];
-          if (matches.length > 1) {
-            return matches.sort((a, b) => score(b) - score(a))[0];
-          }
-        } catch {}
+    return await this.interruptionHandler.executeWithRecovery(this.page, action, async () => {
+      if (this.tabManager) {
+        await this.tabManager.reconcileActiveTab(action, this);
       }
+      if (!this.page) throw new Error('ReplayEngine is not connected to a page.');
+      if (!itemHandle) throw new Error('No collection item handle supplied.');
 
-      // Fingerprint fallback scoped to the item.
-      const tag = fingerprint.tagName && fingerprint.tagName !== 'unknown'
-        ? fingerprint.tagName.toLowerCase()
-        : '*';
-      let pool = Array.from(item.querySelectorAll(tag)).filter(visible);
-      if (!pool.length) pool = Array.from(item.querySelectorAll('*')).filter(visible);
-
-      // A generalized target may intentionally point at the item itself.
-      // Include the context item in fingerprint fallback when it matches.
-      if (tag === '*' || item.tagName.toLowerCase() === tag) {
-        if (visible(item) && score(item) >= 0) pool.unshift(item);
-      }
-
-      if (fingerprint.ariaLabel) {
-        const ariaMatches = pool.filter(el => el.getAttribute('aria-label') === fingerprint.ariaLabel);
-        if (ariaMatches.length) pool = ariaMatches;
-      }
-
-      const targetText = normalize(fingerprint.text);
-      if (targetText && !target?.scope) {
-        const textMatches = pool.filter(el => normalize(el.textContent) === targetText);
-        if (textMatches.length) pool = textMatches;
-      }
-
-      pool.sort((a, b) => score(b) - score(a));
-      if (pool[0]) return pool[0];
-
-      // Fallback: If no candidate matched, find the primary clickable link/button or return item
-      const fallbackClickable = item.querySelector('a[href], button, [role="button"]');
-      if (fallbackClickable && visible(fallbackClickable)) return fallbackClickable;
-
-      return visible(item) ? item : null;
-    }, action.target || action.fingerprint);
-
-    const elementHandle = targetHandle.asElement();
-    if (!elementHandle) {
-      await targetHandle.dispose().catch(() => {});
-      throw new Error(`Could not resolve action target inside collection item #${index + 1}`);
-    }
-
-    try {
-      const actionToDispatch = { ...action };
-      if (actionToDispatch.type === 'TYPE' && typeof actionToDispatch.value === 'string') {
-        const match = actionToDispatch.value.match(/^{{secret:([^}]+)}}$/);
-        if (match && this.secretResolver) {
-          actionToDispatch.value = await this.secretResolver(match[1]);
-        }
-      }
-
-      const nextAction = this.recording?.actions?.[index + 1];
-      const isNextActionOption = Boolean(
-        nextAction && (
-          nextAction.target?.candidates?.some(c => c.value && (c.value.includes('option') || c.value.includes('pseudo-checkbox'))) ||
-          nextAction.target?.fingerprint?.tagName === 'mat-option' ||
-          nextAction.target?.fingerprint?.tagName === 'mat-pseudo-checkbox' ||
-          nextAction.target?.fingerprint?.role === 'option'
-        )
-      );
-
-      await elementHandle.scrollIntoViewIfNeeded().catch(() => {});
       await this._waitWhilePaused();
-      await this._setAutomatedAction(true, elementHandle);
-      try {
-        await dispatchAction(elementHandle, actionToDispatch, {
-          page: this.page,
-          botConfig: this.botConfig,
-          isNextActionOption
-        });
-      } finally {
-        await this._setAutomatedAction(false, elementHandle);
+      await this._waitForLoadingMasks(6000);
+
+      const targetHandle = await itemHandle.evaluateHandle((item, target) => {
+        if (!item) return null;
+
+        const visible = (el) => {
+          if (!el || !(el instanceof Element)) return false;
+          const style = getComputedStyle(el);
+          const rect = el.getBoundingClientRect();
+          return style.display !== 'none' && style.visibility !== 'hidden' &&
+            rect.width > 0 && rect.height > 0;
+        };
+
+        const normalize = (value) => String(value || '').toLowerCase().replace(/\s+/g, ' ').trim();
+        const fingerprint = target?.fingerprint || {};
+        const candidates = Array.isArray(target?.candidates) ? target.candidates : [];
+
+        const score = (el) => {
+          if (!visible(el)) return -1;
+          let value = 0;
+          if (fingerprint.tagName && el.tagName.toLowerCase() === String(fingerprint.tagName).toLowerCase()) value += 0.25;
+          if (fingerprint.role && el.getAttribute('role') === fingerprint.role) value += 0.2;
+          if (fingerprint.ariaLabel && el.getAttribute('aria-label') === fingerprint.ariaLabel) value += 0.2;
+          const targetText = normalize(fingerprint.text);
+          const elementText = normalize(el.textContent);
+          if (targetText && elementText === targetText) value += 0.35;
+          else if (targetText && elementText.includes(targetText)) value += 0.25;
+          if (fingerprint.id && el.id === fingerprint.id) value += 0.2;
+          return value;
+        };
+
+        // Prefer recorded CSS selectors, but only within this item.
+        for (const candidate of candidates) {
+          if (!candidate?.value) continue;
+          const value = candidate.value;
+          const looksXPath = value.startsWith('//') || value.startsWith('(');
+          if (looksXPath) continue;
+
+          // :scope represents the discovered item itself. querySelectorAll(':scope')
+          // is not a reliable way to return the context element across browser
+          // implementations, so handle it explicitly.
+          if (value === ':scope') return visible(item) ? item : null;
+
+          try {
+            const matches = Array.from(item.querySelectorAll(value)).filter(visible);
+            if (matches.length === 1) return matches[0];
+            if (matches.length > 1) {
+              return matches.sort((a, b) => score(b) - score(a))[0];
+            }
+          } catch {}
+        }
+
+        // Fingerprint fallback scoped to the item.
+        const tag = fingerprint.tagName && fingerprint.tagName !== 'unknown'
+          ? fingerprint.tagName.toLowerCase()
+          : '*';
+        let pool = Array.from(item.querySelectorAll(tag)).filter(visible);
+        if (!pool.length) pool = Array.from(item.querySelectorAll('*')).filter(visible);
+
+        // A generalized target may intentionally point at the item itself.
+        // Include the context item in fingerprint fallback when it matches.
+        if (tag === '*' || item.tagName.toLowerCase() === tag) {
+          if (visible(item) && score(item) >= 0) pool.unshift(item);
+        }
+
+        if (fingerprint.ariaLabel) {
+          const ariaMatches = pool.filter(el => el.getAttribute('aria-label') === fingerprint.ariaLabel);
+          if (ariaMatches.length) pool = ariaMatches;
+        }
+
+        const targetText = normalize(fingerprint.text);
+        if (targetText && !target?.scope) {
+          const textMatches = pool.filter(el => normalize(el.textContent) === targetText);
+          if (textMatches.length) pool = textMatches;
+        }
+
+        pool.sort((a, b) => score(b) - score(a));
+        if (pool[0]) return pool[0];
+
+        // Fallback: If no candidate matched, find the primary clickable link/button or return item
+        const fallbackClickable = item.querySelector('a[href], button, [role="button"]');
+        if (fallbackClickable && visible(fallbackClickable)) return fallbackClickable;
+
+        return visible(item) ? item : null;
+      }, action.target || action.fingerprint);
+
+      const elementHandle = targetHandle.asElement();
+      if (!elementHandle) {
+        await targetHandle.dispose().catch(() => {});
+        throw new Error(`Could not resolve action target inside collection item #${index + 1}`);
       }
 
-      return { success: true, scoped: true };
-    } finally {
-      await elementHandle.dispose().catch(() => {});
-    }
+      try {
+        const actionToDispatch = { ...action };
+        if (actionToDispatch.type === 'TYPE' && typeof actionToDispatch.value === 'string') {
+          const match = actionToDispatch.value.match(/^{{secret:([^}]+)}}$/);
+          if (match && this.secretResolver) {
+            actionToDispatch.value = await this.secretResolver(match[1]);
+          }
+        }
+
+        const nextAction = this.recording?.actions?.[index + 1];
+        const isNextActionOption = Boolean(
+          nextAction && (
+            nextAction.target?.candidates?.some(c => c.value && (c.value.includes('option') || c.value.includes('pseudo-checkbox'))) ||
+            nextAction.target?.fingerprint?.tagName === 'mat-option' ||
+            nextAction.target?.fingerprint?.tagName === 'mat-pseudo-checkbox' ||
+            nextAction.target?.fingerprint?.role === 'option'
+          )
+        );
+
+        await elementHandle.scrollIntoViewIfNeeded().catch(() => {});
+        await this._waitWhilePaused();
+        await this._setAutomatedAction(true, elementHandle);
+        try {
+          await dispatchAction(elementHandle, actionToDispatch, {
+            page: this.page,
+            botConfig: this.botConfig,
+            isNextActionOption
+          });
+        } finally {
+          await this._setAutomatedAction(false, elementHandle);
+        }
+
+        // Reconcile and return focus to the primary portal workflow
+        if (this.tabManager) {
+          if (action.type === 'CLICK') {
+            await new Promise(r => setTimeout(r, 200));
+          }
+          await this.tabManager.cleanupAuxiliaryTabs();
+          await this.tabManager.ensurePrimaryTabActive(this);
+        }
+
+        return { success: true, scoped: true };
+      } finally {
+        await elementHandle.dispose().catch(() => {});
+      }
+    });
   }
 
   /**
@@ -801,15 +857,25 @@ class ReplayEngine extends EventEmitter {
   async waitForTargetElement(target, actionIndex, actionType) {
     const startTime = Date.now();
     let lastResolutionResult = null;
+    let lastInterruptionCheck = startTime;
 
     while (Date.now() - startTime < this.timeoutMs) {
       if (this.isAborted) {
         throw new Error('Execution stopped by user');
       }
       await this._waitWhilePaused();
+
+      // If element resolution has been blocked for >600ms, proactively clear any unexpected popups or alerts
+      if (this.interruptionHandler && this.page && (Date.now() - lastInterruptionCheck > 600)) {
+        lastInterruptionCheck = Date.now();
+        await this.interruptionHandler.clearLingeringDialogs(this.page).catch(() => {});
+        await this.interruptionHandler.dismissBlockingOverlays(this.page, { target }).catch(() => {});
+      }
       try {
-        const pagesToCheck = [this.page];
-        if (this.browser) {
+        let pagesToCheck = [this.page];
+        if (this.tabManager) {
+          pagesToCheck = await this.tabManager.getPagesToCheck();
+        } else if (this.browser) {
           const allPages = await this.browser.pages().catch(() => []);
           for (const p of allPages) {
             if (p !== this.page && !p.isClosed()) {
@@ -961,18 +1027,17 @@ class ReplayEngine extends EventEmitter {
       await this._cleanupLingeringReplayGuard(this.page);
     }
 
-    // 1. Auto-handle browser dialogs
-    this.page.on('dialog', async (dialog) => {
-      logger.info(`Page dialog appeared: [${dialog.type()}] "${dialog.message()}". Auto-accepting...`);
-      await dialog.accept().catch(() => {});
-    });
-
-    // 2. Dismiss any lingering dialog from previous runs
-    try {
-      const client = await this.page.target().createCDPSession();
-      await client.send('Page.handleJavaScriptDialog', { accept: true }).catch(() => {});
-      await client.detach().catch(() => {});
-    } catch {}
+    // Initialize intelligent tab tracking & dialog interception
+    if (this.tabManager) {
+      await this.tabManager.initialize(this.browser, this.page, this.recording);
+      if (this.tabManager.getPrimaryPage()) {
+        this.page = this.tabManager.getPrimaryPage();
+      }
+    }
+    if (this.interruptionHandler && this.page) {
+      this.interruptionHandler.attachToPage(this.page);
+      await this.interruptionHandler.clearLingeringDialogs(this.page).catch(() => {});
+    }
 
     // 3. Auto-navigate or reset DOM state
     if (targetStartUrl) {

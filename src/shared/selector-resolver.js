@@ -484,10 +484,15 @@
     }
 
     const isInputCb = tag === 'input' && (element.type || '').toLowerCase() === 'checkbox';
-    const isRoleCb = (element.getAttribute('role') || '').toLowerCase() === 'checkbox';
+    const isRoleCb = (typeof element.getAttribute === 'function' && (element.getAttribute('role') || '').toLowerCase() === 'checkbox');
     const isPseudoCb = tag === 'mat-pseudo-checkbox' || (element.classList && typeof element.classList.contains === 'function' && element.classList.contains('mat-pseudo-checkbox'));
     const isMatCb = tag === 'mat-checkbox' || (typeof element.closest === 'function' && Boolean(element.closest('mat-checkbox, .mat-mdc-checkbox, dx-check-box')));
-    const isCheckbox = isInputCb || isRoleCb || isPseudoCb || isMatCb;
+    const optContainer = typeof element.closest === 'function' ? element.closest('mat-option, [role="option"], .mat-mdc-option') : null;
+    const isOptionCb = Boolean(optContainer && (
+      optContainer.querySelector?.('.mat-pseudo-checkbox, [role="checkbox"], input[type="checkbox"]') ||
+      optContainer.classList?.contains?.('mat-mdc-option-multiple')
+    ));
+    const isCheckbox = isInputCb || isRoleCb || isPseudoCb || isMatCb || isOptionCb;
 
     let checked = null;
     if (isCheckbox) {
@@ -497,6 +502,15 @@
         const aria = typeof element.getAttribute === 'function' ? element.getAttribute('aria-checked') : null;
         if (aria !== null && aria !== undefined) {
           checked = aria === 'true';
+        } else if (optContainer) {
+          const ariaSel = typeof optContainer.getAttribute === 'function' ? optContainer.getAttribute('aria-selected') : null;
+          if (ariaSel !== null && ariaSel !== undefined) {
+            checked = ariaSel === 'true';
+          } else if (optContainer.classList && typeof optContainer.classList.contains === 'function') {
+            checked = optContainer.classList.contains('mat-mdc-option-selected') ||
+                      optContainer.classList.contains('mat-option-selected') ||
+                      Boolean(optContainer.querySelector?.('.mat-pseudo-checkbox-checked'));
+          }
         } else if (element.classList && typeof element.classList.contains === 'function') {
           checked = element.classList.contains('mat-mdc-checkbox-checked') ||
                     element.classList.contains('mat-checkbox-checked') ||
@@ -544,7 +558,7 @@
     const isButton = ['button', 'submit'].includes(fp.type) || tag === 'button' || fp.role === 'button' ||
       hasClass('btn') || hasClass('x-btn') || hasClass('dxbButton');
     const isLink = tag === 'a' || fp.role === 'link';
-    const isCheckbox = fp.type === 'checkbox' || fp.role === 'checkbox' || tag === 'mat-pseudo-checkbox';
+    const isCheckbox = fp.isCheckbox === true || fp.type === 'checkbox' || fp.role === 'checkbox' || tag === 'mat-pseudo-checkbox';
     const isRadio = fp.type === 'radio' || fp.role === 'radio';
     const isOption = tag === 'mat-option' || tag === 'option' || fp.role === 'option';
     const isSelect = tag === 'select' || tag === 'mat-select' || fp.role === 'combobox' || fp.role === 'listbox';
@@ -829,8 +843,11 @@
       '[role="dialog"]:not([aria-hidden="true"])',
       '[role="alertdialog"]:not([aria-hidden="true"])',
       'dialog[open]',
+      '[aria-modal="true"]',
       '.modal.show',
       '.modal.in',
+      '.modal:not([aria-hidden="true"])',
+      '.overlay',
       '.x-window:not(.x-hidden):not(.x-hidden-offsets)',
       '.cdk-overlay-pane:not([aria-hidden="true"])',
       '.mat-mdc-dialog-container',

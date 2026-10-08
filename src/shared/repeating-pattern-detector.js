@@ -164,18 +164,26 @@ class RepeatingPatternDetector {
           }
 
           if (cellEls.length > 0 && headerColumns.length > 0) {
-            const hasLeadingCheckbox = cellEls[0].querySelector('input[type="checkbox"], [role="checkbox"]') !== null ||
-              clean(cellEls[0].textContent) === '';
-            const dataCells = (hasLeadingCheckbox && cellEls.length > headerColumns.length)
-              ? cellEls.slice(1)
-              : cellEls;
+            const isControlOrExpander = (c) => {
+              if (!c) return false;
+              if (c.querySelector('input[type="checkbox"], input[type="radio"], [role="checkbox"], [role="radio"]') !== null) return true;
+              if (c.classList?.contains('x-grid-cell-special') || c.classList?.contains('x-grid-cell-row-checker') || c.classList?.contains('x-grid-row-expander') || c.classList?.contains('expander')) return true;
+              const txt = clean(c.textContent);
+              return txt && /^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/i.test(txt) && txt.length <= 4;
+            };
+            const nonControlCells = cellEls.filter(c => !isControlOrExpander(c));
+            const dataCells = nonControlCells.length > 0 ? nonControlCells : cellEls;
 
             headerColumns.forEach((colName, idx) => {
               if (dataCells[idx]) {
-                const txt = clean(dataCells[idx].textContent);
-                if (txt) fields[colName] = txt;
+                let txt = clean(dataCells[idx].textContent);
+                if (txt && !/^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/i.test(txt)) {
+                  txt = txt.replace(/^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+/, '').trim();
+                  fields[colName] = txt;
+                }
               }
             });
+            fields._cells = dataCells.map(c => clean(c.textContent));
           }
 
           // 2. Labeled key-value pairs (DL/DT/DD, <label>Value</label>, strong/b)

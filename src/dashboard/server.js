@@ -633,10 +633,14 @@ const server = http.createServer(async (req, res) => {
               logger.warn(`[Preflight] Could not extract live fields: ${err.message}`);
             }
 
+            const isExpander = (v) => typeof v === 'string' && /^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/i.test(v.trim());
+
             for (const item of items) {
               const f = item.fields || {};
-              const invNum = f['Invoice Number'] || f['Invoice No'] || f['Invoice #'] ||
-                (item.text && item.text.match(/\b((?:SI|INV|DR|TX|CM)-\d+(?:[-_]\w+)*|\b\d{5,10}\b)/i)?.[1]) || null;
+              const rawInv = f['Invoice Number'] || f['Invoice No'] || f['Invoice #'];
+              const invNum = (rawInv && !isExpander(rawInv))
+                ? rawInv
+                : ((item.text && item.text.match(/\b((?:SI|INV|DR|TX|CM)-\d+(?:[-_]\w+)*|\b\d{4,10}\b)/i)?.[1]) || null);
 
               let isDownloaded = false;
               let downloadedFile = null;
@@ -678,14 +682,18 @@ const server = http.createServer(async (req, res) => {
                 for (const [k, v] of Object.entries(item.fields)) {
                   if (v == null || v === '') continue;
                   const key = String(k).trim();
-                  const val = String(v).trim();
+                  let val = String(v).trim();
+                  if (isExpander(val)) continue;
+                  val = val.replace(/^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+/, '').trim();
+                  if (!val) continue;
                   if (!fieldValues[key]) fieldValues[key] = new Set();
                   fieldValues[key].add(val);
                 }
               }
               if (item && item.text) {
-                const textVal = String(item.text).trim();
-                if (textVal) {
+                let textVal = String(item.text).trim();
+                textVal = textVal.replace(/^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+/, '').trim();
+                if (textVal && !isExpander(textVal)) {
                   if (!fieldValues['Text']) fieldValues['Text'] = new Set();
                   fieldValues['Text'].add(textVal);
                 }

@@ -576,11 +576,30 @@ class RecorderBridge {
       rawAction.target?.fingerprint?.isCheckbox ||
       rawAction.target?.fingerprint?.type === 'checkbox' ||
       rawAction.target?.fingerprint?.role === 'checkbox' ||
+      rawAction.target?.fingerprint?.tagName === 'mat-pseudo-checkbox' ||
       elementName.toLowerCase().includes('checkbox')
     );
-    const desiredState = rawAction.desiredState !== undefined
-      ? rawAction.desiredState
-      : (rawAction.checked !== undefined ? rawAction.checked : (rawAction.target?.checked));
+    let desiredState = undefined;
+    if (isCheckbox) {
+      if (rawAction.isUncheck === true || rawAction.action === 'UNCHECK') {
+        desiredState = false;
+      } else if (rawAction.desiredState !== undefined) {
+        if (rawAction.desiredState === false && rawAction.target?.fingerprint?.checked !== true) {
+          // Element was not checked prior to click; clicking it was meant to check it (default ON)
+          desiredState = true;
+        } else {
+          desiredState = Boolean(rawAction.desiredState);
+        }
+      } else if (rawAction.checked !== undefined) {
+        desiredState = Boolean(rawAction.checked);
+      } else {
+        desiredState = true; // Default ON for any checkbox interaction
+      }
+    } else if (rawAction.desiredState !== undefined) {
+      desiredState = Boolean(rawAction.desiredState);
+    } else if (rawAction.checked !== undefined) {
+      desiredState = Boolean(rawAction.checked);
+    }
 
     // Update startUrl if currently internal/blank and action is from a real page
     const actionUrl = rawAction.url || rawAction.frame?.location || (rawAction.target?.fingerprint?.attributes?.href?.startsWith('http') ? rawAction.target.fingerprint.attributes.href : null);
@@ -600,8 +619,7 @@ class RecorderBridge {
       target: rawAction.target,
       ...(rawAction.url ? { url: rawAction.url } : {}),
       ...(rawAction.frame ? { frame: rawAction.frame } : {}),
-      ...(isCheckbox ? { isCheckbox: true } : {}),
-      ...(desiredState !== undefined ? { desiredState: Boolean(desiredState), checked: Boolean(desiredState) } : {}),
+      ...(isCheckbox ? { isCheckbox: true, desiredState: desiredState !== false, checked: desiredState !== false } : (desiredState !== undefined ? { desiredState: Boolean(desiredState), checked: Boolean(desiredState) } : {})),
       ...(rawAction.key ? { key: rawAction.key } : {}),
       ...(rawAction.value !== undefined ? { value: rawAction.value } : {}),
       ...(rawAction.meta ? { meta: rawAction.meta } : {})

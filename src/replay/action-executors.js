@@ -24,7 +24,7 @@ async function ensureInteractable(elementHandle, action) {
     if (el.scrollIntoView && !isBackdrop) {
       el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     }
-    const hasDimensions = !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+    const hasDimensions = !!(el.offsetWidth || el.offsetHeight || (el.getClientRects && el.getClientRects().length));
     const isVisible = hasDimensions || isBackdrop;
     const isDisabled = el.disabled === true;
     return { isVisible, isDisabled };
@@ -126,13 +126,22 @@ async function executeClick(elementHandle, action, options = {}) {
       const isMatCb = Boolean(el.closest('mat-checkbox, .mat-mdc-checkbox, dx-check-box'));
       const hasInnerCb = Boolean(el.querySelector('input[type="checkbox"], [role="checkbox"]'));
       const isPseudoCb = el.classList?.contains('mat-pseudo-checkbox') || Boolean(el.querySelector('.mat-pseudo-checkbox'));
-      const isInsideOption = Boolean(el.closest('mat-option, [role="option"]'));
+      const isInsideOption = Boolean(el.closest('mat-option, [role="option"], .mat-mdc-option'));
 
-      if (!isInputCb && !isRoleCb && !isMatCb && !hasInnerCb && !isPseudoCb) {
+      if (!isInputCb && !isRoleCb && !isMatCb && !hasInnerCb && !isPseudoCb && !isInsideOption) {
         return null;
       }
 
       const getChecked = () => {
+        if (isInsideOption) {
+          const opt = el.closest('mat-option, [role="option"], .mat-mdc-option');
+          if (opt) {
+            const ariaSel = opt.getAttribute('aria-selected');
+            if (ariaSel !== null && ariaSel !== undefined) return ariaSel === 'true';
+            if (opt.classList.contains('mat-mdc-option-selected') || opt.classList.contains('mat-option-selected')) return true;
+            if (opt.querySelector && opt.querySelector('.mat-pseudo-checkbox-checked')) return true;
+          }
+        }
         if (isInputCb) return Boolean(el.checked);
         const input = el.querySelector('input[type="checkbox"]') ||
                       el.closest('label')?.querySelector('input[type="checkbox"]') ||
@@ -150,7 +159,7 @@ async function executeClick(elementHandle, action, options = {}) {
             el.classList.contains('checked') ||
             el.classList.contains('is-checked')) return true;
 
-        if (el.querySelector('.mat-pseudo-checkbox-checked') || el.classList.contains('mat-pseudo-checkbox-checked')) return true;
+        if ((el.querySelector && el.querySelector('.mat-pseudo-checkbox-checked')) || el.classList.contains('mat-pseudo-checkbox-checked')) return true;
 
         const matParent = el.closest('mat-checkbox');
         if (matParent && (matParent.classList.contains('mat-mdc-checkbox-checked') || matParent.classList.contains('mat-checkbox-checked'))) return true;
@@ -167,16 +176,23 @@ async function executeClick(elementHandle, action, options = {}) {
   } catch {}
 
   let desiredState = undefined;
-  if (action.desiredState !== undefined) {
-    desiredState = Boolean(action.desiredState);
+  if (action.isUncheck === true) {
+    desiredState = false;
+  } else if (action.desiredState !== undefined) {
+    // If recorded desiredState was false, only honor false if target was explicitly checked prior to interaction
+    if (action.desiredState === false && action.target?.fingerprint?.checked !== true) {
+      // User clicked an unchecked box to check it (default ON)
+      desiredState = true;
+    } else {
+      desiredState = Boolean(action.desiredState);
+    }
   } else if (action.checked !== undefined) {
     desiredState = Boolean(action.checked);
-  } else if (action.isUncheck === true) {
-    desiredState = false;
   } else if (action.meta?.checked !== undefined) {
     desiredState = Boolean(action.meta.checked);
-  } else if (isTargetCheckbox && action.target?.fingerprint?.checked !== undefined) {
-    desiredState = Boolean(action.target.fingerprint.checked);
+  } else if (isTargetCheckbox) {
+    // Checkbox click default target state is ON (checked)
+    desiredState = true;
   }
 
   // If this is a standalone checkbox and desiredState is known:
@@ -186,6 +202,26 @@ async function executeClick(elementHandle, action, options = {}) {
       return;
     }
     logger.info(`[Replay] Checkbox "${action.elementName || action.name || 'Checkbox'}" current=${checkboxStatus.currentChecked}, desired=${desiredState}; executing click to set state.`);
+  }
+
+  // If target is inside a multi-select option (e.g. mat-option, [role="option"]) and desiredState is known:
+  if (checkboxStatus && checkboxStatus.isInsideOption && desiredState !== undefined) {
+    try {
+      const optionAlreadyInDesiredState = await elementHandle.evaluate((el, desired) => {
+        const opt = el.closest('mat-option, [role="option"], .mat-mdc-option, .mat-option');
+        if (!opt) return false;
+        const isSelected = opt.getAttribute('aria-selected') === 'true' ||
+                           opt.classList.contains('mat-mdc-option-selected') ||
+                           opt.classList.contains('mat-option-selected') ||
+                           Boolean(opt.querySelector('.mat-pseudo-checkbox-checked'));
+        return isSelected === desired;
+      }, desiredState);
+
+      if (optionAlreadyInDesiredState) {
+        logger.info(`[Replay] Multi-select option "${action.elementName || action.name || 'Option'}" is ALREADY ${desiredState ? 'SELECTED' : 'DESELECTED'}; skipping click to preserve state.`);
+        return;
+      }
+    } catch {}
   }
 
   // 3. If target is inside an option (e.g. mat-pseudo-checkbox, span label, or ripple),
@@ -252,6 +288,66 @@ async function executeClick(elementHandle, action, options = {}) {
     await simulateHumanMouseToElement(clickTarget, page, botConfig);
   }
 
+  // 5. Date & Calendar Input Click Handling:
+  // - Native HTML5 date/time inputs (type="date", "datetime-local", "month", etc.):
+  //   Focus cleanly and dispatch synthetic events. Avoid raw CDP OS-level center mouse clicks
+  //   that hit the internal spinbox compartment or the native popup button (::-webkit-calendar-picker-indicator),
+  //   which would open an unscriptable OS-level popup or scramble segment cursor position.
+  // - Calendar day cells in datepicker popups (td.day, .mat-calendar-body-cell, .flatpickr-day, .dx-calendar-cell, etc.):
+  //   Scroll into view and dispatch complete pointer & mouse sequence so the datepicker registers the day selection.
+  const dateClickMeta = await clickTarget.evaluate((el) => {
+    const tag = (el.tagName || '').toUpperCase();
+    const type = (el.type || '').toLowerCase();
+    const isNativeDate = tag === 'INPUT' && ['date', 'datetime-local', 'month', 'time', 'week'].includes(type);
+
+    const cls = typeof el.className === 'string' ? el.className.toLowerCase() : '';
+    const isCalendarCell = Boolean(
+      (tag === 'TD' && (cls.includes('day') || cls.includes('date') || el.hasAttribute('data-date'))) ||
+      cls.includes('mat-calendar-body-cell') ||
+      cls.includes('flatpickr-day') ||
+      cls.includes('dx-calendar-cell') ||
+      cls.includes('ant-picker-cell') ||
+      el.closest?.('.flatpickr-calendar, .mat-calendar, .dx-calendar, .ant-picker-dropdown, .datepicker')
+    );
+
+    return { isNativeDate, isCalendarCell };
+  }).catch(() => null);
+
+  if (dateClickMeta?.isCalendarCell) {
+    try {
+      await clickTarget.evaluate((el) => {
+        el.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+        const PtrEvt = typeof PointerEvent !== 'undefined' ? PointerEvent : null;
+        const MouseEvt = typeof MouseEvent !== 'undefined' ? MouseEvent : null;
+        const win = typeof window !== 'undefined' ? window : null;
+        if (PtrEvt) el.dispatchEvent(new PtrEvt('pointerdown', { bubbles: true, cancelable: true }));
+        if (MouseEvt) el.dispatchEvent(new MouseEvt('mousedown', { bubbles: true, cancelable: true, view: win }));
+        if (PtrEvt) el.dispatchEvent(new PtrEvt('pointerup', { bubbles: true, cancelable: true }));
+        if (MouseEvt) el.dispatchEvent(new MouseEvt('mouseup', { bubbles: true, cancelable: true, view: win }));
+        el.click?.();
+      });
+      logger.info(`[Replay] Calendar day cell clicked successfully with complete pointer/mouse sequence.`);
+      return;
+    } catch {}
+  }
+
+  if (dateClickMeta?.isNativeDate) {
+    try {
+      await clickTarget.evaluate((el) => {
+        el.focus?.();
+        const MouseEvt = typeof MouseEvent !== 'undefined' ? MouseEvent : null;
+        const win = typeof window !== 'undefined' ? window : null;
+        if (MouseEvt) {
+          el.dispatchEvent(new MouseEvt('mousedown', { bubbles: true, cancelable: true, view: win }));
+          el.dispatchEvent(new MouseEvt('mouseup', { bubbles: true, cancelable: true, view: win }));
+          el.dispatchEvent(new MouseEvt('click', { bubbles: true, cancelable: true, view: win }));
+        }
+      });
+      logger.info(`[Replay] Native date input "${action.name || action.elementName || 'Date Input'}" focused safely without triggering intrusive OS picker popup.`);
+      return;
+    } catch {}
+  }
+
   const isLikelyDownloadOrExport = Boolean(
     action.isDownload === true ||
     (action.target?.candidates?.some(c => c.value && /save|export|download|print|pdf|file/i.test(c.value))) ||
@@ -313,7 +409,7 @@ async function executeClick(elementHandle, action, options = {}) {
   // In Angular Material / custom multi-selects, verify that the option's selection state actually toggled.
   // Only treat as uncheck if explicitly flagged as isUncheck or if originally checked before click.
   try {
-    const isUncheck = action.isUncheck === true || (action.desiredState === false && action.target?.fingerprint?.checked === true);
+    const isUncheck = action.isUncheck === true || (desiredState === false);
     await clickTarget.evaluate((el, isUncheck) => {
       const opt = el.closest('mat-option, [role="option"], .mat-mdc-option, .mat-option');
       if (!opt) return;
@@ -391,7 +487,121 @@ async function executeDoubleClick(elementHandle, action, options = {}) {
 }
 
 /**
+ * Universal Date Normalizer
+ * Converts arbitrary user or recorded date strings into standard formats:
+ * - HTML5 date: YYYY-MM-DD
+ * - HTML5 datetime-local: YYYY-MM-DDTHH:mm
+ * - HTML5 month: YYYY-MM
+ * - Localized masks: MM/DD/YYYY, DD/MM/YYYY, etc.
+ */
+function normalizeDateValue(rawDate, targetFormat = 'YYYY-MM-DD') {
+  if (!rawDate || typeof rawDate !== 'string') return rawDate;
+  const trimmed = rawDate.trim();
+  if (!trimmed) return trimmed;
+
+  // 1. Standard ISO YYYY-MM-DD (e.g. 2026-01-11, 2026-12-05)
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T ](\d{1,2}):(\d{1,2}))?/);
+  if (isoMatch) {
+    const y = isoMatch[1];
+    const m = isoMatch[2].padStart(2, '0');
+    const d = isoMatch[3].padStart(2, '0');
+    const hh = (isoMatch[4] || '00').padStart(2, '0');
+    const mm = (isoMatch[5] || '00').padStart(2, '0');
+
+    if (targetFormat === 'YYYY-MM-DDTHH:mm') return `${y}-${m}-${d}T${hh}:${mm}`;
+    if (targetFormat === 'YYYY-MM') return `${y}-${m}`;
+    if (targetFormat === 'MM/DD/YYYY') return `${m}/${d}/${y}`;
+    if (targetFormat === 'DD/MM/YYYY') return `${d}/${m}/${y}`;
+    return `${y}-${m}-${d}`;
+  }
+
+  // 2. Delimited formats with slashes (e.g. 01/11/2026, 11/01/2026, 2026/01/11)
+  const slashMatch = trimmed.match(/^(\d{1,4})\/(\d{1,2})\/(\d{1,4})/);
+  if (slashMatch) {
+    let y, m, d;
+    if (slashMatch[1].length === 4) {
+      // YYYY/MM/DD
+      y = slashMatch[1];
+      m = slashMatch[2].padStart(2, '0');
+      d = slashMatch[3].padStart(2, '0');
+    } else if (slashMatch[3].length === 4) {
+      y = slashMatch[3];
+      const p1 = parseInt(slashMatch[1], 10);
+      const p2 = parseInt(slashMatch[2], 10);
+      if (p1 > 12) {
+        // First part > 12 must be DD
+        d = slashMatch[1].padStart(2, '0');
+        m = slashMatch[2].padStart(2, '0');
+      } else if (targetFormat === 'DD/MM/YYYY' && p2 <= 12) {
+        d = slashMatch[1].padStart(2, '0');
+        m = slashMatch[2].padStart(2, '0');
+      } else {
+        // Default MM/DD/YYYY
+        m = slashMatch[1].padStart(2, '0');
+        d = slashMatch[2].padStart(2, '0');
+      }
+    }
+    if (y && m && d) {
+      if (targetFormat === 'YYYY-MM-DDTHH:mm') return `${y}-${m}-${d}T00:00`;
+      if (targetFormat === 'YYYY-MM') return `${y}-${m}`;
+      if (targetFormat === 'MM/DD/YYYY') return `${m}/${d}/${y}`;
+      if (targetFormat === 'DD/MM/YYYY') return `${d}/${m}/${y}`;
+      return `${y}-${m}-${d}`;
+    }
+  }
+
+  // 3. Delimited formats with dashes DD-MM-YYYY or MM-DD-YYYY
+  const dashMatch = trimmed.match(/^(\d{1,2})-(\d{1,2})-(\d{4})/);
+  if (dashMatch) {
+    const y = dashMatch[3];
+    let m = dashMatch[1].padStart(2, '0');
+    let d = dashMatch[2].padStart(2, '0');
+    if (parseInt(dashMatch[1], 10) > 12) {
+      d = dashMatch[1].padStart(2, '0');
+      m = dashMatch[2].padStart(2, '0');
+    } else if (targetFormat === 'DD/MM/YYYY') {
+      d = dashMatch[1].padStart(2, '0');
+      m = dashMatch[2].padStart(2, '0');
+    }
+    if (targetFormat === 'YYYY-MM-DDTHH:mm') return `${y}-${m}-${d}T00:00`;
+    if (targetFormat === 'YYYY-MM') return `${y}-${m}`;
+    if (targetFormat === 'MM/DD/YYYY') return `${m}/${d}/${y}`;
+    if (targetFormat === 'DD/MM/YYYY') return `${d}/${m}/${y}`;
+    return `${y}-${m}-${d}`;
+  }
+
+  // 4. Delimited formats with dots DD.MM.YYYY
+  const dotMatch = trimmed.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+  if (dotMatch) {
+    const y = dotMatch[3];
+    let d = dotMatch[1].padStart(2, '0');
+    let m = dotMatch[2].padStart(2, '0');
+    if (targetFormat === 'MM/DD/YYYY') return `${m}/${d}/${y}`;
+    if (targetFormat === 'DD/MM/YYYY') return `${d}/${m}/${y}`;
+    return `${y}-${m}-${d}`;
+  }
+
+  // 5. Fallback Date constructor
+  try {
+    const parsed = new Date(trimmed);
+    if (!isNaN(parsed.getTime())) {
+      const y = parsed.getFullYear();
+      const m = String(parsed.getMonth() + 1).padStart(2, '0');
+      const d = String(parsed.getDate()).padStart(2, '0');
+      if (targetFormat === 'YYYY-MM-DDTHH:mm') return `${y}-${m}-${d}T00:00`;
+      if (targetFormat === 'YYYY-MM') return `${y}-${m}`;
+      if (targetFormat === 'MM/DD/YYYY') return `${m}/${d}/${y}`;
+      if (targetFormat === 'DD/MM/YYYY') return `${d}/${m}/${y}`;
+      return `${y}-${m}-${d}`;
+    }
+  } catch {}
+
+  return trimmed;
+}
+
+/**
  * Execute TYPE action with humanized stochastic typing rhythm
+ * and universal framework-aware date/time input support.
  */
 async function executeType(elementHandle, action, options = {}) {
   await ensureInteractable(elementHandle, action);
@@ -404,6 +614,128 @@ async function executeType(elementHandle, action, options = {}) {
 
   try {
     await elementHandle.focus().catch(() => {});
+
+    // Inspect if target element is a date/time field across native HTML5,
+    // Angular Material, DevExpress, Flatpickr, jQuery UI, or masked inputs
+    const dateMeta = await elementHandle.evaluate((el, { actionValue, actionType }) => {
+      const tag = (el.tagName || '').toUpperCase();
+      const type = (el.type || '').toLowerCase();
+      const isNativeDate = tag === 'INPUT' && ['date', 'datetime-local', 'month', 'time', 'week'].includes(type);
+
+      const ph = (el.placeholder || '').toLowerCase();
+      const hasDatePh = /\b(yyyy|mm|dd|yy)[-/. ](mm|dd)[-/. ](yyyy|yy|dd)\b/i.test(ph) ||
+                        ph.includes('date') || ph.includes('dob');
+
+      const isFlatpickr = Boolean(el._flatpickr || el.classList?.contains('flatpickr-input'));
+      const isJQueryDate = Boolean(el.classList?.contains('hasDatepicker') || el.classList?.contains('datepicker') || el.classList?.contains('date-picker'));
+      const isMatDate = Boolean(el.hasAttribute?.('matdatepicker') || el.classList?.contains('mat-datepicker-input') || el.closest?.('mat-datepicker-content, mat-form-field-type-mat-date-range-input'));
+      const isDxDate = Boolean(el.closest?.('.dx-datebox') || el.classList?.contains('dx-texteditor-input'));
+      const isAntDate = Boolean(el.closest?.('.ant-picker') || el.classList?.contains('ant-picker-input'));
+
+      const idOrName = `${el.id || ''} ${el.name || ''} ${el.getAttribute?.('aria-label') || ''}`.toLowerCase();
+      const isNameDate = /(?:start|end|from|to|birth|expiry|due|filter|effective)?_?date/i.test(idOrName) &&
+                         !/(?:candidate|update|validate)/i.test(idOrName);
+
+      const isDateVal = Boolean(actionValue && (
+        /^\d{4}-\d{2}-\d{2}/.test(actionValue) ||
+        /^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}/.test(actionValue)
+      ));
+
+      let expectedFormat = 'YYYY-MM-DD';
+      if (isNativeDate) {
+        if (type === 'datetime-local') expectedFormat = 'YYYY-MM-DDTHH:mm';
+        else if (type === 'month') expectedFormat = 'YYYY-MM';
+        else expectedFormat = 'YYYY-MM-DD';
+      } else if (hasDatePh) {
+        if (/dd[-/.]mm[-/.]yyyy/i.test(ph)) expectedFormat = 'DD/MM/YYYY';
+        else if (/mm[-/.]dd[-/.]yyyy/i.test(ph)) expectedFormat = 'MM/DD/YYYY';
+      }
+
+      const isDate = Boolean(isNativeDate || isFlatpickr || isJQueryDate || isMatDate || isDxDate || isAntDate || hasDatePh || (isNameDate && isDateVal) || (actionType === 'date'));
+
+      return {
+        isDate,
+        isNativeDate,
+        isFlatpickr,
+        isJQueryDate,
+        isMatDate,
+        isDxDate,
+        isAntDate,
+        expectedFormat,
+        inputType: type
+      };
+    }, { actionValue: textToType, actionType: action.target?.fingerprint?.type }).catch(() => ({ isDate: false }));
+
+    if (dateMeta.isDate && textToType !== '[REDACTED]') {
+      const normalizedValue = normalizeDateValue(textToType, dateMeta.expectedFormat);
+      logger.info(`[Replay] Universal Date Setter: Injecting "${normalizedValue}" (raw="${textToType}", targetFormat="${dateMeta.expectedFormat}") into date field "${action.name || action.elementName || 'Date Input'}"`);
+
+      await elementHandle.evaluate((el, { targetVal, rawVal }) => {
+        el.focus?.();
+        const win = typeof window !== 'undefined' ? window : null;
+
+        // 1. Framework API Hooks
+        if (el._flatpickr && typeof el._flatpickr.setDate === 'function') {
+          try { el._flatpickr.setDate(targetVal || rawVal, true); } catch {}
+        }
+
+        const dxBox = el.closest?.('.dx-datebox');
+        if (dxBox && win?.DevExpress?.ui?.dxDateBox) {
+          try {
+            const instance = win.DevExpress.ui.dxDateBox.getInstance(dxBox);
+            instance?.option?.('value', targetVal || rawVal);
+          } catch {}
+        }
+
+        const $ = win ? (win.jQuery || win.$) : null;
+        if ($ && typeof $(el).datepicker === 'function') {
+          try {
+            $(el).datepicker('setDate', targetVal || rawVal);
+            $(el).trigger?.('change');
+          } catch {}
+        }
+
+        // 2. Universal React 15/16/17/18/19 & Native Prototype Value Injection
+        const valToSet = targetVal || rawVal;
+        const inputProto = win?.HTMLInputElement?.prototype;
+        const prototypeValueSetter = inputProto
+          ? Object.getOwnPropertyDescriptor(inputProto, 'value')?.set
+          : null;
+
+        if (prototypeValueSetter) {
+          prototypeValueSetter.call(el, valToSet);
+        } else {
+          el.value = valToSet;
+        }
+
+        // 3. Dispatch reactive events
+        const Evt = typeof Event !== 'undefined' ? Event : null;
+        if (Evt) {
+          el.dispatchEvent(new Evt('input', { bubbles: true, composed: true }));
+          el.dispatchEvent(new Evt('change', { bubbles: true, composed: true }));
+        } else {
+          el.dispatchEvent?.({ type: 'input' });
+          el.dispatchEvent?.({ type: 'change' });
+        }
+
+        // 4. Fallback for masked inputs where prototype setter was blocked
+        if (el.value !== valToSet && el.type === 'text') {
+          try {
+            el.select?.();
+            const doc = typeof document !== 'undefined' ? document : null;
+            doc?.execCommand?.('insertText', false, valToSet);
+          } catch {}
+        }
+
+        if (Evt) {
+          el.dispatchEvent(new Evt('blur', { bubbles: true, composed: true }));
+        } else {
+          el.dispatchEvent?.({ type: 'blur' });
+        }
+      }, { targetVal: normalizedValue, rawVal: textToType });
+
+      return;
+    }
 
     // If botConfig typing is active and page is available, type character by character
     const typingCfg = botConfig?.typing;
@@ -432,7 +764,15 @@ async function executeType(elementHandle, action, options = {}) {
       await elementHandle.evaluate((el, text) => {
         el.focus();
         if (text !== '[REDACTED]') {
-          el.value = text;
+          const prototypeValueSetter = Object.getOwnPropertyDescriptor(
+            window.HTMLInputElement.prototype,
+            'value'
+          )?.set;
+          if (prototypeValueSetter) {
+            prototypeValueSetter.call(el, text);
+          } else {
+            el.value = text;
+          }
         }
         el.dispatchEvent(new Event('input', { bubbles: true }));
         el.dispatchEvent(new Event('change', { bubbles: true }));
@@ -582,6 +922,7 @@ async function dispatchAction(elementHandle, action, options = {}) {
 }
 
 module.exports = {
+  normalizeDateValue,
   executeClick,
   executeDoubleClick,
   executeType,

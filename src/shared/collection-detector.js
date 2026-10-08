@@ -68,18 +68,25 @@ class CollectionDetector {
           }
 
           if (cells.length > 0 && headerCols.length > 0) {
-            // Check for selection checker offset
-            const hasChecker = cells.length > headerCols.length && (
-              cells[0].querySelector('input[type="checkbox"], [role="checkbox"], .mat-pseudo-checkbox') !== null ||
-              clean(cells[0].textContent) === ''
-            );
-            const dataCells = hasChecker ? cells.slice(1) : cells;
+            const isControlOrExpander = (c) => {
+              if (!c) return false;
+              if (c.querySelector('input[type="checkbox"], input[type="radio"], [role="checkbox"], [role="radio"], .mat-pseudo-checkbox') !== null) return true;
+              if (c.classList?.contains('x-grid-cell-special') || c.classList?.contains('x-grid-cell-row-checker') || c.classList?.contains('x-grid-row-expander') || c.classList?.contains('expander')) return true;
+              const txt = clean(c.textContent);
+              return txt && /^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/i.test(txt) && txt.length <= 4;
+            };
+            const nonControlCells = cells.filter(c => !isControlOrExpander(c));
+            const dataCells = nonControlCells.length > 0 ? nonControlCells : cells;
             headerCols.forEach((col, idx) => {
               if (dataCells[idx] !== undefined) {
-                const txt = clean(dataCells[idx].textContent);
-                if (txt) fields[col] = txt;
+                let txt = clean(dataCells[idx].textContent);
+                if (txt && !/^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/i.test(txt)) {
+                  txt = txt.replace(/^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+/, '').trim();
+                  fields[col] = txt;
+                }
               }
             });
+            fields._cells = dataCells.map(c => clean(c.textContent));
           }
 
           // 2. Labeled key-value pairs (Card / Definition List / Form rows)

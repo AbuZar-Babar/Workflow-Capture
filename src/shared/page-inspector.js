@@ -34,6 +34,53 @@ class PageInspector {
         };
 
         const cleanText = (str) => String(str || '').replace(/\s+/g, ' ').trim();
+        const EXPANDER_GLYPH_REGEX = /^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/i;
+        const DOCUMENT_ID_REGEX = /\b((?:SI|INV|DR|TX|CM|PO|SO|BILL|REC|ORD)-\d+(?:[-_]\w+)*|\b\d{4,10}\b)/i;
+
+        const cleanCellText = (val) => {
+          if (val == null) return '';
+          let s = String(val).trim().replace(/\s+/g, ' ');
+          if (EXPANDER_GLYPH_REGEX.test(s)) return '';
+          s = s.replace(/^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+/, '').trim();
+          s = s.replace(/[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/, '').trim();
+          return s;
+        };
+
+        const isControlOrExpanderCell = (cellEl) => {
+          if (!cellEl || typeof cellEl !== 'object') return false;
+          if (
+            cellEl.classList?.contains('x-grid-cell-special') ||
+            cellEl.classList?.contains('x-grid-cell-row-checker') ||
+            cellEl.classList?.contains('x-selmodel-column') ||
+            cellEl.classList?.contains('ant-table-selection-column') ||
+            cellEl.classList?.contains('mat-column-select') ||
+            (typeof cellEl.querySelector === 'function' && cellEl.querySelector(
+              '.x-grid-row-checker, input[type="checkbox"], input[type="radio"], [role="checkbox"], [role="radio"], .mat-pseudo-checkbox'
+            ))
+          ) {
+            return true;
+          }
+          if (
+            cellEl.classList?.contains('x-grid-row-expander') ||
+            cellEl.classList?.contains('ant-table-row-expand-icon') ||
+            cellEl.classList?.contains('dt-control') ||
+            cellEl.classList?.contains('details-control') ||
+            cellEl.classList?.contains('tree-node-toggle') ||
+            cellEl.classList?.contains('expander') ||
+            cellEl.classList?.contains('expand-btn') ||
+            cellEl.classList?.contains('mat-expansion-indicator') ||
+            (typeof cellEl.querySelector === 'function' && cellEl.querySelector(
+              'button[aria-expanded], [aria-expanded], .expander, .expand-btn, [class*="chevron" i], [class*="expander" i], [class*="tree-toggle" i], [class*="dt-control" i]'
+            ))
+          ) {
+            return true;
+          }
+          const raw = (cellEl.innerText || cellEl.textContent || '').trim();
+          if (raw && EXPANDER_GLYPH_REGEX.test(raw) && raw.length <= 4) {
+            return true;
+          }
+          return false;
+        };
 
         // 1. Identify active modal / dialog if open
         let activeModalTitle = null;
@@ -56,7 +103,8 @@ class PageInspector {
         tableCandidates.forEach((tableEl, idx) => {
           // Extract column headers
           const headerCells = Array.from(tableEl.querySelectorAll('.x-column-header-text, .x-column-header, th, [role="columnheader"], .x-grid-header, .mat-header-cell, .ag-header-cell')).filter(isVisible);
-          const rawColumns = headerCells.map(c => cleanText(c.textContent || c.getAttribute('aria-label') || '')).filter(t => t.length > 0 && t.length < 60);
+          const rawHeaderLayout = headerCells.map(c => cleanCellText(c.textContent || c.getAttribute('aria-label') || ''));
+          const rawColumns = rawHeaderLayout.filter(t => t.length > 0 && t.length < 60 && !EXPANDER_GLYPH_REGEX.test(t));
           const columns = Array.from(new Set(rawColumns));
 
           // Extract visible row items and filter out header rows
@@ -99,39 +147,69 @@ class PageInspector {
                 cells = Array.from(r.querySelectorAll('.x-grid-cell, .dxgv, .cell'));
               }
 
-              // Account for checkbox selection column offset
-              const isFirstCellChecker = cells.length > 0 && (
-                cells[0].classList?.contains('x-grid-cell-special') ||
-                cells[0].classList?.contains('x-grid-cell-row-checker') ||
-                cells[0].classList?.contains('x-selmodel-column') ||
-                cells[0].querySelector?.('.x-grid-row-checker, input[type="checkbox"], [role="checkbox"], .mat-pseudo-checkbox') !== null ||
-                (cleanText(cells[0].textContent) === '' && cells.length > columns.length)
-              );
+              // Filter out control and expander cells
+              const nonControlCells = cells.filter(c => !isControlOrExpanderCell(c));
+              const dataCells = nonControlCells.length > 0 ? nonControlCells : cells;
 
-              const dataCells = isFirstCellChecker ? cells.slice(1) : cells;
-              const cellTexts = dataCells.map(c => {
-                let txt = cleanText(c.textContent);
-                if (!txt) {
-                  const link = c.querySelector('a, button, input');
-                  if (link) {
-                    txt = cleanText(link.textContent || link.getAttribute('value') || '');
-                  }
-                }
-                return txt;
-              });
               const rowObj = {};
-              columns.forEach((col, i) => {
-                if (cellTexts[i] !== undefined && cellTexts[i]) rowObj[col] = cellTexts[i];
-              });
+              let mapped = false;
+
+              // Strategy A: Exact positional alignment when raw header layout matches row cells
+              if (rawHeaderLayout.length > 0 && rawHeaderLayout.length === cells.length) {
+                rawHeaderLayout.forEach((col, i) => {
+                  if (col && !EXPANDER_GLYPH_REGEX.test(col)) {
+                    let txt = cleanCellText(cells[i].textContent);
+                    if (!txt) {
+                      const link = cells[i].querySelector('a, button, input');
+                      if (link) {
+                        txt = cleanCellText(link.textContent || link.getAttribute('value') || '');
+                      }
+                    }
+                    if (txt && !EXPANDER_GLYPH_REGEX.test(txt)) {
+                      rowObj[col] = txt;
+                      mapped = true;
+                    }
+                  }
+                });
+              }
+
+              // Strategy B: Control-filtered mapping
+              if (!mapped || Object.keys(rowObj).filter(k => !k.startsWith('_')).length === 0) {
+                columns.forEach((col, i) => {
+                  if (dataCells[i] !== undefined) {
+                    let txt = cleanCellText(dataCells[i].textContent);
+                    if (!txt) {
+                      const link = dataCells[i].querySelector('a, button, input');
+                      if (link) {
+                        txt = cleanCellText(link.textContent || link.getAttribute('value') || '');
+                      }
+                    }
+                    if (txt && !EXPANDER_GLYPH_REGEX.test(txt)) {
+                      rowObj[col] = txt;
+                    }
+                  }
+                });
+              }
+
               const rawTxt = cleanText(r.textContent);
               rowObj._rawText = rawTxt;
               rowObj.Text = rawTxt;
+              rowObj._cells = dataCells.map(c => cleanCellText(c.textContent));
 
               const isInvoiceGrid = columns.some(c => /invoice/i.test(c));
               if (isInvoiceGrid) {
-                if (!rowObj['Invoice Number'] && !rowObj['Invoice No']) {
-                  const invMatch = rawTxt.match(/\b((?:SI|INV|DR|TX|CM)-\d+(?:[-_]\w+)*|\b\d{5,10}\b)/i);
-                  if (invMatch) rowObj['Invoice Number'] = invMatch[1];
+                const currentInv = rowObj['Invoice Number'] || rowObj['Invoice No'];
+                if (!currentInv || EXPANDER_GLYPH_REGEX.test(currentInv) || !/\d/.test(currentInv)) {
+                  const invMatch = rawTxt.match(DOCUMENT_ID_REGEX) ||
+                    dataCells.map(c => cleanCellText(c.textContent)).find(t => DOCUMENT_ID_REGEX.test(t));
+                  if (invMatch) {
+                    const foundId = typeof invMatch === 'string' ? invMatch : invMatch[1];
+                    if (columns.includes('Invoice No')) {
+                      rowObj['Invoice No'] = foundId;
+                    } else {
+                      rowObj['Invoice Number'] = foundId;
+                    }
+                  }
                 }
                 if (!rowObj['Type'] || rowObj['Type'] === rawTxt || /^(SI|INV|DR|TX|CM)-\d+/i.test(rowObj['Type'])) {
                   if (/\bcredit\s*memo\b/i.test(rawTxt)) rowObj['Type'] = 'Credit Memo';
@@ -148,9 +226,20 @@ class PageInspector {
                 }
               }
 
-              if (!rowObj['Status']) {
+              if (!rowObj['Status'] || EXPANDER_GLYPH_REGEX.test(rowObj['Status'])) {
                 const statusMatch = rawTxt.match(/\b(Open|Closed|Pending|Paid|Unpaid|Draft|Approved|Posted)\b/i);
                 if (statusMatch) rowObj['Status'] = statusMatch[1];
+              }
+
+              // Strip expander glyphs from any field
+              for (const [k, v] of Object.entries(rowObj)) {
+                if (typeof v === 'string') {
+                  if (EXPANDER_GLYPH_REGEX.test(v)) {
+                    delete rowObj[k];
+                  } else {
+                    rowObj[k] = cleanCellText(v);
+                  }
+                }
               }
 
               return rowObj;
