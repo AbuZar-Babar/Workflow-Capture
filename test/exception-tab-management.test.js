@@ -541,7 +541,51 @@ async function runTests() {
   const cCross = cascadingDom.mockDoc.querySelector('button.x');
   assert.strictEqual(cDecline.clicked, true, 'Cookie decline must be clicked in pass 1');
   assert.strictEqual(cCross.clicked, true, 'Survey cross must be clicked in pass 2');
-  console.log('  ✅ Case P (Multi-Pass Cascading): Cleared multiple cascading popups across passes\n');
+  console.log('  ✅ Case P (Multi-Pass Cascading): Cleared multiple cascading popups across passes');
+
+  // Test 1.17: Case Q (Dropdown & Checkbox Option Preservation)
+  const dropdownDom = createTestDOM([
+    { tag: 'div', className: 'cdk-overlay-backdrop cdk-overlay-transparent-backdrop' },
+    {
+      tag: 'div',
+      className: 'cdk-overlay-pane',
+      children: [{
+        tag: 'div',
+        role: 'listbox',
+        children: [
+          {
+            tag: 'mat-option',
+            children: [
+              { tag: 'span', className: 'mat-pseudo-checkbox' },
+              { tag: 'span', text: '105992 - DIXIE HIGHWAY ENERGY, LLC' }
+            ]
+          }
+        ]
+      }]
+    }
+  ]);
+  const dropdownPage = dropdownDom.createPage();
+  const optionAction = {
+    type: 'CLICK',
+    name: '105992 - DIXIE HIGHWAY ENERGY, LLC... Checkbox',
+    isCheckbox: true,
+    target: {
+      candidates: [
+        { strategy: 'text', value: '//mat-option[normalize-space()=\'105992 - DIXIE HIGHWAY ENERGY, LLC\']' },
+        { strategy: 'css-path', value: 'body > div:nth-of-type(3) > div:nth-of-type(2) > div > mat-option:nth-of-type(1) > span' }
+      ],
+      fingerprint: {
+        tagName: 'span',
+        isCheckbox: true,
+        text: '105992 - DIXIE HIGHWAY ENERGY, LLC'
+      }
+    }
+  };
+
+  assert.strictEqual(handler.isOptionOrDropdownAction(optionAction), true, 'Must identify action as dropdown option/checkbox');
+  const optionDismissed = await handler.dismissBlockingOverlays(dropdownPage, optionAction);
+  assert.strictEqual(optionDismissed, false, 'Must NEVER dismiss or Escape open dropdown when selecting option/checkbox');
+  console.log('  ✅ Case Q (Dropdown Option Preservation): Active dropdown panel and options preserved\n');
 
   // =========================================================================
   // Part 2: TabManager Unit Tests

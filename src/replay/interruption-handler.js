@@ -103,6 +103,42 @@ class InterruptionHandler {
   }
 
   /**
+   * Determine if the action intentionally targets a dropdown option, select combobox,
+   * option checkbox, or overlay backdrop.
+   * 
+   * @param {object} [action]
+   * @returns {boolean}
+   */
+  isOptionOrDropdownAction(action) {
+    if (!action) return false;
+    const target = action.target || (action.candidates ? action : null);
+    const fp = target?.fingerprint || action.fingerprint;
+    const candidates = target?.candidates || action.candidates || [];
+
+    return Boolean(
+      action.isCheckbox === true ||
+      action.desiredState !== undefined ||
+      action.checked !== undefined ||
+      target?.isCheckbox === true ||
+      fp?.isCheckbox === true ||
+      fp?.role === 'option' ||
+      fp?.tagName === 'mat-option' ||
+      fp?.tagName === 'mat-pseudo-checkbox' ||
+      (action.name && /option|checkbox|backdrop/i.test(action.name)) ||
+      (action.elementName && /option|checkbox|backdrop/i.test(action.elementName)) ||
+      (target?.friendlyName && /option|checkbox|backdrop/i.test(target.friendlyName)) ||
+      (target?.elementName && /option|checkbox|backdrop/i.test(target.elementName)) ||
+      candidates.some(c => c && c.value && (
+        c.value.includes('option') ||
+        c.value.includes('mat-option') ||
+        c.value.includes('pseudo-checkbox') ||
+        c.value.includes('backdrop') ||
+        c.value.includes('cdk-overlay')
+      ))
+    );
+  }
+
+  /**
    * Extract CSS selector candidates from an action target to protect intentional workflow modals.
    * 
    * @private
@@ -154,13 +190,26 @@ class InterruptionHandler {
   async dismissBlockingOverlays(page, action = null) {
     if (!page || (typeof page.isClosed === 'function' && page.isClosed())) return false;
 
+    // Never dismiss or press Escape if the active action targets a dropdown option, select combobox, or backdrop
+    if (this.isOptionOrDropdownAction(action)) {
+      return false;
+    }
+
     const targetSelectors = this._extractActionTargetSelectors(action);
+    const targetText = (
+      action?.target?.fingerprint?.text ||
+      action?.target?.friendlyName ||
+      action?.target?.elementName ||
+      action?.elementName ||
+      action?.name ||
+      ''
+    ).trim();
     let totalDismissed = 0;
 
     try {
       // Loop up to 3 passes to handle cascading popups (e.g. cookie banner + survey modal + promo toast)
       for (let pass = 0; pass < 3; pass++) {
-        const dismissResult = await page.evaluate((targetSels) => {
+        const dismissResult = await page.evaluate((targetSels, actionText) => {
           const isVisible = (el) => {
             if (!el || el.nodeType !== 1) return false;
             const style = window.getComputedStyle(el);
@@ -180,8 +229,7 @@ class InterruptionHandler {
             // Common component libraries & frameworks
             '.swal2-container.swal2-shown',
             '.swal2-popup',
-            '.cdk-overlay-pane:has([role="dialog"])',
-            '.cdk-overlay-pane',
+            '.cdk-overlay-pane:has([role="dialog"], [role="alertdialog"], .mat-mdc-dialog-container, .mat-dialog-container)',
             '.mat-mdc-dialog-container',
             '.dx-dialog',
             '.dx-overlay-content',
@@ -285,20 +333,34 @@ class InterruptionHandler {
 
           // Target Protection: If action target is inside the modal container, do NOT dismiss it
           for (const container of candidates) {
+            let containsTarget = false;
             if (targetSels && targetSels.length > 0) {
-              let containsTarget = false;
               for (const tSel of targetSels) {
                 try {
-                  if (tSel && container.querySelector(tSel)) {
-                    containsTarget = true;
-                    break;
+                  if (tSel) {
+                    if (container.querySelector(tSel)) {
+                      containsTarget = true;
+                      break;
+                    }
+                    const matchedEl = document.querySelector(tSel);
+                    if (matchedEl && container.contains(matchedEl)) {
+                      containsTarget = true;
+                      break;
+                    }
                   }
                 } catch {}
               }
-              if (containsTarget) {
-                // Target is inside container, skip to next candidate
-                continue;
-              }
+            }
+            if (!containsTarget && actionText && actionText.length > 2) {
+              try {
+                if (container.textContent && container.textContent.includes(actionText)) {
+                  containsTarget = true;
+                }
+              } catch {}
+            }
+            if (containsTarget) {
+              // Target is inside container, skip to next candidate
+              continue;
             }
 
             // Collect all clickable elements inside the container
@@ -425,10 +487,11 @@ class InterruptionHandler {
         return true;
       }
 
-      // Priority 3: If an unexpected backdrop / modal overlay is still present, attempt Escape key
+      // Priority 3: If an unexpected dark modal backdrop is still present, attempt Escape key
+      // Strictly avoid transparent dropdown backdrops (.cdk-overlay-transparent-backdrop)
       const hasBackdrop = await page.evaluate(() => {
         const backdrops = Array.from(document.querySelectorAll(
-          '.cdk-overlay-backdrop, .modal-backdrop, .swal2-backdrop, .overlay'
+          '.cdk-overlay-dark-backdrop, .modal-backdrop, .swal2-backdrop, .overlay-backdrop'
         ));
         return backdrops.some(b => {
           const style = window.getComputedStyle(b);
@@ -444,7 +507,7 @@ class InterruptionHandler {
         // Priority 4: If an empty/stuck blocking backdrop persists with no interactive children, disable pointer events
         await page.evaluate(() => {
           const backdrops = Array.from(document.querySelectorAll(
-            '.cdk-overlay-backdrop, .modal-backdrop, .swal2-backdrop, .overlay:not(:has(button)):not(:has(input))'
+            '.cdk-overlay-dark-backdrop, .modal-backdrop, .swal2-backdrop, .overlay-backdrop:not(:has(button)):not(:has(input))'
           ));
           let count = 0;
           for (const b of backdrops) {

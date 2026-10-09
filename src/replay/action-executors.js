@@ -87,11 +87,26 @@ async function executeClick(elementHandle, action, options = {}) {
   await ensureInteractable(elementHandle, action);
   const { page, botConfig } = options;
 
-  // 1. Dropdown Trigger Idempotency Check:
-  // If target element is a combobox/select trigger (or inner arrow/icon) and it is ALREADY expanded (open),
-  // and the subsequent action is selecting an option, skip redundant click so we don't accidentally close it!
-  const isAlreadyOpenTrigger = await elementHandle.evaluate((el) => {
-    const combobox = el.closest('mat-select, [role="combobox"], [aria-haspopup="listbox"]');
+  let clickTarget = elementHandle;
+
+  // 1. Dropdown Trigger Normalization & Idempotency Check:
+  // If target element is an inner arrow, path, svg, or icon inside a combobox/select trigger,
+  // resolve the interactive trigger or combobox element so framework event listeners receive the click
+  try {
+    const triggerHandle = await clickTarget.evaluateHandle((el) => {
+      const isInsideOpt = Boolean(el.closest('mat-option, [role="option"], .mat-mdc-option'));
+      if (isInsideOpt) return el;
+      const trigger = el.closest('.mat-mdc-select-trigger, .mat-select-trigger, mat-select, [role="combobox"], [aria-haspopup="listbox"]');
+      return trigger || el;
+    });
+    if (triggerHandle) {
+      const asElem = triggerHandle.asElement();
+      if (asElem) clickTarget = asElem;
+    }
+  } catch {}
+
+  const isAlreadyOpenTrigger = await clickTarget.evaluate((el) => {
+    const combobox = el.closest('mat-select, [role="combobox"], [aria-haspopup="listbox"]') || el;
     if (!combobox) return false;
     return combobox.getAttribute('aria-expanded') === 'true';
   }).catch(() => false);
@@ -226,10 +241,9 @@ async function executeClick(elementHandle, action, options = {}) {
 
   // 3. If target is inside an option (e.g. mat-pseudo-checkbox, span label, or ripple),
   // resolve the parent mat-option / [role="option"] host element for reliable framework event dispatching
-  let clickTarget = elementHandle;
   try {
-    const optionHandle = await elementHandle.evaluateHandle((el) => {
-      const opt = el.closest('mat-option, [role="option"], .mat-mdc-option');
+    const optionHandle = await clickTarget.evaluateHandle((el) => {
+      const opt = el.closest('mat-option, [role="option"], .mat-mdc-option, .mat-option');
       if (opt && opt.scrollIntoView) {
         opt.scrollIntoView({ block: 'nearest', inline: 'nearest' });
       }
