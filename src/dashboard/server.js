@@ -1012,25 +1012,29 @@ const server = http.createServer(async (req, res) => {
       if (!requireAuth(req, res)) return;
       const { ensureChromeRunning, connectToBrowser } = require('../utils/cdp-connector');
       const body = await parseJsonBody(req).catch(() => ({}));
-      const portal = body.portal || 'ecommerce';
+      const portal = body.portal || 'blank';
 
       const portalUrls = {
+        blank: 'about:blank',
+        'about:blank': 'about:blank',
         ecommerce: `http://localhost:${currentPort}/portal/ecommerce-portal.html`,
         sales: `http://localhost:${currentPort}/portal/sales-portal.html`,
         library: `http://localhost:${currentPort}/portal/library-portal.html`,
         'mock-portal': `http://localhost:${currentPort}/portal/ecommerce-portal.html`
       };
-      const initialUrl = portalUrls[portal] || portalUrls.ecommerce;
+      const initialUrl = portalUrls[portal] || (portal === 'blank' || !portal ? 'about:blank' : portal);
 
       try {
         const launched = await ensureChromeRunning(9222, initialUrl);
         if (launched) {
-          // If Chrome was already up, ensure active tab navigates to the portal
+          // If Chrome was already up and an explicit non-blank portal was requested, navigate to it
           try {
             const { browser, page } = await connectToBrowser();
             await page.bringToFront();
-            if (page.url() === 'about:blank' || page.url().startsWith('chrome://')) {
-              await page.goto(initialUrl, { waitUntil: 'domcontentloaded', timeout: 10000 });
+            if (initialUrl && initialUrl !== 'about:blank') {
+              if (page.url() === 'about:blank' || page.url().startsWith('chrome://')) {
+                await page.goto(initialUrl, { waitUntil: 'domcontentloaded', timeout: 10000 });
+              }
             }
             await browser.disconnect();
           } catch {}

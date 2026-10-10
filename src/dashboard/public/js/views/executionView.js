@@ -862,6 +862,33 @@ export const ExecutionView = {
       }
     }
 
+    // Update Current Activity Subtitle Detail Text
+    const robotDetail = document.getElementById('execRobotDetailText');
+    if (robotDetail) {
+      if (isTerminal) {
+        if (status === 'COMPLETED') {
+          robotDetail.textContent = `All ${totalCount} ${unitPlural} processed successfully.`;
+        } else if (status === 'COMPLETED_WITH_ERRORS') {
+          robotDetail.textContent = `${ok} completed, ${fail} failed, ${skippedCount} excluded.`;
+        } else if (status === 'STOPPED') {
+          robotDetail.textContent = 'Run stopped by user.';
+        } else {
+          robotDetail.textContent = `Run finished: ${formatStatusLabel(status)}`;
+        }
+      } else {
+        const runningItem = results.find(r => r.status === 'RUNNING' || r.status === 'PENDING');
+        if (runningItem) {
+          robotDetail.textContent = runningItem.label
+            ? `Processing record "${runningItem.label}" (${processed + 1} of ${totalCount})…`
+            : `Processing item #${runningItem.index || (processed + 1)} of ${totalCount}…`;
+        } else if (processed > 0) {
+          robotDetail.textContent = `Progress: ${processed} of ${totalCount} ${unitPlural} processed…`;
+        } else {
+          robotDetail.textContent = 'Executing workflow actions on target browser tab…';
+        }
+      }
+    }
+
     // Step/Item Count Badge and Titles
     const countBadge = document.getElementById('executionStepCountBadge');
     if (countBadge) {

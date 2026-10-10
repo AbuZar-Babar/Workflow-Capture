@@ -172,7 +172,7 @@ export const OverviewView = {
         if (labelLaunch) labelLaunch.textContent = 'Connecting…';
         Toast.info('Connecting to Google Chrome…');
         try {
-          const res = await Api.launchBrowser('ecommerce');
+          const res = await Api.launchBrowser('blank');
           if (res && res.success !== false) {
             Toast.success('Browser connected and ready!');
             await this.loadData();

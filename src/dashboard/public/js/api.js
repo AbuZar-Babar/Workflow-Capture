@@ -74,7 +74,7 @@ export const Api = {
   /**
    * Launch Chrome with CDP
    */
-  async launchBrowser(portal = 'ecommerce') {
+  async launchBrowser(portal = 'blank') {
     const res = await Auth.authenticatedFetch('/api/browser/launch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

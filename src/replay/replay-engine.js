@@ -25,6 +25,26 @@ const { detectLoginSequence, isSessionAuthenticated } = require('../shared/auth-
 const InterruptionHandler = require('./interruption-handler');
 const TabManager = require('./tab-manager');
 
+/**
+ * Detect if an action targets an ephemeral, programmatic download anchor (<a href="blob:..." download>)
+ * created dynamically by website scripts (e.g. Export/Download buttons) and immediately removed.
+ */
+function isTransientProgrammaticDownloadAction(action) {
+  if (!action || (action.type !== 'CLICK' && action.action !== 'CLICK')) return false;
+  const fp = action.target?.fingerprint || action.fingerprint || {};
+  const tag = (fp.tagName || '').toLowerCase();
+  if (tag !== 'a') return false;
+
+  const href = (fp.attributes?.href || fp.href || '').toLowerCase();
+  const isBlob = href.startsWith('blob:') || href.includes('blob:');
+  const isZeroSize = (fp.dimensions && fp.dimensions.width === 0 && fp.dimensions.height === 0);
+  const candidates = action.target?.candidates || [];
+  const isBodyChild = candidates.some(c => c.value && (c.value.includes('body > a') || c.value.includes('/body/a')));
+  const hasNoText = !fp.text || fp.text.trim().length === 0;
+
+  return (isBlob || isZeroSize) && (isBodyChild || isZeroSize) && hasNoText;
+}
+
 class ReplayEngine extends EventEmitter {
   constructor(options = {}) {
     super();
@@ -603,10 +623,25 @@ class ReplayEngine extends EventEmitter {
         return { success: true, type: 'NAVIGATE' };
       }
 
+      // Check if action targets an ephemeral anchor injected by client download scripts
+      if (isTransientProgrammaticDownloadAction(action)) {
+        try {
+          const probe = await this.page.$('body > a[href^="blob:"], a[download][href^="blob:"]');
+          if (probe) {
+            await probe.click();
+            await probe.dispose();
+            return { success: true, type: 'CLICK', skipped: false };
+          }
+        } catch { }
+        logger.info(`[Replay] Action #${index + 1} targets a transient programmatic download anchor (dispatched automatically by website script). Skipping safely.`);
+        return { success: true, type: 'CLICK', skipped: true };
+      }
+
       const { elementHandle, candidate, confidenceScore } = await this.waitForTargetElement(
         action.target || action.fingerprint,
         index,
-        action.type
+        action.type,
+        action
       );
 
       // Deep clone the action so we don't mutate the original recording
@@ -692,6 +727,12 @@ class ReplayEngine extends EventEmitter {
 
       await this._waitWhilePaused();
       await this._waitForLoadingMasks(6000);
+
+      // Check if action targets an ephemeral anchor injected by client download scripts
+      if (isTransientProgrammaticDownloadAction(action)) {
+        logger.info(`[Replay] Action #${index + 1} within item targets a transient programmatic download anchor. Skipping safely.`);
+        return { success: true, type: 'CLICK', skipped: true };
+      }
 
       const targetHandle = await itemHandle.evaluateHandle((item, target) => {
         if (!item) return null;
@@ -854,12 +895,17 @@ class ReplayEngine extends EventEmitter {
   /**
    * Condition-based in-page polling resolver loop across main page and all child frames (iframes)
    */
-  async waitForTargetElement(target, actionIndex, actionType) {
+  async waitForTargetElement(target, actionIndex, actionType, action = null) {
     const startTime = Date.now();
     let lastResolutionResult = null;
     let lastInterruptionCheck = startTime;
 
-    while (Date.now() - startTime < this.timeoutMs) {
+    // Adaptive timeout: if action had a large recorded wait time (e.g. generating a slow report or table query),
+    // allow enough time for the real site to load the data rather than hard failing at standard timeout.
+    const recordedDelta = (action && typeof action.timeDeltaMs === 'number') ? action.timeDeltaMs : 0;
+    const effectiveTimeoutMs = Math.min(60000, Math.max(this.timeoutMs, recordedDelta + 8000));
+
+    while (Date.now() - startTime < effectiveTimeoutMs) {
       if (this.isAborted) {
         throw new Error('Execution stopped by user');
       }
@@ -1154,7 +1200,8 @@ class ReplayEngine extends EventEmitter {
         const { elementHandle, candidate, confidenceScore } = await this.waitForTargetElement(
           action.target,
           action.index,
-          action.type
+          action.type,
+          action
         );
         await this._waitWhilePaused();
 

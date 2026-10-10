@@ -86,11 +86,37 @@
   }
 
   /**
+   * Safe check for element class presence across standard DOM, mock objects, and array-based classLists
+   */
+  function hasElementClass(element, cls) {
+    if (!element) return false;
+    if (element.classList) {
+      if (typeof element.classList.contains === 'function') return element.classList.contains(cls);
+      if (Array.isArray(element.classList)) return element.classList.includes(cls);
+    }
+    if (typeof element.className === 'string') {
+      return element.className.split(/\s+/).includes(cls);
+    }
+    return false;
+  }
+
+  /**
    * Normalize text content for comparison
    */
   function normalizeText(text) {
     if (!text || typeof text !== 'string') return '';
     return text.replace(/\s+/g, ' ').trim();
+  }
+
+  /**
+   * Safely format a string literal for XPath 1.0 (handling single and double quotes)
+   */
+  function toXPathString(str) {
+    if (!str || typeof str !== 'string') return "''";
+    if (!str.includes("'")) return `'${str}'`;
+    if (!str.includes('"')) return `"${str}"`;
+    const parts = str.split("'").map(p => `'${p}'`);
+    return `concat(${parts.join(', "\'", ')})`;
   }
 
   /**
@@ -130,7 +156,8 @@
   function isElementVisible(element) {
     if (!element || element.nodeType !== 1) return false;
     const isBackdrop = Boolean(
-      (element.classList && (element.classList.contains('cdk-overlay-backdrop') || element.classList.contains('modal-backdrop'))) ||
+      hasElementClass(element, 'cdk-overlay-backdrop') ||
+      hasElementClass(element, 'modal-backdrop') ||
       (element.className && typeof element.className === 'string' && element.className.includes('backdrop'))
     );
 
@@ -274,7 +301,8 @@
 
     // 1b. Backdrop / Overlay dismiss elements (clicking outside in blank space to close dropdowns or modals)
     const isBackdropCandidate = Boolean(
-      (element.classList && (element.classList.contains('cdk-overlay-backdrop') || element.classList.contains('modal-backdrop'))) ||
+      hasElementClass(element, 'cdk-overlay-backdrop') ||
+      hasElementClass(element, 'modal-backdrop') ||
       (element.className && typeof element.className === 'string' && element.className.includes('backdrop'))
     );
     if (isBackdropCandidate) {
@@ -341,54 +369,86 @@
     }
 
     // Enclosing Option / Dropdown Item / Checkbox List Item (Angular Material mat-option, [role="option"], etc.)
-    const optionParent = element.closest('mat-option, [role="option"], .mat-mdc-option, [role="menuitem"], [role="treeitem"], label, li');
+    const optionParent = (typeof element.closest === 'function')
+      ? element.closest('mat-option, [role="option"], .mat-mdc-option, [role="menuitem"], [role="treeitem"], label, li')
+      : null;
     if (optionParent) {
       const optTag = optionParent.tagName.toLowerCase();
       const optText = normalizeText(optionParent.textContent || '');
       if (optText && optText.length > 0) {
-        const escapedFull = optText.replace(/'/g, "\\'");
-        addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//${optTag}[normalize-space()='${escapedFull}']`);
-        addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//${optTag}[contains(normalize-space(), '${escapedFull}')]`);
-        addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//*[@role='option'][contains(normalize-space(), '${escapedFull}')]`);
+        const xpOpt = toXPathString(optText);
+        addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//${optTag}[normalize-space()=${xpOpt}]`);
+        addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//${optTag}[contains(normalize-space(), ${xpOpt})]`);
+        addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//*[@role='option'][contains(normalize-space(), ${xpOpt})]`);
 
         // If clicked target is a child (e.g. mat-pseudo-checkbox or icon)
         if (optionParent !== element) {
-          addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//${optTag}[contains(., '${escapedFull}')]//${tag}`);
-          addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//${optTag}[contains(., '${escapedFull}')]//*[contains(@class, 'checkbox') or contains(@class, 'pseudo-checkbox')]`);
+          addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//${optTag}[contains(., ${xpOpt})]//${tag}`);
+          addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//${optTag}[contains(., ${xpOpt})]//*[contains(@class, 'checkbox') or contains(@class, 'pseudo-checkbox')]`);
         }
 
         // Substring / prefix candidate for long formatted items: "105992 - DIXIE HIGHWAY..." -> "105992"
         const prefix = optText.split(/[-–—(:]/)[0].trim();
         if (prefix && prefix.length >= 3 && prefix !== optText) {
-          const escapedPrefix = prefix.replace(/'/g, "\\'");
-          addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//${optTag}[contains(., '${escapedPrefix}')]`);
-          addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//*[@role='option'][contains(., '${escapedPrefix}')]`);
+          const xpPrefix = toXPathString(prefix);
+          addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//${optTag}[contains(., ${xpPrefix})]`);
+          addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//*[@role='option'][contains(., ${xpPrefix})]`);
           if (optionParent !== element) {
-            addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//${optTag}[contains(., '${escapedPrefix}')]//${tag}`);
+            addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//${optTag}[contains(., ${xpPrefix})]//${tag}`);
           }
         }
       }
     }
 
     // Form Controls with Associated Labels (e.g. Customer dropdown / combobox)
-    const formField = element.closest('mat-form-field, .mat-form-field, .mat-mdc-form-field, .form-group, .form-field');
+    const formField = (typeof element.closest === 'function')
+      ? element.closest('mat-form-field, .mat-form-field, .mat-mdc-form-field, .form-group, .form-field')
+      : null;
     if (formField) {
       const labelEl = formField.querySelector('mat-label, label, .mat-form-field-label, [id*="label"]');
       if (labelEl) {
         const labelText = normalizeText(labelEl.textContent || '').replace(/[*:]/g, '').trim();
         if (labelText.length >= 2) {
-          const escapedLbl = labelText.replace(/'/g, "\\'");
-          addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//mat-form-field[.//text()[contains(., '${escapedLbl}')]]//mat-select`);
-          addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//mat-form-field[.//text()[contains(., '${escapedLbl}')]]//*[contains(@class, 'select-value') or contains(@class, 'select-trigger')]`);
-          addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//label[contains(., '${escapedLbl}')]/..//mat-select`);
-          addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//label[contains(., '${escapedLbl}')]/..//div[contains(@class, 'select')]`);
+          const xpLbl = toXPathString(labelText);
+          addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//mat-form-field[.//text()[contains(., ${xpLbl})]]//mat-select`);
+          addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//mat-form-field[.//text()[contains(., ${xpLbl})]]//*[contains(@class, 'select-value') or contains(@class, 'select-trigger')]`);
+          addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//label[contains(., ${xpLbl})]/..//mat-select`);
+          addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//label[contains(., ${xpLbl})]/..//div[contains(@class, 'select')]`);
         }
+      }
+    }
+
+    // Dropdown / Combobox Direct Host Candidates
+    const isCombobox = tag === 'mat-select' || (element.getAttribute && element.getAttribute('role') === 'combobox') ||
+      hasElementClass(element, 'mat-mdc-select') || hasElementClass(element, 'mat-select');
+    if (isCombobox) {
+      addCandidate(CONSTANTS.SELECTOR_STRATEGIES.ATTRIBUTE, 'mat-select');
+      addCandidate(CONSTANTS.SELECTOR_STRATEGIES.ATTRIBUTE, '[role="combobox"]');
+      const aria = element.getAttribute ? element.getAttribute('aria-label') : null;
+      if (aria) {
+        addCandidate(CONSTANTS.SELECTOR_STRATEGIES.ATTRIBUTE, `mat-select[aria-label="${escapeCss(aria)}"]`);
+        addCandidate(CONSTANTS.SELECTOR_STRATEGIES.ATTRIBUTE, `[role="combobox"][aria-label="${escapeCss(aria)}"]`);
+      }
+    }
+
+    // If element is an input button / submit / reset: Extract value attribute for high-precision candidates
+    if (tag === 'input' && ['button', 'submit', 'reset'].includes((element.type || '').toLowerCase())) {
+      const btnVal = normalizeText(element.value || element.getAttribute('value') || '');
+      if (btnVal) {
+        const escapedBtnVal = escapeCss(btnVal);
+        const xpBtnVal = toXPathString(btnVal);
+        addCandidate(CONSTANTS.SELECTOR_STRATEGIES.ATTRIBUTE, `input[value="${escapedBtnVal}"]`);
+        addCandidate(CONSTANTS.SELECTOR_STRATEGIES.ATTRIBUTE, `input[type="${element.type}"][value="${escapedBtnVal}"]`);
+        addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//input[@value=${xpBtnVal}]`);
+        addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//input[contains(@value, ${xpBtnVal})]`);
       }
     }
 
     // If element is an icon/image/span inside an interactive parent (button, link, toolbar-item), capture parent candidate
     if (['img', 'i', 'span', 'svg', 'path', 'div', 'td', 'mat-pseudo-checkbox'].includes(tag) && element.parentElement) {
-      const interactiveParent = element.closest('button, a, [role="button"], [role="menuitem"], [role="option"], mat-option, .dxxr-item, .dxxr-btn, .dx-button, .dxrd-toolbar-item, .dxm-item, .dxm-content, .dxbButton, [id*="Splitter_Toolbar_Menu"], .x-btn, [onclick], input');
+      const interactiveParent = (typeof element.closest === 'function')
+        ? element.closest('button, a, [role="button"], [role="menuitem"], [role="option"], mat-option, .dxxr-item, .dxxr-btn, .dx-button, .dxrd-toolbar-item, .dxm-item, .dxm-content, .dxbButton, [id*="Splitter_Toolbar_Menu"], .x-btn, [onclick], input')
+        : null;
       if (interactiveParent && interactiveParent !== element) {
         const parentTag = interactiveParent.tagName.toLowerCase();
         for (const pAttr of ['title', 'aria-label', 'data-testid', 'data-action', 'name', 'id']) {
@@ -404,20 +464,27 @@
     }
 
     // 4. Visible Text (Buttons, Links, Labels, Grid Cells, or interactive elements with short text)
-    const textContent = normalizeText(element.textContent || '');
+    let textContent = normalizeText(element.textContent || '');
+    if (!textContent && tag === 'input' && ['button', 'submit', 'reset'].includes((element.type || '').toLowerCase())) {
+      textContent = normalizeText(element.value || element.getAttribute('value') || '');
+    }
     if (textContent && textContent.length > 0 && textContent.length <= 60) {
-      if (['button', 'a', 'label', 'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'td', 'th', 'li', 'mat-option'].includes(tag)) {
-        // XPath exact text match
-        const escapedText = textContent.replace(/'/g, "\\'");
-        const textXPath = `//${tag}[normalize-space()='${escapedText}']`;
-        addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, textXPath);
+      if (['button', 'a', 'label', 'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'td', 'th', 'li', 'mat-option', 'input'].includes(tag)) {
+        const xpText = toXPathString(textContent);
+        if (tag === 'input') {
+          addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, `//input[@value=${xpText}]`);
+        } else {
+          // XPath exact text match
+          const textXPath = `//${tag}[normalize-space()=${xpText}]`;
+          addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, textXPath);
 
-        // If it has stable classes (e.g. ExtJS .x-grid-cell-inner), generate class-scoped text XPath
-        if (element.classList && element.classList.length > 0) {
-          const stableClasses = filterStableClasses(element.classList);
-          if (stableClasses.length > 0) {
-            const classTextXPath = `//${tag}[contains(@class, '${escapeCss(stableClasses[0])}') and normalize-space()='${escapedText}']`;
-            addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, classTextXPath);
+          // If it has stable classes (e.g. ExtJS .x-grid-cell-inner), generate class-scoped text XPath
+          if (element.classList && element.classList.length > 0) {
+            const stableClasses = filterStableClasses(element.classList);
+            if (stableClasses.length > 0) {
+              const classTextXPath = `//${tag}[contains(@class, '${escapeCss(stableClasses[0])}') and normalize-space()=${xpText}]`;
+              addCandidate(CONSTANTS.SELECTOR_STRATEGIES.TEXT, classTextXPath);
+            }
           }
         }
       }
@@ -458,6 +525,11 @@
     const isPassword = tag === 'input' && (element.type || '').toLowerCase() === 'password';
     let text = isPassword ? '' : normalizeText(element.textContent || '').slice(0, 120);
 
+    // If element is an input button/submit/reset, use element.value as text
+    if (!text && tag === 'input' && ['button', 'submit', 'reset'].includes((element.type || '').toLowerCase())) {
+      text = normalizeText(element.value || element.getAttribute('value') || '').slice(0, 120);
+    }
+
     // If text is empty (e.g. checkbox or icon inside option/button/label), inherit enclosing text
     if (!text || text.length === 0) {
       const textParent = (typeof element.closest === 'function')
@@ -473,6 +545,15 @@
     for (const attr of trackedAttrs) {
       if (element.hasAttribute(attr)) {
         attributes[attr] = element.getAttribute(attr);
+      }
+    }
+
+    // If title is missing on element, inherit from inner icon/image (common for toolbar buttons)
+    if (!attributes.title && element.querySelector) {
+      const innerTitleEl = element.querySelector('[title], img[alt]');
+      if (innerTitleEl) {
+        const innerTitle = innerTitleEl.getAttribute('title') || innerTitleEl.getAttribute('alt');
+        if (innerTitle) attributes.title = innerTitle;
       }
     }
 
@@ -549,12 +630,7 @@
     const tag = (fp.tagName || (element?.tagName ? element.tagName.toLowerCase() : '') || 'element').toLowerCase();
 
     // 1. Determine element type suffix
-    const hasClass = (cls) => {
-      if (!element?.classList) return false;
-      if (typeof element.classList.contains === 'function') return element.classList.contains(cls);
-      if (Array.isArray(element.classList)) return element.classList.includes(cls);
-      return false;
-    };
+    const hasClass = (cls) => hasElementClass(element, cls);
     const isButton = ['button', 'submit'].includes(fp.type) || tag === 'button' || fp.role === 'button' ||
       hasClass('btn') || hasClass('x-btn') || hasClass('dxbButton');
     const isLink = tag === 'a' || fp.role === 'link';
@@ -622,6 +698,14 @@
     // Check visible text content
     if (!label && fp.text) {
       label = normalizeText(fp.text);
+    }
+
+    // Check value attribute (e.g. for input buttons like Run Report / Export to Excel)
+    if (!label && (fp.attributes?.value || (element && element.value))) {
+      const val = normalizeText(fp.attributes?.value || element?.value || '');
+      if (val && !['true', 'false', 'on', 'off'].includes(val.toLowerCase()) && !/^\d+$/.test(val)) {
+        label = val;
+      }
     }
 
     // Check parent interactive container text if element is an icon or span
@@ -720,8 +804,36 @@
       ['mat-pseudo-checkbox', 'span', 'div'].includes(elemTag)
     );
 
-    // Mandatory: tag name MUST match (or compatible option control)
-    if (elemTag !== targetTag && !isOptionControl) {
+    const tagMatchesExact = elemTag === targetTag;
+    let tagCompatible = tagMatchesExact || isOptionControl;
+
+    if (!tagCompatible) {
+      // Buttons & Interactive controls compatibility
+      const interactiveTags = ['button', 'a', 'input'];
+      const isElemInteractive = interactiveTags.includes(elemTag) ||
+        (element.getAttribute && ['button', 'link'].includes(element.getAttribute('role')));
+      const isTargetInteractive = interactiveTags.includes(targetTag) ||
+        ['button', 'link'].includes(fingerprint.role);
+
+      const innerLeafTags = ['svg', 'path', 'i', 'span', 'img'];
+
+      if ((isElemInteractive && innerLeafTags.includes(targetTag)) ||
+          (isTargetInteractive && innerLeafTags.includes(elemTag)) ||
+          (isElemInteractive && isTargetInteractive)) {
+        tagCompatible = true;
+      }
+
+      // Combobox / Dropdown compatibility
+      const isElemCombobox = elemTag === 'mat-select' || (element.getAttribute && element.getAttribute('role') === 'combobox');
+      const isTargetCombobox = targetTag === 'mat-select' || fingerprint.role === 'combobox';
+      if ((isElemCombobox && (innerLeafTags.includes(targetTag) || targetTag === 'div')) ||
+          (isTargetCombobox && (innerLeafTags.includes(elemTag) || elemTag === 'div'))) {
+        tagCompatible = true;
+      }
+    }
+
+    // Mandatory: tag name MUST match or be compatible
+    if (!tagCompatible) {
       return { score: 0, matchedTag: false, passed: false };
     }
 
@@ -770,8 +882,8 @@
 
     // 3. Visible Text (weight: 0.25)
     let textScore = 0;
-    const targetText = normalizeText(fingerprint.text || '');
-    const elemText = normalizeText(element.textContent || '');
+    const targetText = normalizeText(fingerprint.text || fingerprint.attributes?.value || '');
+    const elemText = normalizeText((element.value !== undefined && element.value !== null ? element.value : '') || element.textContent || '');
 
     if (!targetText) {
       textScore = 1.0;
@@ -819,6 +931,10 @@
       classScore = union.size > 0 ? (intersection.size / union.size) : 1.0;
     }
     score += classScore * weights.CLASSES;
+
+    if (!tagMatchesExact) {
+      score *= 0.95;
+    }
 
     const roundedScore = Math.round(score * 100) / 100;
     const passed = roundedScore >= CONSTANTS.MIN_CONFIDENCE_THRESHOLD;
@@ -1032,7 +1148,9 @@
             const insideModal = Boolean(topModal && topModal.contains(elem));
             let z = 0;
             if (typeof window !== 'undefined') {
-              const modalParent = elem.closest('.x-window, [role="dialog"], .modal, .cdk-overlay-pane');
+              const modalParent = (typeof elem.closest === 'function')
+                ? elem.closest('.x-window, [role="dialog"], .modal, .cdk-overlay-pane')
+                : null;
               const zStr = window.getComputedStyle(modalParent || elem).zIndex;
               z = parseInt(zStr, 10) || 0;
             }
@@ -1090,17 +1208,33 @@
       const tag = fingerprint.tagName.toLowerCase();
       let fallbackNodes = [];
 
-      // 1. Try finding elements by visible text if text was captured
-      const targetText = normalizeText(fingerprint.text || '');
+      // 1. Try finding elements by visible text or value if text was captured
+      const targetText = normalizeText(fingerprint.text || fingerprint.attributes?.value || '');
       if (targetText && targetText.length > 0) {
-        const escaped = targetText.replace(/'/g, "\\'");
+        const xpTarget = toXPathString(targetText);
         try {
-          fallbackNodes = queryXPath(`//${tag}[normalize-space()='${escaped}']`, d);
+          fallbackNodes = queryXPath(`//${tag}[normalize-space()=${xpTarget}]`, d);
         } catch {}
+
+        if (fallbackNodes.length === 0 && tag === 'input') {
+          try {
+            fallbackNodes = queryXPath(`//input[@value=${xpTarget}]`, d);
+          } catch {}
+        }
 
         if (fallbackNodes.length === 0 && targetText.length > 2) {
           try {
-            fallbackNodes = queryXPath(`//${tag}[contains(normalize-space(), '${escaped}')]`, d);
+            fallbackNodes = queryXPath(`//${tag}[contains(normalize-space(), ${xpTarget})]`, d);
+          } catch {}
+        }
+
+        // Generic interactive fallback query across buttons, links, inputs, options
+        if (fallbackNodes.length === 0 && targetText.length > 0) {
+          try {
+            fallbackNodes = queryXPath(
+              `//*[(self::button or self::a or self::input or @role='button' or self::mat-option or @role='option') and (normalize-space()=${xpTarget} or @value=${xpTarget} or contains(normalize-space(), ${xpTarget}))]`,
+              d
+            );
           } catch {}
         }
       }
@@ -1129,7 +1263,9 @@
             const insideModal = Boolean(topModal && topModal.contains(elem));
             let z = 0;
             if (typeof window !== 'undefined') {
-              const modalParent = elem.closest('.x-window, [role="dialog"], .modal, .cdk-overlay-pane');
+              const modalParent = (typeof elem.closest === 'function')
+                ? elem.closest('.x-window, [role="dialog"], .modal, .cdk-overlay-pane')
+                : null;
               const zStr = window.getComputedStyle(modalParent || elem).zIndex;
               z = parseInt(zStr, 10) || 0;
             }

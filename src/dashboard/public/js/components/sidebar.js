@@ -39,7 +39,7 @@ export const Sidebar = {
         if (labelSpan) labelSpan.textContent = 'Opening…';
         Toast.info('Opening Google Chrome browser…');
         try {
-          const res = await Api.launchBrowser('ecommerce');
+          const res = await Api.launchBrowser('blank');
           if (res && res.success !== false) {
             Toast.success('Google Chrome connected and ready!');
           }

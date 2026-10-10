@@ -97,6 +97,58 @@
     return false;
   }
 
+  /**
+   * Resolve an inner/decorative leaf target to its nearest semantic interactive ancestor
+   * (button, link, combobox/select, menuitem, tab, etc.) while preserving form inputs and explicit checkboxes.
+   */
+  function normalizeToInteractiveTarget(el) {
+    if (!el || el.nodeType !== 1) return el;
+
+    const tag = el.tagName.toLowerCase();
+
+    // Preserve native inputs, textareas, native selects, and canvases
+    if (['input', 'textarea', 'select', 'canvas'].includes(tag)) {
+      return el;
+    }
+
+    // Preserve explicit option checkboxes (e.g. mat-pseudo-checkbox)
+    if (tag === 'mat-pseudo-checkbox' || (el.classList && el.classList.contains('mat-pseudo-checkbox'))) {
+      return el;
+    }
+
+    // Preserve backdrop overlay dismiss clicks
+    if ((el.classList && (el.classList.contains('cdk-overlay-backdrop') || el.classList.contains('modal-backdrop'))) ||
+        (el.className && typeof el.className === 'string' && el.className.includes('backdrop'))) {
+      return el;
+    }
+
+    // Elevate to nearest interactive parent
+    const interactiveParent = el.closest([
+      'button',
+      'a',
+      '[role="button"]',
+      '[role="combobox"]',
+      '[role="menuitem"]',
+      '[role="tab"]',
+      'mat-select',
+      '.mat-mdc-select-trigger',
+      '.mat-select-trigger',
+      'input[type="button"]',
+      'input[type="submit"]',
+      'input[type="reset"]',
+      'summary',
+      '.btn',
+      '.x-btn',
+      '.dxbButton'
+    ].join(', '));
+
+    if (interactiveParent && interactiveParent !== el) {
+      return interactiveParent;
+    }
+
+    return el;
+  }
+
   let pendingClickTimer = null;
   let pendingClickTarget = null;
   let pendingClickExtra = null;
@@ -203,6 +255,8 @@
    */
   function emitAction(type, targetElement, extra = {}) {
     if (isPaused || !targetElement) return;
+
+    targetElement = normalizeToInteractiveTarget(targetElement);
 
     // Normalize container clicks (e.g. DevExpress .dxm-content or .dxm-item) to inner icon if present
     if (targetElement.querySelector && !targetElement.getAttribute?.('title')) {
@@ -664,8 +718,25 @@
    */
   function handleInteractionEvent(event, signalType) {
     if (isPaused || isRecorderUiEvent(event)) return;
+
+    // Ignore programmatic synthetic events (e.g. scripts calling element.click() to download blobs)
+    if (event.isTrusted === false) {
+      return;
+    }
+
     const rawTarget = event.target;
     if (!rawTarget) return;
+
+    // Ignore transient programmatic download anchors (<a href="blob:..." download> created and clicked by JS)
+    if (rawTarget.tagName === 'A') {
+      const href = rawTarget.getAttribute?.('href') || rawTarget.href || '';
+      const isBlob = typeof href === 'string' && (href.startsWith('blob:') || href.includes('blob:'));
+      const isZero = (rawTarget.offsetWidth === 0 && rawTarget.offsetHeight === 0);
+      const hasDownloadAttr = rawTarget.hasAttribute?.('download');
+      if ((isBlob || isZero || hasDownloadAttr) && (!rawTarget.textContent || rawTarget.textContent.trim().length === 0)) {
+        return;
+      }
+    }
 
     // Don't record CLICK on select elements (handled by change)
     if (rawTarget.tagName === 'SELECT' || rawTarget.tagName === 'OPTION') {
@@ -685,8 +756,8 @@
       flushInputBuffer();
     }
 
-    // Normalize container clicks (e.g. DevExpress .dxm-content or .dxm-item) to inner icon if present
-    let target = rawTarget;
+    // Elevate leaf elements (svg, path, icon, span) to nearest interactive container
+    let target = normalizeToInteractiveTarget(rawTarget);
     if (target.querySelector && !target.getAttribute?.('title')) {
       const innerImg = target.querySelector('img[title], [title]');
       if (innerImg && (target.closest?.('.dxm-item, .x-btn, .toolbar') || target.classList?.contains('dxm-content'))) {

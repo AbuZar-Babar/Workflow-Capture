@@ -245,6 +245,67 @@ const passwordElem = {
 const pwdFp = SelectorResolver.createFingerprint(passwordElem);
 assert.strictEqual(pwdFp.attributes.value, 'mySecret123', 'Password value attribute should not be redacted');
 
+// Case G: Input Button value to friendly name
+const runReportBtn = {
+  tagName: 'INPUT',
+  nodeType: 1,
+  type: 'button',
+  value: 'Run Report',
+  textContent: '',
+  classList: ['btn', 'btn-primary'],
+  getAttribute: (attr) => attr === 'type' ? 'button' : (attr === 'value' ? 'Run Report' : null),
+  hasAttribute: (attr) => ['type', 'value'].includes(attr)
+};
+assert.strictEqual(SelectorResolver.generateFriendlyName(runReportBtn), 'Run Report Button');
+
 console.log('  Passed: All friendly name generation rules validated successfully!');
+
+// Test 10: Input button candidate generation & value fingerprinting
+console.log('Test 10: Input button candidate generation & value fingerprinting...');
+const runReportFp = SelectorResolver.createFingerprint(runReportBtn);
+assert.strictEqual(runReportFp.text, 'Run Report', 'Input button should use value as text in fingerprint');
+
+const mockInputDoc = {
+  querySelectorAll: (selector) => {
+    if (selector.includes('Run Report') || selector === 'input[value="Run Report"]') {
+      return [runReportBtn];
+    }
+    return [];
+  },
+  evaluate: (xpath) => {
+    if (xpath.includes('Run Report')) {
+      return { snapshotLength: 1, snapshotItem: () => runReportBtn };
+    }
+    return { snapshotLength: 0, snapshotItem: () => null };
+  }
+};
+
+const inputTarget = SelectorResolver.captureTarget(runReportBtn, mockInputDoc);
+assert.strictEqual(inputTarget.friendlyName, 'Run Report Button');
+assert.ok(inputTarget.candidates.some(c => c.value.includes('Run Report')), 'Should include Run Report in candidates');
+console.log('  Passed: Input button candidates and fingerprint text validated!');
+
+// Test 11: Tag compatibility between interactive button and leaf icon/svg fingerprint
+console.log('Test 11: Tag compatibility between interactive button and inner leaf fingerprint...');
+const svgArrowFingerprint = {
+  tagName: 'svg',
+  id: null,
+  role: null,
+  text: 'My Reports',
+  classes: [],
+  attributes: {}
+};
+const buttonContainer = {
+  tagName: 'button',
+  id: null,
+  classList: ['mdc-button'],
+  getAttribute: (attr) => null,
+  hasAttribute: (attr) => false,
+  textContent: 'My Reports'
+};
+const compatScore = SelectorResolver.scoreFingerprint(buttonContainer, svgArrowFingerprint);
+assert.strictEqual(compatScore.matchedTag, true, 'Button should be compatible with inner svg leaf');
+assert.ok(compatScore.score >= 0.85, `Score should be >= 0.85, got ${compatScore.score}`);
+console.log(`  Passed: Button container vs inner leaf scored ${compatScore.score} >= 0.85!`);
 
 console.log('\nAll Selector Resolver unit tests passed successfully!\n');

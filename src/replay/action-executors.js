@@ -105,6 +105,24 @@ async function executeClick(elementHandle, action, options = {}) {
     }
   } catch {}
 
+  // 1b. Button & Interactive Element Normalization:
+  // If target element is an inner icon, path, svg, or text span inside a button, link, or role="button",
+  // resolve to the interactive host element so click event listeners receive the click
+  try {
+    const btnHandle = await clickTarget.evaluateHandle((el) => {
+      const isInsideOpt = Boolean(el.closest('mat-option, [role="option"], .mat-mdc-option, .mat-option'));
+      if (isInsideOpt) return el;
+      const isInsideTrigger = Boolean(el.closest('.mat-mdc-select-trigger, .mat-select-trigger, mat-select, [role="combobox"]'));
+      if (isInsideTrigger) return el;
+      const btn = el.closest('button, a, [role="button"], [role="menuitem"], [role="tab"], input[type="button"], input[type="submit"]');
+      return btn || el;
+    });
+    if (btnHandle) {
+      const asElem = btnHandle.asElement();
+      if (asElem) clickTarget = asElem;
+    }
+  } catch {}
+
   const isAlreadyOpenTrigger = await clickTarget.evaluate((el) => {
     const combobox = el.closest('mat-select, [role="combobox"], [aria-haspopup="listbox"]') || el;
     if (!combobox) return false;
