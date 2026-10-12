@@ -129,8 +129,8 @@ class LoopReplayRunner {
       workflowId: this.workflowId,
       portalDomain: this.portalDomain,
       portalUrl: targetUrl,
-      runTimestamp: options.runTimestamp,
-      startedAt: options.startedAt
+      runTimestamp: options?.runTimestamp,
+      startedAt: options?.startedAt
     });
     this.runTimestamp = this.downloadManager.runTimestamp;
     this.runDomainDir = this.downloadManager.runDomainDir;

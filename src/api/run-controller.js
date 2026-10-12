@@ -445,11 +445,11 @@ function getActiveRuns(req, res) {
   const userId = req.user.id;
   const running = [];
   for (const [runId, item] of activeRunners.entries()) {
-    if (item.userId === userId || req.user.role === 'admin') {
+    if (item && (item.userId === userId || req.user.role === 'admin')) {
       running.push({
         runId,
         workflowId: item.workflowId,
-        startedAt: item.startedAt
+        startedAt: item.startedAt || null
       });
     }
   }

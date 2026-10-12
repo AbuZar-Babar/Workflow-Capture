@@ -39,6 +39,10 @@ async function ensureInteractable(elementHandle, action) {
     });
   }
 
+  // Pre-action stabilization settle delay:
+  // Allow browser layout shifts, smooth scrolling, and framework hydration to settle
+  await new Promise(r => setTimeout(r, 120));
+
   if (status.isDisabled) {
     logger.warn(`Element for Action #${action.index + 1} has disabled attribute; attempting synthetic click dispatch.`);
   }
@@ -390,6 +394,48 @@ async function executeClick(elementHandle, action, options = {}) {
     (action.elementName && /download|export|save/i.test(action.elementName))
   );
 
+  // Pre-click backdrop stabilization check:
+  // If a modal or dropdown backdrop is fading out in the DOM, wait up to 350ms
+  // for it to clear so it does not intercept our click coordinates
+  if (page && !isBackdropTarget) {
+    try {
+      await page.waitForFunction(() => {
+        const backdrops = document.querySelectorAll('.cdk-overlay-backdrop, .modal-backdrop');
+        if (!backdrops || backdrops.length === 0) return true;
+        for (const bd of backdrops) {
+          const style = window.getComputedStyle(bd);
+          if (style.pointerEvents !== 'none' && style.display !== 'none' && style.visibility !== 'hidden' && parseFloat(style.opacity || '1') > 0.05) {
+            return false;
+          }
+        }
+        return true;
+      }, { timeout: 350 }).catch(() => {});
+    } catch {}
+  }
+
+  const hitMeta = await clickTarget.evaluate((el) => {
+    try {
+      const rect = el.getBoundingClientRect();
+      const midX = rect.left + rect.width / 2;
+      const midY = rect.top + rect.height / 2;
+      const topEl = document.elementFromPoint(midX, midY);
+      const isDirectHit = Boolean(topEl && (topEl === el || el.contains(topEl) || topEl.contains(el)));
+      const isInteractive = Boolean(
+        el.tagName === 'BUTTON' ||
+        el.tagName === 'A' ||
+        el.getAttribute('role') === 'button' ||
+        el.getAttribute('role') === 'menuitem' ||
+        el.getAttribute('role') === 'tab' ||
+        (el.className && typeof el.className === 'string' && (el.className.includes('btn') || el.className.includes('button'))) ||
+        el.type === 'submit' ||
+        el.type === 'button'
+      );
+      return { isDirectHit, isInteractive, topElTag: topEl?.tagName || '' };
+    } catch {
+      return { isDirectHit: true, isInteractive: false, topElTag: '' };
+    }
+  }).catch(() => ({ isDirectHit: true, isInteractive: false, topElTag: '' }));
+
   let clicked = false;
   try {
     // Primary: Trusted Puppeteer CDP click with timeout guard (2500ms) against download hangs.
@@ -406,26 +452,43 @@ async function executeClick(elementHandle, action, options = {}) {
     }
   }
 
-  // Supplementary / Fallback: If not clicked or if targeting DevExpress/framework export buttons,
-  // also fire synchronous DOM events on the element and any parent toolbar item (.dxm-item, button, .x-btn)
-  if (!clicked || isLikelyDownloadOrExport) {
+  // Supplementary / Hybrid DOM Event Dispatch:
+  // If coordinate click was obscured (e.g. by transparent ripple or container),
+  // OR if targeting an interactive button/link/export control, dispatch full synthetic DOM sequence
+  // directly on the element so framework event listeners (Angular, React, Vue) receive the event reliably.
+  if (!clicked || !hitMeta.isDirectHit || isLikelyDownloadOrExport || hitMeta.isInteractive) {
     try {
       await clickTarget.evaluate((el, alreadyClicked) => {
-        el.focus?.();
-        if (!alreadyClicked) {
-          el.click?.();
+        try { el.focus?.(); } catch {}
+
+        const PtrEvt = typeof PointerEvent !== 'undefined' ? PointerEvent : null;
+        const MouseEvt = typeof MouseEvent !== 'undefined' ? MouseEvent : null;
+        const win = typeof window !== 'undefined' ? window : null;
+
+        if (PtrEvt) {
+          try { el.dispatchEvent(new PtrEvt('pointerdown', { bubbles: true, cancelable: true })); } catch {}
         }
+        if (MouseEvt) {
+          try { el.dispatchEvent(new MouseEvt('mousedown', { bubbles: true, cancelable: true, view: win })); } catch {}
+        }
+        if (PtrEvt) {
+          try { el.dispatchEvent(new PtrEvt('pointerup', { bubbles: true, cancelable: true })); } catch {}
+        }
+        if (MouseEvt) {
+          try { el.dispatchEvent(new MouseEvt('mouseup', { bubbles: true, cancelable: true, view: win })); } catch {}
+          try { el.dispatchEvent(new MouseEvt('click', { bubbles: true, cancelable: true, view: win })); } catch {}
+        }
+
+        if (!alreadyClicked || !el.matches?.(':active')) {
+          try { el.click?.(); } catch {}
+        }
+
         const parentBtn = el.closest && el.closest('button, a, [role="button"], .x-btn, .dxm-item');
         if (parentBtn && parentBtn !== el) {
-          parentBtn.focus?.();
-          parentBtn.click?.();
+          try { parentBtn.focus?.(); } catch {}
+          try { parentBtn.click?.(); } catch {}
         }
-        try {
-          el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
-          el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
-          el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-        } catch {}
-      }, clicked);
+      }, clicked && hitMeta.isDirectHit);
     } catch (fallbackErr) {
       if (!clicked) {
         throw new ActionExecutionError(`Failed to click element: ${fallbackErr.message}`, {

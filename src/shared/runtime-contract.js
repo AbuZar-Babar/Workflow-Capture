@@ -18,19 +18,20 @@
  * Creates a normalized WorkflowDefinition
  */
 function createWorkflowDefinition(raw = {}) {
-  const metadata = raw.metadata || {};
-  const actions = Array.isArray(raw.actions || raw.steps) ? (raw.actions || raw.steps) : [];
+  const safeRaw = raw || {};
+  const metadata = safeRaw.metadata || {};
+  const actions = Array.isArray(safeRaw.actions || safeRaw.steps) ? (safeRaw.actions || safeRaw.steps) : [];
   return {
-    id: raw.id || metadata.recordingId || `wf_${Date.now()}`,
-    name: raw.name || metadata.name || 'Workflow',
-    description: raw.description || metadata.description || '',
-    version: raw.version || metadata.version || '1.0.0',
-    startUrl: raw.startUrl || metadata.startUrl || (actions[0]?.url || ''),
-    mode: raw.mode || metadata.mode || (metadata.isLoop ? 'LOOP' : 'STANDARD'),
-    isLoop: raw.isLoop ?? metadata.isLoop ?? false,
-    loopStepIndex: raw.loopStepIndex ?? metadata.loopStepIndex ?? null,
-    loopConfidence: raw.loopConfidence ?? metadata.loopConfidence ?? 0,
-    patternType: raw.patternType ?? metadata.patternType ?? 'single-element',
+    id: safeRaw.id || metadata.recordingId || `wf_${Date.now()}`,
+    name: safeRaw.name || metadata.name || 'Workflow',
+    description: safeRaw.description || metadata.description || '',
+    version: safeRaw.version || metadata.version || '1.0.0',
+    startUrl: safeRaw.startUrl || metadata.startUrl || (actions[0]?.url || ''),
+    mode: safeRaw.mode || metadata.mode || (metadata.isLoop ? 'LOOP' : 'STANDARD'),
+    isLoop: safeRaw.isLoop ?? metadata.isLoop ?? false,
+    loopStepIndex: safeRaw.loopStepIndex ?? metadata.loopStepIndex ?? null,
+    loopConfidence: safeRaw.loopConfidence ?? metadata.loopConfidence ?? 0,
+    patternType: safeRaw.patternType ?? metadata.patternType ?? 'single-element',
     steps: actions.map((a, idx) => ({
       index: idx,
       id: a.id || `act_${idx}`,
@@ -39,11 +40,11 @@ function createWorkflowDefinition(raw = {}) {
       target: a.target || a.fingerprint || {},
       value: a.value ?? null,
       url: a.url || '',
-      role: a.role || (idx === raw.loopStepIndex ? 'LOOP' : 'SETUP'),
+      role: a.role || (idx === safeRaw.loopStepIndex ? 'LOOP' : 'SETUP'),
       meta: a.meta || {}
     })),
-    createdAt: raw.createdAt || metadata.startedAt || new Date().toISOString(),
-    updatedAt: raw.updatedAt || metadata.completedAt || new Date().toISOString()
+    createdAt: safeRaw.createdAt || metadata?.startedAt || new Date().toISOString(),
+    updatedAt: safeRaw.updatedAt || metadata?.completedAt || new Date().toISOString()
   };
 }
 

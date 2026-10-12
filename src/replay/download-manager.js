@@ -69,20 +69,21 @@ class DownloadManager {
    * @param {string} [options.baseRunDir] - Custom base Run/ directory
    */
   constructor(options = {}) {
-    const rawSlug = String(options.workflowSlug || options.workflowName || 'workflow').toLowerCase();
+    const opts = options || {};
+    const rawSlug = String(opts.workflowSlug || opts.workflowName || 'workflow').toLowerCase();
     this.workflowSlug = rawSlug.replace(/[^a-z0-9_-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'workflow';
-    this.executionId = options.executionId || options.runId || `exec_${Date.now()}`;
-    this.workflowId = options.workflowId || null;
+    this.executionId = opts.executionId || opts.runId || `exec_${Date.now()}`;
+    this.workflowId = opts.workflowId || null;
 
     // Dedicated per-execution downloads isolation: downloads/<workflow-slug>/<execution-id>/
-    const baseDir = options.baseDownloadsDir || path.resolve(process.cwd(), 'downloads');
+    const baseDir = opts.baseDownloadsDir || path.resolve(process.cwd(), 'downloads');
     this.executionDirectory = path.resolve(baseDir, this.workflowSlug, this.executionId);
     this.manifestPath = path.join(this.executionDirectory, 'manifest.json');
 
     // Structured Run/ hierarchy: Run/<YYYY-MM-DD_HH-mm-ss>/<portal_domain>/<Category>/
-    this.runTimestamp = options.runTimestamp || formatRunTimestamp(options.startedAt || new Date());
-    this.portalDomain = extractPortalDomain(options.portalDomain || options.portalUrl || options.targetUrl || options.startUrl || 'customerportal.usoil.com');
-    this.baseRunDir = options.baseRunDir || path.resolve(process.cwd(), 'Run');
+    this.runTimestamp = opts.runTimestamp || formatRunTimestamp(opts.startedAt || new Date());
+    this.portalDomain = extractPortalDomain(opts.portalDomain || opts.portalUrl || opts.targetUrl || opts.startUrl || 'customerportal.usoil.com');
+    this.baseRunDir = opts.baseRunDir || path.resolve(process.cwd(), 'Run');
     this.runTimestampDir = path.resolve(this.baseRunDir, this.runTimestamp);
     this.runDomainDir = path.resolve(this.runTimestampDir, this.portalDomain);
 

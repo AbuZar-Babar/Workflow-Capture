@@ -1190,8 +1190,9 @@ const server = http.createServer(async (req, res) => {
         };
 
         await activeRecorder.start();
-        broadcast('recording_state', { isRecording: true, name, startedAt: activeRecorder.startedAt });
-        return sendJson(res, 200, { success: true, name, startedAt: activeRecorder.startedAt });
+        const startedAt = activeRecorder?.startedAt || new Date().toISOString();
+        broadcast('recording_state', { isRecording: true, name, startedAt });
+        return sendJson(res, 200, { success: true, name, startedAt });
       } catch (err) {
         if (activeRecorder) {
           activeRecorder.stop().catch(() => {});

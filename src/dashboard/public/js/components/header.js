@@ -83,16 +83,17 @@ export const Header = {
       this.elGlobalRecMeta = document.getElementById('globalRecMeta');
     }
     if (!this.elGlobalRecordingBanner) return;
+    const safeMeta = meta || {};
 
     if (isRecording) {
       this.elGlobalRecordingBanner.classList.remove('hidden');
       if (this.elGlobalRecName) {
-        this.elGlobalRecName.textContent = meta.name || 'Workflow Recording';
+        this.elGlobalRecName.textContent = safeMeta.name || 'Workflow Recording';
       }
-      if (meta.actionCount !== undefined) {
-        this.lastActionCount = Number(meta.actionCount);
+      if (safeMeta.actionCount !== undefined) {
+        this.lastActionCount = Number(safeMeta.actionCount);
       }
-      this.recordingStartTime = meta.startedAt ? new Date(meta.startedAt).getTime() : (this.recordingStartTime || Date.now());
+      this.recordingStartTime = safeMeta.startedAt ? new Date(safeMeta.startedAt).getTime() : (this.recordingStartTime || Date.now());
       const updateMeta = () => {
         if (!this.elGlobalRecMeta || !this.recordingStartTime) return;
         const sec = Math.max(0, Math.floor((Date.now() - this.recordingStartTime) / 1000));

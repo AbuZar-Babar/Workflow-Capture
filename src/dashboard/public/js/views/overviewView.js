@@ -507,6 +507,7 @@ export const OverviewView = {
 
   setRecordingState(isRec, meta = {}) {
     this.isRecording = Boolean(isRec);
+    const safeMeta = meta || {};
     const activeControls = document.getElementById('overviewActiveControls');
     const activeName = document.getElementById('overviewActiveWorkflowName');
     const activeMeta = document.getElementById('overviewActiveMeta');
@@ -515,8 +516,8 @@ export const OverviewView = {
       if (this.isRecording) {
         activeControls.classList.remove('hidden');
         activeControls.style.display = 'flex';
-        if (activeName) activeName.textContent = meta.name || 'Workflow Recording';
-        this.recordStartTime = meta.startedAt ? new Date(meta.startedAt).getTime() : Date.now();
+        if (activeName) activeName.textContent = safeMeta.name || 'Workflow Recording';
+        this.recordStartTime = safeMeta.startedAt ? new Date(safeMeta.startedAt).getTime() : Date.now();
         this.updateRecordingMeta();
         if (!this.recordTimer) {
           this.recordTimer = setInterval(() => this.updateRecordingMeta(), 1000);
