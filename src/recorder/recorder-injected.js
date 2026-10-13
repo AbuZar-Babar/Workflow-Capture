@@ -314,6 +314,10 @@
         timestamp: actionTimestamp,
         captureTimestamp: Number(extra.captureTimestamp) || actionTimestamp,
         target,
+        scrollOffset: {
+          x: Math.round(window.scrollX || window.pageXOffset || 0),
+          y: Math.round(window.scrollY || window.pageYOffset || 0)
+        },
         ...(pageUrl ? { url: pageUrl } : {}),
         ...(frameInfo ? { frame: frameInfo } : {}),
         ...cleanExtra
@@ -562,6 +566,146 @@
         }
       });
     }
+  }
+
+  let scrollDebounceTimer = null;
+  let lastEmittedScroll = { x: 0, y: 0, target: null };
+
+  /**
+   * Safe helper to emit SCROLL action to Node.js bridge
+   */
+  function emitScrollAction({ isWindow, scrollX, scrollY, targetElement }) {
+    if (isPaused) return;
+
+    try {
+      let target = null;
+      let friendlyName = isWindow ? 'Scroll Page' : 'Scroll Container';
+
+      if (!isWindow && targetElement && targetElement.nodeType === 1) {
+        if (window.SelectorResolver && typeof window.SelectorResolver.captureTarget === 'function') {
+          try {
+            target = window.SelectorResolver.captureTarget(targetElement);
+          } catch {}
+        }
+        if (!target || !target.candidates || target.candidates.length === 0) {
+          target = buildFallbackTarget(targetElement);
+        }
+        friendlyName = `Scroll ${target?.friendlyName || target?.elementName || 'Container'}`;
+      }
+
+      const isInsideIframe = (typeof window !== 'undefined' && window.self !== window.top);
+      let frameInfo = null;
+      if (isInsideIframe) {
+        frameInfo = {
+          isIframe: true,
+          location: window.location.href,
+          title: document.title || ''
+        };
+      }
+
+      const actionUid = 'act_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+      const actionTimestamp = Date.now();
+      const pageUrl = (typeof window !== 'undefined' && window.location && window.location.href) ? window.location.href : null;
+
+      const payload = {
+        uid: actionUid,
+        type: 'SCROLL',
+        name: friendlyName,
+        elementName: friendlyName,
+        timestamp: actionTimestamp,
+        captureTimestamp: actionTimestamp,
+        scrollX,
+        scrollY,
+        isWindow: Boolean(isWindow),
+        target: target || null,
+        scrollOffset: {
+          x: Math.round(window.scrollX || window.pageXOffset || 0),
+          y: Math.round(window.scrollY || window.pageYOffset || 0)
+        },
+        ...(pageUrl ? { url: pageUrl } : {}),
+        ...(frameInfo ? { frame: frameInfo } : {})
+      };
+
+      try {
+        const msgStr = '__WORKFLOW_CAPTURE_ACTION__:' + JSON.stringify(payload);
+        console.debug(msgStr);
+        console.info(msgStr);
+      } catch {}
+
+      if (typeof window.__workflowCaptureEmitAction === 'function') {
+        window.__workflowCaptureEmitAction(payload);
+      }
+
+      if (isInsideIframe) {
+        if (window.top && window.top !== window && typeof window.top.__workflowCaptureEmitAction === 'function') {
+          window.top.__workflowCaptureEmitAction(payload);
+        }
+      }
+    } catch (err) {
+      console.warn('[Workflow Capture] emitScrollAction error:', err);
+    }
+  }
+
+  /**
+   * Debounced scroll event listener (400ms) to capture window or container scroll
+   */
+  function handleScroll(event) {
+    if (isPaused || isRecorderUiEvent(event)) return;
+
+    if (scrollDebounceTimer) {
+      clearTimeout(scrollDebounceTimer);
+    }
+
+    const scrollTarget = event?.target;
+
+    scrollDebounceTimer = setTimeout(() => {
+      try {
+        const isDocOrWindow = !scrollTarget ||
+          scrollTarget === document ||
+          scrollTarget === window ||
+          scrollTarget === document.documentElement ||
+          scrollTarget === document.body;
+
+        if (isDocOrWindow) {
+          const currentX = Math.round(window.scrollX || window.pageXOffset || 0);
+          const currentY = Math.round(window.scrollY || window.pageYOffset || 0);
+
+          if (Math.abs(currentX - lastEmittedScroll.x) < 50 && Math.abs(currentY - lastEmittedScroll.y) < 50) {
+            return;
+          }
+
+          lastEmittedScroll = { x: currentX, y: currentY, target: null };
+
+          emitScrollAction({
+            isWindow: true,
+            scrollX: currentX,
+            scrollY: currentY,
+            targetElement: null
+          });
+        } else if (scrollTarget && scrollTarget.nodeType === 1) {
+          // Container scroll
+          const currentX = Math.round(scrollTarget.scrollLeft || 0);
+          const currentY = Math.round(scrollTarget.scrollTop || 0);
+
+          if (lastEmittedScroll.target === scrollTarget &&
+              Math.abs(currentX - lastEmittedScroll.x) < 50 &&
+              Math.abs(currentY - lastEmittedScroll.y) < 50) {
+            return;
+          }
+
+          lastEmittedScroll = { x: currentX, y: currentY, target: scrollTarget };
+
+          emitScrollAction({
+            isWindow: false,
+            scrollX: currentX,
+            scrollY: currentY,
+            targetElement: scrollTarget
+          });
+        }
+      } catch (err) {
+        console.warn('[Workflow Capture] handleScroll error:', err);
+      }
+    }, 400);
   }
 
   /**
@@ -1069,6 +1213,7 @@
   window.addEventListener('change', handleChange, true);
   window.addEventListener('blur', handleBlur, true);
   window.addEventListener('keydown', handleKeyDown, true);
+  window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
 
   if (typeof document !== 'undefined') {
     document.addEventListener('pointerdown', onPointerDown, true);
@@ -1080,6 +1225,7 @@
     document.addEventListener('change', handleChange, true);
     document.addEventListener('blur', handleBlur, true);
     document.addEventListener('keydown', handleKeyDown, true);
+    document.addEventListener('scroll', handleScroll, { capture: true, passive: true });
   }
 
   // Direct element listener binding for DevExpress / dynamic ERP toolbars
@@ -1146,6 +1292,10 @@
       clearInterval(window.__workflowCapturePoll);
       window.__workflowCapturePoll = null;
     }
+    if (scrollDebounceTimer) {
+      clearTimeout(scrollDebounceTimer);
+      scrollDebounceTimer = null;
+    }
     window.removeEventListener('pointerdown', onPointerDown, true);
     window.removeEventListener('mousedown', onMouseDown, true);
     window.removeEventListener('click', onClick, true);
@@ -1155,6 +1305,7 @@
     window.removeEventListener('change', handleChange, true);
     window.removeEventListener('blur', handleBlur, true);
     window.removeEventListener('keydown', handleKeyDown, true);
+    window.removeEventListener('scroll', handleScroll, true);
     if (typeof document !== 'undefined') {
       document.removeEventListener('pointerdown', onPointerDown, true);
       document.removeEventListener('mousedown', onMouseDown, true);
@@ -1165,6 +1316,7 @@
       document.removeEventListener('change', handleChange, true);
       document.removeEventListener('blur', handleBlur, true);
       document.removeEventListener('keydown', handleKeyDown, true);
+      document.removeEventListener('scroll', handleScroll, true);
     }
   };
 

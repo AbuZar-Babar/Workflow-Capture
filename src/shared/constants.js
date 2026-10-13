@@ -7,7 +7,8 @@ const ACTION_TYPES = Object.freeze({
   DOUBLE_CLICK: 'DOUBLE_CLICK',
   TYPE: 'TYPE',
   SELECT: 'SELECT',
-  KEY_PRESS: 'KEY_PRESS'
+  KEY_PRESS: 'KEY_PRESS',
+  SCROLL: 'SCROLL'
 });
 
 const SELECTOR_STRATEGIES = Object.freeze({

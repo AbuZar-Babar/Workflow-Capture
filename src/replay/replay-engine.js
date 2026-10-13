@@ -637,6 +637,35 @@ class ReplayEngine extends EventEmitter {
         return { success: true, type: 'CLICK', skipped: true };
       }
 
+      if (action.type === 'SCROLL') {
+        let elementHandle = null;
+        if (!action.isWindow && action.target && Array.isArray(action.target.candidates) && action.target.candidates.length > 0) {
+          try {
+            const resolved = await this.waitForTargetElement(
+              action.target || action.fingerprint,
+              index,
+              action.type,
+              action,
+              { timeout: 3000 }
+            );
+            elementHandle = resolved.elementHandle;
+          } catch {
+            // Container target not found, fall back to window scroll
+          }
+        }
+        await this._waitWhilePaused();
+        await this._setAutomatedAction(true, elementHandle);
+        try {
+          await dispatchAction(elementHandle, action, { page: this.page, botConfig: this.botConfig });
+        } finally {
+          await this._setAutomatedAction(false);
+          if (elementHandle) await elementHandle.dispose().catch(() => {});
+        }
+        logger.action(index + 1, 'SCROLL', `x=${action.scrollX ?? 0}, y=${action.scrollY ?? action.scrollTop ?? 0}`);
+        await new Promise(r => setTimeout(r, 200));
+        return { success: true, type: 'SCROLL' };
+      }
+
       const { elementHandle, candidate, confidenceScore } = await this.waitForTargetElement(
         action.target || action.fingerprint,
         index,
@@ -895,15 +924,17 @@ class ReplayEngine extends EventEmitter {
   /**
    * Condition-based in-page polling resolver loop across main page and all child frames (iframes)
    */
-  async waitForTargetElement(target, actionIndex, actionType, action = null) {
+  async waitForTargetElement(target, actionIndex, actionType, action = null, options = {}) {
     const startTime = Date.now();
     let lastResolutionResult = null;
     let lastInterruptionCheck = startTime;
+    let lastScrollProbeTime = startTime;
+    let restoredRecordedScroll = false;
 
     // Adaptive timeout: if action had a large recorded wait time (e.g. generating a slow report or table query),
     // allow enough time for the real site to load the data rather than hard failing at standard timeout.
     const recordedDelta = (action && typeof action.timeDeltaMs === 'number') ? action.timeDeltaMs : 0;
-    const effectiveTimeoutMs = Math.min(60000, Math.max(this.timeoutMs, recordedDelta + 8000));
+    const effectiveTimeoutMs = options.timeout || Math.min(60000, Math.max(this.timeoutMs, recordedDelta + 8000));
 
     while (Date.now() - startTime < effectiveTimeoutMs) {
       if (this.isAborted) {
@@ -916,6 +947,51 @@ class ReplayEngine extends EventEmitter {
         lastInterruptionCheck = Date.now();
         await this.interruptionHandler.clearLingeringDialogs(this.page).catch(() => {});
         await this.interruptionHandler.dismissBlockingOverlays(this.page, { target }).catch(() => {});
+      }
+
+      // If target hasn't been found after 500ms, restore recorded scroll offset if available
+      if (!restoredRecordedScroll && this.page && action?.scrollOffset && (action.scrollOffset.y > 0 || action.scrollOffset.x > 0) && (Date.now() - startTime > 500)) {
+        restoredRecordedScroll = true;
+        try {
+          await this.page.evaluate((offset) => {
+            window.scrollTo({ left: offset.x || 0, top: offset.y || 0, behavior: 'instant' });
+          }, action.scrollOffset);
+          await new Promise(r => setTimeout(r, 150));
+        } catch {}
+      }
+
+      // If target is still not found after 1200ms, perform progressive auto-scroll probe (for virtualized lists/tables)
+      if (this.page && (Date.now() - startTime > 1200) && (Date.now() - lastScrollProbeTime > 800)) {
+        lastScrollProbeTime = Date.now();
+        try {
+          await this.page.evaluate(() => {
+            const scrollableContainers = Array.from(document.querySelectorAll(
+              '.ag-body-viewport, .ag-center-cols-viewport, .cdk-virtual-scroll-viewport, .ui-grid-viewport, [role="grid"], [role="table"], .data-table, .table-responsive, div[style*="overflow"]'
+            )).filter(el => {
+              const style = window.getComputedStyle(el);
+              return (style.overflowY === 'auto' || style.overflowY === 'scroll') && el.scrollHeight > el.clientHeight;
+            });
+
+            let scrolledContainer = false;
+            for (const container of scrollableContainers) {
+              if (container.scrollTop + container.clientHeight < container.scrollHeight - 10) {
+                container.scrollTop += 300;
+                container.dispatchEvent(new Event('scroll', { bubbles: true }));
+                scrolledContainer = true;
+                break;
+              }
+            }
+
+            if (!scrolledContainer) {
+              const canScrollWindow = window.scrollY + window.innerHeight < document.documentElement.scrollHeight - 10;
+              if (canScrollWindow) {
+                window.scrollBy({ top: 300, left: 0, behavior: 'instant' });
+                window.dispatchEvent(new Event('scroll', { bubbles: true }));
+              }
+            }
+          });
+          await new Promise(r => setTimeout(r, 150));
+        } catch {}
       }
       try {
         let pagesToCheck = [this.page];

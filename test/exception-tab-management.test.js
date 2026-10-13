@@ -585,7 +585,62 @@ async function runTests() {
   assert.strictEqual(handler.isOptionOrDropdownAction(optionAction), true, 'Must identify action as dropdown option/checkbox');
   const optionDismissed = await handler.dismissBlockingOverlays(dropdownPage, optionAction);
   assert.strictEqual(optionDismissed, false, 'Must NEVER dismiss or Escape open dropdown when selecting option/checkbox');
-  console.log('  ✅ Case Q (Dropdown Option Preservation): Active dropdown panel and options preserved\n');
+  console.log('  ✅ Case Q (Dropdown Option Preservation): Active dropdown panel and options preserved');
+
+  // Test 1.18: Case R (Nested Modal Form Protection: e.g. DemoQA Registration Form with modal-header close and modal-body input)
+  const nestedModalDom = createTestDOM([{
+    tag: 'div',
+    className: 'modal fade show',
+    children: [{
+      tag: 'div',
+      className: 'modal-dialog',
+      children: [{
+        tag: 'div',
+        className: 'modal-content',
+        children: [
+          {
+            tag: 'div',
+            className: 'modal-header',
+            children: [
+              { tag: 'h5', className: 'modal-title', text: 'Registration Form' },
+              { tag: 'button', className: 'close', text: '×', attributes: { 'aria-label': 'Close' } }
+            ]
+          },
+          {
+            tag: 'div',
+            className: 'modal-body',
+            children: [
+              { tag: 'input', id: 'firstName', className: 'form-control', attributes: { id: 'firstName', placeholder: 'First Name' } }
+            ]
+          }
+        ]
+      }]
+    }]
+  }]);
+  const nestedModalPage = nestedModalDom.createPage();
+  const formFieldAction = {
+    type: 'CLICK',
+    index: 1,
+    name: 'First Name Input',
+    target: {
+      candidates: [
+        { strategy: 'id', value: '#firstName' },
+        { strategy: 'id', value: 'input#firstName' },
+        { strategy: 'xpath', value: '//*[@id=\'firstName\']' }
+      ],
+      fingerprint: {
+        id: 'firstName',
+        placeholder: 'First Name',
+        tagName: 'input'
+      },
+      friendlyName: 'First Name Input'
+    }
+  };
+  const nestedDismissed = await handler.dismissBlockingOverlays(nestedModalPage, formFieldAction);
+  assert.strictEqual(nestedDismissed, false, 'Nested form modal MUST NOT be dismissed when target is inside modal-body');
+  const headerCloseBtn = nestedModalDom.mockDoc.querySelector('button.close');
+  assert.strictEqual(headerCloseBtn.clicked, false, 'Close button in modal-header must NOT be clicked');
+  console.log('  ✅ Case R (Nested Form Modal Protection): Form modal preserved, modal-header close button not clicked\n');
 
   // =========================================================================
   // Part 2: TabManager Unit Tests

@@ -296,8 +296,8 @@ class RecorderBridge {
     if (!page || page.isClosed() || this._attachedPages.has(page)) return;
     try {
       const pUrl = (typeof page.url === 'function' ? page.url() : '') || '';
-      if (isDashboardUrl(pUrl)) {
-        return; // Never record actions on the workflow capture dashboard itself
+      if (isDashboardUrl(pUrl) || pUrl.startsWith('chrome-extension://') || pUrl.startsWith('chrome://') || pUrl.startsWith('devtools://')) {
+        return; // Never record actions on extension popups, chrome internals, or the dashboard itself
       }
     } catch {}
     this._attachedPages.add(page);
@@ -524,6 +524,23 @@ class RecorderBridge {
       }
     }
 
+    // Consolidate rapid consecutive SCROLL actions on the same target/window within 1200ms
+    if (this.actions.length > 0 && rawAction.type === 'SCROLL') {
+      const lastAction = this.actions[this.actions.length - 1];
+      if (lastAction.type === 'SCROLL') {
+        const sameTarget = (lastAction.isWindow && rawAction.isWindow) ||
+          (lastAction.target?.candidates?.[0]?.value && lastAction.target.candidates[0].value === rawAction.target?.candidates?.[0]?.value);
+        if (sameTarget && timeDeltaMs < 1200) {
+          lastAction.scrollX = rawAction.scrollX;
+          lastAction.scrollY = rawAction.scrollY;
+          lastAction.timestamp = rawAction.timestamp;
+          if (rawAction.scrollOffset) lastAction.scrollOffset = rawAction.scrollOffset;
+          logger.info(`[Recorder] Consolidated consecutive SCROLL for step #${lastAction.index + 1} (x=${rawAction.scrollX}, y=${rawAction.scrollY})`);
+          return true;
+        }
+      }
+    }
+
     // Discard duplicate rapid single clicks on the same target within 150ms (event bubbling or dual trigger)
     if (this.actions.length > 0 && rawAction.type === 'CLICK') {
       const lastAction = this.actions[this.actions.length - 1];
@@ -622,6 +639,10 @@ class RecorderBridge {
       ...(isCheckbox ? { isCheckbox: true, desiredState: desiredState !== false, checked: desiredState !== false } : (desiredState !== undefined ? { desiredState: Boolean(desiredState), checked: Boolean(desiredState) } : {})),
       ...(rawAction.key ? { key: rawAction.key } : {}),
       ...(rawAction.value !== undefined ? { value: rawAction.value } : {}),
+      ...(rawAction.scrollX !== undefined ? { scrollX: rawAction.scrollX } : {}),
+      ...(rawAction.scrollY !== undefined ? { scrollY: rawAction.scrollY } : {}),
+      ...(rawAction.isWindow !== undefined ? { isWindow: rawAction.isWindow } : {}),
+      ...(rawAction.scrollOffset ? { scrollOffset: rawAction.scrollOffset } : {}),
       ...(rawAction.meta ? { meta: rawAction.meta } : {})
     };
 
@@ -631,7 +652,9 @@ class RecorderBridge {
     // Terminal log
     const topCandidate = action.target && action.target.candidates[0] ? action.target.candidates[0].value : 'none';
     let detail = action.key ? `key="${action.key}"` : (action.value ? `value="${action.value}"` : `target="${elementName}"`);
-    if (isCheckbox && desiredState !== undefined) {
+    if (action.type === 'SCROLL') {
+      detail = `x=${action.scrollX ?? 0}, y=${action.scrollY ?? 0}`;
+    } else if (isCheckbox && desiredState !== undefined) {
       detail = `checkbox state=${desiredState ? 'CHECKED' : 'UNCHECKED'}`;
     }
     logger.action(actionIndex + 1, action.type, `"${elementName}" (${topCandidate})`, detail);

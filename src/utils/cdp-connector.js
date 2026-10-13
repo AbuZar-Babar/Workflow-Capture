@@ -95,7 +95,6 @@ async function ensureChromeRunning(port = 9222, defaultUrl = 'about:blank') {
       `--user-data-dir=${profileDir}`,
       '--no-first-run',
       '--no-default-browser-check',
-      '--disable-extensions',
       defaultUrl
     ], {
       detached: true,

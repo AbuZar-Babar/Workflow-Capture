@@ -139,6 +139,108 @@ class InterruptionHandler {
   }
 
   /**
+   * Extract CSS selector candidates, XPaths, and semantic keywords from an action target
+   * to protect intentional workflow modals.
+   * 
+   * @private
+   * @param {object} [action]
+   * @returns {{ selectors: string[], xpaths: string[], keywords: string[] }}
+   */
+  _extractActionTargetData(action) {
+    if (!action) return { selectors: [], xpaths: [], keywords: [] };
+    const selectors = [];
+    const xpaths = [];
+    const keywords = [];
+
+    const targetObj = action.target || (action.candidates ? action : null);
+    if (targetObj) {
+      if (typeof targetObj === 'string') {
+        if (targetObj.startsWith('//') || targetObj.startsWith('(') || targetObj.startsWith('/html')) {
+          xpaths.push(targetObj);
+        } else {
+          selectors.push(targetObj);
+        }
+      } else {
+        if (targetObj.candidates && Array.isArray(targetObj.candidates)) {
+          for (const c of targetObj.candidates) {
+            const val = typeof c === 'string' ? c : c?.value;
+            if (val && typeof val === 'string') {
+              if (val.startsWith('//') || val.startsWith('(') || val.startsWith('/html')) {
+                xpaths.push(val);
+              } else {
+                selectors.push(val);
+              }
+            }
+          }
+        }
+        if (targetObj.selector && typeof targetObj.selector === 'string') {
+          if (targetObj.selector.startsWith('//') || targetObj.selector.startsWith('(')) {
+            xpaths.push(targetObj.selector);
+          } else {
+            selectors.push(targetObj.selector);
+          }
+        }
+        if (targetObj.selectors?.cssPath && typeof targetObj.selectors.cssPath === 'string') {
+          selectors.push(targetObj.selectors.cssPath);
+        }
+        if (targetObj.id && typeof targetObj.id === 'string') {
+          selectors.push(`#${targetObj.id}`);
+        }
+        if (targetObj.fingerprint?.id && typeof targetObj.fingerprint.id === 'string') {
+          selectors.push(`#${targetObj.fingerprint.id}`);
+        }
+        if (targetObj.fingerprint?.placeholder && typeof targetObj.fingerprint.placeholder === 'string') {
+          selectors.push(`[placeholder="${targetObj.fingerprint.placeholder.replace(/"/g, '\\"')}"]`);
+          keywords.push(targetObj.fingerprint.placeholder);
+        }
+        if (targetObj.fingerprint?.name && typeof targetObj.fingerprint.name === 'string') {
+          selectors.push(`[name="${targetObj.fingerprint.name.replace(/"/g, '\\"')}"]`);
+        }
+        if (targetObj.fingerprint?.attributes?.placeholder) {
+          selectors.push(`[placeholder="${targetObj.fingerprint.attributes.placeholder.replace(/"/g, '\\"')}"]`);
+          keywords.push(targetObj.fingerprint.attributes.placeholder);
+        }
+        if (targetObj.fingerprint?.attributes?.name) {
+          selectors.push(`[name="${targetObj.fingerprint.attributes.name.replace(/"/g, '\\"')}"]`);
+        }
+        if (targetObj.fingerprint?.text) {
+          keywords.push(targetObj.fingerprint.text);
+        }
+        if (targetObj.friendlyName) {
+          const baseLabel = targetObj.friendlyName.replace(/\s+(Input|Button|Field|Link|Select|Checkbox|Radio|Dropdown)$/i, '').trim();
+          if (baseLabel.length >= 2) keywords.push(baseLabel);
+        }
+        if (targetObj.elementName) {
+          const baseLabel = targetObj.elementName.replace(/\s+(Input|Button|Field|Link|Select|Checkbox|Radio|Dropdown)$/i, '').trim();
+          if (baseLabel.length >= 2) keywords.push(baseLabel);
+        }
+      }
+    }
+
+    if (action.selector && typeof action.selector === 'string') {
+      if (action.selector.startsWith('//') || action.selector.startsWith('(')) {
+        xpaths.push(action.selector);
+      } else {
+        selectors.push(action.selector);
+      }
+    }
+    if (action.elementName) {
+      const baseLabel = action.elementName.replace(/\s+(Input|Button|Field|Link|Select|Checkbox|Radio|Dropdown)$/i, '').trim();
+      if (baseLabel.length >= 2) keywords.push(baseLabel);
+    }
+    if (action.name) {
+      const baseLabel = action.name.replace(/\s+(Input|Button|Field|Link|Select|Checkbox|Radio|Dropdown)$/i, '').trim();
+      if (baseLabel.length >= 2) keywords.push(baseLabel);
+    }
+
+    return {
+      selectors: Array.from(new Set(selectors.filter(Boolean))),
+      xpaths: Array.from(new Set(xpaths.filter(Boolean))),
+      keywords: Array.from(new Set(keywords.filter(k => typeof k === 'string' && k.trim().length >= 2).map(k => k.trim())))
+    };
+  }
+
+  /**
    * Extract CSS selector candidates from an action target to protect intentional workflow modals.
    * 
    * @private
@@ -146,34 +248,7 @@ class InterruptionHandler {
    * @returns {string[]}
    */
   _extractActionTargetSelectors(action) {
-    if (!action) return [];
-    const selectors = [];
-    if (action.target) {
-      if (typeof action.target === 'string') {
-        selectors.push(action.target);
-      } else {
-        if (action.target.candidates && Array.isArray(action.target.candidates)) {
-          for (const c of action.target.candidates) {
-            if (c && c.value && typeof c.value === 'string' && !c.value.startsWith('//') && !c.value.startsWith('(')) {
-              selectors.push(c.value);
-            }
-          }
-        }
-        if (action.target.selector && typeof action.target.selector === 'string') {
-          selectors.push(action.target.selector);
-        }
-        if (action.target.selectors?.cssPath && typeof action.target.selectors.cssPath === 'string') {
-          selectors.push(action.target.selectors.cssPath);
-        }
-        if (action.target.id && typeof action.target.id === 'string') {
-          selectors.push(`#${action.target.id}`);
-        }
-      }
-    }
-    if (action.selector && typeof action.selector === 'string') {
-      selectors.push(action.selector);
-    }
-    return selectors;
+    return this._extractActionTargetData(action).selectors;
   }
 
   /**
@@ -195,21 +270,13 @@ class InterruptionHandler {
       return false;
     }
 
-    const targetSelectors = this._extractActionTargetSelectors(action);
-    const targetText = (
-      action?.target?.fingerprint?.text ||
-      action?.target?.friendlyName ||
-      action?.target?.elementName ||
-      action?.elementName ||
-      action?.name ||
-      ''
-    ).trim();
+    const targetData = this._extractActionTargetData(action);
     let totalDismissed = 0;
 
     try {
       // Loop up to 3 passes to handle cascading popups (e.g. cookie banner + survey modal + promo toast)
       for (let pass = 0; pass < 3; pass++) {
-        const dismissResult = await page.evaluate((targetSels, actionText) => {
+        const dismissResult = await page.evaluate((targetData) => {
           const isVisible = (el) => {
             if (!el || el.nodeType !== 1) return false;
             const style = window.getComputedStyle(el);
@@ -218,7 +285,56 @@ class InterruptionHandler {
             return rect.width > 0 && rect.height > 0;
           };
 
-          // 1. Semantic and Framework Modal Selectors
+          const nodeContains = (parent, child) => {
+            if (!parent || !child) return false;
+            if (typeof parent.contains === 'function') {
+              try { return parent.contains(child); } catch {}
+            }
+            let curr = child.parentElement || child.parent;
+            while (curr) {
+              if (curr === parent) return true;
+              curr = curr.parentElement || curr.parent;
+            }
+            return false;
+          };
+
+          const queryXPath = (xpath) => {
+            try {
+              const res = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+              return res.singleNodeValue;
+            } catch { return null; }
+          };
+
+          // 1. Identify any elements matching the action's target on the page
+          const targetElements = [];
+          if (targetData && Array.isArray(targetData.selectors)) {
+            for (const sel of targetData.selectors) {
+              try {
+                const els = document.querySelectorAll(sel);
+                for (const el of els) targetElements.push(el);
+              } catch {}
+            }
+          }
+          if (targetData && Array.isArray(targetData.xpaths)) {
+            for (const xp of targetData.xpaths) {
+              try {
+                const el = queryXPath(xp);
+                if (el) targetElements.push(el);
+              } catch {}
+            }
+          }
+
+          // Build Set of protected ancestor elements (all containers enclosing the target)
+          const protectedAncestors = new Set();
+          for (const el of targetElements) {
+            let curr = el;
+            while (curr && curr !== document.body && curr !== document.documentElement) {
+              protectedAncestors.add(curr);
+              curr = curr.parentElement || curr.parent;
+            }
+          }
+
+          // 2. Semantic and Framework Modal Selectors
           const semanticSelectors = [
             // Standard ARIA dialogs & HTML5 dialog
             '[role="alertdialog"]',
@@ -282,25 +398,25 @@ class InterruptionHandler {
             '.alert-dismissible'
           ];
 
-          let candidates = [];
+          let rawCandidates = [];
           for (const sel of semanticSelectors) {
             try {
               const els = Array.from(document.querySelectorAll(sel));
               for (const el of els) {
-                if (isVisible(el) && !candidates.includes(el)) {
-                  candidates.push(el);
+                if (isVisible(el) && !rawCandidates.includes(el)) {
+                  rawCandidates.push(el);
                 }
               }
             } catch {}
           }
 
-          // 2. Generic Geometry & Layout Scan for custom popups on ANY site
+          // 3. Generic Geometry & Layout Scan for custom popups on ANY site
           try {
             const fixedElements = Array.from(document.querySelectorAll(
               'div, section, aside, article, form, [style*="fixed"], [style*="z-index"], .fixed'
             ));
             for (const el of fixedElements) {
-              if (!isVisible(el) || candidates.includes(el)) continue;
+              if (!isVisible(el) || rawCandidates.includes(el)) continue;
               const style = window.getComputedStyle(el);
               if (style.position !== 'fixed' && style.position !== 'sticky') continue;
               
@@ -312,12 +428,21 @@ class InterruptionHandler {
               
               const hasClickable = Boolean(el.querySelector('button, a, [role="button"], .close, .x, svg'));
               if ((isHighZ || isLargeOverlay || isBanner) && hasClickable) {
-                candidates.push(el);
+                rawCandidates.push(el);
               }
             }
           } catch {}
 
-          if (candidates.length === 0) return null;
+          if (rawCandidates.length === 0) {
+            return { dismissed: false, isTargetInModal: protectedAncestors.size > 0 };
+          }
+
+          // CRUCIAL: Filter candidates to outermost containers ONLY!
+          // Sub-elements like .modal-header, .modal-body, .modal-dialog are components of a modal,
+          // never independent modals to be dismissed on their own!
+          const candidates = rawCandidates.filter(candidate => {
+            return !rawCandidates.some(other => other !== candidate && nodeContains(other, candidate));
+          });
 
           const dispatchFullClick = (btn) => {
             btn.focus?.();
@@ -331,33 +456,44 @@ class InterruptionHandler {
             btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
           };
 
-          // Target Protection: If action target is inside the modal container, do NOT dismiss it
+          // Target Protection: If action target is inside the container or container is ancestor of target, do NOT dismiss it
           for (const container of candidates) {
-            let containsTarget = false;
-            if (targetSels && targetSels.length > 0) {
-              for (const tSel of targetSels) {
-                try {
-                  if (tSel) {
-                    if (container.querySelector(tSel)) {
+            let containsTarget = protectedAncestors.has(container);
+
+            if (!containsTarget && targetData) {
+              if (Array.isArray(targetData.selectors)) {
+                for (const tSel of targetData.selectors) {
+                  try {
+                    if (tSel && container.querySelector(tSel)) {
                       containsTarget = true;
                       break;
                     }
-                    const matchedEl = document.querySelector(tSel);
-                    if (matchedEl && container.contains(matchedEl)) {
+                  } catch {}
+                }
+              }
+              if (!containsTarget && Array.isArray(targetData.xpaths)) {
+                for (const xp of targetData.xpaths) {
+                  try {
+                    const el = queryXPath(xp);
+                    if (el && nodeContains(container, el)) {
                       containsTarget = true;
                       break;
                     }
-                  }
-                } catch {}
+                  } catch {}
+                }
+              }
+              if (!containsTarget && Array.isArray(targetData.keywords)) {
+                for (const kw of targetData.keywords) {
+                  try {
+                    if (kw && kw.length >= 2 && container.textContent && container.textContent.includes(kw)) {
+                      containsTarget = true;
+                      break;
+                    }
+                  } catch {}
+                }
               }
             }
-            if (!containsTarget && actionText && actionText.length > 2) {
-              try {
-                if (container.textContent && container.textContent.includes(actionText)) {
-                  containsTarget = true;
-                }
-              } catch {}
-            }
+
             if (containsTarget) {
               // Target is inside container, skip to next candidate
               continue;
@@ -433,6 +569,7 @@ class InterruptionHandler {
                 dispatchFullClick(crossButton);
                 return {
                   dismissed: true,
+                  isTargetInModal: protectedAncestors.size > 0,
                   method: 'cross_click',
                   detail: crossButton.getAttribute('aria-label') || crossButton.textContent?.trim() || 'cross'
                 };
@@ -458,6 +595,7 @@ class InterruptionHandler {
                 dispatchFullClick(actionButton);
                 return {
                   dismissed: true,
+                  isTargetInModal: protectedAncestors.size > 0,
                   method: 'button_click',
                   detail: (actionButton.textContent || actionButton.value || '').trim()
                 };
@@ -465,8 +603,8 @@ class InterruptionHandler {
             }
           }
 
-          return null;
-        }, targetSelectors);
+          return { dismissed: false, isTargetInModal: protectedAncestors.size > 0 };
+        }, targetData);
 
         if (dismissResult && dismissResult.dismissed) {
           totalDismissed++;
@@ -479,6 +617,10 @@ class InterruptionHandler {
           });
           await new Promise(r => setTimeout(r, 150));
         } else {
+          // If no unexpected popup was dismissed and target is inside an active modal, exit immediately!
+          if (dismissResult && dismissResult.isTargetInModal) {
+            return false;
+          }
           break;
         }
       }
@@ -488,18 +630,36 @@ class InterruptionHandler {
       }
 
       // Priority 3: If an unexpected dark modal backdrop is still present, attempt Escape key
-      // Strictly avoid transparent dropdown backdrops (.cdk-overlay-transparent-backdrop)
-      const hasBackdrop = await page.evaluate(() => {
+      // ONLY if the target element is NOT inside an active modal!
+      const backdropCheck = await page.evaluate((targetData) => {
         const backdrops = Array.from(document.querySelectorAll(
           '.cdk-overlay-dark-backdrop, .modal-backdrop, .swal2-backdrop, .overlay-backdrop'
         ));
-        return backdrops.some(b => {
+        const hasVisible = backdrops.some(b => {
           const style = window.getComputedStyle(b);
           return style.display !== 'none' && style.visibility !== 'hidden';
         });
-      }).catch(() => false);
+        if (!hasVisible) return { hasBackdrop: false, targetInModal: false };
 
-      if (hasBackdrop && page.keyboard) {
+        // Check if any target element exists inside a modal
+        let targetInModal = false;
+        if (targetData && Array.isArray(targetData.selectors)) {
+          for (const sel of targetData.selectors) {
+            try {
+              const matched = document.querySelectorAll(sel);
+              for (const m of matched) {
+                if (m.closest('.modal, [role="dialog"], [aria-modal="true"], dialog, .swal2-container, .cdk-overlay-pane, .dx-dialog, .ant-modal, .MuiDialog-root')) {
+                  targetInModal = true;
+                  break;
+                }
+              }
+            } catch {}
+          }
+        }
+        return { hasBackdrop: true, targetInModal };
+      }, targetData).catch(() => ({ hasBackdrop: false, targetInModal: false }));
+
+      if (backdropCheck.hasBackdrop && !backdropCheck.targetInModal && page.keyboard) {
         await page.keyboard.press('Escape').catch(() => {});
         logger.info('[InterruptionHandler] Dispatched Escape key to dismiss blocking overlay backdrop.');
         await new Promise(r => setTimeout(r, 200));

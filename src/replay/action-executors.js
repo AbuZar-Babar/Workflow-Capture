@@ -22,7 +22,32 @@ async function ensureInteractable(elementHandle, action) {
     );
 
     if (el.scrollIntoView && !isBackdrop) {
-      el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      try {
+        el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
+      } catch {
+        try {
+          el.scrollIntoView({ block: 'center', inline: 'center' });
+        } catch {
+          el.scrollIntoView(true);
+        }
+      }
+
+      // Sticky header & fixed overlay occlusion detection & auto-offset
+      try {
+        const rect = el.getBoundingClientRect();
+        const midX = rect.left + rect.width / 2;
+        const midY = rect.top + rect.height / 2;
+        if (midX >= 0 && midY >= 0 && midX <= window.innerWidth && midY <= window.innerHeight) {
+          const topEl = document.elementFromPoint(midX, midY);
+          if (topEl && topEl !== el && !el.contains(topEl) && !topEl.contains(el)) {
+            const style = window.getComputedStyle(topEl);
+            if (style.position === 'fixed' || style.position === 'sticky') {
+              const headerOffset = Math.max(80, topEl.getBoundingClientRect().height || 0);
+              window.scrollBy(0, -headerOffset);
+            }
+          }
+        }
+      } catch {}
     }
     const hasDimensions = !!(el.offsetWidth || el.offsetHeight || (el.getClientRects && el.getClientRects().length));
     const isVisible = hasDimensions || isBackdrop;
@@ -41,7 +66,7 @@ async function ensureInteractable(elementHandle, action) {
 
   // Pre-action stabilization settle delay:
   // Allow browser layout shifts, smooth scrolling, and framework hydration to settle
-  await new Promise(r => setTimeout(r, 120));
+  await new Promise(r => setTimeout(r, 250));
 
   if (status.isDisabled) {
     logger.warn(`Element for Action #${action.index + 1} has disabled attribute; attempting synthetic click dispatch.`);
@@ -990,6 +1015,50 @@ async function executeKeyPress(elementHandle, action, options = {}) {
 }
 
 /**
+ * Execute SCROLL action
+ */
+async function executeScroll(elementHandle, action, options = {}) {
+  const { page } = options;
+  const targetX = Number(action.scrollX ?? action.x ?? 0);
+  const targetY = Number(action.scrollY ?? action.y ?? action.scrollTop ?? 0);
+
+  if (elementHandle) {
+    try {
+      await elementHandle.evaluate((el, x, y) => {
+        if (typeof el.scrollTo === 'function') {
+          try {
+            el.scrollTo({ left: x, top: y, behavior: 'instant' });
+          } catch {
+            el.scrollTo(x, y);
+          }
+        } else {
+          el.scrollTop = y;
+          el.scrollLeft = x;
+        }
+      }, targetX, targetY);
+      await new Promise(r => setTimeout(r, 200));
+      return { success: true, type: 'SCROLL', x: targetX, y: targetY };
+    } catch {}
+  }
+
+  if (page) {
+    try {
+      await page.evaluate((x, y) => {
+        try {
+          window.scrollTo({ left: x, top: y, behavior: 'instant' });
+        } catch {
+          window.scrollTo(x, y);
+        }
+      }, targetX, targetY);
+      await new Promise(r => setTimeout(r, 200));
+      return { success: true, type: 'SCROLL', x: targetX, y: targetY };
+    } catch {}
+  }
+
+  return { success: true, type: 'SCROLL', x: targetX, y: targetY };
+}
+
+/**
  * Dispatcher to map action types to executor functions
  */
 async function dispatchAction(elementHandle, action, options = {}) {
@@ -1002,6 +1071,8 @@ async function dispatchAction(elementHandle, action, options = {}) {
       return executeType(elementHandle, action, options);
     case 'SELECT':
       return executeSelect(elementHandle, action, options);
+    case 'SCROLL':
+      return executeScroll(elementHandle, action, options);
     case 'KEY_PRESS':
     case 'PRESS_KEY':
     case 'KEYDOWN':
@@ -1023,5 +1094,6 @@ module.exports = {
   executeType,
   executeSelect,
   executeKeyPress,
+  executeScroll,
   dispatchAction
 };
